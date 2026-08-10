@@ -212,6 +212,50 @@ function App() {
           .placeholder-icon { font-size: 40px; margin-bottom: 12px; }
           .placeholder-screen h2 { font-size: 18px; color: var(--text); margin: 0 0 8px; }
           .placeholder-screen p { font-size: 13px; max-width: 360px; margin: 0 auto; }
+
+          .status-screen { text-align: center; padding: 80px 20px; }
+          .status-badge {
+            position: relative;
+            width: 96px;
+            height: 96px;
+            margin: 0 auto 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .status-ring {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, #2f6fed 0deg, #2f6fed 90deg, transparent 90deg, transparent 360deg);
+            animation: status-spin 2.4s linear infinite;
+            -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 5px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 5px));
+          }
+          .status-core {
+            position: relative;
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #2f6fed;
+            background: var(--neu-bg);
+            box-shadow: inset 5px 5px 10px var(--neu-shadow-dark), inset -5px -5px 10px var(--neu-shadow-light);
+            animation: status-pulse 2.8s ease-in-out infinite;
+          }
+          .status-screen h2 { font-size: 18px; color: var(--text); margin: 0 0 8px; font-weight: 600; }
+          .status-screen p { font-size: 13px; color: var(--text-soft); max-width: 340px; margin: 0 auto; line-height: 1.5; }
+
+          @keyframes status-spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+          @keyframes status-pulse {
+            0%, 100% { box-shadow: inset 5px 5px 10px var(--neu-shadow-dark), inset -5px -5px 10px var(--neu-shadow-light); }
+            50% { box-shadow: inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light); }
+          }
         `}</style>
 
         <div className="topband">
@@ -228,6 +272,7 @@ function App() {
           {screen === "assets" && <AssetRegistry />}
           {screen === "reports" && <MaintenanceReport />}
           {screen === "dashboard" && <Dashboard />}
+          {screen === "admin" && <Administration />}
         </div>
       </div>
     </QueryClientProvider>
