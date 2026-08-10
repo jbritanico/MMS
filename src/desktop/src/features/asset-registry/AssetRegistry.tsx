@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useAssets, useCreateAsset, useUpdateAsset, useDeleteAsset } from "./hooks/useAssets";
 import { emptyAsset, MR_ACTIONS, type Asset } from "./types";
 
+
+
 function AssetRegistry() {
     const { data: assets = [], isLoading } = useAssets();
     const createAsset = useCreateAsset();
