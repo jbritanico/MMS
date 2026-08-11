@@ -5,8 +5,9 @@ import AssetRegistry from "./features/asset-registry/AssetRegistry";
 import MaintenanceReport from "./features/maintenance-report/MaintenanceReport";
 import Dashboard from "./features/dashboard/Dashboard";
 import Administration from "./features/administration/Administration";
+import MaintenanceTriggers from "./features/asset-registry/MaintenanceTriggers";
 
-type Screen = "menu" | "assets" | "reports" | "dashboard" | "admin";
+type Screen = "menu" | "assets" | "reports" | "dashboard" | "admin" | "triggers";
 
 const LABELS: Record<Screen, string> = {
   menu: "Main Menu",
@@ -14,12 +15,19 @@ const LABELS: Record<Screen, string> = {
   reports: "Maintenance Report",
   dashboard: "Dashboard",
   admin: "Administration",
+  triggers: "Maintenance Triggers",
 };
 
 const queryClient = new QueryClient();
 
 function App() {
   const [screen, setScreen] = useState<Screen>("menu");
+  const [selectedAsset, setSelectedAsset] = useState<{ id: number; code: string } | null>(null);
+
+  function handleViewTriggers(assetId: number, assetCode: string) {
+    setSelectedAsset({ id: assetId, code: assetCode });
+    setScreen("triggers");
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -52,8 +60,25 @@ function App() {
           .topband .title-main { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
           .topband .title-sep { color: rgba(255,255,255,0.5); font-size: 14px; }
           .topband .title-sub { font-size: 13px; font-weight: 400; color: rgba(255,255,255,0.85); }
-          .back-btn { background: rgba(255,255,255,0.15); border: none; color: #fff; border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer; margin-right: 4px; }
-          .back-btn:hover { background: rgba(255,255,255,0.25); }
+        
+          .back-btn {
+            background: transparent;
+            border: none;
+            color: rgba(253, 253, 253, 0.85);
+            border-radius: 8px;
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            margin-right: 2px;
+            transition: background 0.12s, color 0.12s;
+          }
+          .back-btn:hover { background: rgba(255,255,255,0.15); color: #ffffff; }
+          .back-btn:active { background: rgba(96, 106, 255, 0.22); }
+          .back-btn svg { width: 18px; height: 18px; }
 
           .content {
             flex: 1; min-width: 0; overflow-y: auto; padding: clamp(16px, 3vw, 32px); background: var(--neu-bg);
@@ -99,7 +124,7 @@ function App() {
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #2f6fed;
+            color: #07080a;
             background: var(--neu-bg);
             box-shadow: inset 5px 5px 10px var(--neu-shadow-dark), inset -5px -5px 10px var(--neu-shadow-light);
             transition: color 0.18s;
@@ -134,12 +159,38 @@ function App() {
             font-size: 14px; font-family: var(--sans); background: var(--neu-bg); color: var(--text);
             box-shadow: inset 4px 4px 8px var(--neu-shadow-dark), inset -4px -4px 8px var(--neu-shadow-light);
           }
+          .field input:disabled, .field select:disabled {
+            background: #e9ebed; color: #6b7280; box-shadow: none; cursor: not-allowed;
+          }
           .field input:focus, .field select:focus {
             outline: none;
             box-shadow: inset 5px 5px 10px var(--neu-shadow-dark), inset -5px -5px 10px var(--neu-shadow-light), 0 0 0 2px #2f6fed33;
-        }
+          }
 
           .checks { display: flex; flex-wrap: wrap; gap: 14px; margin: 14px 0; }
+
+          .trigger-table { display: flex; flex-direction: column; }
+          .trigger-row {
+            display: grid;
+            grid-template-columns: 1.4fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 4px;
+            font-size: 13px;
+          }
+          .trigger-row + .trigger-row {
+            border-top: 1px solid var(--neu-shadow-light);
+            box-shadow: 0 -1px 0 var(--neu-shadow-dark);
+          }
+          .trigger-head {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: var(--text-soft);
+            font-weight: 600;
+          }
+          .trigger-row .pill { justify-self: start; }
+
           .check { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; user-select: none; }
           .check input { accent-color: var(--accent); width: 15px; height: 15px; }
 
@@ -172,9 +223,13 @@ function App() {
           .cards { display: grid; gap: 10px; }
           .card {
             display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center;
-            border: none; border-radius: 14px; padding: 14px 16px;
-            background: var(--neu-bg);
-            box-shadow: 5px 5px 10px var(--neu-shadow-dark), -5px -5px 10px var(--neu-shadow-light);
+            border: none; border-radius: 8px; padding: 14px 4px;
+            background: transparent;
+            box-shadow: none;
+          }
+          .card + .card {
+            border-top: 1px solid var(--neu-shadow-light);
+            box-shadow: 0 -1px 0 var(--neu-shadow-dark);
           }
           .card-main { min-width: 0; }
           .code { font-family: var(--mono); font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
@@ -184,8 +239,30 @@ function App() {
           .pill.active { background: var(--accent-soft); color: var(--accent); }
           .pill.inactive { background: var(--danger-soft); color: var(--danger); }
           .pill.neutral { background: var(--warn-soft); color: var(--warn); }
+          .card {
+            cursor: pointer;
+            transition: background 0.12s;
+          }
+          .card:hover { background: #e9f1fe; }
+
           .card-actions { display: flex; gap: 6px; flex-shrink: 0; }
-          .card-actions button { padding: 6px 10px; font-size: 12px; }
+          .icon-btn {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            background: var(--neu-bg);
+            box-shadow: 3px 3px 6px var(--neu-shadow-dark), -3px -3px 6px var(--neu-shadow-light);
+            color: var(--text-soft);
+          }
+          .icon-btn:active {
+            box-shadow: inset 2px 2px 4px var(--neu-shadow-dark), inset -2px -2px 4px var(--neu-shadow-light);
+          }
+          .icon-btn svg { width: 16px; height: 16px; color: inherit; }
+          .icon-btn.icon-danger svg { color: #a32d2d; }
 
           .empty { text-align: center; padding: 40px 20px; color: var(--text-soft); font-size: 13px; }
 
@@ -260,7 +337,11 @@ function App() {
 
         <div className="topband">
           {screen !== "menu" && (
-            <button className="back-btn" onClick={() => setScreen("menu")}>← Menu</button>
+            <button className="back-btn" aria-label="Back to main menu" onClick={() => setScreen("menu")}>
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
           )}
           <span className="title-main">Maintenance Management System</span>
           <span className="title-sep">|</span>
@@ -269,10 +350,13 @@ function App() {
 
         <div className="content">
           {screen === "menu" && <MainMenu onNavigate={setScreen} />}
-          {screen === "assets" && <AssetRegistry />}
+          {screen === "assets" && <AssetRegistry onViewTriggers={handleViewTriggers} />}
           {screen === "reports" && <MaintenanceReport />}
           {screen === "dashboard" && <Dashboard />}
           {screen === "admin" && <Administration />}
+          {screen === "triggers" && selectedAsset && (
+            <MaintenanceTriggers assetId={selectedAsset.id} assetCode={selectedAsset.code} />
+          )}
         </div>
       </div>
     </QueryClientProvider>
