@@ -32,7 +32,7 @@ export interface TriggerUpdate {
 export function useUpdateTrigger(assetId: number | null) {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: (update: TriggerUpdate) => invoke("update_trigger", update),
+        mutationFn: (update: TriggerUpdate) => invoke("update_trigger", { update }),
         onSuccess: () => qc.invalidateQueries({ queryKey: ["triggers", assetId] }),
     });
 }

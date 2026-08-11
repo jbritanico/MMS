@@ -1,7 +1,7 @@
 function MaintenanceReport() {
-    return (
-        <div className="status-screen">
-            <style>{`
+  return (
+    <div className="status-screen">
+      <style>{`
         .build-scene {
           width: 220px;
           margin: 0 auto 20px;
@@ -78,65 +78,65 @@ function MaintenanceReport() {
         }
       `}</style>
 
-            <svg className="build-scene" viewBox="0 0 220 170" xmlns="http://www.w3.org/2000/svg">
-                <line className="build-ground" x1="10" y1="160" x2="210" y2="160" />
+      <svg className="build-scene" viewBox="0 0 220 170" xmlns="http://www.w3.org/2000/svg">
+        <line className="build-ground" x1="10" y1="160" x2="210" y2="160" />
 
-                <rect x="120" y="146" width="90" height="14" rx="2" fill="#b9bfca" />
+        <rect x="120" y="146" width="90" height="14" rx="2" fill="#b9bfca" />
 
-                <g className="build-frame">
-                    <rect x="128" y="120" width="70" height="30" rx="4" fill="#c7d3e8" stroke="#8fa3c9" strokeWidth="1.5" />
-                    <rect x="140" y="150" width="6" height="10" fill="#8fa3c9" />
-                    <rect x="180" y="150" width="6" height="10" fill="#8fa3c9" />
-                </g>
+        <g className="build-frame">
+          <rect x="128" y="120" width="70" height="30" rx="4" fill="#c7d3e8" stroke="#8fa3c9" strokeWidth="1.5" />
+          <rect x="140" y="150" width="6" height="10" fill="#8fa3c9" />
+          <rect x="180" y="150" width="6" height="10" fill="#8fa3c9" />
+        </g>
 
-                <g className="build-gear-big">
-                    <circle cx="165" cy="105" r="20" fill="#c2760c" />
-                    <circle cx="165" cy="105" r="7" fill="#e7eaf0" />
-                    <g stroke="#c2760c" strokeWidth="6">
-                        <line x1="165" y1="80" x2="165" y2="90" />
-                        <line x1="165" y1="120" x2="165" y2="130" />
-                        <line x1="140" y1="105" x2="150" y2="105" />
-                        <line x1="180" y1="105" x2="190" y2="105" />
-                        <line x1="147" y1="87" x2="154" y2="94" />
-                        <line x1="176" y1="116" x2="183" y2="123" />
-                        <line x1="183" y1="87" x2="176" y2="94" />
-                        <line x1="154" y1="116" x2="147" y2="123" />
-                    </g>
-                </g>
+        <g className="build-gear-big">
+          <circle cx="165" cy="105" r="20" fill="#c2760c" />
+          <circle cx="165" cy="105" r="7" fill="#e7eaf0" />
+          <g stroke="#c2760c" strokeWidth="6">
+            <line x1="165" y1="80" x2="165" y2="90" />
+            <line x1="165" y1="120" x2="165" y2="130" />
+            <line x1="140" y1="105" x2="150" y2="105" />
+            <line x1="180" y1="105" x2="190" y2="105" />
+            <line x1="147" y1="87" x2="154" y2="94" />
+            <line x1="176" y1="116" x2="183" y2="123" />
+            <line x1="183" y1="87" x2="176" y2="94" />
+            <line x1="154" y1="116" x2="147" y2="123" />
+          </g>
+        </g>
 
-                <g className="build-gear-small">
-                    <circle cx="192" cy="118" r="11" fill="#2f6fed" />
-                    <circle cx="192" cy="118" r="4" fill="#e7eaf0" />
-                    <g stroke="#2f6fed" strokeWidth="4">
-                        <line x1="192" y1="103" x2="192" y2="109" />
-                        <line x1="192" y1="127" x2="192" y2="133" />
-                        <line x1="177" y1="118" x2="183" y2="118" />
-                        <line x1="201" y1="118" x2="207" y2="118" />
-                    </g>
-                </g>
+        <g className="build-gear-small">
+          <circle cx="192" cy="118" r="11" fill="#2f6fed" />
+          <circle cx="192" cy="118" r="4" fill="#e7eaf0" />
+          <g stroke="#2f6fed" strokeWidth="4">
+            <line x1="192" y1="103" x2="192" y2="109" />
+            <line x1="192" y1="127" x2="192" y2="133" />
+            <line x1="177" y1="118" x2="183" y2="118" />
+            <line x1="201" y1="118" x2="207" y2="118" />
+          </g>
+        </g>
 
-                <rect className="build-bolt" x="149" y="130" width="8" height="8" fill="#5f5e5a" />
+        <rect className="build-bolt" x="149" y="130" width="8" height="8" fill="#5f5e5a" />
 
-                <g>
-                    <rect x="55" y="110" width="26" height="42" rx="12" fill="#2f6fed" />
-                    <circle cx="68" cy="98" r="14" fill="#f4cf9e" />
-                    <path d="M56 92 a14 12 0 0 1 26 -1 q-4 -6 -13 -6 q-9 0 -13 7z" fill="#3d2b1f" />
-                    <rect x="58" y="150" width="8" height="16" rx="3" fill="#3d2b1f" />
-                    <rect x="74" y="150" width="8" height="16" rx="3" fill="#3d2b1f" />
+        <g>
+          <rect x="55" y="110" width="26" height="42" rx="12" fill="#2f6fed" />
+          <circle cx="68" cy="98" r="14" fill="#f4cf9e" />
+          <path d="M56 92 a14 12 0 0 1 26 -1 q-4 -6 -13 -6 q-9 0 -13 7z" fill="#3d2b1f" />
+          <rect x="58" y="150" width="8" height="16" rx="3" fill="#3d2b1f" />
+          <rect x="74" y="150" width="8" height="16" rx="3" fill="#3d2b1f" />
 
-                    <g className="build-arm">
-                        <rect x="76" y="104" width="8" height="24" rx="4" fill="#2f6fed" />
-                        <rect x="79" y="98" width="6" height="16" rx="2" fill="#5f5e5a" transform="rotate(-30 82 100)" />
-                        <rect x="86" y="92" width="10" height="6" rx="1.5" fill="#5f5e5a" transform="rotate(-30 82 100)" />
-                    </g>
-                    <circle className="build-spark" cx="98" cy="94" r="4" fill="#2f6fed" />
-                </g>
-            </svg>
+          <g className="build-arm">
+            <rect x="76" y="104" width="8" height="24" rx="4" fill="#2f6fed" />
+            <rect x="79" y="98" width="6" height="16" rx="2" fill="#5f5e5a" transform="rotate(-30 82 100)" />
+            <rect x="86" y="92" width="10" height="6" rx="1.5" fill="#5f5e5a" transform="rotate(-30 82 100)" />
+          </g>
+          <circle className="build-spark" cx="98" cy="94" r="4" fill="#2f6fed" />
+        </g>
+      </svg>
 
-            <h2>In Progress</h2>
-            <p>Maintenance Report is being built — MR-I, MR-II, and MR-III entry will land here.</p>
-        </div>
-    );
+      <h2>In Progress</h2>
+      <p>Maintenance Report is being built — MR-I, MR-II, and MR-III entry will land here.</p>
+    </div>
+  );
 }
 
 export default MaintenanceReport;

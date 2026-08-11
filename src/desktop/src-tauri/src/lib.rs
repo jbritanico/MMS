@@ -201,18 +201,21 @@ fn get_asset_triggers(asset_id: i64) -> Result<Vec<Trigger>, String> {
     Ok(triggers)
 }
 
-#[tauri::command]
-fn update_trigger(
+#[derive(Serialize, Deserialize)]
+struct TriggerUpdate {
     id: i64,
     enabled: bool,
     interval_value: i64,
     warning_value: i64,
     running_value: i64,
-) -> Result<String, String> {
+}
+
+#[tauri::command]
+fn update_trigger(update: TriggerUpdate) -> Result<String, String> {
     let conn = get_connection()?;
     conn.execute(
         "UPDATE maintenance_triggers SET enabled=?1, interval_value=?2, warning_value=?3, running_value=?4 WHERE id=?5",
-        rusqlite::params![enabled as i32, interval_value, warning_value, running_value, id],
+        rusqlite::params![update.enabled as i32, update.interval_value, update.warning_value, update.running_value, update.id],
     ).map_err(|e| e.to_string())?;
     Ok("Trigger updated".to_string())
 }

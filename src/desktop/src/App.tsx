@@ -172,7 +172,7 @@ function App() {
           .trigger-table { display: flex; flex-direction: column; }
           .trigger-row {
             display: grid;
-            grid-template-columns: 1.4fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr;
+            grid-template-columns: 1.3fr 0.6fr 0.8fr 0.8fr 0.8fr 0.7fr 0.5fr;
             align-items: center;
             gap: 8px;
             padding: 10px 4px;
@@ -190,6 +190,32 @@ function App() {
             font-weight: 600;
           }
           .trigger-row .pill { justify-self: start; }
+          .trigger-input {
+            width: 100%;
+            padding: 6px 8px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: var(--sans);
+            background: var(--neu-bg);
+            color: var(--text);
+            box-shadow: inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light);
+          }
+          .trigger-readonly {
+            font-family: var(--mono);
+            color: var(--text-soft);
+          }
+          .trigger-row .icon-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            box-shadow: none;
+          }
+          .trigger-row input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--accent);
+            justify-self: start;
+          }
 
           .check { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; user-select: none; }
           .check input { accent-color: var(--accent); width: 15px; height: 15px; }
@@ -355,7 +381,11 @@ function App() {
           {screen === "dashboard" && <Dashboard />}
           {screen === "admin" && <Administration />}
           {screen === "triggers" && selectedAsset && (
-            <MaintenanceTriggers assetId={selectedAsset.id} assetCode={selectedAsset.code} />
+            <MaintenanceTriggers
+              assetId={selectedAsset.id}
+              assetCode={selectedAsset.code}
+              onBack={() => setScreen("assets")}
+            />
           )}
         </div>
       </div>
