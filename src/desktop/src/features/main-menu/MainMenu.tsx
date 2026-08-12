@@ -1,9 +1,11 @@
-type Screen = "assets" | "reports" | "dashboard" | "admin";
+import { useState } from "react";
+
+type Screen = "assets" | "reports" | "dashboard" | "admin" | "uilab";
+type MrLevel = "MR-I" | "MR-II" | "MR-III";
 
 interface MainMenuProps {
-    onNavigate: (screen: Screen) => void;
+    onNavigate: (screen: Screen, mrLevel?: MrLevel) => void;
 }
-
 const OPTIONS: { id: Screen; label: string; desc: string; icon: JSX.Element }[] = [
     {
         id: "assets",
@@ -55,17 +57,66 @@ const OPTIONS: { id: Screen; label: string; desc: string; icon: JSX.Element }[] 
     },
 ];
 
+const MR_LEVELS: { id: MrLevel; short: string; desc: string }[] = [
+    { id: "MR-I", short: "I", desc: "Field inspection" },
+    { id: "MR-II", short: "II", desc: "Scheduled maintenance" },
+    { id: "MR-III", short: "III", desc: "Major overhaul" },
+];
+
 function MainMenu({ onNavigate }: MainMenuProps) {
+    const [pickerOpen, setPickerOpen] = useState(false);
+
+    function handleCardClick(id: Screen) {
+        if (id === "reports") {
+            setPickerOpen(true);
+        } else {
+            onNavigate(id);
+        }
+    }
+
+    function handleSelectLevel(level: MrLevel) {
+        setPickerOpen(false);
+        onNavigate("reports", level);
+    }
+
     return (
-        <div className="menu-grid">
-            {OPTIONS.map((opt) => (
-                <div key={opt.id} className="menu-card" onClick={() => onNavigate(opt.id)}>
-                    <div className="menu-icon-wrap">{opt.icon}</div>
-                    <h3>{opt.label}</h3>
-                    <p>{opt.desc}</p>
+        <>
+            <div className="menu-grid">
+                {OPTIONS.map((opt) => (
+                    <div key={opt.id} className="menu-card" onClick={() => handleCardClick(opt.id)}>
+                        <div className="menu-icon-wrap">{opt.icon}</div>
+                        <h3>{opt.label}</h3>
+                        <p>{opt.desc}</p>
+                    </div>
+                ))}
+            </div>
+
+            <button className="uilab-fab" aria-label="UI Lab" onClick={() => onNavigate("uilab")}>
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.6" />
+                    <path d="M8 12c0-2 1.5-3.5 4-3.5S16 10 16 12s-1.5 3.5-4 3.5S8 14 8 12z" stroke="currentColor" strokeWidth="1.6" />
+                </svg>
+            </button>
+
+            {pickerOpen && (
+                <div className="level-picker-overlay" onClick={() => setPickerOpen(false)}>
+                    <div className="level-picker">
+                        {MR_LEVELS.map((lvl, i) => (
+                            <div
+                                key={lvl.id}
+                                className="level-orb"
+                                style={{ animationDelay: `${i * 90}ms` }}
+                                onClick={(e) => { e.stopPropagation(); handleSelectLevel(lvl.id); }}
+                            >
+                                <span className="level-orb-short">{lvl.short}</span>
+                                <span className="level-orb-label">{lvl.id}</span>
+                                <span className="level-orb-desc">{lvl.desc}</span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-            ))}
-        </div>
+            )}
+        </>
     );
 }
 

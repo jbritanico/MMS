@@ -75,6 +75,16 @@ fn get_connection() -> Result<Connection, String> {
     )
     .map_err(|e| e.to_string())?;
 
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS checklist_databank (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT NOT NULL UNIQUE,
+            description TEXT NOT NULL
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
     Ok(conn)
 }
 
@@ -220,6 +230,127 @@ fn update_trigger(update: TriggerUpdate) -> Result<String, String> {
     Ok("Trigger updated".to_string())
 }
 
+#[derive(Serialize, Deserialize)]
+struct ChecklistItem {
+    id: i64,
+    code: String,
+    description: String,
+}
+
+#[tauri::command]
+fn get_checklist_items() -> Result<Vec<ChecklistItem>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare("SELECT id, code, description FROM checklist_databank ORDER BY code")
+        .map_err(|e| e.to_string())?;
+    let items = stmt
+        .query_map([], |row| {
+            Ok(ChecklistItem {
+                id: row.get(0)?,
+                code: row.get(1)?,
+                description: row.get(2)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(items)
+}
+
+#[derive(Serialize, Deserialize)]
+struct NewChecklistItem {
+    code: String,
+    description: String,
+}
+
+#[tauri::command]
+fn create_checklist_item(item: NewChecklistItem) -> Result<String, String> {
+    let conn = get_connection()?;
+    let code = item.code.trim();
+    let description = item.description.trim();
+    if code.is_empty() || description.is_empty() {
+        return Err("Checklist code and description cannot be empty".to_string());
+    }
+    let existing: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM checklist_databank WHERE code = ?1",
+            [code],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if existing > 0 {
+        return Err(format!("Checklist code '{}' already exists", code));
+    }
+    conn.execute(
+        "INSERT INTO checklist_databank (code, description) VALUES (?1, ?2)",
+        rusqlite::params![code, description],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok("Checklist item created".to_string())
+}
+
+#[tauri::command]
+fn update_checklist_item(item: ChecklistItem) -> Result<String, String> {
+    let conn = get_connection()?;
+    let code = item.code.trim();
+    let description = item.description.trim();
+    if code.is_empty() || description.is_empty() {
+        return Err("Checklist code and description cannot be empty".to_string());
+    }
+    conn.execute(
+        "UPDATE checklist_databank SET code = ?1, description = ?2 WHERE id = ?3",
+        rusqlite::params![code, description, item.id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok("Checklist item updated".to_string())
+}
+
+#[tauri::command]
+fn bulk_create_checklist_items(items: Vec<NewChecklistItem>) -> Result<String, String> {
+    let conn = get_connection()?;
+    let mut added = 0;
+    let mut skipped = 0;
+
+    for item in items {
+        let code = item.code.trim().to_string();
+        let description = item.description.trim().to_string();
+        if code.is_empty() || description.is_empty() {
+            skipped += 1;
+            continue;
+        }
+        let existing: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM checklist_databank WHERE code = ?1",
+                [&code],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        if existing > 0 {
+            skipped += 1;
+            continue;
+        }
+        conn.execute(
+            "INSERT INTO checklist_databank (code, description) VALUES (?1, ?2)",
+            rusqlite::params![code, description],
+        )
+        .map_err(|e| e.to_string())?;
+        added += 1;
+    }
+
+    Ok(format!(
+        "{} added, {} skipped (duplicates or empty)",
+        added, skipped
+    ))
+}
+
+#[tauri::command]
+fn delete_checklist_item(id: i64) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute("DELETE FROM checklist_databank WHERE id = ?1", [id])
+        .map_err(|e| e.to_string())?;
+    Ok("Checklist item deleted".to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -229,7 +360,12 @@ pub fn run() {
             update_asset,
             delete_asset,
             get_asset_triggers,
-            update_trigger
+            update_trigger,
+            get_checklist_items,
+            create_checklist_item,
+            update_checklist_item,
+            delete_checklist_item,
+            bulk_create_checklist_items
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

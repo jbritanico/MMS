@@ -83,12 +83,31 @@ function MaintenanceTriggers({ assetId, assetCode, onBack }: MaintenanceTriggers
                                 <div className="trigger-row" key={t.id}>
                                     <span>{TYPE_LABELS[t.trigger_type] ?? t.trigger_type}</span>
                                     <input type="checkbox" checked={fieldValue(t, "enabled") as boolean}
-                                        onChange={(e) => setField(t, "enabled", e.target.checked)} />
+                                        onChange={(e) => {
+                                            const checked = e.target.checked;
+                                            if (checked) {
+                                                setField(t, "enabled", true);
+                                            } else {
+                                                setEdits((prev) => ({
+                                                    ...prev,
+                                                    [t.id]: {
+                                                        ...prev[t.id],
+                                                        enabled: false,
+                                                        interval_value: 0,
+                                                        warning_value: 0,
+                                                        running_value: 0,
+                                                    },
+                                                }));
+                                            }
+                                        }} />
                                     <input type="number" className="trigger-input" value={fieldValue(t, "interval_value") as number}
+                                        disabled={!fieldValue(t, "enabled")}
                                         onChange={(e) => setField(t, "interval_value", Number(e.target.value))} />
                                     <input type="number" className="trigger-input" value={fieldValue(t, "warning_value") as number}
+                                        disabled={!fieldValue(t, "enabled")}
                                         onChange={(e) => setField(t, "warning_value", Number(e.target.value))} />
                                     <input type="number" className="trigger-input" value={fieldValue(t, "running_value") as number}
+                                        disabled={!fieldValue(t, "enabled")}
                                         onChange={(e) => setField(t, "running_value", Number(e.target.value))} />
                                     <span className="trigger-readonly">{t.tally_value}</span>
                                     <button className="icon-btn" disabled={!dirty} aria-label="Save row" onClick={() => saveRow(t)}>

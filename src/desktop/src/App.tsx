@@ -6,8 +6,10 @@ import MaintenanceReport from "./features/maintenance-report/MaintenanceReport";
 import Dashboard from "./features/dashboard/Dashboard";
 import Administration from "./features/administration/Administration";
 import MaintenanceTriggers from "./features/asset-registry/MaintenanceTriggers";
+import LiquidGlassTest from "./features/ui-lab/LiquidGlassTest";
 
-type Screen = "menu" | "assets" | "reports" | "dashboard" | "admin" | "triggers";
+type Screen = "menu" | "assets" | "reports" | "dashboard" | "admin" | "triggers" | "uilab";
+type MrLevel = "MR-I" | "MR-II" | "MR-III";
 
 const LABELS: Record<Screen, string> = {
   menu: "Main Menu",
@@ -16,13 +18,20 @@ const LABELS: Record<Screen, string> = {
   dashboard: "Dashboard",
   admin: "Administration",
   triggers: "Maintenance Triggers",
+  uilab: "UI Lab",
 };
 
 const queryClient = new QueryClient();
 
 function App() {
   const [screen, setScreen] = useState<Screen>("menu");
+  const [mrLevel, setMrLevel] = useState<MrLevel | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<{ id: number; code: string } | null>(null);
+
+  function handleNavigate(target: Screen, level?: MrLevel) {
+    if (level) setMrLevel(level);
+    setScreen(target);
+  }
 
   function handleViewTriggers(assetId: number, assetCode: string) {
     setSelectedAsset({ id: assetId, code: assetCode });
@@ -56,29 +65,44 @@ function App() {
           html, body, #root { height: 100%; margin: 0; }
           .app { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
 
-          .topband { background: #1a4d8f; color: #ffffff; padding: 12px clamp(16px, 3vw, 32px); display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-          .topband .title-main { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
-          .topband .title-sep { color: rgba(255,255,255,0.5); font-size: 14px; }
-          .topband .title-sub { font-size: 13px; font-weight: 400; color: rgba(255,255,255,0.85); }
-        
+         .topband {
+            background: var(--neu-bg);
+            color: var(--text);
+            padding: 14px clamp(16px, 3vw, 32px);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+            box-shadow: 0 4px 10px var(--neu-shadow-dark), 0 -2px 6px var(--neu-shadow-light);
+            position: relative;
+            z-index: 5;
+          }
+          .topband .title-main { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
+          .topband .title-sep { color: var(--neu-shadow-dark); font-size: 14px; }
+          .topband .title-sub { font-size: 13px; font-weight: 500; color: #2f6fed; }
+
           .back-btn {
-            background: transparent;
+            background: var(--neu-bg);
             border: none;
-            color: rgba(253, 253, 253, 0.85);
-            border-radius: 8px;
-            width: 30px;
-            height: 30px;
+            color: var(--text-soft);
+            border-radius: 10px;
+            width: 32px;
+            height: 32px;
             padding: 0;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            margin-right: 2px;
-            transition: background 0.12s, color 0.12s;
+            margin-right: 4px;
+            box-shadow: 3px 3px 6px var(--neu-shadow-dark), -3px -3px 6px var(--neu-shadow-light);
+            transition: box-shadow 0.12s, color 0.12s, transform 0.12s;
           }
-          .back-btn:hover { background: rgba(255,255,255,0.15); color: #ffffff; }
-          .back-btn:active { background: rgba(96, 106, 255, 0.22); }
-          .back-btn svg { width: 18px; height: 18px; }
+          .back-btn:hover { color: #2f6fed; }
+          .back-btn:active {
+            box-shadow: inset 2px 2px 4px var(--neu-shadow-dark), inset -2px -2px 4px var(--neu-shadow-light);
+            transform: translateY(0);
+          }
+          .back-btn svg { width: 17px; height: 17px; }
 
           .content {
             flex: 1; min-width: 0; overflow-y: auto; padding: clamp(16px, 3vw, 32px); background: var(--neu-bg);
@@ -135,6 +159,105 @@ function App() {
 
           .menu-card h3 { font-size: clamp(13px, 3cqi, 16px); margin: 0 0 6px; font-weight: 600; }
           .menu-card p { font-size: clamp(11px, 2.4cqi, 12.5px); color: var(--text-soft); margin: 0; line-height: 1.4; }
+
+          .uilab-fab {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: none;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-soft);
+            background: var(--neu-bg);
+            box-shadow: 5px 5px 10px var(--neu-shadow-dark), -5px -5px 10px var(--neu-shadow-light);
+            transition: box-shadow 0.15s, color 0.15s, transform 0.15s;
+            z-index: 10;
+          }
+          .uilab-fab:hover { color: #2f6fed; transform: translateY(-2px); }
+          .uilab-fab:active {
+            box-shadow: inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light);
+            transform: translateY(0);
+          }
+          .uilab-fab svg { width: 19px; height: 19px; }  
+          
+          .level-picker-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(231, 234, 240, 0.7);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            animation: picker-backdrop-in 0.2s ease-out;
+          }
+          @keyframes picker-backdrop-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+
+          .level-picker {
+            display: flex;
+            gap: 28px;
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 20px;
+          }
+
+          .level-orb {
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            cursor: pointer;
+            background: var(--neu-bg);
+            box-shadow: 10px 10px 20px var(--neu-shadow-dark), -10px -10px 20px var(--neu-shadow-light);
+            opacity: 0;
+            transform: scale(0.8);
+            animation: orb-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            transition: box-shadow 0.15s, transform 0.15s;
+          }
+          @keyframes orb-in {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+          }
+          .level-orb:hover {
+            transform: scale(1.05);
+            box-shadow: 13px 13px 24px var(--neu-shadow-dark), -13px -13px 24px var(--neu-shadow-light);
+          }
+          .level-orb:active {
+            transform: scale(0.97);
+            box-shadow: inset 6px 6px 12px var(--neu-shadow-dark), inset -6px -6px 12px var(--neu-shadow-light);
+          }
+
+          .level-orb-short {
+            font-size: 26px;
+            font-weight: 700;
+            color: #2f6fed;
+          }
+          .level-orb-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            margin-top: 2px;
+          }
+          .level-orb-desc {
+            font-size: 10.5px;
+            color: var(--text-soft);
+            text-align: center;
+            padding: 0 10px;
+          }          
 
           .header { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
           .header h1 { font-size: clamp(18px, 2vw, 22px); font-weight: 600; margin: 0; letter-spacing: -0.01em; }
@@ -204,6 +327,12 @@ function App() {
           .trigger-readonly {
             font-family: var(--mono);
             color: var(--text-soft);
+          }
+          .trigger-input:disabled {
+            background: #e9ebed;
+            color: #6b7280;
+            box-shadow: none;
+            cursor: not-allowed;
           }
           .trigger-row .icon-btn:disabled {
             opacity: 0.35;
@@ -316,6 +445,208 @@ function App() {
           .placeholder-screen h2 { font-size: 18px; color: var(--text); margin: 0 0 8px; }
           .placeholder-screen p { font-size: 13px; max-width: 360px; margin: 0 auto; }
 
+          .admin-layout {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+          }
+          @container (max-width: 640px) {
+            .admin-layout { flex-direction: column; }
+          }
+
+          .admin-sidebar {
+            width: 220px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: var(--neu-bg);
+            border-radius: 20px;
+            padding: 16px;
+            box-shadow: 8px 8px 16px var(--neu-shadow-dark), -8px -8px 16px var(--neu-shadow-light);
+          }
+          @container (max-width: 640px) {
+            .admin-sidebar { width: 100%; flex-direction: row; flex-wrap: wrap; }
+          }
+
+          .admin-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: transparent;
+            border: none;
+            border-radius: 14px;
+            padding: 10px 12px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-soft);
+            cursor: pointer;
+            box-shadow: none;
+            text-align: left;
+            transition: background 0.15s, box-shadow 0.15s, color 0.15s;
+          }
+          .admin-nav-item:hover { background: rgba(0,0,0,0.03); }
+          .admin-nav-item:active { box-shadow: none; transform: none; }
+          .admin-nav-item.active {
+            background: var(--neu-bg);
+            color: var(--text);
+            box-shadow: inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light);
+          }
+
+          .admin-nav-icon {
+            width: 36px;
+            height: 36px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #2f6fed;
+            background: var(--neu-bg);
+            box-shadow: inset 4px 4px 8px var(--neu-shadow-dark), inset -4px -4px 8px var(--neu-shadow-light);
+          }
+          .admin-nav-icon svg { width: 17px; height: 17px; }
+
+          .admin-content { flex: 1; min-width: 0; min-height: 340px; }          
+
+
+
+          .liquid-scene {
+            position: relative;
+            min-height: 640px;
+            border-radius: 24px;
+            overflow: hidden;
+            background: linear-gradient(160deg, #0d1b3a, #1a2f5c 55%, #0d1b3a);
+          }
+          .liquid-blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(50px);
+            opacity: 0.75;
+            mix-blend-mode: screen;
+          }
+          .liquid-blob-a {
+            width: 320px; height: 320px;
+            background: radial-gradient(circle, #6ea8ff, transparent 70%);
+            top: -60px; left: -60px;
+            animation: liquid-float-a 14s ease-in-out infinite;
+          }
+          .liquid-blob-b {
+            width: 280px; height: 280px;
+            background: radial-gradient(circle, #a06eff, transparent 70%);
+            bottom: -40px; right: 10%;
+            animation: liquid-float-b 18s ease-in-out infinite;
+          }
+          .liquid-blob-c {
+            width: 240px; height: 240px;
+            background: radial-gradient(circle, #6effd6, transparent 70%);
+            top: 30%; right: -60px;
+            animation: liquid-float-c 16s ease-in-out infinite;
+          }
+          @keyframes liquid-float-a {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(60px, 80px) scale(1.15); }
+          }
+          @keyframes liquid-float-b {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(-50px, -60px) scale(1.1); }
+          }
+          @keyframes liquid-float-c {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(-70px, 40px) scale(0.9); }
+          }
+
+          .liquid-content {
+            position: relative;
+            z-index: 1;
+            padding: 40px clamp(20px, 4vw, 48px);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            align-items: flex-start;
+          }
+
+          .glass-card {
+            width: min(460px, 100%);
+            padding: 28px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.25);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+            color: #ffffff;
+          }
+          .glass-card-small { width: min(300px, 100%); padding: 20px; }
+
+          .glass-title { font-size: 18px; font-weight: 600; margin: 0 0 8px; }
+          .glass-text { font-size: 13px; color: rgba(255,255,255,0.75); line-height: 1.5; margin: 0 0 18px; }
+          .glass-label { font-size: 12px; color: rgba(255,255,255,0.75); }
+
+          .glass-tabs { display: flex; gap: 4px; margin-bottom: 18px; padding: 4px; background: rgba(0,0,0,0.15); border-radius: 12px; }
+          .glass-tab {
+            flex: 1; background: transparent; border: none; color: rgba(255,255,255,0.7);
+            padding: 7px 10px; font-size: 12px; border-radius: 9px; cursor: pointer; transition: background 0.15s, color 0.15s;
+          }
+          .glass-tab.active { background: rgba(255,255,255,0.22); color: #ffffff; }
+
+          .glass-field { margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px; }
+          .glass-input {
+            width: 100%; padding: 10px 12px; border-radius: 10px; font-size: 13px; font-family: var(--sans);
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.25); color: #ffffff;
+          }
+          .glass-input::placeholder { color: rgba(255,255,255,0.5); }
+          .glass-input:focus { outline: none; border-color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.16); }
+          .glass-textarea { min-height: 70px; resize: vertical; }
+          select.glass-input option { color: #1a1d1f; }
+
+          .glass-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 12px; }
+
+          .glass-toggle {
+            width: 42px; height: 24px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.12); position: relative; cursor: pointer; padding: 0; transition: background 0.15s;
+          }
+          .glass-toggle.on { background: rgba(110,168,255,0.7); }
+          .glass-toggle-knob {
+            position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%;
+            background: #ffffff; transition: transform 0.18s;
+          }
+          .glass-toggle.on .glass-toggle-knob { transform: translateX(18px); }
+
+          .glass-slider {
+            flex: 1; -webkit-appearance: none; height: 4px; border-radius: 2px;
+            background: rgba(255,255,255,0.25); outline: none;
+          }
+          .glass-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+            background: #ffffff; cursor: pointer; box-shadow: 0 0 0 4px rgba(255,255,255,0.15);
+          }
+
+          .glass-check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: rgba(255,255,255,0.88); cursor: pointer; margin-bottom: 8px; }
+          .glass-checkbox, .glass-radio { width: 16px; height: 16px; accent-color: #ffffff; cursor: pointer; }
+
+          .glass-progress { width: 100%; height: 8px; border-radius: 4px; background: rgba(255,255,255,0.15); overflow: hidden; }
+          .glass-progress-fill { height: 100%; background: linear-gradient(90deg, #6ea8ff, #a06eff); transition: width 0.15s; }
+
+          .glass-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+          .glass-button {
+            padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 500; cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.14); color: #ffffff;
+            backdrop-filter: blur(6px); transition: background 0.15s;
+          }
+          .glass-button:hover { background: rgba(255,255,255,0.22); }
+          .glass-button-primary { background: rgba(110,168,255,0.55); border-color: rgba(110,168,255,0.7); }
+          .glass-button-primary:hover { background: rgba(110,168,255,0.7); }
+          .glass-button-danger { background: rgba(255,110,110,0.4); border-color: rgba(255,110,110,0.6); }
+          .glass-button-danger:hover { background: rgba(255,110,110,0.55); }
+          .glass-button-icon { width: 40px; height: 40px; padding: 0; display: flex; align-items: center; justify-content: center; }
+          .glass-button-icon svg { width: 18px; height: 18px; }
+
+          .glass-badge {
+            display: inline-block; margin-top: 12px; padding: 4px 10px; font-size: 11px; font-weight: 600;
+            border-radius: 20px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3);
+          }
+          
           .status-screen { text-align: center; padding: 80px 20px; }
           .status-badge {
             position: relative;
@@ -375,7 +706,7 @@ function App() {
         </div>
 
         <div className="content">
-          {screen === "menu" && <MainMenu onNavigate={setScreen} />}
+          {screen === "menu" && <MainMenu onNavigate={handleNavigate} />}
           {screen === "assets" && <AssetRegistry onViewTriggers={handleViewTriggers} />}
           {screen === "reports" && <MaintenanceReport />}
           {screen === "dashboard" && <Dashboard />}
@@ -387,6 +718,7 @@ function App() {
               onBack={() => setScreen("assets")}
             />
           )}
+          {screen === "uilab" && <LiquidGlassTest />}
         </div>
       </div>
     </QueryClientProvider>
