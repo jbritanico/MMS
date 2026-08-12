@@ -79,7 +79,8 @@ fn get_connection() -> Result<Connection, String> {
         "CREATE TABLE IF NOT EXISTS checklist_databank (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             code TEXT NOT NULL UNIQUE,
-            description TEXT NOT NULL
+            description TEXT NOT NULL,
+            level TEXT NOT NULL DEFAULT 'MR-I'
         )",
         [],
     )
@@ -235,13 +236,14 @@ struct ChecklistItem {
     id: i64,
     code: String,
     description: String,
+    level: String,
 }
 
 #[tauri::command]
 fn get_checklist_items() -> Result<Vec<ChecklistItem>, String> {
     let conn = get_connection()?;
     let mut stmt = conn
-        .prepare("SELECT id, code, description FROM checklist_databank ORDER BY code")
+        .prepare("SELECT id, code, description, level FROM checklist_databank ORDER BY level, code")
         .map_err(|e| e.to_string())?;
     let items = stmt
         .query_map([], |row| {
@@ -249,6 +251,7 @@ fn get_checklist_items() -> Result<Vec<ChecklistItem>, String> {
                 id: row.get(0)?,
                 code: row.get(1)?,
                 description: row.get(2)?,
+                level: row.get(3)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -257,10 +260,15 @@ fn get_checklist_items() -> Result<Vec<ChecklistItem>, String> {
     Ok(items)
 }
 
+fn valid_level(level: &str) -> bool {
+    matches!(level, "MR-I" | "MR-II" | "MR-III")
+}
+
 #[derive(Serialize, Deserialize)]
 struct NewChecklistItem {
     code: String,
     description: String,
+    level: String,
 }
 
 #[tauri::command]
@@ -268,8 +276,15 @@ fn create_checklist_item(item: NewChecklistItem) -> Result<String, String> {
     let conn = get_connection()?;
     let code = item.code.trim();
     let description = item.description.trim();
+    let level = item.level.trim();
     if code.is_empty() || description.is_empty() {
         return Err("Checklist code and description cannot be empty".to_string());
+    }
+    if !valid_level(level) {
+        return Err(format!(
+            "Invalid level '{}' — must be MR-I, MR-II, or MR-III",
+            level
+        ));
     }
     let existing: i64 = conn
         .query_row(
@@ -282,8 +297,8 @@ fn create_checklist_item(item: NewChecklistItem) -> Result<String, String> {
         return Err(format!("Checklist code '{}' already exists", code));
     }
     conn.execute(
-        "INSERT INTO checklist_databank (code, description) VALUES (?1, ?2)",
-        rusqlite::params![code, description],
+        "INSERT INTO checklist_databank (code, description, level) VALUES (?1, ?2, ?3)",
+        rusqlite::params![code, description, level],
     )
     .map_err(|e| e.to_string())?;
     Ok("Checklist item created".to_string())
@@ -294,12 +309,19 @@ fn update_checklist_item(item: ChecklistItem) -> Result<String, String> {
     let conn = get_connection()?;
     let code = item.code.trim();
     let description = item.description.trim();
+    let level = item.level.trim();
     if code.is_empty() || description.is_empty() {
         return Err("Checklist code and description cannot be empty".to_string());
     }
+    if !valid_level(level) {
+        return Err(format!(
+            "Invalid level '{}' — must be MR-I, MR-II, or MR-III",
+            level
+        ));
+    }
     conn.execute(
-        "UPDATE checklist_databank SET code = ?1, description = ?2 WHERE id = ?3",
-        rusqlite::params![code, description, item.id],
+        "UPDATE checklist_databank SET code = ?1, description = ?2, level = ?3 WHERE id = ?4",
+        rusqlite::params![code, description, level, item.id],
     )
     .map_err(|e| e.to_string())?;
     Ok("Checklist item updated".to_string())
@@ -314,7 +336,8 @@ fn bulk_create_checklist_items(items: Vec<NewChecklistItem>) -> Result<String, S
     for item in items {
         let code = item.code.trim().to_string();
         let description = item.description.trim().to_string();
-        if code.is_empty() || description.is_empty() {
+        let level = item.level.trim().to_string();
+        if code.is_empty() || description.is_empty() || !valid_level(&level) {
             skipped += 1;
             continue;
         }
@@ -330,15 +353,15 @@ fn bulk_create_checklist_items(items: Vec<NewChecklistItem>) -> Result<String, S
             continue;
         }
         conn.execute(
-            "INSERT INTO checklist_databank (code, description) VALUES (?1, ?2)",
-            rusqlite::params![code, description],
+            "INSERT INTO checklist_databank (code, description, level) VALUES (?1, ?2, ?3)",
+            rusqlite::params![code, description, level],
         )
         .map_err(|e| e.to_string())?;
         added += 1;
     }
 
     Ok(format!(
-        "{} added, {} skipped (duplicates or empty)",
+        "{} added, {} skipped (duplicates, empty, or invalid level)",
         added, skipped
     ))
 }
