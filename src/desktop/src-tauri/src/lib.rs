@@ -164,6 +164,24 @@ fn get_connection() -> Result<Connection, String> {
     )
     .map_err(|e| e.to_string())?;
 
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS template_header_fields (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            template_id INTEGER NOT NULL,
+            header_field_id INTEGER NOT NULL,
+            label_override TEXT,
+            data_type TEXT NOT NULL DEFAULT 'text',
+            required INTEGER NOT NULL DEFAULT 0,
+            display_order INTEGER NOT NULL DEFAULT 0,
+            default_value TEXT,
+            FOREIGN KEY (template_id) REFERENCES mri_templates(id),
+            FOREIGN KEY (header_field_id) REFERENCES header_field_catalog(id),
+            UNIQUE(template_id, header_field_id)
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
     Ok(conn)
 }
 
@@ -934,6 +952,77 @@ fn delete_mri_template(id: i64) -> Result<String, String> {
     Ok("Template deleted".to_string())
 }
 
+#[derive(Serialize, Deserialize)]
+struct TemplateHeaderField {
+    id: i64,
+    template_id: i64,
+    header_field_id: i64,
+    label_override: Option<String>,
+    data_type: String,
+    required: bool,
+    display_order: i64,
+    default_value: Option<String>,
+}
+
+#[tauri::command]
+fn get_template_header_fields(template_id: i64) -> Result<Vec<TemplateHeaderField>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, template_id, header_field_id, label_override, data_type, required, display_order, default_value
+         FROM template_header_fields WHERE template_id = ?1 ORDER BY display_order"
+    ).map_err(|e| e.to_string())?;
+    let fields = stmt
+        .query_map([template_id], |row| {
+            Ok(TemplateHeaderField {
+                id: row.get(0)?,
+                template_id: row.get(1)?,
+                header_field_id: row.get(2)?,
+                label_override: row.get(3)?,
+                data_type: row.get(4)?,
+                required: row.get::<_, i32>(5)? != 0,
+                display_order: row.get(6)?,
+                default_value: row.get(7)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(fields)
+}
+
+#[tauri::command]
+fn add_template_header_field(
+    template_id: i64,
+    header_field_id: i64,
+    display_order: i64,
+) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute(
+        "INSERT OR IGNORE INTO template_header_fields (template_id, header_field_id, data_type, required, display_order)
+         VALUES (?1, ?2, 'text', 0, ?3)",
+        rusqlite::params![template_id, header_field_id, display_order],
+    ).map_err(|e| e.to_string())?;
+    Ok("Header field added to template".to_string())
+}
+
+#[tauri::command]
+fn remove_template_header_field(id: i64) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute("DELETE FROM template_header_fields WHERE id = ?1", [id])
+        .map_err(|e| e.to_string())?;
+    Ok("Header field removed from template".to_string())
+}
+
+#[tauri::command]
+fn update_template_header_field(field: TemplateHeaderField) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute(
+        "UPDATE template_header_fields SET label_override = ?1, data_type = ?2, required = ?3, display_order = ?4, default_value = ?5 WHERE id = ?6",
+        rusqlite::params![field.label_override, field.data_type, field.required as i32, field.display_order, field.default_value, field.id],
+    ).map_err(|e| e.to_string())?;
+    Ok("Header field updated".to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -968,7 +1057,11 @@ pub fn run() {
             create_mri_template,
             update_mri_template_status,
             rename_mri_template,
-            delete_mri_template
+            delete_mri_template,
+            get_template_header_fields,
+            add_template_header_field,
+            remove_template_header_field,
+            update_template_header_field
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

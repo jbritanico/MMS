@@ -6,10 +6,11 @@ import MaintenanceReport from "./features/maintenance-report/MaintenanceReport";
 import Dashboard from "./features/dashboard/Dashboard";
 import Administration from "./features/administration/Administration";
 import MaintenanceTriggers from "./features/asset-registry/MaintenanceTriggers";
+import TemplateBuilder from "./features/mri-template-builder/TemplateBuilder";
 import LiquidGlassTest from "./features/ui-lab/LiquidGlassTest";
 import { THEMES, type Theme } from "./lib/theme";
 
-type Screen = "menu" | "assets" | "reports" | "dashboard" | "admin" | "triggers" | "uilab";
+type Screen = "menu" | "assets" | "reports" | "dashboard" | "admin" | "triggers" | "uilab" | "template-builder";
 type MrLevel = "MR-I" | "MR-II" | "MR-III";
 
 const LABELS: Record<Screen, string> = {
@@ -20,6 +21,7 @@ const LABELS: Record<Screen, string> = {
   admin: "Administration",
   triggers: "Maintenance Triggers",
   uilab: "UI Lab",
+  "template-builder": "MR-I Template Builder",
 };
 
 const queryClient = new QueryClient();
@@ -28,6 +30,13 @@ function App() {
   const [screen, setScreen] = useState<Screen>("menu");
   const [mrLevel, setMrLevel] = useState<MrLevel | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<{ id: number; code: string } | null>(null);
+
+  const [selectedTemplate, setSelectedTemplate] = useState<{ id: number; name: string } | null>(null);
+
+  function handleOpenTemplate(id: number, name: string) {
+    setSelectedTemplate({ id, name });
+    setScreen("template-builder");
+  }
 
   const [theme, setTheme] = useState<Theme>("light");
 
@@ -658,6 +667,93 @@ function App() {
           .placeholder-screen h2 { font-size: 18px; color: var(--text); margin: 0 0 8px; }
           .placeholder-screen p { font-size: 13px; max-width: 360px; margin: 0 auto; }
 
+          .wizard-steps {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+          }
+          .wizard-step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 12px;
+            font-size: 12.5px;
+            color: var(--text-soft);
+          }
+          .wizard-step-dot {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            background: var(--neu-bg);
+            box-shadow: inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light);
+            color: var(--text-soft);
+            flex-shrink: 0;
+          }
+          .wizard-step.active { color: var(--text); }
+          .wizard-step.active .wizard-step-dot {
+            background: var(--accent-blue);
+            color: #ffffff;
+            box-shadow: none;
+          }
+          .wizard-step.done .wizard-step-dot {
+            background: var(--accent-soft);
+            color: var(--accent);
+            box-shadow: none;
+          }
+          .wizard-step-label { white-space: nowrap; }
+          @container (max-width: 640px) {
+            .wizard-step-label { display: none; }
+          }          
+
+          .mri-preview-form {
+            background: #fbfbfc;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 24px;
+          }
+          .mri-preview-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 4px;
+          }
+          .mri-preview-section-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #6b7280;
+            border-bottom: 2px solid var(--accent-blue);
+            display: inline-block;
+            padding-bottom: 3px;
+            margin-bottom: 12px;
+          }
+          .mri-preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 14px;
+          }
+          .mri-preview-field label {
+            display: block;
+            font-size: 11.5px;
+            color: var(--text-soft);
+            margin-bottom: 4px;
+          }
+          .mri-preview-input {
+            height: 30px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: #ffffff;
+          }
+
           .admin-layout {
             display: flex;
             gap: 20px;
@@ -723,13 +819,12 @@ function App() {
           .admin-chevron.open { transform: rotate(90deg); }
 
           .admin-group-body {
-            display: grid;
-            grid-template-rows: 0fr;
-            transition: grid-template-rows 0.22s ease;
-          }
-          .admin-group-body.open { grid-template-rows: 1fr; }
-          .admin-group-body-inner {
+            max-height: 0;
             overflow: hidden;
+            transition: max-height 0.22s ease;
+          }
+          .admin-group-body.open { max-height: 400px; }
+          .admin-group-body-inner {
             display: flex;
             flex-direction: column;
             gap: 3px;
@@ -991,7 +1086,7 @@ function App() {
           {screen === "assets" && <AssetRegistry onViewTriggers={handleViewTriggers} />}
           {screen === "reports" && <MaintenanceReport />}
           {screen === "dashboard" && <Dashboard />}
-          {screen === "admin" && <Administration />}
+          {screen === "admin" && <Administration onOpenTemplate={handleOpenTemplate} />}
           {screen === "triggers" && selectedAsset && (
             <MaintenanceTriggers
               assetId={selectedAsset.id}
@@ -1000,6 +1095,13 @@ function App() {
             />
           )}
           {screen === "uilab" && <LiquidGlassTest />}
+          {screen === "template-builder" && selectedTemplate && (
+            <TemplateBuilder
+              templateId={selectedTemplate.id}
+              templateName={selectedTemplate.name}
+              onBack={() => setScreen("admin")}
+            />
+          )}
         </div>
 
       </div>

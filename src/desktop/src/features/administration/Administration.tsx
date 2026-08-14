@@ -200,7 +200,11 @@ const LABELS: Record<AdminSection, string> = {
   "mriii-template": "MR-III Template",
 };
 
-function Administration() {
+interface AdministrationProps {
+  onOpenTemplate: (id: number, name: string) => void;
+}
+
+function Administration({ onOpenTemplate }: AdministrationProps) {
   const [active, setActive] = useState<AdminSection>("users");
   const [openGroup, setOpenGroup] = useState<GroupId>("users");
 
@@ -262,7 +266,7 @@ function Administration() {
         ) : active === "checklist-sections" ? (
           <ChecklistSections />
         ) : active === "mri-template" ? (
-          <MriTemplates />
+          <MriTemplates onOpenTemplate={onOpenTemplate} />
         ) : (
           <div className="placeholder-screen">
             <h2>{LABELS[active]}</h2>
