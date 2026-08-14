@@ -8,6 +8,7 @@ export interface ChecklistItem {
     code: string;
     description: string;
     level: MrLevel;
+    active: boolean;
 }
 
 export interface NewChecklistItem {

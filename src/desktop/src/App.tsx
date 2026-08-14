@@ -7,6 +7,7 @@ import Dashboard from "./features/dashboard/Dashboard";
 import Administration from "./features/administration/Administration";
 import MaintenanceTriggers from "./features/asset-registry/MaintenanceTriggers";
 import LiquidGlassTest from "./features/ui-lab/LiquidGlassTest";
+import { THEMES, type Theme } from "./lib/theme";
 
 type Screen = "menu" | "assets" | "reports" | "dashboard" | "admin" | "triggers" | "uilab";
 type MrLevel = "MR-I" | "MR-II" | "MR-III";
@@ -28,6 +29,12 @@ function App() {
   const [mrLevel, setMrLevel] = useState<MrLevel | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<{ id: number; code: string } | null>(null);
 
+  const [theme, setTheme] = useState<Theme>("light");
+
+  function handleThemeChange(t: Theme) {
+    setTheme(t);
+  }
+
   function handleNavigate(target: Screen, level?: MrLevel) {
     if (level) setMrLevel(level);
     setScreen(target);
@@ -40,9 +47,9 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="app">
+      <div className="app" data-theme={theme}>
         <style>{`
-          :root {
+          :root, [data-theme="light"] {
             --bg: #f3f4f5;
             --neu-bg: #e7eaf0;
             --neu-shadow-dark: #b9bfca;
@@ -53,6 +60,9 @@ function App() {
             --text-soft: #6b7280;
             --accent: #0f6e56;
             --accent-soft: #e1f5ee;
+            --accent-blue: #2f6fed;
+            --accent-blue-deep: #1a4d8f;
+            --hover-highlight: #e9f1fe;            
             --warn: #a3591b;
             --warn-soft: #faeeda;
             --danger: #a32d2d;
@@ -60,6 +70,66 @@ function App() {
             --radius: 10px;
             --mono: ui-monospace, "JetBrains Mono", Consolas, monospace;
             --sans: -apple-system, "Segoe UI", Inter, sans-serif;
+          }
+
+          [data-theme="dark"] {
+            --bg: #202226;
+            --neu-bg: #2a2d33;
+            --neu-shadow-dark: #1c1e22;
+            --neu-shadow-light: #383c44;
+            --surface: #2a2d33;
+            --border: #3a3d44;
+            --text: #e8e9eb;
+            --text-soft: #9aa0a8;
+            --accent: #3ddc9c;
+            --accent-soft: #17352a;
+            --accent-blue: #5b9bff;
+            --accent-blue-deep: #3a6dc4;
+            --hover-highlight: #263449;            
+            --warn: #e0a94f;
+            --warn-soft: #3a2f1a;
+            --danger: #f0716b;
+            --danger-soft: #3a1f1e;
+          }
+
+          [data-theme="ocean"] {
+            --bg: #eaf2f7;
+            --neu-bg: #dde9f0;
+            --neu-shadow-dark: #b7cad6;
+            --neu-shadow-light: #ffffff;
+            --surface: #ffffff;
+            --border: #cddbe4;
+            --text: #16303e;
+            --text-soft: #5b7688;
+            --accent: #0f8f8a;
+            --accent-soft: #dcf3f1;
+            --accent-blue: #1c7fd6;
+            --accent-blue-deep: #144e82;
+            --hover-highlight: #d3e7f5;            
+            --warn: #b5762a;
+            --warn-soft: #fbeddb;
+            --danger: #b5433d;
+            --danger-soft: #fbe5e3;
+          }
+
+          [data-theme="sepia"] {
+            --bg: #f1e9d8;
+            --neu-bg: #e8ddc9;
+            --neu-shadow-dark: #c9bb9d;
+            --neu-shadow-light: #ffffff;
+            --surface: #fbf6ec;
+            --border: #ddccac;
+            --text: #3c2f1e;
+            --text-soft: #7a6a51;
+            --accent: #6b7a2e;
+            --accent-soft: #e8edd3;
+            --accent-blue: #a05c2c;
+            --accent-blue-deep: #7a4520;
+            --hover-highlight: #ede0c8;            
+            --warn: #a3591b;
+            --warn-soft: #f2e2c6;
+            --danger: #9c3d33;
+            --danger-soft: #f2ddd8;
           }
           * { box-sizing: border-box; }
           html, body, #root { height: 100%; margin: 0; }
@@ -185,6 +255,82 @@ function App() {
             transform: translateY(0);
           }
           .uilab-fab svg { width: 19px; height: 19px; }  
+
+          .theme-fab {
+            position: fixed;
+            bottom: 20px;
+            right: 74px;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: none;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-soft);
+            background: var(--neu-bg);
+            box-shadow: 5px 5px 10px var(--neu-shadow-dark), -5px -5px 10px var(--neu-shadow-light);
+            transition: box-shadow 0.15s, color 0.15s, transform 0.15s;
+            z-index: 10;
+          }
+          .theme-fab:hover { color: var(--accent-blue); transform: translateY(-2px); }
+          .theme-fab:active {
+            box-shadow: inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light);
+            transform: translateY(0);
+          }
+          .theme-fab svg { width: 19px; height: 19px; }
+
+          .theme-picker-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 60;
+          }
+
+          .theme-picker {
+            position: fixed;
+            bottom: 72px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 10px;
+            border-radius: 16px;
+            background: var(--neu-bg);
+            box-shadow: 10px 10px 20px var(--neu-shadow-dark), -10px -10px 20px var(--neu-shadow-light);
+            animation: orb-in 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+          }
+
+          .theme-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: none;
+            background: transparent;
+            color: var(--text-soft);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            box-shadow: none;
+            white-space: nowrap;
+            transition: background 0.12s, color 0.12s;
+          }
+          .theme-option:hover { background: rgba(0,0,0,0.04); }
+          .theme-option.active {
+            color: var(--text);
+            box-shadow: inset 2px 2px 4px var(--neu-shadow-dark), inset -2px -2px 4px var(--neu-shadow-light);
+          }
+
+          .theme-swatch {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
+          }          
           
           .level-picker-overlay {
             position: fixed;
@@ -350,6 +496,7 @@ function App() {
             font-size: 13px;
           }
           .grid-row:nth-child(even):not(.grid-head) { background: rgba(0,0,0,0.02); }
+          .grid-row:not(.grid-head):hover { background: var(--hover-highlight); }          
           .grid-head {
             font-size: 11px;
             text-transform: uppercase;
@@ -450,7 +597,8 @@ function App() {
             cursor: pointer;
             transition: background 0.12s;
           }
-          .card:hover { background: #e9f1fe; }
+
+          .card:hover { background: var(--hover-highlight); }
 
           .card-actions { display: flex; gap: 6px; flex-shrink: 0; }
           .icon-btn {
@@ -471,14 +619,27 @@ function App() {
           .icon-btn svg { width: 16px; height: 16px; color: inherit; }
           .icon-btn.icon-danger svg { color: #a32d2d; }
 
-          .empty { text-align: center; padding: 40px 20px; color: var(--text-soft); font-size: 13px; }
-
-          .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 100; }
+          .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(231, 234, 240, 0.7);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            animation: picker-backdrop-in 0.2s ease-out;
+          }
 
           .modal {
             background: var(--neu-bg); border-radius: 20px; padding: 24px; width: min(380px, 90vw);
-            box-shadow: 12px 12px 24px var(--neu-shadow-dark), -12px -12px 24px var(--neu-shadow-light);
+            box-shadow: 10px 10px 20px var(--neu-shadow-dark), -10px -10px 20px var(--neu-shadow-light);
+            opacity: 0;
+            transform: scale(0.85);
+            animation: orb-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
           }
+          
           .modal-icon {
             width: 44px; height: 44px; border-radius: 50%; color: #a32d2d;
             display: flex; align-items: center; justify-content: center; margin-bottom: 12px;
@@ -507,18 +668,24 @@ function App() {
           }
 
           .admin-sidebar {
-            width: 220px;
+            width: clamp(180px, 22cqi, 240px);
             flex-shrink: 0;
             display: flex;
             flex-direction: column;
             gap: 8px;
             background: var(--neu-bg);
             border-radius: 20px;
-            padding: 16px;
+            padding: clamp(10px, 2cqi, 16px);
             box-shadow: 8px 8px 16px var(--neu-shadow-dark), -8px -8px 16px var(--neu-shadow-light);
           }
           @container (max-width: 640px) {
-            .admin-sidebar { width: 100%; flex-direction: row; flex-wrap: wrap; }
+            .admin-sidebar {
+              width: 100%;
+              flex-direction: row;
+              flex-wrap: wrap;
+            }
+            .admin-group { flex: 1; min-width: 140px; }
+            .admin-group-body-inner { padding-left: 12px; }
           }
 
           .admin-group { margin-bottom: 4px; }
@@ -527,12 +694,12 @@ function App() {
             width: 100%;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
             background: transparent;
             border: none;
             border-radius: 14px;
-            padding: 10px 10px;
-            font-size: 13px;
+            padding: 10px 8px;
+            font-size: clamp(12px, 2.6cqi, 13px);
             font-weight: 600;
             color: var(--text-soft);
             cursor: pointer;
@@ -818,7 +985,9 @@ function App() {
         </div>
 
         <div className="content">
-          {screen === "menu" && <MainMenu onNavigate={handleNavigate} />}
+          {screen === "menu" && (
+            <MainMenu onNavigate={handleNavigate} currentTheme={theme} onThemeChange={handleThemeChange} />
+          )}
           {screen === "assets" && <AssetRegistry onViewTriggers={handleViewTriggers} />}
           {screen === "reports" && <MaintenanceReport />}
           {screen === "dashboard" && <Dashboard />}
@@ -832,6 +1001,7 @@ function App() {
           )}
           {screen === "uilab" && <LiquidGlassTest />}
         </div>
+
       </div>
     </QueryClientProvider>
   );

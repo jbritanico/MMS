@@ -1,11 +1,16 @@
 import { useState } from "react";
+import { THEMES, type Theme } from "../../lib/theme";
 
 type Screen = "assets" | "reports" | "dashboard" | "admin" | "uilab";
 type MrLevel = "MR-I" | "MR-II" | "MR-III";
 
+
 interface MainMenuProps {
     onNavigate: (screen: Screen, mrLevel?: MrLevel) => void;
+    currentTheme: Theme;
+    onThemeChange: (theme: Theme) => void;
 }
+
 const OPTIONS: { id: Screen; label: string; desc: string; icon: JSX.Element }[] = [
     {
         id: "assets",
@@ -63,8 +68,14 @@ const MR_LEVELS: { id: MrLevel; short: string; desc: string }[] = [
     { id: "MR-III", short: "III", desc: "Major overhaul" },
 ];
 
-function MainMenu({ onNavigate }: MainMenuProps) {
+function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
     const [pickerOpen, setPickerOpen] = useState(false);
+    const [themePickerOpen, setThemePickerOpen] = useState(false);
+
+    function handleThemeSelect(t: Theme) {
+        onThemeChange(t);
+        setThemePickerOpen(false);
+    }
 
     function handleCardClick(id: Screen) {
         if (id === "reports") {
@@ -97,6 +108,31 @@ function MainMenu({ onNavigate }: MainMenuProps) {
                     <path d="M8 12c0-2 1.5-3.5 4-3.5S16 10 16 12s-1.5 3.5-4 3.5S8 14 8 12z" stroke="currentColor" strokeWidth="1.6" />
                 </svg>
             </button>
+
+            <button className="theme-fab" aria-label="Change theme" onClick={() => setThemePickerOpen((v) => !v)}>
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.6" />
+                    <path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"
+                        stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
+            </button>
+
+            {themePickerOpen && (
+                <div className="theme-picker-overlay" onClick={() => setThemePickerOpen(false)}>
+                    <div className="theme-picker" onClick={(e) => e.stopPropagation()}>
+                        {THEMES.map((t) => (
+                            <button
+                                key={t.id}
+                                className={`theme-option ${currentTheme === t.id ? "active" : ""}`}
+                                onClick={() => handleThemeSelect(t.id)}
+                            >
+                                <span className="theme-swatch" style={{ background: t.swatch }} />
+                                <span>{t.label}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {pickerOpen && (
                 <div className="level-picker-overlay" onClick={() => setPickerOpen(false)}>

@@ -1,9 +1,14 @@
 import { useState } from "react";
 import ChecklistDatabank from "./ChecklistDatabank";
+import AssetTypes from "./AssetTypes";
+import ChecklistSections from "./ChecklistSections";
+import MriTemplates from "./MriTemplates";
 
 type AdminSection =
   | "users"
   | "checklist-bank"
+  | "asset-types"
+  | "checklist-sections"
   | "data-browser"
   | "data-removal"
   | "data-purge"
@@ -69,6 +74,29 @@ const GROUPS: Group[] = [
             <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="1.6" />
             <path d="M8 10l1.5 1.5L12.5 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
             <path d="M8 15h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+        ),
+      },
+      {
+        id: "asset-types",
+        label: "Asset Types",
+        icon: (
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="4" y="4" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+            <rect x="13" y="4" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+            <rect x="4" y="13" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+            <rect x="13" y="13" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+          </svg>
+        ),
+      },
+      {
+        id: "checklist-sections",
+        label: "Checklist Sections",
+        icon: (
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="4" y="5" width="16" height="4" rx="1" stroke="currentColor" strokeWidth="1.6" />
+            <rect x="4" y="11" width="16" height="4" rx="1" stroke="currentColor" strokeWidth="1.6" />
+            <rect x="4" y="17" width="10" height="4" rx="1" stroke="currentColor" strokeWidth="1.6" />
           </svg>
         ),
       },
@@ -162,6 +190,8 @@ const GROUPS: Group[] = [
 const LABELS: Record<AdminSection, string> = {
   users: "Users",
   "checklist-bank": "Checklist Bank",
+  "asset-types": "Asset Types",
+  "checklist-sections": "Checklist Sections",
   "data-browser": "Data Browser",
   "data-removal": "Data Removal",
   "data-purge": "Data Purge",
@@ -227,6 +257,12 @@ function Administration() {
       <div className="panel admin-content">
         {active === "checklist-bank" ? (
           <ChecklistDatabank />
+        ) : active === "asset-types" ? (
+          <AssetTypes />
+        ) : active === "checklist-sections" ? (
+          <ChecklistSections />
+        ) : active === "mri-template" ? (
+          <MriTemplates />
         ) : (
           <div className="placeholder-screen">
             <h2>{LABELS[active]}</h2>

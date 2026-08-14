@@ -32,10 +32,12 @@ function ChecklistDatabank() {
 
     const [newCode, setNewCode] = useState("");
     const [newDescription, setNewDescription] = useState("");
+
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editCode, setEditCode] = useState("");
     const [editDescription, setEditDescription] = useState("");
     const [editLevel, setEditLevel] = useState<MrLevel>("MR-I");
+
     const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
     const [pendingDelete, setPendingDelete] = useState<ChecklistItem | null>(null);
 
@@ -84,7 +86,7 @@ function ChecklistDatabank() {
     async function saveEdit(item: ChecklistItem) {
         if (!editCode.trim() || !editDescription.trim()) return;
         try {
-            await updateItem.mutateAsync({ id: item.id, code: editCode.trim(), description: editDescription.trim(), level: editLevel });
+            await updateItem.mutateAsync({ id: item.id, code: editCode.trim(), description: editDescription.trim(), level: editLevel, active: item.active });
             setEditingId(null);
             flash("Checklist item updated", "ok");
         } catch (err) {
@@ -183,6 +185,7 @@ function ChecklistDatabank() {
             <h2 style={{ marginBottom: 4 }}>Checklist Databank</h2>
             <p style={{ fontSize: 13, color: "var(--text-soft)", marginBottom: 16 }}>
                 Master list of reusable checklist items for MR-I, MR-II, and MR-III templates.
+                Section and asset-type scoping happens per template, not here.
             </p>
 
             <div style={{ display: "flex", gap: 4, marginBottom: 18, padding: 4, background: "rgba(0,0,0,0.04)", borderRadius: 12, width: "fit-content" }}>

@@ -1,5 +1,14 @@
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+fn chrono_now() -> String {
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    secs.to_string()
+}
 
 #[derive(Serialize, Deserialize)]
 struct Asset {
@@ -76,17 +85,160 @@ fn get_connection() -> Result<Connection, String> {
     .map_err(|e| e.to_string())?;
 
     conn.execute(
+        "CREATE TABLE IF NOT EXISTS checklist_sections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS asset_types (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            description TEXT NOT NULL UNIQUE,
+            active INTEGER NOT NULL DEFAULT 1,
+            created_by TEXT NOT NULL DEFAULT 'local user',
+            created_date TEXT NOT NULL,
+            updated_by TEXT NOT NULL DEFAULT 'local user',
+            updated_date TEXT NOT NULL
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute(
         "CREATE TABLE IF NOT EXISTS checklist_databank (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             code TEXT NOT NULL UNIQUE,
             description TEXT NOT NULL,
-            level TEXT NOT NULL DEFAULT 'MR-I'
+            level TEXT NOT NULL DEFAULT 'MR-I',
+            active INTEGER NOT NULL DEFAULT 1
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS header_field_catalog (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            label TEXT NOT NULL UNIQUE
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS mid_field_catalog (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            label TEXT NOT NULL UNIQUE
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS footer_field_catalog (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            label TEXT NOT NULL UNIQUE
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    seed_field_catalogs(&conn)?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS mri_templates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            template_name TEXT NOT NULL,
+            asset_type_id INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'Draft',
+            created_by TEXT NOT NULL DEFAULT 'local user',
+            created_date TEXT NOT NULL,
+            updated_by TEXT NOT NULL DEFAULT 'local user',
+            updated_date TEXT NOT NULL,
+            FOREIGN KEY (asset_type_id) REFERENCES asset_types(id)
         )",
         [],
     )
     .map_err(|e| e.to_string())?;
 
     Ok(conn)
+}
+
+fn seed_field_catalogs(conn: &Connection) -> Result<(), String> {
+    let header_fields = [
+        "Country",
+        "Service Line",
+        "Asset Number",
+        "Client",
+        "Location",
+        "String No",
+        "String OD",
+        "Wall Thickness",
+        "Reel Swivel Operating Hours",
+        "Job Operating Hours",
+        "Type",
+        "BOP Bore Size",
+        "BOP Redressed for CT Size",
+        "BOP Redressed for Slickline Wire Size",
+        "IH Redress for CT Size",
+        "Stuffing Box Redressed for Wire",
+        "Stripper Redressed for CT Size",
+        "Storage Capacity",
+        "Tank Capacity",
+        "MR-II Due Date",
+        "MR Initiation Date",
+        "Compliance Stage",
+        "OEM Serial",
+        "Max OD",
+        "Top Connection",
+        "Bottom Connection",
+        "Previous RIF",
+        "Current RIF",
+    ];
+    for label in header_fields.iter() {
+        conn.execute(
+            "INSERT OR IGNORE INTO header_field_catalog (label) VALUES (?1)",
+            [label],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    let mid_fields = [
+        "Distance Travelled Pre-Job (KM)",
+        "Distance Travelled Post-Job (KM)",
+    ];
+    for label in mid_fields.iter() {
+        conn.execute(
+            "INSERT OR IGNORE INTO mid_field_catalog (label) VALUES (?1)",
+            [label],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    let footer_fields = [
+        "Remarks",
+        "Cleaned",
+        "Green Tagged",
+        "Job Ready",
+        "Pressure Tested",
+        "Function Tested",
+        "Operator",
+        "Operator Date",
+        "Supervisor",
+        "Supervisor Date",
+    ];
+    for label in footer_fields.iter() {
+        conn.execute(
+            "INSERT OR IGNORE INTO footer_field_catalog (label) VALUES (?1)",
+            [label],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
 }
 
 fn seed_triggers(conn: &Connection, asset_id: i64) -> Result<(), String> {
@@ -237,14 +389,15 @@ struct ChecklistItem {
     code: String,
     description: String,
     level: String,
+    active: bool,
 }
 
 #[tauri::command]
 fn get_checklist_items() -> Result<Vec<ChecklistItem>, String> {
     let conn = get_connection()?;
-    let mut stmt = conn
-        .prepare("SELECT id, code, description, level FROM checklist_databank ORDER BY level, code")
-        .map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT id, code, description, level, active FROM checklist_databank ORDER BY level, code"
+    ).map_err(|e| e.to_string())?;
     let items = stmt
         .query_map([], |row| {
             Ok(ChecklistItem {
@@ -252,6 +405,7 @@ fn get_checklist_items() -> Result<Vec<ChecklistItem>, String> {
                 code: row.get(1)?,
                 description: row.get(2)?,
                 level: row.get(3)?,
+                active: row.get::<_, i32>(4)? != 0,
             })
         })
         .map_err(|e| e.to_string())?
@@ -297,7 +451,7 @@ fn create_checklist_item(item: NewChecklistItem) -> Result<String, String> {
         return Err(format!("Checklist code '{}' already exists", code));
     }
     conn.execute(
-        "INSERT INTO checklist_databank (code, description, level) VALUES (?1, ?2, ?3)",
+        "INSERT INTO checklist_databank (code, description, level, active) VALUES (?1, ?2, ?3, 1)",
         rusqlite::params![code, description, level],
     )
     .map_err(|e| e.to_string())?;
@@ -320,10 +474,9 @@ fn update_checklist_item(item: ChecklistItem) -> Result<String, String> {
         ));
     }
     conn.execute(
-        "UPDATE checklist_databank SET code = ?1, description = ?2, level = ?3 WHERE id = ?4",
-        rusqlite::params![code, description, level, item.id],
-    )
-    .map_err(|e| e.to_string())?;
+        "UPDATE checklist_databank SET code = ?1, description = ?2, level = ?3, active = ?4 WHERE id = ?5",
+        rusqlite::params![code, description, level, item.active as i32, item.id],
+    ).map_err(|e| e.to_string())?;
     Ok("Checklist item updated".to_string())
 }
 
@@ -353,10 +506,9 @@ fn bulk_create_checklist_items(items: Vec<NewChecklistItem>) -> Result<String, S
             continue;
         }
         conn.execute(
-            "INSERT INTO checklist_databank (code, description, level) VALUES (?1, ?2, ?3)",
+            "INSERT INTO checklist_databank (code, description, level, active) VALUES (?1, ?2, ?3, 1)",
             rusqlite::params![code, description, level],
-        )
-        .map_err(|e| e.to_string())?;
+        ).map_err(|e| e.to_string())?;
         added += 1;
     }
 
@@ -374,6 +526,414 @@ fn delete_checklist_item(id: i64) -> Result<String, String> {
     Ok("Checklist item deleted".to_string())
 }
 
+#[derive(Serialize, Deserialize)]
+struct ChecklistSection {
+    id: i64,
+    name: String,
+}
+
+#[tauri::command]
+fn get_checklist_sections() -> Result<Vec<ChecklistSection>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare("SELECT id, name FROM checklist_sections ORDER BY name")
+        .map_err(|e| e.to_string())?;
+    let sections = stmt
+        .query_map([], |row| {
+            Ok(ChecklistSection {
+                id: row.get(0)?,
+                name: row.get(1)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(sections)
+}
+
+#[tauri::command]
+fn create_checklist_section(name: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err("Section name cannot be empty".to_string());
+    }
+    let existing: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM checklist_sections WHERE name = ?1",
+            [trimmed],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if existing > 0 {
+        return Err(format!("Section '{}' already exists", trimmed));
+    }
+    conn.execute(
+        "INSERT INTO checklist_sections (name) VALUES (?1)",
+        [trimmed],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok("Section created".to_string())
+}
+
+#[tauri::command]
+fn update_checklist_section(id: i64, name: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err("Section name cannot be empty".to_string());
+    }
+    conn.execute(
+        "UPDATE checklist_sections SET name = ?1 WHERE id = ?2",
+        rusqlite::params![trimmed, id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok("Section updated".to_string())
+}
+
+#[tauri::command]
+fn delete_checklist_section(id: i64) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute("DELETE FROM checklist_sections WHERE id = ?1", [id])
+        .map_err(|e| e.to_string())?;
+    Ok("Section deleted".to_string())
+}
+
+#[derive(Serialize, Deserialize)]
+struct AssetType {
+    id: i64,
+    description: String,
+    active: bool,
+    created_by: String,
+    created_date: String,
+    updated_by: String,
+    updated_date: String,
+}
+
+#[tauri::command]
+fn get_asset_types() -> Result<Vec<AssetType>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, description, active, created_by, created_date, updated_by, updated_date FROM asset_types ORDER BY description"
+    ).map_err(|e| e.to_string())?;
+    let types = stmt
+        .query_map([], |row| {
+            Ok(AssetType {
+                id: row.get(0)?,
+                description: row.get(1)?,
+                active: row.get::<_, i32>(2)? != 0,
+                created_by: row.get(3)?,
+                created_date: row.get(4)?,
+                updated_by: row.get(5)?,
+                updated_date: row.get(6)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(types)
+}
+
+#[tauri::command]
+fn create_asset_type(description: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    let trimmed = description.trim();
+    if trimmed.is_empty() {
+        return Err("Asset type description cannot be empty".to_string());
+    }
+    let existing: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM asset_types WHERE description = ?1",
+            [trimmed],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if existing > 0 {
+        return Err(format!("Asset type '{}' already exists", trimmed));
+    }
+    let now = chrono_now();
+    conn.execute(
+        "INSERT INTO asset_types (description, active, created_by, created_date, updated_by, updated_date)
+         VALUES (?1, 1, 'local user', ?2, 'local user', ?2)",
+        rusqlite::params![trimmed, now],
+    ).map_err(|e| e.to_string())?;
+    Ok("Asset type created".to_string())
+}
+
+#[tauri::command]
+fn update_asset_type(id: i64, description: String, active: bool) -> Result<String, String> {
+    let conn = get_connection()?;
+    let trimmed = description.trim();
+    if trimmed.is_empty() {
+        return Err("Asset type description cannot be empty".to_string());
+    }
+    let now = chrono_now();
+    conn.execute(
+        "UPDATE asset_types SET description = ?1, active = ?2, updated_by = 'local user', updated_date = ?3 WHERE id = ?4",
+        rusqlite::params![trimmed, active as i32, now, id],
+    ).map_err(|e| e.to_string())?;
+    Ok("Asset type updated".to_string())
+}
+
+#[tauri::command]
+fn bulk_create_asset_types(descriptions: Vec<String>) -> Result<String, String> {
+    let conn = get_connection()?;
+    let mut added = 0;
+    let mut skipped = 0;
+
+    for description in descriptions {
+        let trimmed = description.trim().to_string();
+        if trimmed.is_empty() {
+            skipped += 1;
+            continue;
+        }
+        let existing: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM asset_types WHERE description = ?1",
+                [&trimmed],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        if existing > 0 {
+            skipped += 1;
+            continue;
+        }
+        let now = chrono_now();
+        conn.execute(
+            "INSERT INTO asset_types (description, active, created_by, created_date, updated_by, updated_date)
+             VALUES (?1, 1, 'local user', ?2, 'local user', ?2)",
+            rusqlite::params![trimmed, now],
+        ).map_err(|e| e.to_string())?;
+        added += 1;
+    }
+
+    Ok(format!(
+        "{} added, {} skipped (duplicates or empty)",
+        added, skipped
+    ))
+}
+
+#[tauri::command]
+fn delete_asset_type(id: i64) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute("DELETE FROM asset_types WHERE id = ?1", [id])
+        .map_err(|e| e.to_string())?;
+    Ok("Asset type deleted".to_string())
+}
+
+#[derive(Serialize, Deserialize)]
+struct FieldCatalogItem {
+    id: i64,
+    label: String,
+}
+
+#[tauri::command]
+fn get_header_fields() -> Result<Vec<FieldCatalogItem>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare("SELECT id, label FROM header_field_catalog ORDER BY id")
+        .map_err(|e| e.to_string())?;
+    let items = stmt
+        .query_map([], |row| {
+            Ok(FieldCatalogItem {
+                id: row.get(0)?,
+                label: row.get(1)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(items)
+}
+
+#[tauri::command]
+fn add_header_field(label: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    let trimmed = label.trim();
+    if trimmed.is_empty() {
+        return Err("Field label cannot be empty".to_string());
+    }
+    conn.execute(
+        "INSERT OR IGNORE INTO header_field_catalog (label) VALUES (?1)",
+        [trimmed],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok("Header field added".to_string())
+}
+
+#[tauri::command]
+fn get_mid_fields() -> Result<Vec<FieldCatalogItem>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare("SELECT id, label FROM mid_field_catalog ORDER BY id")
+        .map_err(|e| e.to_string())?;
+    let items = stmt
+        .query_map([], |row| {
+            Ok(FieldCatalogItem {
+                id: row.get(0)?,
+                label: row.get(1)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(items)
+}
+
+#[tauri::command]
+fn add_mid_field(label: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    let trimmed = label.trim();
+    if trimmed.is_empty() {
+        return Err("Field label cannot be empty".to_string());
+    }
+    conn.execute(
+        "INSERT OR IGNORE INTO mid_field_catalog (label) VALUES (?1)",
+        [trimmed],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok("Mid field added".to_string())
+}
+
+#[tauri::command]
+fn get_footer_fields() -> Result<Vec<FieldCatalogItem>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare("SELECT id, label FROM footer_field_catalog ORDER BY id")
+        .map_err(|e| e.to_string())?;
+    let items = stmt
+        .query_map([], |row| {
+            Ok(FieldCatalogItem {
+                id: row.get(0)?,
+                label: row.get(1)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(items)
+}
+
+#[tauri::command]
+fn add_footer_field(label: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    let trimmed = label.trim();
+    if trimmed.is_empty() {
+        return Err("Field label cannot be empty".to_string());
+    }
+    conn.execute(
+        "INSERT OR IGNORE INTO footer_field_catalog (label) VALUES (?1)",
+        [trimmed],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok("Footer field added".to_string())
+}
+
+fn valid_template_status(status: &str) -> bool {
+    matches!(status, "Draft" | "Active" | "Inactive")
+}
+
+#[derive(Serialize, Deserialize)]
+struct MriTemplate {
+    id: i64,
+    template_name: String,
+    asset_type_id: i64,
+    status: String,
+    created_by: String,
+    created_date: String,
+    updated_by: String,
+    updated_date: String,
+}
+
+#[tauri::command]
+fn get_mri_templates() -> Result<Vec<MriTemplate>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, template_name, asset_type_id, status, created_by, created_date, updated_by, updated_date
+         FROM mri_templates ORDER BY template_name"
+    ).map_err(|e| e.to_string())?;
+    let templates = stmt
+        .query_map([], |row| {
+            Ok(MriTemplate {
+                id: row.get(0)?,
+                template_name: row.get(1)?,
+                asset_type_id: row.get(2)?,
+                status: row.get(3)?,
+                created_by: row.get(4)?,
+                created_date: row.get(5)?,
+                updated_by: row.get(6)?,
+                updated_date: row.get(7)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(templates)
+}
+
+#[derive(Serialize, Deserialize)]
+struct NewMriTemplate {
+    template_name: String,
+    asset_type_id: i64,
+}
+
+#[tauri::command]
+fn create_mri_template(template: NewMriTemplate) -> Result<i64, String> {
+    let conn = get_connection()?;
+    let name = template.template_name.trim();
+    if name.is_empty() {
+        return Err("Template name cannot be empty".to_string());
+    }
+    let now = chrono_now();
+    conn.execute(
+        "INSERT INTO mri_templates (template_name, asset_type_id, status, created_by, created_date, updated_by, updated_date)
+         VALUES (?1, ?2, 'Draft', 'local user', ?3, 'local user', ?3)",
+        rusqlite::params![name, template.asset_type_id, now],
+    ).map_err(|e| e.to_string())?;
+    Ok(conn.last_insert_rowid())
+}
+
+#[tauri::command]
+fn update_mri_template_status(id: i64, status: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    let status = status.trim();
+    if !valid_template_status(status) {
+        return Err(format!(
+            "Invalid status '{}' — must be Draft, Active, or Inactive",
+            status
+        ));
+    }
+    let now = chrono_now();
+    conn.execute(
+        "UPDATE mri_templates SET status = ?1, updated_by = 'local user', updated_date = ?2 WHERE id = ?3",
+        rusqlite::params![status, now, id],
+    ).map_err(|e| e.to_string())?;
+    Ok("Template status updated".to_string())
+}
+
+#[tauri::command]
+fn rename_mri_template(id: i64, template_name: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    let name = template_name.trim();
+    if name.is_empty() {
+        return Err("Template name cannot be empty".to_string());
+    }
+    let now = chrono_now();
+    conn.execute(
+        "UPDATE mri_templates SET template_name = ?1, updated_by = 'local user', updated_date = ?2 WHERE id = ?3",
+        rusqlite::params![name, now, id],
+    ).map_err(|e| e.to_string())?;
+    Ok("Template renamed".to_string())
+}
+
+#[tauri::command]
+fn delete_mri_template(id: i64) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute("DELETE FROM mri_templates WHERE id = ?1", [id])
+        .map_err(|e| e.to_string())?;
+    Ok("Template deleted".to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -388,7 +948,27 @@ pub fn run() {
             create_checklist_item,
             update_checklist_item,
             delete_checklist_item,
-            bulk_create_checklist_items
+            bulk_create_checklist_items,
+            get_asset_types,
+            create_asset_type,
+            update_asset_type,
+            delete_asset_type,
+            bulk_create_asset_types,
+            get_checklist_sections,
+            create_checklist_section,
+            update_checklist_section,
+            delete_checklist_section,
+            get_header_fields,
+            add_header_field,
+            get_mid_fields,
+            add_mid_field,
+            get_footer_fields,
+            add_footer_field,
+            get_mri_templates,
+            create_mri_template,
+            update_mri_template_status,
+            rename_mri_template,
+            delete_mri_template
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
