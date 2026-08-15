@@ -2,6 +2,35 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+const BROWSABLE_TABLES: [&str; 14] = [
+    "assets",
+    "maintenance_triggers",
+    "checklist_databank",
+    "checklist_sections",
+    "asset_types",
+    "header_field_catalog",
+    "mid_field_catalog",
+    "footer_field_catalog",
+    "mri_templates",
+    "template_header_fields",
+    "template_checklist_items",
+    "template_mid_fields",
+    "template_footer_fields",
+    "sqlite_sequence",
+];
+
+fn sqlite_value_to_json(v: rusqlite::types::ValueRef) -> serde_json::Value {
+    match v {
+        rusqlite::types::ValueRef::Null => serde_json::Value::Null,
+        rusqlite::types::ValueRef::Integer(i) => serde_json::Value::from(i),
+        rusqlite::types::ValueRef::Real(f) => serde_json::Value::from(f),
+        rusqlite::types::ValueRef::Text(t) => {
+            serde_json::Value::from(String::from_utf8_lossy(t).to_string())
+        }
+        rusqlite::types::ValueRef::Blob(_) => serde_json::Value::from("<binary>"),
+    }
+}
+
 fn chrono_now() -> String {
     let secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -182,7 +211,7 @@ fn get_connection() -> Result<Connection, String> {
     )
     .map_err(|e| e.to_string())?;
 
-conn.execute(
+    conn.execute(
         "CREATE TABLE IF NOT EXISTS template_checklist_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         template_id INTEGER NOT NULL,
@@ -1114,7 +1143,10 @@ fn update_template_checklist_item(item: TemplateChecklistItem) -> Result<String,
     let conn = get_connection()?;
     if let Some(sev) = &item.severity {
         if !sev.is_empty() && !valid_severity(sev) {
-            return Err(format!("Invalid severity '{}' — must be Minor, Moderate, Major, or Critical", sev));
+            return Err(format!(
+                "Invalid severity '{}' — must be Minor, Moderate, Major, or Critical",
+                sev
+            ));
         }
     }
     conn.execute(
@@ -1122,6 +1154,123 @@ fn update_template_checklist_item(item: TemplateChecklistItem) -> Result<String,
         rusqlite::params![item.section_id, item.severity, item.display_order, item.required as i32, item.id],
     ).map_err(|e| e.to_string())?;
     Ok("Checklist item updated".to_string())
+}
+
+#[tauri::command]
+fn get_browsable_tables() -> Vec<String> {
+    BROWSABLE_TABLES.iter().map(|s| s.to_string()).collect()
+}
+
+#[tauri::command]
+fn get_table_columns(table_name: String) -> Result<Vec<String>, String> {
+    if !BROWSABLE_TABLES.contains(&table_name.as_str()) {
+        return Err("Unknown table".to_string());
+    }
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA table_info({})", table_name))
+        .map_err(|e| e.to_string())?;
+    let cols = stmt
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(cols)
+}
+
+#[tauri::command]
+fn get_table_rows(table_name: String) -> Result<Vec<serde_json::Value>, String> {
+    if !BROWSABLE_TABLES.contains(&table_name.as_str()) {
+        return Err("Unknown table".to_string());
+    }
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare(&format!("SELECT * FROM {}", table_name))
+        .map_err(|e| e.to_string())?;
+    let col_count = stmt.column_count();
+    let col_names: Vec<String> = stmt.column_names().iter().map(|s| s.to_string()).collect();
+
+    let rows = stmt
+        .query_map([], |row| {
+            let mut map = serde_json::Map::new();
+            for i in 0..col_count {
+                let val = row.get_ref(i)?;
+                map.insert(col_names[i].clone(), sqlite_value_to_json(val));
+            }
+            Ok(serde_json::Value::Object(map))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(rows)
+}
+
+#[tauri::command]
+fn update_table_row(
+    table_name: String,
+    id: i64,
+    values: serde_json::Map<String, serde_json::Value>,
+) -> Result<String, String> {
+    if !BROWSABLE_TABLES.contains(&table_name.as_str()) {
+        return Err("Unknown table".to_string());
+    }
+    let conn = get_connection()?;
+
+    let set_clause: Vec<String> = values
+        .keys()
+        .filter(|k| k.as_str() != "id")
+        .enumerate()
+        .map(|(i, k)| format!("{} = ?{}", k, i + 1))
+        .collect();
+    if set_clause.is_empty() {
+        return Err("No fields to update".to_string());
+    }
+
+    let sql = format!(
+        "UPDATE {} SET {} WHERE id = ?{}",
+        table_name,
+        set_clause.join(", "),
+        set_clause.len() + 1
+    );
+
+    let mut params: Vec<Box<dyn rusqlite::ToSql>> = values
+        .iter()
+        .filter(|(k, _)| k.as_str() != "id")
+        .map(|(_, v)| -> Box<dyn rusqlite::ToSql> {
+            match v {
+                serde_json::Value::Null => Box::new(None::<String>),
+                serde_json::Value::Bool(b) => Box::new(*b as i32),
+                serde_json::Value::Number(n) => {
+                    if let Some(i) = n.as_i64() {
+                        Box::new(i)
+                    } else {
+                        Box::new(n.as_f64().unwrap_or(0.0))
+                    }
+                }
+                serde_json::Value::String(s) => Box::new(s.clone()),
+                _ => Box::new(None::<String>),
+            }
+        })
+        .collect();
+    params.push(Box::new(id));
+
+    let params_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+
+    conn.execute(&sql, params_refs.as_slice())
+        .map_err(|e| e.to_string())?;
+    Ok("Row updated".to_string())
+}
+
+#[tauri::command]
+fn delete_table_row(table_name: String, id: i64) -> Result<String, String> {
+    if !BROWSABLE_TABLES.contains(&table_name.as_str()) {
+        return Err("Unknown table".to_string());
+    }
+    let conn = get_connection()?;
+    conn.execute(&format!("DELETE FROM {} WHERE id = ?1", table_name), [id])
+        .map_err(|e| e.to_string())?;
+    Ok("Row deleted".to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -1166,7 +1315,12 @@ pub fn run() {
             get_template_checklist_items,
             add_template_checklist_item,
             remove_template_checklist_item,
-            update_template_checklist_item
+            update_template_checklist_item,
+            get_browsable_tables,
+            get_table_columns,
+            get_table_rows,
+            update_table_row,
+            delete_table_row
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

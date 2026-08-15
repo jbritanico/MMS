@@ -491,6 +491,22 @@ function App() {
             font-family: var(--mono);
             color: var(--text-soft);
           }
+
+          .neu-select {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 10px;
+            font-size: 13px;
+            font-family: var(--sans);
+            background: var(--neu-bg);
+            color: var(--text);
+            box-shadow: 3px 3px 6px var(--neu-shadow-dark), -3px -3px 6px var(--neu-shadow-light);
+          }
+          .neu-select:focus {
+            outline: none;
+            box-shadow: inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light);
+          }
+
           .trigger-input:disabled {
             background: #e9ebed;
             color: #6b7280;

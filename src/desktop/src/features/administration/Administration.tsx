@@ -3,6 +3,7 @@ import ChecklistDatabank from "./ChecklistDatabank";
 import AssetTypes from "./AssetTypes";
 import ChecklistSections from "./ChecklistSections";
 import MriTemplates from "./MriTemplates";
+import DataBrowser from "./DataBrowser";
 
 type AdminSection =
   | "users"
@@ -267,6 +268,8 @@ function Administration({ onOpenTemplate }: AdministrationProps) {
           <ChecklistSections />
         ) : active === "mri-template" ? (
           <MriTemplates onOpenTemplate={onOpenTemplate} />
+        ) : active === "data-browser" ? (
+          <DataBrowser />
         ) : (
           <div className="placeholder-screen">
             <h2>{LABELS[active]}</h2>
