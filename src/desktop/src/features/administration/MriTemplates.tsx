@@ -9,6 +9,7 @@ import {
   type TemplateStatus,
 } from "./hooks/useMriTemplates";
 import { useAssetTypes } from "./hooks/useAssetTypes";
+import AssetTypeCombobox from "./AssetTypeCombobox";
 
 const STATUS_ORDER: TemplateStatus[] = ["Draft", "Active", "Inactive"];
 
@@ -110,14 +111,9 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
             onChange={(e) => setNewName(e.target.value)}
           />
         </div>
-        <div className="field" style={{ width: 220, marginBottom: 0 }}>
+        <div className="field" style={{ width: 260, marginBottom: 0 }}>
           <label>Asset type</label>
-          <select value={newAssetTypeId} onChange={(e) => setNewAssetTypeId(e.target.value)}>
-            <option value="">— Select —</option>
-            {assetTypes.filter((a) => a.active).map((a) => (
-              <option key={a.id} value={a.id}>{a.description}</option>
-            ))}
-          </select>
+          <AssetTypeCombobox assetTypes={assetTypes} value={newAssetTypeId} onChange={setNewAssetTypeId} />
         </div>
         <button className="primary" onClick={handleCreate}>Create template</button>
       </div>

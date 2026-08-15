@@ -71,6 +71,8 @@ function App() {
             --accent-soft: #e1f5ee;
             --accent-blue: #2f6fed;
             --accent-blue-deep: #1a4d8f;
+            --chart-violet: #7c61cc;
+            --chart-green: #3d9463;
             --hover-highlight: #e9f1fe;            
             --warn: #a3591b;
             --warn-soft: #faeeda;
@@ -94,6 +96,8 @@ function App() {
             --accent-soft: #17352a;
             --accent-blue: #5b9bff;
             --accent-blue-deep: #3a6dc4;
+            --chart-violet: #a48ce8;
+            --chart-green: #5cb383;
             --hover-highlight: #263449;            
             --warn: #e0a94f;
             --warn-soft: #3a2f1a;
@@ -114,6 +118,8 @@ function App() {
             --accent-soft: #dcf3f1;
             --accent-blue: #1c7fd6;
             --accent-blue-deep: #144e82;
+            --chart-violet: #6a5bc2;
+            --chart-green: #2f9e6e;
             --hover-highlight: #d3e7f5;            
             --warn: #b5762a;
             --warn-soft: #fbeddb;
@@ -134,6 +140,8 @@ function App() {
             --accent-soft: #e8edd3;
             --accent-blue: #a05c2c;
             --accent-blue-deep: #7a4520;
+            --chart-violet: #7a5a9e;
+            --chart-green: #6b7a2e;
             --hover-highlight: #ede0c8;            
             --warn: #a3591b;
             --warn-soft: #f2e2c6;
@@ -714,7 +722,7 @@ function App() {
           }          
 
           .mri-preview-form {
-            background: #fbfbfc;
+            background: var(--bg);
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 24px;
@@ -730,7 +738,7 @@ function App() {
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.06em;
-            color: #6b7280;
+            color: var(--text-soft);
             border-bottom: 2px solid var(--accent-blue);
             display: inline-block;
             padding-bottom: 3px;
@@ -751,8 +759,38 @@ function App() {
             height: 30px;
             border: 1px solid var(--border);
             border-radius: 6px;
-            background: #ffffff;
+            background: var(--surface);
           }
+
+          .combobox-panel {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            z-index: 30;
+            max-height: 240px;
+            overflow-y: auto;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+            padding: 4px;
+          }
+          .combobox-option {
+            padding: 8px 10px;
+            border-radius: 7px;
+            font-size: 13px;
+            cursor: pointer;
+            color: var(--text);
+          }
+          .combobox-option:hover { background: var(--hover-highlight); }
+          .combobox-option.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+          .combobox-empty {
+            padding: 10px;
+            font-size: 12.5px;
+            color: var(--text-soft);
+            text-align: center;
+          }          
 
           .admin-layout {
             display: flex;

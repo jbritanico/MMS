@@ -10,10 +10,20 @@ import jsPDF from "jspdf";
 import Papa from "papaparse";
 
 const C = {
-  bg: "#F3F6F8", panel: "#FFFFFF", panel2: "#EEF2F5", border: "#DDE4E9",
-  borderLight: "#C7D1D9", text: "#182430", sub: "#57697A", faint: "#8B9AA8",
-  amber: "#C67F1E", teal: "#1B8F79", rose: "#C4485A", blue: "#3679BD",
-  violet: "#7C61CC", green: "#3D9463",
+  bg: "var(--bg)",
+  panel: "var(--surface)",
+  panel2: "var(--neu-bg)",
+  border: "var(--border)",
+  borderLight: "var(--neu-shadow-dark)",
+  text: "var(--text)",
+  sub: "var(--text-soft)",
+  faint: "var(--text-soft)",
+  amber: "var(--warn)",
+  teal: "var(--accent)",
+  rose: "var(--danger)",
+  blue: "var(--accent-blue)",
+  violet: "var(--chart-violet)",
+  green: "var(--chart-green)",
 };
 
 const SANS = '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif';
@@ -32,7 +42,7 @@ const COUNTRIES = [
   { key: "sa", name: "Saudi Arabia" }, { key: "qa", name: "Qatar" },
 ];
 
-const MONTHS = ["Aug 25","Sep 25","Oct 25","Nov 25","Dec 25","Jan 26","Feb 26","Mar 26","Apr 26","May 26","Jun 26","Jul 26"];
+const MONTHS = ["Aug 25", "Sep 25", "Oct 25", "Nov 25", "Dec 25", "Jan 26", "Feb 26", "Mar 26", "Apr 26", "May 26", "Jun 26", "Jul 26"];
 
 const SEVERITY = [
   { key: "Minor", level: 1, weight: 1, status: "Allowed", color: C.green },

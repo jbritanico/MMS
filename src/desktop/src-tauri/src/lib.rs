@@ -182,6 +182,24 @@ fn get_connection() -> Result<Connection, String> {
     )
     .map_err(|e| e.to_string())?;
 
+conn.execute(
+        "CREATE TABLE IF NOT EXISTS template_checklist_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        template_id INTEGER NOT NULL,
+        checklist_item_id INTEGER NOT NULL,
+        section_id INTEGER,
+        severity TEXT,
+        display_order INTEGER NOT NULL DEFAULT 0,
+        required INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY (template_id) REFERENCES mri_templates(id),
+        FOREIGN KEY (checklist_item_id) REFERENCES checklist_databank(id),
+        FOREIGN KEY (section_id) REFERENCES checklist_sections(id),
+        UNIQUE(template_id, checklist_item_id)
+    )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
     Ok(conn)
 }
 
@@ -189,7 +207,7 @@ fn seed_field_catalogs(conn: &Connection) -> Result<(), String> {
     let header_fields = [
         "Country",
         "Service Line",
-        "Asset Number",
+        "Asset No",
         "Client",
         "Location",
         "String No",
@@ -197,6 +215,9 @@ fn seed_field_catalogs(conn: &Connection) -> Result<(), String> {
         "Wall Thickness",
         "Reel Swivel Operating Hours",
         "Job Operating Hours",
+        "Unit Model Capacity",
+        "Pre-Job Engine Hours",
+        "Post-Job Engine Hours",
         "Type",
         "BOP Bore Size",
         "BOP Redressed for CT Size",
@@ -206,8 +227,8 @@ fn seed_field_catalogs(conn: &Connection) -> Result<(), String> {
         "Stripper Redressed for CT Size",
         "Storage Capacity",
         "Tank Capacity",
-        "MR-II Due Date",
-        "MR Initiation Date",
+        "MR II Due Date",
+        "MR Initization Date",
         "Compliance Stage",
         "OEM Serial",
         "Max OD",
@@ -1023,6 +1044,86 @@ fn update_template_header_field(field: TemplateHeaderField) -> Result<String, St
     Ok("Header field updated".to_string())
 }
 
+#[derive(Serialize, Deserialize)]
+struct TemplateChecklistItem {
+    id: i64,
+    template_id: i64,
+    checklist_item_id: i64,
+    section_id: Option<i64>,
+    severity: Option<String>,
+    display_order: i64,
+    required: bool,
+}
+
+fn valid_severity(s: &str) -> bool {
+    matches!(s, "Minor" | "Moderate" | "Major" | "Critical")
+}
+
+#[tauri::command]
+fn get_template_checklist_items(template_id: i64) -> Result<Vec<TemplateChecklistItem>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, template_id, checklist_item_id, section_id, severity, display_order, required
+         FROM template_checklist_items WHERE template_id = ?1 ORDER BY display_order",
+        )
+        .map_err(|e| e.to_string())?;
+    let items = stmt
+        .query_map([template_id], |row| {
+            Ok(TemplateChecklistItem {
+                id: row.get(0)?,
+                template_id: row.get(1)?,
+                checklist_item_id: row.get(2)?,
+                section_id: row.get(3)?,
+                severity: row.get(4)?,
+                display_order: row.get(5)?,
+                required: row.get::<_, i32>(6)? != 0,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(items)
+}
+
+#[tauri::command]
+fn add_template_checklist_item(
+    template_id: i64,
+    checklist_item_id: i64,
+    display_order: i64,
+) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute(
+        "INSERT OR IGNORE INTO template_checklist_items (template_id, checklist_item_id, required, display_order)
+         VALUES (?1, ?2, 0, ?3)",
+        rusqlite::params![template_id, checklist_item_id, display_order],
+    ).map_err(|e| e.to_string())?;
+    Ok("Checklist item added to template".to_string())
+}
+
+#[tauri::command]
+fn remove_template_checklist_item(id: i64) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute("DELETE FROM template_checklist_items WHERE id = ?1", [id])
+        .map_err(|e| e.to_string())?;
+    Ok("Checklist item removed from template".to_string())
+}
+
+#[tauri::command]
+fn update_template_checklist_item(item: TemplateChecklistItem) -> Result<String, String> {
+    let conn = get_connection()?;
+    if let Some(sev) = &item.severity {
+        if !sev.is_empty() && !valid_severity(sev) {
+            return Err(format!("Invalid severity '{}' — must be Minor, Moderate, Major, or Critical", sev));
+        }
+    }
+    conn.execute(
+        "UPDATE template_checklist_items SET section_id = ?1, severity = ?2, display_order = ?3, required = ?4 WHERE id = ?5",
+        rusqlite::params![item.section_id, item.severity, item.display_order, item.required as i32, item.id],
+    ).map_err(|e| e.to_string())?;
+    Ok("Checklist item updated".to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -1061,7 +1162,11 @@ pub fn run() {
             get_template_header_fields,
             add_template_header_field,
             remove_template_header_field,
-            update_template_header_field
+            update_template_header_field,
+            get_template_checklist_items,
+            add_template_checklist_item,
+            remove_template_checklist_item,
+            update_template_checklist_item
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
