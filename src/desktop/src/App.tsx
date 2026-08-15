@@ -150,9 +150,8 @@ function App() {
           }
           * { box-sizing: border-box; }
           html, body, #root { height: 100%; margin: 0; }
-          .app { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
-
-         .topband {
+          .app { font-family: var(--sans); background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+          .topband {
             background: var(--neu-bg);
             color: var(--text);
             padding: 14px clamp(16px, 3vw, 32px);
@@ -507,6 +506,23 @@ function App() {
             box-shadow: inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light);
           }
 
+          .checklist-item-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 10px;
+            align-items: center;
+          }
+          .checklist-item-controls select { width: 100%; min-width: 0; }
+          .checklist-required-check { font-size: 12px; white-space: nowrap; }
+
+          @container (max-width: 640px) {
+            .checklist-item-controls {
+              grid-template-columns: 1fr;
+              gap: 8px;
+            }
+            .checklist-required-check { justify-self: start; }
+          }          
+
           .trigger-input:disabled {
             background: #e9ebed;
             color: #6b7280;
@@ -765,17 +781,86 @@ function App() {
             grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
             gap: 14px;
           }
+
+          .mri-preview-table {
+            display: flex;
+            flex-direction: column;
+          }
+          .mri-preview-table-row {
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            gap: 16px;
+            align-items: center;
+            padding: 8px 0;
+          }
+          .mri-preview-table-row + .mri-preview-table-row {
+            border-top: 1px solid var(--border);
+          }
+          .mri-preview-table-row label {
+            font-size: 12.5px;
+            color: var(--text-soft);
+            margin-bottom: 0;
+          }
+          @container (max-width: 500px) {
+            .mri-preview-table-row { grid-template-columns: 1fr; gap: 4px; }
+          } 
+
+          .mri-preview-mid-grid {
+            display: grid;
+            grid-template-columns: repeat(2, auto 1fr);
+            gap: 10px 16px;
+            width: 100%;
+            align-items: center;
+          }
+          .mri-preview-mid-pair {
+            display: contents;
+          }
+          .mri-preview-mid-pair label {
+            font-size: 12.5px;
+            color: var(--text-soft);
+            white-space: nowrap;
+          }
+          @container (max-width: 500px) {
+            .mri-preview-mid-grid { grid-template-columns: 1fr; }
+            .mri-preview-mid-pair { display: flex; flex-direction: column; gap: 4px; }
+          }
+
           .mri-preview-field label {
             display: block;
             font-size: 11.5px;
             color: var(--text-soft);
             margin-bottom: 4px;
           }
+
           .mri-preview-input {
             height: 30px;
             border: 1px solid var(--border);
             border-radius: 6px;
             background: var(--surface);
+          }
+
+          .mri-checklist-table { display: flex; flex-direction: column; }
+          .mri-checklist-row {
+            display: grid;
+            grid-template-columns: 1.6fr 1.2fr 1.2fr 0.8fr 1fr 0.8fr;
+            gap: 10px;
+            align-items: center;
+            padding: 8px 4px;
+            font-size: 12.5px;
+          }
+          .mri-checklist-row + .mri-checklist-row {
+            border-top: 1px solid var(--border);
+          }
+          .mri-checklist-head {
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: var(--text-soft);
+          }
+          @container (max-width: 720px) {
+            .mri-checklist-row { grid-template-columns: 1fr; gap: 4px; }
+            .mri-checklist-head { display: none; }
           }
 
           .combobox-panel {

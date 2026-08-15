@@ -16,6 +16,12 @@ import {
 } from "./hooks/useTemplateChecklistItems";
 import { useChecklistItems } from "../administration/hooks/useChecklistDatabank";
 import { useChecklistSections } from "../administration/hooks/useChecklistSections";
+import {
+  useMidFieldCatalog,
+  useTemplateMidFields,
+  useAddTemplateMidField,
+  useRemoveTemplateMidField,
+} from "./hooks/useTemplateMidFields";
 import TemplatePreview from "./TemplatePreview";
 
 type Step = "header" | "checklist" | "mid" | "footer" | "review";
@@ -70,7 +76,7 @@ function TemplateBuilder({ templateId, templateName, onBack }: TemplateBuilderPr
       <div className="panel" style={{ minHeight: 320 }}>
         {step === "header" && <HeaderFieldsStep templateId={templateId} />}
         {step === "checklist" && <ChecklistStep templateId={templateId} />}
-        {step === "mid" && <div className="empty">Mid-section field configuration goes here</div>}
+        {step === "mid" && <MidFieldsStep templateId={templateId} />}
         {step === "footer" && <div className="empty">Footer field configuration goes here</div>}
         {step === "review" && <div className="empty">Review & save goes here</div>}
       </div>
@@ -321,36 +327,34 @@ function ChecklistStep({ templateId }: { templateId: number }) {
                     const globalIdx = sortedTemplateItems.findIndex((t) => t.id === ti.id);
                     const info = itemInfo(ti.checklist_item_id);
                     return (
-                      <div key={ti.id} className="card" style={{ cursor: "default", flexDirection: "column", alignItems: "stretch", gap: 8 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                          <div className="card-main">
-                            <div className="code">{info?.code}</div>
-                            <div className="desc">{info?.description}</div>
-                          </div>
-                          <div className="card-actions">
-                            <button className="icon-btn" aria-label="Move up" disabled={globalIdx === 0} onClick={() => moveItem(ti, -1)}>
-                              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                            </button>
-                            <button className="icon-btn" aria-label="Move down" disabled={globalIdx === sortedTemplateItems.length - 1} onClick={() => moveItem(ti, 1)}>
-                              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                            </button>
-                            <button className="icon-btn icon-danger" aria-label="Remove" onClick={() => removeItem.mutateAsync(ti.id)}>
-                              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                              </svg>
-                            </button>
-                          </div>
+                      <div key={ti.id} className="card" style={{ cursor: "default", display: "flex", flexDirection: "column", alignItems: "stretch", gap: 8 }}>                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div className="card-main">
+                          <div className="code">{info?.code}</div>
+                          <div className="desc">{info?.description}</div>
                         </div>
-                        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                        <div className="card-actions">
+                          <button className="icon-btn" aria-label="Move up" disabled={globalIdx === 0} onClick={() => moveItem(ti, -1)}>
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </button>
+                          <button className="icon-btn" aria-label="Move down" disabled={globalIdx === sortedTemplateItems.length - 1} onClick={() => moveItem(ti, 1)}>
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </button>
+                          <button className="icon-btn icon-danger" aria-label="Remove" onClick={() => removeItem.mutateAsync(ti.id)}>
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                        <div className="checklist-item-controls">
                           <select
                             className="trigger-input"
                             value={ti.section_id ?? ""}
                             onChange={(e) => setSection(ti, e.target.value)}
-                            style={{ flex: 1, minWidth: 130 }}
                           >
                             <option value="">— No section —</option>
                             {sections.map((s) => (
@@ -361,7 +365,6 @@ function ChecklistStep({ templateId }: { templateId: number }) {
                             className="trigger-input"
                             value={ti.severity ?? ""}
                             onChange={(e) => setSeverity(ti, e.target.value)}
-                            style={{ flex: 1, minWidth: 130 }}
                           >
                             <option value="">— Severity —</option>
                             <option value="Minor">Minor</option>
@@ -369,7 +372,7 @@ function ChecklistStep({ templateId }: { templateId: number }) {
                             <option value="Major">Major</option>
                             <option value="Critical">Critical</option>
                           </select>
-                          <label className="check" style={{ fontSize: 12 }}>
+                          <label className="check checklist-required-check">
                             <input type="checkbox" checked={ti.required} onChange={() => toggleRequired(ti)} /> Required
                           </label>
                         </div>
@@ -382,6 +385,48 @@ function ChecklistStep({ templateId }: { templateId: number }) {
           </div>
         )}
       </div>    </div>
+  );
+}
+
+function MidFieldsStep({ templateId }: { templateId: number }) {
+  const { data: catalog = [] } = useMidFieldCatalog();
+  const { data: templateFields = [] } = useTemplateMidFields(templateId);
+  const addField = useAddTemplateMidField(templateId);
+  const removeField = useRemoveTemplateMidField(templateId);
+
+  const selectedIds = new Set(templateFields.map((f) => f.mid_field_id));
+
+  async function toggleField(catalogId: number) {
+    if (selectedIds.has(catalogId)) {
+      const tf = templateFields.find((f) => f.mid_field_id === catalogId);
+      if (tf) await removeField.mutateAsync(tf.id);
+    } else {
+      await addField.mutateAsync({ midFieldId: catalogId, displayOrder: templateFields.length });
+    }
+  }
+
+  return (
+    <div>
+      <h2>Mid-Section fields</h2>
+      <p style={{ fontSize: 12.5, color: "var(--text-soft)", marginBottom: 16 }}>
+        Distance-travelled readings. Select which apply to this asset type.
+      </p>
+      <div className="cards" style={{ maxWidth: 420 }}>
+        {catalog.map((f) => {
+          const isSelected = selectedIds.has(f.id);
+          return (
+            <div key={f.id} className="card" onClick={() => toggleField(f.id)} style={{ cursor: "pointer" }}>
+              <div className="card-main">
+                <label className="check" onClick={(e) => e.stopPropagation()}>
+                  <input type="checkbox" checked={isSelected} onChange={() => toggleField(f.id)} />
+                  <span style={{ marginLeft: 6 }}>{f.label}</span>
+                </label>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

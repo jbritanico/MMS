@@ -229,6 +229,34 @@ fn get_connection() -> Result<Connection, String> {
     )
     .map_err(|e| e.to_string())?;
 
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS template_mid_fields (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            template_id INTEGER NOT NULL,
+            mid_field_id INTEGER NOT NULL,
+            display_order INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (template_id) REFERENCES mri_templates(id),
+            FOREIGN KEY (mid_field_id) REFERENCES mid_field_catalog(id),
+            UNIQUE(template_id, mid_field_id)
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS template_footer_fields (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            template_id INTEGER NOT NULL,
+            footer_field_id INTEGER NOT NULL,
+            display_order INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (template_id) REFERENCES mri_templates(id),
+            FOREIGN KEY (footer_field_id) REFERENCES footer_field_catalog(id),
+            UNIQUE(template_id, footer_field_id)
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
     Ok(conn)
 }
 
@@ -1156,6 +1184,108 @@ fn update_template_checklist_item(item: TemplateChecklistItem) -> Result<String,
     Ok("Checklist item updated".to_string())
 }
 
+#[derive(Serialize, Deserialize)]
+struct TemplateMidField {
+    id: i64,
+    template_id: i64,
+    mid_field_id: i64,
+    display_order: i64,
+}
+
+#[tauri::command]
+fn get_template_mid_fields(template_id: i64) -> Result<Vec<TemplateMidField>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, template_id, mid_field_id, display_order FROM template_mid_fields WHERE template_id = ?1 ORDER BY display_order"
+    ).map_err(|e| e.to_string())?;
+    let fields = stmt
+        .query_map([template_id], |row| {
+            Ok(TemplateMidField {
+                id: row.get(0)?,
+                template_id: row.get(1)?,
+                mid_field_id: row.get(2)?,
+                display_order: row.get(3)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(fields)
+}
+
+#[tauri::command]
+fn add_template_mid_field(
+    template_id: i64,
+    mid_field_id: i64,
+    display_order: i64,
+) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute(
+        "INSERT OR IGNORE INTO template_mid_fields (template_id, mid_field_id, display_order) VALUES (?1, ?2, ?3)",
+        rusqlite::params![template_id, mid_field_id, display_order],
+    ).map_err(|e| e.to_string())?;
+    Ok("Mid field added to template".to_string())
+}
+
+#[tauri::command]
+fn remove_template_mid_field(id: i64) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute("DELETE FROM template_mid_fields WHERE id = ?1", [id])
+        .map_err(|e| e.to_string())?;
+    Ok("Mid field removed from template".to_string())
+}
+
+#[derive(Serialize, Deserialize)]
+struct TemplateFooterField {
+    id: i64,
+    template_id: i64,
+    footer_field_id: i64,
+    display_order: i64,
+}
+
+#[tauri::command]
+fn get_template_footer_fields(template_id: i64) -> Result<Vec<TemplateFooterField>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, template_id, footer_field_id, display_order FROM template_footer_fields WHERE template_id = ?1 ORDER BY display_order"
+    ).map_err(|e| e.to_string())?;
+    let fields = stmt
+        .query_map([template_id], |row| {
+            Ok(TemplateFooterField {
+                id: row.get(0)?,
+                template_id: row.get(1)?,
+                footer_field_id: row.get(2)?,
+                display_order: row.get(3)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(fields)
+}
+
+#[tauri::command]
+fn add_template_footer_field(
+    template_id: i64,
+    footer_field_id: i64,
+    display_order: i64,
+) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute(
+        "INSERT OR IGNORE INTO template_footer_fields (template_id, footer_field_id, display_order) VALUES (?1, ?2, ?3)",
+        rusqlite::params![template_id, footer_field_id, display_order],
+    ).map_err(|e| e.to_string())?;
+    Ok("Footer field added to template".to_string())
+}
+
+#[tauri::command]
+fn remove_template_footer_field(id: i64) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute("DELETE FROM template_footer_fields WHERE id = ?1", [id])
+        .map_err(|e| e.to_string())?;
+    Ok("Footer field removed from template".to_string())
+}
+
 #[tauri::command]
 fn get_browsable_tables() -> Vec<String> {
     BROWSABLE_TABLES.iter().map(|s| s.to_string()).collect()
@@ -1320,7 +1450,13 @@ pub fn run() {
             get_table_columns,
             get_table_rows,
             update_table_row,
-            delete_table_row
+            delete_table_row,
+            get_template_mid_fields,
+            add_template_mid_field,
+            remove_template_mid_field,
+            get_template_footer_fields,
+            add_template_footer_field,
+            remove_template_footer_field
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
