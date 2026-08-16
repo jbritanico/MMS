@@ -8,10 +8,11 @@ import Administration from "./features/administration/Administration";
 import MaintenanceTriggers from "./features/asset-registry/MaintenanceTriggers";
 import TemplateBuilder from "./features/mri-template-builder/TemplateBuilder";
 import SelectAssetForReport from "./features/mri-reporting/SelectAssetForReport";
+import ReportWizard from "./features/mri-reporting/ReportWizard";
 import LiquidGlassTest from "./features/ui-lab/LiquidGlassTest";
 import { THEMES, type Theme } from "./lib/theme";
 
-type Screen = "menu" | "assets" | "reports" | "dashboard" | "admin" | "triggers" | "uilab" | "template-builder" | "select-asset-report";
+type Screen = "menu" | "assets" | "reports" | "dashboard" | "admin" | "triggers" | "uilab" | "template-builder" | "select-asset-report" | "report-wizard";
 type MrLevel = "MR-I" | "MR-II" | "MR-III";
 
 const LABELS: Record<Screen, string> = {
@@ -24,6 +25,7 @@ const LABELS: Record<Screen, string> = {
   uilab: "UI Lab",
   "template-builder": "MR-I Template Builder",
   "select-asset-report": "Select Asset",
+  "report-wizard": "MR-I Report",
 };
 
 const queryClient = new QueryClient();
@@ -44,7 +46,7 @@ function App() {
 
   function handleReportCreated(reportId: number) {
     setSelectedReportId(reportId);
-    // Next step (report-filling wizard) will use selectedReportId once built
+    setScreen("report-wizard");
   }
 
   const [theme, setTheme] = useState<Theme>("light");
@@ -1373,6 +1375,9 @@ function App() {
             <SelectAssetForReport onReportCreated={handleReportCreated} />
           )}
           {screen === "reports" && mrLevel !== "MR-I" && <MaintenanceReport />}
+          {screen === "report-wizard" && selectedReportId !== null && (
+            <ReportWizard reportId={selectedReportId} onBack={() => setScreen("reports")} />
+          )}
           {screen === "dashboard" && <Dashboard />}
           {screen === "admin" && <Administration onOpenTemplate={handleOpenTemplate} />}
           {screen === "triggers" && selectedAsset && (
