@@ -3,6 +3,7 @@ import { useTemplateChecklistItems } from "./hooks/useTemplateChecklistItems";
 import { useChecklistItems } from "../administration/hooks/useChecklistDatabank";
 import { useChecklistSections } from "../administration/hooks/useChecklistSections";
 import { useMidFieldCatalog, useTemplateMidFields } from "./hooks/useTemplateMidFields";
+import { useFooterFieldCatalog, useTemplateFooterFields } from "./hooks/useTemplateFooterFields";
 
 interface TemplatePreviewProps {
   templateId: number;
@@ -18,6 +19,10 @@ function TemplatePreview({ templateId, templateName }: TemplatePreviewProps) {
   const { data: templateChecklist = [] } = useTemplateChecklistItems(templateId);
   const { data: midCatalog = [] } = useMidFieldCatalog();
   const { data: templateMidFields = [] } = useTemplateMidFields(templateId);
+  const { data: footerCatalog = [] } = useFooterFieldCatalog();
+  const { data: templateFooterFields = [] } = useTemplateFooterFields(templateId);
+
+  const STATUS_FIELDS = ["Cleaned", "Green Tagged", "Job Ready", "Pressure Tested", "Function Tested"];
 
   const sortedFields = [...templateFields].sort((a, b) => a.display_order - b.display_order);
   const sortedChecklist = [...templateChecklist].sort((a, b) => a.display_order - b.display_order);
@@ -152,7 +157,65 @@ function TemplatePreview({ templateId, templateName }: TemplatePreviewProps) {
         )}
 
         <div className="mri-preview-section-label" style={{ marginTop: 20 }}>Footer</div>
-        <div className="empty">Not yet configured</div>
+        {templateFooterFields.length === 0 ? (
+          <div className="empty">No footer fields configured yet</div>
+        ) : (
+          <div className="mri-footer-preview">
+            {(() => {
+              const SIGNOFF_FIELDS = ["Operator", "Operator Date", "Supervisor", "Supervisor Date"];
+              const sorted = [...templateFooterFields].sort((a, b) => a.display_order - b.display_order);
+              const signoffItems = sorted.filter((tf) => {
+                const label = footerCatalog.find((c) => c.id === tf.footer_field_id)?.label ?? "";
+                return SIGNOFF_FIELDS.includes(label);
+              });
+              const otherItems = sorted.filter((tf) => {
+                const label = footerCatalog.find((c) => c.id === tf.footer_field_id)?.label ?? "";
+                return !SIGNOFF_FIELDS.includes(label);
+              });
+
+              return (
+                <>
+                  {otherItems.map((tf) => {
+                    const label = footerCatalog.find((c) => c.id === tf.footer_field_id)?.label ?? "—";
+                    const isStatus = STATUS_FIELDS.includes(label);
+
+                    if (isStatus) {
+                      return (
+                        <div key={tf.id} className="mri-footer-status">
+                          <span>{label}</span>
+                          <div className="mri-preview-toggle">
+                            <span className="mri-preview-toggle-knob" />
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={tf.id} className="mri-preview-table-row">
+                        <label>{label}</label>
+                        <div className="mri-preview-input" />
+                      </div>
+                    );
+                  })}
+
+                  {signoffItems.length > 0 && (
+                    <div className="mri-footer-signoff-grid">
+                      {signoffItems.map((tf) => {
+                        const label = footerCatalog.find((c) => c.id === tf.footer_field_id)?.label ?? "—";
+                        return (
+                          <div key={tf.id} className="mri-footer-signoff-field">
+                            <label>{label}</label>
+                            <div className="mri-preview-input" />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        )}
       </div>
     </div>
   );

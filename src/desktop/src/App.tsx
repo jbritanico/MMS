@@ -825,6 +825,55 @@ function App() {
             .mri-preview-mid-pair { display: flex; flex-direction: column; gap: 4px; }
           }
 
+          .mri-footer-preview {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+          }
+          .mri-footer-status {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 13px;
+            border-top: 1px solid var(--border);
+          }
+          .mri-preview-toggle {
+            width: 36px;
+            height: 20px;
+            border-radius: 10px;
+            background: var(--neu-shadow-dark);
+            position: relative;
+          }
+          .mri-preview-toggle-knob {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--surface);
+          }
+
+          .mri-footer-signoff-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-top: 10px;
+          }
+          .mri-footer-signoff-field label {
+            display: block;
+            font-size: 11.5px;
+            color: var(--text-soft);
+            margin-bottom: 4px;
+          }
+          @container (max-width: 700px) {
+            .mri-footer-signoff-grid { grid-template-columns: repeat(2, 1fr); }
+          }
+          @container (max-width: 400px) {
+            .mri-footer-signoff-grid { grid-template-columns: 1fr; }
+          }          
+
           .mri-preview-field label {
             display: block;
             font-size: 11.5px;

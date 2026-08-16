@@ -22,6 +22,12 @@ import {
   useAddTemplateMidField,
   useRemoveTemplateMidField,
 } from "./hooks/useTemplateMidFields";
+import {
+  useFooterFieldCatalog,
+  useTemplateFooterFields,
+  useAddTemplateFooterField,
+  useRemoveTemplateFooterField,
+} from "./hooks/useTemplateFooterFields";
 import TemplatePreview from "./TemplatePreview";
 
 type Step = "header" | "checklist" | "mid" | "footer" | "review";
@@ -77,7 +83,7 @@ function TemplateBuilder({ templateId, templateName, onBack }: TemplateBuilderPr
         {step === "header" && <HeaderFieldsStep templateId={templateId} />}
         {step === "checklist" && <ChecklistStep templateId={templateId} />}
         {step === "mid" && <MidFieldsStep templateId={templateId} />}
-        {step === "footer" && <div className="empty">Footer field configuration goes here</div>}
+        {step === "footer" && <FooterFieldsStep templateId={templateId} />}
         {step === "review" && <div className="empty">Review & save goes here</div>}
       </div>
 
@@ -412,6 +418,47 @@ function MidFieldsStep({ templateId }: { templateId: number }) {
         Distance-travelled readings. Select which apply to this asset type.
       </p>
       <div className="cards" style={{ maxWidth: 420 }}>
+        {catalog.map((f) => {
+          const isSelected = selectedIds.has(f.id);
+          return (
+            <div key={f.id} className="card" onClick={() => toggleField(f.id)} style={{ cursor: "pointer" }}>
+              <div className="card-main">
+                <label className="check" onClick={(e) => e.stopPropagation()}>
+                  <input type="checkbox" checked={isSelected} onChange={() => toggleField(f.id)} />
+                  <span style={{ marginLeft: 6 }}>{f.label}</span>
+                </label>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+function FooterFieldsStep({ templateId }: { templateId: number }) {
+  const { data: catalog = [] } = useFooterFieldCatalog();
+  const { data: templateFields = [] } = useTemplateFooterFields(templateId);
+  const addField = useAddTemplateFooterField(templateId);
+  const removeField = useRemoveTemplateFooterField(templateId);
+
+  const selectedIds = new Set(templateFields.map((f) => f.footer_field_id));
+
+  async function toggleField(catalogId: number) {
+    if (selectedIds.has(catalogId)) {
+      const tf = templateFields.find((f) => f.footer_field_id === catalogId);
+      if (tf) await removeField.mutateAsync(tf.id);
+    } else {
+      await addField.mutateAsync({ footerFieldId: catalogId, displayOrder: templateFields.length });
+    }
+  }
+
+  return (
+    <div>
+      <h2>Footer fields</h2>
+      <p style={{ fontSize: 12.5, color: "var(--text-soft)", marginBottom: 16 }}>
+        Report summary and workflow sign-off fields. Select which apply to this asset type.
+      </p>
+      <div className="cards" style={{ maxWidth: 480 }}>
         {catalog.map((f) => {
           const isSelected = selectedIds.has(f.id);
           return (
