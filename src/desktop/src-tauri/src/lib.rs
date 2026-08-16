@@ -2,7 +2,7 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const BROWSABLE_TABLES: [&str; 14] = [
+const BROWSABLE_TABLES: [&str; 17] = [
     "assets",
     "maintenance_triggers",
     "checklist_databank",
@@ -16,6 +16,9 @@ const BROWSABLE_TABLES: [&str; 14] = [
     "template_checklist_items",
     "template_mid_fields",
     "template_footer_fields",
+    "mri_reports",
+    "mri_report_header_values",
+    "mri_report_checklist_results",
     "sqlite_sequence",
 ];
 
@@ -52,6 +55,7 @@ struct Asset {
     mr_last_action: String,
     last_action_by: String,
     last_action_dt: String,
+    asset_type_id: Option<i64>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -72,6 +76,21 @@ const TRIGGER_TYPES: [&str; 5] = ["OH", "CA", "KM", "RIF", "EH"];
 
 fn get_connection() -> Result<Connection, String> {
     let conn = Connection::open("assets.db").map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS asset_types (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            description TEXT NOT NULL UNIQUE,
+            active INTEGER NOT NULL DEFAULT 1,
+            created_by TEXT NOT NULL DEFAULT 'local user',
+            created_date TEXT NOT NULL,
+            updated_by TEXT NOT NULL DEFAULT 'local user',
+            updated_date TEXT NOT NULL
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
     conn.execute(
         "CREATE TABLE IF NOT EXISTS assets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -84,7 +103,9 @@ fn get_connection() -> Result<Connection, String> {
             vehicle INTEGER,
             mr_last_action TEXT,
             last_action_by TEXT,
-            last_action_dt TEXT
+            last_action_dt TEXT,
+            asset_type_id INTEGER,
+            FOREIGN KEY (asset_type_id) REFERENCES asset_types(id)
         )",
         [],
     )
@@ -117,20 +138,6 @@ fn get_connection() -> Result<Connection, String> {
         "CREATE TABLE IF NOT EXISTS checklist_sections (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE
-        )",
-        [],
-    )
-    .map_err(|e| e.to_string())?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS asset_types (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            description TEXT NOT NULL UNIQUE,
-            active INTEGER NOT NULL DEFAULT 1,
-            created_by TEXT NOT NULL DEFAULT 'local user',
-            created_date TEXT NOT NULL,
-            updated_by TEXT NOT NULL DEFAULT 'local user',
-            updated_date TEXT NOT NULL
         )",
         [],
     )
@@ -257,6 +264,84 @@ fn get_connection() -> Result<Connection, String> {
     )
     .map_err(|e| e.to_string())?;
 
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS mri_reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            template_id INTEGER NOT NULL,
+            asset_id INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'Draft',
+            submitted_by TEXT,
+            submitted_date TEXT,
+            approved_by TEXT,
+            approved_date TEXT,
+            created_date TEXT NOT NULL,
+            FOREIGN KEY (template_id) REFERENCES mri_templates(id),
+            FOREIGN KEY (asset_id) REFERENCES assets(id)
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS mri_report_header_values (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            report_id INTEGER NOT NULL,
+            template_header_field_id INTEGER NOT NULL,
+            value TEXT,
+            FOREIGN KEY (report_id) REFERENCES mri_reports(id),
+            FOREIGN KEY (template_header_field_id) REFERENCES template_header_fields(id),
+            UNIQUE(report_id, template_header_field_id)
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS mri_report_checklist_results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            report_id INTEGER NOT NULL,
+            template_checklist_item_id INTEGER NOT NULL,
+            status TEXT,
+            issue_details TEXT,
+            action_taken TEXT,
+            date_observed TEXT,
+            closure_status TEXT NOT NULL DEFAULT 'Pending',
+            FOREIGN KEY (report_id) REFERENCES mri_reports(id),
+            FOREIGN KEY (template_checklist_item_id) REFERENCES template_checklist_items(id),
+            UNIQUE(report_id, template_checklist_item_id)
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS mri_report_mid_values (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            report_id INTEGER NOT NULL,
+            template_mid_field_id INTEGER NOT NULL,
+            value TEXT,
+            FOREIGN KEY (report_id) REFERENCES mri_reports(id),
+            FOREIGN KEY (template_mid_field_id) REFERENCES template_mid_fields(id),
+            UNIQUE(report_id, template_mid_field_id)
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS mri_report_footer_values (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            report_id INTEGER NOT NULL,
+            template_footer_field_id INTEGER NOT NULL,
+            value TEXT,
+            FOREIGN KEY (report_id) REFERENCES mri_reports(id),
+            FOREIGN KEY (template_footer_field_id) REFERENCES template_footer_fields(id),
+            UNIQUE(report_id, template_footer_field_id)
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
     Ok(conn)
 }
 
@@ -366,12 +451,12 @@ fn create_asset(asset: Asset) -> Result<String, String> {
     }
 
     conn.execute(
-        "INSERT INTO assets (asset_code, asset_description, country, service_line, active, service_asset, vehicle, mr_last_action, last_action_by, last_action_dt)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        "INSERT INTO assets (asset_code, asset_description, country, service_line, active, service_asset, vehicle, mr_last_action, last_action_by, last_action_dt, asset_type_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
         rusqlite::params![
             asset.asset_code, asset.asset_description, asset.country, asset.service_line,
             asset.active as i32, asset.service_asset as i32, asset.vehicle as i32,
-            asset.mr_last_action, asset.last_action_by, asset.last_action_dt
+            asset.mr_last_action, asset.last_action_by, asset.last_action_dt, asset.asset_type_id
         ],
     ).map_err(|e| e.to_string())?;
 
@@ -384,7 +469,7 @@ fn create_asset(asset: Asset) -> Result<String, String> {
 #[tauri::command]
 fn get_assets() -> Result<Vec<Asset>, String> {
     let conn = get_connection()?;
-    let mut stmt = conn.prepare("SELECT id, asset_code, asset_description, country, service_line, active, service_asset, vehicle, mr_last_action, last_action_by, last_action_dt FROM assets")
+    let mut stmt = conn.prepare("SELECT id, asset_code, asset_description, country, service_line, active, service_asset, vehicle, mr_last_action, last_action_by, last_action_dt, asset_type_id FROM assets")
         .map_err(|e| e.to_string())?;
     let assets = stmt
         .query_map([], |row| {
@@ -400,6 +485,7 @@ fn get_assets() -> Result<Vec<Asset>, String> {
                 mr_last_action: row.get(8)?,
                 last_action_by: row.get(9)?,
                 last_action_dt: row.get(10)?,
+                asset_type_id: row.get(11)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -412,11 +498,11 @@ fn get_assets() -> Result<Vec<Asset>, String> {
 fn update_asset(asset: Asset) -> Result<String, String> {
     let conn = get_connection()?;
     conn.execute(
-        "UPDATE assets SET asset_code=?1, asset_description=?2, country=?3, service_line=?4, active=?5, service_asset=?6, vehicle=?7, mr_last_action=?8, last_action_by=?9, last_action_dt=?10 WHERE id=?11",
+        "UPDATE assets SET asset_code=?1, asset_description=?2, country=?3, service_line=?4, active=?5, service_asset=?6, vehicle=?7, mr_last_action=?8, last_action_by=?9, last_action_dt=?10, asset_type_id=?11 WHERE id=?12",
         rusqlite::params![
             asset.asset_code, asset.asset_description, asset.country, asset.service_line,
             asset.active as i32, asset.service_asset as i32, asset.vehicle as i32,
-            asset.mr_last_action, asset.last_action_by, asset.last_action_dt, asset.id
+            asset.mr_last_action, asset.last_action_by, asset.last_action_dt, asset.asset_type_id, asset.id
         ],
     ).map_err(|e| e.to_string())?;
     Ok("Asset updated".to_string())
@@ -693,6 +779,43 @@ fn delete_checklist_section(id: i64) -> Result<String, String> {
     conn.execute("DELETE FROM checklist_sections WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
     Ok("Section deleted".to_string())
+}
+
+#[tauri::command]
+fn bulk_create_checklist_sections(names: Vec<String>) -> Result<String, String> {
+    let conn = get_connection()?;
+    let mut added = 0;
+    let mut skipped = 0;
+
+    for name in names {
+        let trimmed = name.trim().to_string();
+        if trimmed.is_empty() {
+            skipped += 1;
+            continue;
+        }
+        let existing: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM checklist_sections WHERE name = ?1",
+                [&trimmed],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        if existing > 0 {
+            skipped += 1;
+            continue;
+        }
+        conn.execute(
+            "INSERT INTO checklist_sections (name) VALUES (?1)",
+            [&trimmed],
+        )
+        .map_err(|e| e.to_string())?;
+        added += 1;
+    }
+
+    Ok(format!(
+        "{} added, {} skipped (duplicates or empty)",
+        added, skipped
+    ))
 }
 
 #[derive(Serialize, Deserialize)]
@@ -1286,6 +1409,369 @@ fn remove_template_footer_field(id: i64) -> Result<String, String> {
     Ok("Footer field removed from template".to_string())
 }
 
+fn valid_report_status(status: &str) -> bool {
+    matches!(status, "Draft" | "Submitted" | "Approved" | "Rejected")
+}
+
+#[derive(Serialize, Deserialize)]
+struct MriReport {
+    id: i64,
+    template_id: i64,
+    asset_id: i64,
+    status: String,
+    submitted_by: Option<String>,
+    submitted_date: Option<String>,
+    approved_by: Option<String>,
+    approved_date: Option<String>,
+    created_date: String,
+}
+
+#[tauri::command]
+fn get_mri_reports() -> Result<Vec<MriReport>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, template_id, asset_id, status, submitted_by, submitted_date, approved_by, approved_date, created_date
+         FROM mri_reports ORDER BY created_date DESC"
+    ).map_err(|e| e.to_string())?;
+    let reports = stmt
+        .query_map([], |row| {
+            Ok(MriReport {
+                id: row.get(0)?,
+                template_id: row.get(1)?,
+                asset_id: row.get(2)?,
+                status: row.get(3)?,
+                submitted_by: row.get(4)?,
+                submitted_date: row.get(5)?,
+                approved_by: row.get(6)?,
+                approved_date: row.get(7)?,
+                created_date: row.get(8)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(reports)
+}
+
+#[tauri::command]
+fn get_mri_report(id: i64) -> Result<MriReport, String> {
+    let conn = get_connection()?;
+    conn.query_row(
+        "SELECT id, template_id, asset_id, status, submitted_by, submitted_date, approved_by, approved_date, created_date
+         FROM mri_reports WHERE id = ?1",
+        [id],
+        |row| Ok(MriReport {
+            id: row.get(0)?,
+            template_id: row.get(1)?,
+            asset_id: row.get(2)?,
+            status: row.get(3)?,
+            submitted_by: row.get(4)?,
+            submitted_date: row.get(5)?,
+            approved_by: row.get(6)?,
+            approved_date: row.get(7)?,
+            created_date: row.get(8)?,
+        }),
+    ).map_err(|e| e.to_string())
+}
+
+#[derive(Serialize, Deserialize)]
+struct NewMriReport {
+    template_id: i64,
+    asset_id: i64,
+}
+
+#[tauri::command]
+fn create_mri_report(report: NewMriReport) -> Result<i64, String> {
+    let conn = get_connection()?;
+    let now = chrono_now();
+    conn.execute(
+        "INSERT INTO mri_reports (template_id, asset_id, status, created_date) VALUES (?1, ?2, 'Draft', ?3)",
+        rusqlite::params![report.template_id, report.asset_id, now],
+    ).map_err(|e| e.to_string())?;
+    Ok(conn.last_insert_rowid())
+}
+
+#[tauri::command]
+fn delete_mri_report(id: i64) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute("DELETE FROM mri_reports WHERE id = ?1", [id])
+        .map_err(|e| e.to_string())?;
+    Ok("Report deleted".to_string())
+}
+
+#[tauri::command]
+fn submit_mri_report(id: i64) -> Result<String, String> {
+    let conn = get_connection()?;
+    let now = chrono_now();
+    conn.execute(
+        "UPDATE mri_reports SET status = 'Submitted', submitted_by = 'local user', submitted_date = ?1 WHERE id = ?2",
+        rusqlite::params![now, id],
+    ).map_err(|e| e.to_string())?;
+    Ok("Report submitted".to_string())
+}
+
+#[tauri::command]
+fn set_mri_report_status(id: i64, status: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    let status = status.trim();
+    if !valid_report_status(status) {
+        return Err(format!("Invalid status '{}'", status));
+    }
+    let now = chrono_now();
+    if status == "Approved" || status == "Rejected" {
+        conn.execute(
+            "UPDATE mri_reports SET status = ?1, approved_by = 'local user', approved_date = ?2 WHERE id = ?3",
+            rusqlite::params![status, now, id],
+        ).map_err(|e| e.to_string())?;
+    } else {
+        conn.execute(
+            "UPDATE mri_reports SET status = ?1 WHERE id = ?2",
+            rusqlite::params![status, id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok("Report status updated".to_string())
+}
+
+#[derive(Serialize, Deserialize)]
+struct MriReportHeaderValue {
+    id: i64,
+    report_id: i64,
+    template_header_field_id: i64,
+    value: Option<String>,
+}
+
+#[tauri::command]
+fn get_mri_report_header_values(report_id: i64) -> Result<Vec<MriReportHeaderValue>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, report_id, template_header_field_id, value FROM mri_report_header_values WHERE report_id = ?1"
+    ).map_err(|e| e.to_string())?;
+    let values = stmt
+        .query_map([report_id], |row| {
+            Ok(MriReportHeaderValue {
+                id: row.get(0)?,
+                report_id: row.get(1)?,
+                template_header_field_id: row.get(2)?,
+                value: row.get(3)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(values)
+}
+
+#[tauri::command]
+fn set_mri_report_header_value(
+    report_id: i64,
+    template_header_field_id: i64,
+    value: String,
+) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute(
+        "INSERT INTO mri_report_header_values (report_id, template_header_field_id, value)
+         VALUES (?1, ?2, ?3)
+         ON CONFLICT(report_id, template_header_field_id) DO UPDATE SET value = excluded.value",
+        rusqlite::params![report_id, template_header_field_id, value],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok("Header value saved".to_string())
+}
+
+fn valid_checklist_status(s: &str) -> bool {
+    matches!(s, "Pass" | "Fail")
+}
+
+fn valid_closure_status(s: &str) -> bool {
+    matches!(s, "Pending" | "Closed")
+}
+
+#[derive(Serialize, Deserialize)]
+struct MriReportChecklistResult {
+    id: i64,
+    report_id: i64,
+    template_checklist_item_id: i64,
+    status: Option<String>,
+    issue_details: Option<String>,
+    action_taken: Option<String>,
+    date_observed: Option<String>,
+    closure_status: String,
+}
+
+#[tauri::command]
+fn get_mri_report_checklist_results(
+    report_id: i64,
+) -> Result<Vec<MriReportChecklistResult>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, report_id, template_checklist_item_id, status, issue_details, action_taken, date_observed, closure_status
+         FROM mri_report_checklist_results WHERE report_id = ?1"
+    ).map_err(|e| e.to_string())?;
+    let results = stmt
+        .query_map([report_id], |row| {
+            Ok(MriReportChecklistResult {
+                id: row.get(0)?,
+                report_id: row.get(1)?,
+                template_checklist_item_id: row.get(2)?,
+                status: row.get(3)?,
+                issue_details: row.get(4)?,
+                action_taken: row.get(5)?,
+                date_observed: row.get(6)?,
+                closure_status: row.get(7)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(results)
+}
+
+#[tauri::command]
+fn set_mri_report_checklist_result(result: MriReportChecklistResult) -> Result<String, String> {
+    let conn = get_connection()?;
+
+    if let Some(s) = &result.status {
+        if !s.is_empty() && !valid_checklist_status(s) {
+            return Err(format!("Invalid status '{}' — must be Pass or Fail", s));
+        }
+        if s == "Fail" {
+            if result
+                .issue_details
+                .as_deref()
+                .unwrap_or("")
+                .trim()
+                .is_empty()
+            {
+                return Err("Issue details are required when status is Fail".to_string());
+            }
+            if result
+                .action_taken
+                .as_deref()
+                .unwrap_or("")
+                .trim()
+                .is_empty()
+            {
+                return Err("Action taken is required when status is Fail".to_string());
+            }
+        }
+    }
+    if !valid_closure_status(&result.closure_status) {
+        return Err(format!(
+            "Invalid closure status '{}' — must be Pending or Closed",
+            result.closure_status
+        ));
+    }
+
+    conn.execute(
+        "INSERT INTO mri_report_checklist_results (report_id, template_checklist_item_id, status, issue_details, action_taken, date_observed, closure_status)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+         ON CONFLICT(report_id, template_checklist_item_id) DO UPDATE SET
+            status = excluded.status,
+            issue_details = excluded.issue_details,
+            action_taken = excluded.action_taken,
+            date_observed = excluded.date_observed,
+            closure_status = excluded.closure_status",
+        rusqlite::params![
+            result.report_id, result.template_checklist_item_id, result.status,
+            result.issue_details, result.action_taken, result.date_observed, result.closure_status
+        ],
+    ).map_err(|e| e.to_string())?;
+    Ok("Checklist result saved".to_string())
+}
+
+#[derive(Serialize, Deserialize)]
+struct MriReportMidValue {
+    id: i64,
+    report_id: i64,
+    template_mid_field_id: i64,
+    value: Option<String>,
+}
+
+#[tauri::command]
+fn get_mri_report_mid_values(report_id: i64) -> Result<Vec<MriReportMidValue>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, report_id, template_mid_field_id, value FROM mri_report_mid_values WHERE report_id = ?1"
+    ).map_err(|e| e.to_string())?;
+    let values = stmt
+        .query_map([report_id], |row| {
+            Ok(MriReportMidValue {
+                id: row.get(0)?,
+                report_id: row.get(1)?,
+                template_mid_field_id: row.get(2)?,
+                value: row.get(3)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(values)
+}
+
+#[tauri::command]
+fn set_mri_report_mid_value(
+    report_id: i64,
+    template_mid_field_id: i64,
+    value: String,
+) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute(
+        "INSERT INTO mri_report_mid_values (report_id, template_mid_field_id, value)
+         VALUES (?1, ?2, ?3)
+         ON CONFLICT(report_id, template_mid_field_id) DO UPDATE SET value = excluded.value",
+        rusqlite::params![report_id, template_mid_field_id, value],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok("Mid value saved".to_string())
+}
+
+#[derive(Serialize, Deserialize)]
+struct MriReportFooterValue {
+    id: i64,
+    report_id: i64,
+    template_footer_field_id: i64,
+    value: Option<String>,
+}
+
+#[tauri::command]
+fn get_mri_report_footer_values(report_id: i64) -> Result<Vec<MriReportFooterValue>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, report_id, template_footer_field_id, value FROM mri_report_footer_values WHERE report_id = ?1"
+    ).map_err(|e| e.to_string())?;
+    let values = stmt
+        .query_map([report_id], |row| {
+            Ok(MriReportFooterValue {
+                id: row.get(0)?,
+                report_id: row.get(1)?,
+                template_footer_field_id: row.get(2)?,
+                value: row.get(3)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(values)
+}
+
+#[tauri::command]
+fn set_mri_report_footer_value(
+    report_id: i64,
+    template_footer_field_id: i64,
+    value: String,
+) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute(
+        "INSERT INTO mri_report_footer_values (report_id, template_footer_field_id, value)
+         VALUES (?1, ?2, ?3)
+         ON CONFLICT(report_id, template_footer_field_id) DO UPDATE SET value = excluded.value",
+        rusqlite::params![report_id, template_footer_field_id, value],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok("Footer value saved".to_string())
+}
+
 #[tauri::command]
 fn get_browsable_tables() -> Vec<String> {
     BROWSABLE_TABLES.iter().map(|s| s.to_string()).collect()
@@ -1427,6 +1913,7 @@ pub fn run() {
             create_checklist_section,
             update_checklist_section,
             delete_checklist_section,
+            bulk_create_checklist_sections,
             get_header_fields,
             add_header_field,
             get_mid_fields,
@@ -1446,17 +1933,31 @@ pub fn run() {
             add_template_checklist_item,
             remove_template_checklist_item,
             update_template_checklist_item,
-            get_browsable_tables,
-            get_table_columns,
-            get_table_rows,
-            update_table_row,
-            delete_table_row,
             get_template_mid_fields,
             add_template_mid_field,
             remove_template_mid_field,
             get_template_footer_fields,
             add_template_footer_field,
-            remove_template_footer_field
+            remove_template_footer_field,
+            get_browsable_tables,
+            get_table_columns,
+            get_table_rows,
+            update_table_row,
+            delete_table_row,
+            get_mri_reports,
+            get_mri_report,
+            create_mri_report,
+            delete_mri_report,
+            submit_mri_report,
+            set_mri_report_status,
+            get_mri_report_header_values,
+            set_mri_report_header_value,
+            get_mri_report_checklist_results,
+            set_mri_report_checklist_result,
+            get_mri_report_mid_values,
+            set_mri_report_mid_value,
+            get_mri_report_footer_values,
+            set_mri_report_footer_value
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -7,10 +7,11 @@ import Dashboard from "./features/dashboard/Dashboard";
 import Administration from "./features/administration/Administration";
 import MaintenanceTriggers from "./features/asset-registry/MaintenanceTriggers";
 import TemplateBuilder from "./features/mri-template-builder/TemplateBuilder";
+import SelectAssetForReport from "./features/mri-reporting/SelectAssetForReport";
 import LiquidGlassTest from "./features/ui-lab/LiquidGlassTest";
 import { THEMES, type Theme } from "./lib/theme";
 
-type Screen = "menu" | "assets" | "reports" | "dashboard" | "admin" | "triggers" | "uilab" | "template-builder";
+type Screen = "menu" | "assets" | "reports" | "dashboard" | "admin" | "triggers" | "uilab" | "template-builder" | "select-asset-report";
 type MrLevel = "MR-I" | "MR-II" | "MR-III";
 
 const LABELS: Record<Screen, string> = {
@@ -22,6 +23,7 @@ const LABELS: Record<Screen, string> = {
   triggers: "Maintenance Triggers",
   uilab: "UI Lab",
   "template-builder": "MR-I Template Builder",
+  "select-asset-report": "Select Asset",
 };
 
 const queryClient = new QueryClient();
@@ -36,6 +38,13 @@ function App() {
   function handleOpenTemplate(id: number, name: string) {
     setSelectedTemplate({ id, name });
     setScreen("template-builder");
+  }
+
+  const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
+
+  function handleReportCreated(reportId: number) {
+    setSelectedReportId(reportId);
+    // Next step (report-filling wizard) will use selectedReportId once built
   }
 
   const [theme, setTheme] = useState<Theme>("light");
@@ -199,14 +208,19 @@ function App() {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: clamp(14px, 3cqi, 28px);
-            max-width: min(1000px, 100%);
-            margin: clamp(16px, 5cqi, 40px) auto 0;
+            flex: 1;
+            min-width: 0;
           }
           @container (max-width: 680px) {
             .menu-grid { grid-template-columns: repeat(2, 1fr); }
           }
           @container (max-width: 380px) {
             .menu-grid { grid-template-columns: 1fr; }
+          }
+          @container (max-width: 560px) {
+            .menu-layout { flex-direction: column; }
+            .kpi-sidebar { width: 100%; flex-direction: row; }
+            .kpi-mini-card { flex: 1; }
           }
           .menu-card {
             background: var(--neu-bg);
@@ -271,6 +285,89 @@ function App() {
             transform: translateY(0);
           }
           .uilab-fab svg { width: 19px; height: 19px; }  
+
+          .kpi-footer {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: row;
+            gap: 12px;
+            z-index: 5;
+          }
+          .kpi-footer-item {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 12px 16px;
+            border-radius: 14px;
+            cursor: pointer;
+            min-width: 150px;
+            background: var(--neu-bg);
+            box-shadow: inset 4px 4px 8px var(--neu-shadow-dark), inset -4px -4px 8px var(--neu-shadow-light);
+            transition: box-shadow 0.15s, transform 0.15s;
+          }
+          .kpi-footer-item:hover {
+            transform: translateY(-1px);
+            box-shadow: inset 5px 5px 10px var(--neu-shadow-dark), inset -5px -5px 10px var(--neu-shadow-light);
+          }
+          .kpi-footer-item:active {
+            transform: translateY(0);
+            box-shadow: inset 6px 6px 12px var(--neu-shadow-dark), inset -6px -6px 12px var(--neu-shadow-light);
+          }
+          .kpi-footer-label {
+            font-size: 11px;
+            color: var(--text-soft);
+            white-space: nowrap;
+          }
+          .kpi-footer-row {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+          }
+          .kpi-footer-value {
+            font-family: var(--mono);
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--text);
+          }
+          .kpi-footer-value.pale-red {
+            color: #c98a8a;
+          }
+          .kpi-footer-unit {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-soft);
+            margin-left: 1px;
+          }
+          .kpi-footer-delta {
+            font-family: var(--mono);
+            font-size: 11px;
+            font-weight: 600;
+          }
+          .kpi-footer-delta.good { color: var(--accent); }
+          .kpi-footer-delta.bad { color: var(--danger); }
+
+          .kpi-gauge-track {
+            position: relative;
+            height: 6px;
+            border-radius: 4px;
+            overflow: hidden;
+            background: linear-gradient(90deg, #d9534f 0%, #e0a94f 45%, #6fbf73 75%, #3d9463 100%);
+          }
+          .kpi-gauge-mask {
+            position: absolute;
+            top: 0;
+            right: 0;
+            height: 100%;
+            background: var(--neu-bg);
+            box-shadow: inset 2px 0 3px var(--neu-shadow-dark);
+          }
+
+          @media (max-width: 480px) {
+            .kpi-footer { left: 12px; bottom: 12px; gap: 8px; }
+            .kpi-footer-item { min-width: 130px; padding: 10px 12px; }
+          }
 
           .theme-fab {
             position: fixed;
@@ -1272,7 +1369,10 @@ function App() {
             <MainMenu onNavigate={handleNavigate} currentTheme={theme} onThemeChange={handleThemeChange} />
           )}
           {screen === "assets" && <AssetRegistry onViewTriggers={handleViewTriggers} />}
-          {screen === "reports" && <MaintenanceReport />}
+          {screen === "reports" && mrLevel === "MR-I" && (
+            <SelectAssetForReport onReportCreated={handleReportCreated} />
+          )}
+          {screen === "reports" && mrLevel !== "MR-I" && <MaintenanceReport />}
           {screen === "dashboard" && <Dashboard />}
           {screen === "admin" && <Administration onOpenTemplate={handleOpenTemplate} />}
           {screen === "triggers" && selectedAsset && (
