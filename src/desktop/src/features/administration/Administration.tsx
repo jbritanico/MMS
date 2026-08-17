@@ -3,13 +3,15 @@ import ChecklistDatabank from "./ChecklistDatabank";
 import AssetTypes from "./AssetTypes";
 import ChecklistSections from "./ChecklistSections";
 import MriTemplates from "./MriTemplates";
+import LookupsManager from "./LookupsManager";
 import DataBrowser from "./DataBrowser";
 
-type AdminSection =
+export type AdminSection =
   | "users"
   | "checklist-bank"
   | "asset-types"
   | "checklist-sections"
+  | "lookups"
   | "data-browser"
   | "data-removal"
   | "data-purge"
@@ -17,7 +19,7 @@ type AdminSection =
   | "mrii-template"
   | "mriii-template";
 
-type GroupId = "users" | "references" | "data-tools" | "mr-templates";
+export type GroupId = "users" | "references" | "data-tools" | "mr-templates";
 
 interface Child {
   id: AdminSection;
@@ -66,41 +68,49 @@ const GROUPS: Group[] = [
         <path d="M9 10h6M9 14h6M9 18h3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
       </svg>
     ),
-    children: [
-      {
-        id: "checklist-bank",
-        label: "Checklist Bank",
-        icon: (
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="1.6" />
-            <path d="M8 10l1.5 1.5L12.5 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M8 15h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-          </svg>
-        ),
-      },
-      {
-        id: "asset-types",
-        label: "Asset Types",
-        icon: (
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="4" y="4" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
-            <rect x="13" y="4" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
-            <rect x="4" y="13" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
-            <rect x="13" y="13" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
-          </svg>
-        ),
-      },
-      {
-        id: "checklist-sections",
-        label: "Checklist Sections",
-        icon: (
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="4" y="5" width="16" height="4" rx="1" stroke="currentColor" strokeWidth="1.6" />
-            <rect x="4" y="11" width="16" height="4" rx="1" stroke="currentColor" strokeWidth="1.6" />
-            <rect x="4" y="17" width="10" height="4" rx="1" stroke="currentColor" strokeWidth="1.6" />
-          </svg>
-        ),
-      },
+    children: [{
+      id: "lookups",
+      label: "Lookups",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 6h16M4 12h10M4 18h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+      ),
+    },
+    {
+      id: "checklist-bank",
+      label: "Checklist Bank",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="1.6" />
+          <path d="M8 10l1.5 1.5L12.5 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M8 15h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+      ),
+    },
+    {
+      id: "asset-types",
+      label: "Asset Types",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="4" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+          <rect x="13" y="4" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+          <rect x="4" y="13" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+          <rect x="13" y="13" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+        </svg>
+      ),
+    },
+    {
+      id: "checklist-sections",
+      label: "Checklist Sections",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="5" width="16" height="4" rx="1" stroke="currentColor" strokeWidth="1.6" />
+          <rect x="4" y="11" width="16" height="4" rx="1" stroke="currentColor" strokeWidth="1.6" />
+          <rect x="4" y="17" width="10" height="4" rx="1" stroke="currentColor" strokeWidth="1.6" />
+        </svg>
+      ),
+    },
     ],
   },
   {
@@ -199,16 +209,19 @@ const LABELS: Record<AdminSection, string> = {
   "mri-template": "MR-I Template",
   "mrii-template": "MR-II Template",
   "mriii-template": "MR-III Template",
+  "lookups": "Lookups",
 };
 
 interface AdministrationProps {
   onOpenTemplate: (id: number, name: string) => void;
+  active: AdminSection;
+  setActive: (s: AdminSection) => void;
+  openGroup: GroupId;
+  setOpenGroup: (g: GroupId) => void;
+  selectedTemplateId: number | null;
 }
 
-function Administration({ onOpenTemplate }: AdministrationProps) {
-  const [active, setActive] = useState<AdminSection>("users");
-  const [openGroup, setOpenGroup] = useState<GroupId>("users");
-
+function Administration({ onOpenTemplate, active, setActive, openGroup, setOpenGroup, selectedTemplateId }: AdministrationProps) {
   function toggleGroup(id: GroupId) {
     setOpenGroup((prev) => (prev === id ? (prev as GroupId) : id));
   }
@@ -266,8 +279,10 @@ function Administration({ onOpenTemplate }: AdministrationProps) {
           <AssetTypes />
         ) : active === "checklist-sections" ? (
           <ChecklistSections />
+        ) : active === "lookups" ? (
+          <LookupsManager />
         ) : active === "mri-template" ? (
-          <MriTemplates onOpenTemplate={onOpenTemplate} />
+          <MriTemplates onOpenTemplate={onOpenTemplate} selectedTemplateId={selectedTemplateId} />
         ) : active === "data-browser" ? (
           <DataBrowser />
         ) : (

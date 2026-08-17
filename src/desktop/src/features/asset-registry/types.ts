@@ -11,6 +11,7 @@ export interface Asset {
   last_action_by: string;
   last_action_dt: string;
   asset_type_id: number | null;
+  client: string;
 }
 
 export const emptyAsset: Asset = {
@@ -26,6 +27,7 @@ export const emptyAsset: Asset = {
   last_action_by: "",
   last_action_dt: "",
   asset_type_id: null,
+  client: "",
 };
 
 export const MR_ACTIONS = ["ENROLLMENT", "EDIT", "MR-I", "MR-II", "MR-III"];

@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
-import { useMriReport, useSubmitMriReport } from "./hooks/useMriReports";
+import { useMriReport, useSubmitMriReport, usePreviousEngineHours } from "./hooks/useMriReports";
 import { useAssets } from "../asset-registry/hooks/useAssets";
 import { useMriTemplates } from "../administration/hooks/useMriTemplates";
-import { useTemplateHeaderFields } from "../mri-template-builder/hooks/useTemplateHeaderFields";
-import { useHeaderFieldCatalog } from "../mri-template-builder/hooks/useTemplateHeaderFields";
+import { useTemplateHeaderFields, useHeaderFieldCatalog } from "../mri-template-builder/hooks/useTemplateHeaderFields";
 import {
     useMriReportHeaderValues,
     useSetMriReportHeaderValue,
 } from "./hooks/useMriReportValues";
+import { useLookups } from "../administration/hooks/useLookups";
+import { useAssetTriggers } from "../asset-registry/hooks/useTriggers";
 
 type Step = "header" | "checklist" | "mid" | "footer" | "review";
 
@@ -129,14 +130,29 @@ const INHERITED_FIELDS: Record<string, (asset: any) => string> = {
     "asset no": (asset) => asset?.asset_code ?? "",
 };
 
+const ENGINE_HOURS_PREVIOUS = "previous engine hours";
+const ENGINE_HOURS_CURRENT = "current engine hours";
+const ENGINE_HOURS_COMPUTED = "engine hours (this report)";
+const CLIENT_FIELD = "client";
+const MR_II_DUE_DATE = "mr ii due date";
+const MR_INITIATION_DATE = "mr initization date";
+
+function todayIso() {
+    return new Date().toISOString().slice(0, 10);
+}
+
 function HeaderEntryStep({ templateId, reportId, locked, asset }: { templateId: number; reportId: number; locked: boolean; asset: any }) {
     const { data: templateFields = [] } = useTemplateHeaderFields(templateId);
     const { data: catalog = [] } = useHeaderFieldCatalog();
     const { data: savedValues = [] } = useMriReportHeaderValues(reportId);
     const setValue = useSetMriReportHeaderValue(reportId);
+    const { data: previousEngineHours } = usePreviousEngineHours(asset?.id ?? 0, reportId);
+    const { data: clientOptions = [] } = useLookups("CLIENT");
+    const { data: triggers = [] } = useAssetTriggers(asset?.id ?? 0);
 
     const [localValues, setLocalValues] = useState<Record<number, string>>({});
     const persistedInherited = useState(() => new Set<number>())[0];
+    const autoSavedDates = useState(() => new Set<number>())[0];
 
     function fieldLabel(headerFieldId: number) {
         return catalog.find((c) => c.id === headerFieldId)?.label ?? "—";
@@ -145,6 +161,15 @@ function HeaderEntryStep({ templateId, reportId, locked, asset }: { templateId: 
     function inheritedGetter(headerFieldId: number) {
         const label = fieldLabel(headerFieldId).trim().toLowerCase();
         return INHERITED_FIELDS[label];
+    }
+
+    const mr2CaTrigger = triggers.find((t) => t.mr_level === "MR-II" && t.trigger_type === "CA");
+    let mr2DueDate = "";
+    if (mr2CaTrigger) {
+        const daysRemaining = mr2CaTrigger.interval_value - mr2CaTrigger.running_value;
+        const due = new Date();
+        due.setDate(due.getDate() + daysRemaining);
+        mr2DueDate = due.toISOString().slice(0, 10);
     }
 
     useEffect(() => {
@@ -174,6 +199,24 @@ function HeaderEntryStep({ templateId, reportId, locked, asset }: { templateId: 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [asset, templateFields.length, savedValues.length]);
 
+    // Persist auto-computed date fields (MR Initiation Date, MR II Due Date) once per field
+    useEffect(() => {
+        if (locked || templateFields.length === 0) return;
+        templateFields.forEach((tf) => {
+            const label = fieldLabel(tf.header_field_id).trim().toLowerCase();
+            if (autoSavedDates.has(tf.id)) return;
+            if (label === MR_INITIATION_DATE) {
+                autoSavedDates.add(tf.id);
+                setValue.mutate({ templateHeaderFieldId: tf.id, value: todayIso() });
+            }
+            if (label === MR_II_DUE_DATE && mr2DueDate) {
+                autoSavedDates.add(tf.id);
+                setValue.mutate({ templateHeaderFieldId: tf.id, value: mr2DueDate });
+            }
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [templateFields.length, mr2DueDate, locked]);
+
     const sortedFields = [...templateFields].sort((a, b) => a.display_order - b.display_order);
 
     function handleChange(fieldId: number, value: string) {
@@ -183,6 +226,19 @@ function HeaderEntryStep({ templateId, reportId, locked, asset }: { templateId: 
     async function handleBlur(fieldId: number) {
         if (locked) return;
         await setValue.mutateAsync({ templateHeaderFieldId: fieldId, value: localValues[fieldId] ?? "" });
+
+        const changedLabel = fieldLabel(templateFields.find((f) => f.id === fieldId)?.header_field_id ?? -1).trim().toLowerCase();
+        if (changedLabel === ENGINE_HOURS_CURRENT) {
+            const computedField = templateFields.find(
+                (f) => fieldLabel(f.header_field_id).trim().toLowerCase() === ENGINE_HOURS_COMPUTED
+            );
+            if (computedField) {
+                const currentVal = parseFloat(localValues[fieldId] ?? "0") || 0;
+                const prevVal = parseFloat(previousEngineHours ?? "0") || 0;
+                const computed = (currentVal - prevVal).toFixed(1);
+                await setValue.mutateAsync({ templateHeaderFieldId: computedField.id, value: computed });
+            }
+        }
     }
 
     if (sortedFields.length === 0) {
@@ -194,8 +250,107 @@ function HeaderEntryStep({ templateId, reportId, locked, asset }: { templateId: 
             <h2>Header</h2>
             <div className="mri-preview-table">
                 {sortedFields.map((tf) => {
+                    const label = fieldLabel(tf.header_field_id).trim().toLowerCase();
                     const getter = inheritedGetter(tf.header_field_id);
                     const isInherited = !!getter;
+
+                    if (label === ENGINE_HOURS_PREVIOUS) {
+                        const prevValue = previousEngineHours ?? "0";
+                        return (
+                            <div key={tf.id} className="mri-preview-table-row">
+                                <label>
+                                    {fieldLabel(tf.header_field_id)}
+                                    <span style={{ color: "var(--text-soft)", fontStyle: "italic" }}> (auto)</span>
+                                </label>
+                                <input type="text" className="trigger-input" value={prevValue} disabled />
+                            </div>
+                        );
+                    }
+
+                    if (label === ENGINE_HOURS_CURRENT) {
+                        return (
+                            <div key={tf.id} className="mri-preview-table-row">
+                                <label>
+                                    {fieldLabel(tf.header_field_id)}
+                                    {tf.required && <span style={{ color: "var(--danger)" }}> *</span>}
+                                </label>
+                                <input
+                                    type="number"
+                                    className="trigger-input"
+                                    value={localValues[tf.id] ?? ""}
+                                    onChange={(e) => handleChange(tf.id, e.target.value)}
+                                    onBlur={() => handleBlur(tf.id)}
+                                    disabled={locked}
+                                />
+                            </div>
+                        );
+                    }
+
+                    if (label === CLIENT_FIELD) {
+                        return (
+                            <div key={tf.id} className="mri-preview-table-row">
+                                <label>
+                                    {fieldLabel(tf.header_field_id)}
+                                    {tf.required && <span style={{ color: "var(--danger)" }}> *</span>}
+                                </label>
+                                <select
+                                    className="neu-select"
+                                    value={localValues[tf.id] ?? ""}
+                                    onChange={(e) => handleChange(tf.id, e.target.value)}
+                                    onBlur={() => handleBlur(tf.id)}
+                                    disabled={locked}
+                                >
+                                    <option value="">— Select —</option>
+                                    {clientOptions.filter((c) => c.active).map((c) => (
+                                        <option key={c.id} value={c.name}>{c.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        );
+                    }
+
+                    if (label === MR_II_DUE_DATE) {
+                        return (
+                            <div key={tf.id} className="mri-preview-table-row">
+                                <label>
+                                    {fieldLabel(tf.header_field_id)}
+                                    <span style={{ color: "var(--text-soft)", fontStyle: "italic" }}> (computed)</span>
+                                </label>
+                                <input type="text" className="trigger-input" value={mr2DueDate || "—"} disabled />
+                            </div>
+                        );
+                    }
+
+                    if (label === MR_INITIATION_DATE) {
+                        return (
+                            <div key={tf.id} className="mri-preview-table-row">
+                                <label>
+                                    {fieldLabel(tf.header_field_id)}
+                                    <span style={{ color: "var(--text-soft)", fontStyle: "italic" }}> (auto)</span>
+                                </label>
+                                <input type="text" className="trigger-input" value={todayIso()} disabled />
+                            </div>
+                        );
+                    }
+
+                    if (label === ENGINE_HOURS_COMPUTED) {
+                        const currentField = sortedFields.find(
+                            (f) => fieldLabel(f.header_field_id).trim().toLowerCase() === ENGINE_HOURS_CURRENT
+                        );
+                        const currentVal = parseFloat(currentField ? (localValues[currentField.id] ?? "0") : "0") || 0;
+                        const prevVal = parseFloat(previousEngineHours ?? "0") || 0;
+                        const computed = (currentVal - prevVal).toFixed(1);
+                        return (
+                            <div key={tf.id} className="mri-preview-table-row">
+                                <label>
+                                    {fieldLabel(tf.header_field_id)}
+                                    <span style={{ color: "var(--text-soft)", fontStyle: "italic" }}> (computed)</span>
+                                </label>
+                                <input type="text" className="trigger-input" value={computed} disabled />
+                            </div>
+                        );
+                    }
+
                     const displayValue = isInherited ? getter!(asset) : (localValues[tf.id] ?? "");
                     return (
                         <div key={tf.id} className="mri-preview-table-row">
@@ -206,6 +361,7 @@ function HeaderEntryStep({ templateId, reportId, locked, asset }: { templateId: 
                             </label>
                             <input
                                 type="text"
+                                className="trigger-input"
                                 value={displayValue}
                                 onChange={(e) => handleChange(tf.id, e.target.value)}
                                 onBlur={() => handleBlur(tf.id)}

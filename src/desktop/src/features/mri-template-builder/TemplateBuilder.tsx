@@ -92,7 +92,7 @@ function TemplateBuilder({ templateId, templateName, onBack }: TemplateBuilderPr
         {step !== "review" ? (
           <button className="primary" onClick={goNext}>Next →</button>
         ) : (
-          <button className="primary">Save Template</button>
+          <button className="primary" onClick={onBack}>Save Template</button>
         )}
       </div>
 

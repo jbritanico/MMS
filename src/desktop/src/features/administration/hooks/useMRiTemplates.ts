@@ -57,3 +57,24 @@ export function useDeleteMriTemplate() {
         onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
     });
 }  
+
+export function useExportMriTemplatesBackup() {
+  return async () => {
+    const json = await invoke<string>("export_mri_templates_backup");
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `mri-templates-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+}
+
+export function useImportMriTemplatesBackup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (backupJson: string) => invoke<string>("import_mri_templates_backup", { backupJson }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["mri-templates"] }),
+  });
+}

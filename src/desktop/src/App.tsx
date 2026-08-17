@@ -4,7 +4,7 @@ import MainMenu from "./features/main-menu/MainMenu";
 import AssetRegistry from "./features/asset-registry/AssetRegistry";
 import MaintenanceReport from "./features/maintenance-report/MaintenanceReport";
 import Dashboard from "./features/dashboard/Dashboard";
-import Administration from "./features/administration/Administration";
+import Administration, { type AdminSection, type GroupId } from "./features/administration/Administration";
 import MaintenanceTriggers from "./features/asset-registry/MaintenanceTriggers";
 import TemplateBuilder from "./features/mri-template-builder/TemplateBuilder";
 import SelectAssetForReport from "./features/mri-reporting/SelectAssetForReport";
@@ -36,6 +36,8 @@ function App() {
   const [selectedAsset, setSelectedAsset] = useState<{ id: number; code: string } | null>(null);
 
   const [selectedTemplate, setSelectedTemplate] = useState<{ id: number; name: string } | null>(null);
+  const [adminActive, setAdminActive] = useState<AdminSection>("users");
+  const [adminOpenGroup, setAdminOpenGroup] = useState<GroupId>("users");
 
   function handleOpenTemplate(id: number, name: string) {
     setSelectedTemplate({ id, name });
@@ -158,6 +160,28 @@ function App() {
             --warn-soft: #f2e2c6;
             --danger: #9c3d33;
             --danger-soft: #f2ddd8;
+          }
+
+          [data-theme="sprint"] {
+            --bg: #05a1c7;
+            --neu-bg: #1cabce;
+            --neu-shadow-dark: #0489a8;
+            --neu-shadow-light: #3fc0dd;
+            --surface: #ffffff;
+            --border: #0d8fae;
+            --text: #ffffff;
+            --text-soft: #d7f2fa;
+            --accent: #b90005;
+            --accent-soft: #ffe0e1;
+            --accent-blue: #b90005;
+            --accent-blue-deep: #8a0004;
+            --chart-violet: #7c61cc;
+            --chart-green: #3d9463;
+            --warn: #e0a94f;
+            --warn-soft: #3a2f1a;
+            --danger: #b90005;
+            --danger-soft: #ffe0e1;
+            --hover-highlight: #2bb8d8;
           }
           * { box-sizing: border-box; }
           html, body, #root { height: 100%; margin: 0; }
@@ -552,6 +576,50 @@ function App() {
           }
 
           .checks { display: flex; flex-wrap: wrap; gap: 14px; margin: 14px 0; }
+
+          .neu-check {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+          }
+          .neu-check-input {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+          }
+          .neu-check-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--neu-bg);
+            box-shadow: inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light);
+            color: transparent;
+            transition: color 0.15s;
+          }
+          .neu-check-box svg {
+            width: 13px;
+            height: 13px;
+          }
+          .neu-check-input:checked + .neu-check-box {
+            color: var(--accent);
+            box-shadow: 2px 2px 4px var(--neu-shadow-dark), -2px -2px 4px var(--neu-shadow-light);
+          }
+          .neu-check-input:disabled + .neu-check-box {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+          .neu-check-input:disabled ~ span {
+            color: var(--text-soft);
+          }          
 
           .trigger-table { display: flex; flex-direction: column; }
           .trigger-row {
@@ -1379,7 +1447,16 @@ function App() {
             <ReportWizard reportId={selectedReportId} onBack={() => setScreen("reports")} />
           )}
           {screen === "dashboard" && <Dashboard />}
-          {screen === "admin" && <Administration onOpenTemplate={handleOpenTemplate} />}
+          {screen === "admin" && (
+            <Administration
+              onOpenTemplate={handleOpenTemplate}
+              active={adminActive}
+              setActive={setAdminActive}
+              openGroup={adminOpenGroup}
+              setOpenGroup={setAdminOpenGroup}
+              selectedTemplateId={selectedTemplate?.id ?? null}
+            />
+          )}
           {screen === "triggers" && selectedAsset && (
             <MaintenanceTriggers
               assetId={selectedAsset.id}
@@ -1392,7 +1469,11 @@ function App() {
             <TemplateBuilder
               templateId={selectedTemplate.id}
               templateName={selectedTemplate.name}
-              onBack={() => setScreen("admin")}
+              onBack={() => {
+                setAdminActive("mri-template");
+                setAdminOpenGroup("mr-templates");
+                setScreen("admin");
+              }}
             />
           )}
         </div>

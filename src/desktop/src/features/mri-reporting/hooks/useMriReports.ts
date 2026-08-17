@@ -65,3 +65,11 @@ export function useSetMriReportStatus() {
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });
 }
+
+export function usePreviousEngineHours(assetId: number, currentReportId: number) {
+  return useQuery({
+    queryKey: ["previous-engine-hours", assetId, currentReportId],
+    queryFn: () => invoke<string | null>("get_previous_engine_hours", { assetId, currentReportId }),
+    enabled: !!assetId && !!currentReportId,
+  });
+}

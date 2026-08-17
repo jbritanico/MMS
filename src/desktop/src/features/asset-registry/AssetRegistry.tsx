@@ -1,9 +1,14 @@
-import { useState, useEffect } from "react";
-import { useAssets, useCreateAsset, useUpdateAsset, useDeleteAsset } from "./hooks/useAssets";
+import { useState, useEffect, useRef } from "react";
+import {
+  useAssets, useCreateAsset, useUpdateAsset, useDeleteAsset,
+  useExportAssetsBackup, useImportAssetsBackup,
+} from "./hooks/useAssets";
 import { emptyAsset, MR_ACTIONS, type Asset } from "./types";
 import { useAssetTypes } from "../administration/hooks/useAssetTypes";
 import { useMriTemplates } from "../administration/hooks/useMriTemplates";
+import { useLookups } from "../administration/hooks/useLookups";
 import AssetTypeCombobox from "../administration/AssetTypeCombobox";
+import { CURRENT_USER_EMAIL } from "../../lib/currentUser";
 
 type Mode = "create" | "edit" | "view";
 
@@ -15,16 +20,21 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
   const { data: assets = [], isLoading } = useAssets();
   const { data: assetTypes = [] } = useAssetTypes();
   const { data: templates = [] } = useMriTemplates();
+  const { data: countryOptions = [] } = useLookups("COUNTRY");
+  const { data: serviceLineOptions = [] } = useLookups("SERVICE LINE");
   const createAsset = useCreateAsset();
   const updateAsset = useUpdateAsset();
   const deleteAsset = useDeleteAsset();
+  const exportBackup = useExportAssetsBackup();
+  const importBackup = useImportAssetsBackup();
+  const importFileRef = useRef<HTMLInputElement>(null);
 
   const activeTemplateAssetTypeIds = new Set(
     templates.filter((t) => t.status === "Active").map((t) => t.asset_type_id)
   );
   const eligibleAssetTypes = assetTypes.filter((a) => activeTemplateAssetTypeIds.has(a.id));
 
-  const [form, setForm] = useState<Asset>(emptyAsset);
+  const [form, setForm] = useState<Asset>({ ...emptyAsset, last_action_by: CURRENT_USER_EMAIL });
   const [mode, setMode] = useState<Mode>("create");
   const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
   const [query, setQuery] = useState("");
@@ -41,7 +51,7 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
   }
 
   function resetForm() {
-    setForm(emptyAsset);
+    setForm({ ...emptyAsset, last_action_by: CURRENT_USER_EMAIL });
     setMode("create");
   }
 
@@ -51,7 +61,7 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
       return;
     }
     try {
-      const payload = { ...form, last_action_dt: new Date().toISOString() };
+      const payload = { ...form, last_action_dt: new Date().toISOString(), last_action_by: CURRENT_USER_EMAIL };
       if (mode === "create") {
         await createAsset.mutateAsync(payload);
         setStatus({ msg: `${form.asset_code} created`, kind: "ok" });
@@ -81,6 +91,23 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
     setPendingDelete(asset);
   }
 
+  function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const text = evt.target?.result as string;
+        const result = await importBackup.mutateAsync(text);
+        setStatus({ msg: result, kind: "ok" });
+      } catch (err) {
+        setStatus({ msg: String(err), kind: "err" });
+      }
+    };
+    reader.readAsText(file);
+    if (importFileRef.current) importFileRef.current.value = "";
+  }
+
   async function confirmDelete() {
     if (!pendingDelete || pendingDelete.id === null) return;
     await deleteAsset.mutateAsync(pendingDelete.id);
@@ -100,8 +127,8 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
 
   const panelTitle =
     mode === "create" ? "New asset" :
-    mode === "view" ? `Editing ${form.asset_code}` :
-    `Editing ${form.asset_code}`;
+      mode === "view" ? `Editing ${form.asset_code}` :
+        `Editing ${form.asset_code}`;
 
   return (
     <>
@@ -147,39 +174,64 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
           </div>
           <div className="field">
             <label>Country</label>
-            <input type="text" value={form.country}
-              onChange={(e) => updateField("country", e.target.value)} disabled={isView} />
+            <select className="neu-select" value={form.country} onChange={(e) => updateField("country", e.target.value)} disabled={isView}>
+              <option value="">— Select —</option>
+              {countryOptions.filter((c) => c.active).map((c) => (
+                <option key={c.id} value={c.name}>{c.name}</option>
+              ))}
+            </select>
           </div>
           <div className="field">
             <label>Service line</label>
-            <input type="text" value={form.service_line}
-              onChange={(e) => updateField("service_line", e.target.value)} disabled={isView} />
+            <select className="neu-select" value={form.service_line} onChange={(e) => updateField("service_line", e.target.value)} disabled={isView}>
+              <option value="">— Select —</option>
+              {serviceLineOptions.filter((s) => s.active).map((s) => (
+                <option key={s.id} value={s.name}>{s.name}</option>
+              ))}
+            </select>
           </div>
           <div className="field">
             <label>Last action by</label>
-            <input type="text" value={form.last_action_by}
-              onChange={(e) => updateField("last_action_by", e.target.value)} disabled={isView} />
+            <input type="text" value={form.last_action_by} disabled title="Automatically set — will use your signed-in M365 account once authentication is added" />
           </div>
           <div className="field">
             <label>Last action</label>
-            <select value={form.mr_last_action}
+            <select className="neu-select" value={form.mr_last_action}
               onChange={(e) => updateField("mr_last_action", e.target.value)} disabled={isView}>
               {MR_ACTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
 
           <div className="checks">
-            <label className="check">
-              <input type="checkbox" checked={form.active} disabled={isView}
-                onChange={(e) => updateField("active", e.target.checked)} /> Active
+            <label className="neu-check">
+              <input type="checkbox" className="neu-check-input" checked={form.active} disabled={isView}
+                onChange={(e) => updateField("active", e.target.checked)} />
+              <span className="neu-check-box">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+              <span>Active</span>
             </label>
-            <label className="check">
-              <input type="checkbox" checked={form.service_asset} disabled={isView}
-                onChange={(e) => setForm({ ...form, service_asset: e.target.checked, vehicle: e.target.checked ? false : form.vehicle })} /> Service asset
+            <label className="neu-check">
+              <input type="checkbox" className="neu-check-input" checked={form.service_asset} disabled={isView}
+                onChange={(e) => setForm({ ...form, service_asset: e.target.checked, vehicle: e.target.checked ? false : form.vehicle })} />
+              <span className="neu-check-box">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+              <span>Service asset</span>
             </label>
-            <label className="check">
-              <input type="checkbox" checked={form.vehicle} disabled={isView}
-                onChange={(e) => setForm({ ...form, vehicle: e.target.checked, service_asset: e.target.checked ? false : form.service_asset })} /> Vehicle
+            <label className="neu-check">
+              <input type="checkbox" className="neu-check-input" checked={form.vehicle} disabled={isView}
+                onChange={(e) => setForm({ ...form, vehicle: e.target.checked, service_asset: e.target.checked ? false : form.service_asset })} />
+              <span className="neu-check-box">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+              <span>Vehicle</span>
             </label>
           </div>
 
@@ -212,6 +264,13 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
             <input className="search" type="text" placeholder="Search assets..."
               value={query} onChange={(e) => setQuery(e.target.value)} />
             <span className="count">{filtered.length} of {assets.length}</span>
+            <input ref={importFileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
+            <button className="ghost" onClick={() => exportBackup()} title="Download a full backup of all assets and their triggers">
+              ⤓ Export Backup
+            </button>
+            <button className="ghost" onClick={() => importFileRef.current?.click()} title="Restore assets from a backup file">
+              ⤒ Import Backup
+            </button>
           </div>
 
           {isLoading ? (

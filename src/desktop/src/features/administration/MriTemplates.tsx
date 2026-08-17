@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   useMriTemplates,
   useCreateMriTemplate,
   useUpdateTemplateStatus,
   useRenameMriTemplate,
   useDeleteMriTemplate,
+  useExportMriTemplatesBackup,
+  useImportMriTemplatesBackup,
   type MriTemplate,
   type TemplateStatus,
 } from "./hooks/useMriTemplates";
@@ -23,7 +25,13 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
   const createTemplate = useCreateMriTemplate();
   const updateStatus = useUpdateTemplateStatus();
   const renameTemplate = useRenameMriTemplate();
+
+
   const deleteTemplate = useDeleteMriTemplate();
+  const exportBackup = useExportMriTemplatesBackup();
+  const importBackup = useImportMriTemplatesBackup();
+  const importFileRef = useRef<HTMLInputElement>(null);
+
 
   const [newName, setNewName] = useState("");
   const [newAssetTypeId, setNewAssetTypeId] = useState("");
@@ -88,6 +96,23 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
     setPendingDelete(null);
   }
 
+  function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const text = evt.target?.result as string;
+        const result = await importBackup.mutateAsync(text);
+        flash(result, "ok");
+      } catch (err) {
+        flash(String(err), "err");
+      }
+    };
+    reader.readAsText(file);
+    if (importFileRef.current) importFileRef.current.value = "";
+  }
+
   function statusPillClass(s: TemplateStatus) {
     if (s === "Active") return "active";
     if (s === "Inactive") return "inactive";
@@ -116,6 +141,16 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
           <AssetTypeCombobox assetTypes={assetTypes} value={newAssetTypeId} onChange={setNewAssetTypeId} />
         </div>
         <button className="primary" onClick={handleCreate}>Create template</button>
+      </div>
+
+      <div style={{ marginBottom: 18 }}>
+        <input ref={importFileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
+        <button className="ghost" onClick={() => exportBackup()} title="Download a full backup of all MR-I templates">
+          ⤓ Export Backup
+        </button>{" "}
+        <button className="ghost" onClick={() => importFileRef.current?.click()} title="Restore templates from a backup file">
+          ⤒ Import Backup
+        </button>
       </div>
 
       {status && <div className={`toast ${status.kind}`} style={{ maxWidth: 360, marginBottom: 12 }}>{status.msg}</div>}

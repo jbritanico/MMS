@@ -34,3 +34,24 @@ export function useDeleteAsset() {
         onSuccess: () => qc.invalidateQueries({ queryKey: ASSETS_KEY }),
     });
 }
+
+export function useExportAssetsBackup() {
+  return async () => {
+    const json = await invoke<string>("export_assets_backup");
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `assets-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+}
+
+export function useImportAssetsBackup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (backupJson: string) => invoke<string>("import_assets_backup", { backupJson }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["assets"] }),
+  });
+}
