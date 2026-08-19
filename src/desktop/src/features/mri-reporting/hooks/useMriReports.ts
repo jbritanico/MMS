@@ -73,3 +73,11 @@ export function usePreviousEngineHours(assetId: number, currentReportId: number)
     enabled: !!assetId && !!currentReportId,
   });
 }
+
+export function usePendingChecklistItemIds(assetId: number, currentReportId: number) {
+  return useQuery({
+    queryKey: ["pending-checklist-items", assetId, currentReportId],
+    queryFn: () => invoke<number[]>("get_pending_checklist_item_ids", { assetId, currentReportId }),
+    enabled: !!assetId && !!currentReportId,
+  });
+}

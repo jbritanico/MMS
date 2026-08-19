@@ -2575,6 +2575,23 @@ fn purge_mri_reports(filter: MriReportPurgeFilter) -> Result<String, String> {
 }
 
 #[tauri::command]
+fn get_pending_checklist_item_ids(asset_id: i64, current_report_id: i64) -> Result<Vec<i64>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT tci.checklist_item_id
+         FROM mri_report_checklist_results r
+         JOIN mri_reports rep ON r.report_id = rep.id
+         JOIN template_checklist_items tci ON r.template_checklist_item_id = tci.id
+         WHERE rep.asset_id = ?1 AND rep.id != ?2 AND r.closure_status = 'Pending'"
+    ).map_err(|e| e.to_string())?;
+    let ids: Vec<i64> = stmt.query_map(rusqlite::params![asset_id, current_report_id], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(ids)
+}
+
+#[tauri::command]
 fn get_browsable_tables() -> Vec<String> {
     BROWSABLE_TABLES.iter().map(|s| s.to_string()).collect()
 }
@@ -2776,7 +2793,8 @@ pub fn run() {
             purge_checklist_databank,
             purge_lookups,
             preview_mri_report_purge,
-            purge_mri_reports
+            purge_mri_reports,
+            get_pending_checklist_item_ids
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
