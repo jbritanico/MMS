@@ -6,7 +6,13 @@ import { useTemplateHeaderFields, useHeaderFieldCatalog } from "../mri-template-
 import {
     useMriReportHeaderValues,
     useSetMriReportHeaderValue,
+    useMriReportChecklistResults,
+    useSetMriReportChecklistResult,
+    type MriReportChecklistResult,
 } from "./hooks/useMriReportValues";
+import { useTemplateChecklistItems } from "../mri-template-builder/hooks/useTemplateChecklistItems";
+import { useChecklistItems } from "../administration/hooks/useChecklistDatabank";
+import { useChecklistSections } from "../administration/hooks/useChecklistSections";
 import { useLookups } from "../administration/hooks/useLookups";
 import { useAssetTriggers } from "../asset-registry/hooks/useTriggers";
 
@@ -97,7 +103,10 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
             <div className="panel" style={{ minHeight: 320 }}>
                 {step === "header" && (
                     <HeaderEntryStep templateId={report.template_id} reportId={reportId} locked={isLocked} asset={asset} />
-                )}        {step === "checklist" && <div className="empty">Checklist entry goes here</div>}
+                )}
+                {step === "checklist" && (
+                    <ChecklistEntryStep templateId={report.template_id} reportId={reportId} locked={isLocked} />
+                )}
                 {step === "mid" && <div className="empty">Mid-section entry goes here</div>}
                 {step === "footer" && <div className="empty">Footer entry goes here</div>}
                 {step === "review" && (
@@ -136,6 +145,9 @@ const ENGINE_HOURS_COMPUTED = "engine hours (this report)";
 const CLIENT_FIELD = "client";
 const MR_II_DUE_DATE = "mr ii due date";
 const MR_INITIATION_DATE = "mr initization date";
+const COMPLIANCE_STAGE_FIELD = "compliance stage";
+
+const COMPLIANCE_STAGE_OPTIONS = ["PREMOB", "PRE-JOB", "POST JOB", "YARD INSPECTION"];
 
 function todayIso() {
     return new Date().toISOString().slice(0, 10);
@@ -308,6 +320,28 @@ function HeaderEntryStep({ templateId, reportId, locked, asset }: { templateId: 
                             </div>
                         );
                     }
+                    if (label === COMPLIANCE_STAGE_FIELD) {
+                        return (
+                            <div key={tf.id} className="mri-preview-table-row">
+                                <label>
+                                    {fieldLabel(tf.header_field_id)}
+                                    {tf.required && <span style={{ color: "var(--danger)" }}> *</span>}
+                                </label>
+                                <select
+                                    className="neu-select"
+                                    value={localValues[tf.id] ?? ""}
+                                    onChange={(e) => handleChange(tf.id, e.target.value)}
+                                    onBlur={() => handleBlur(tf.id)}
+                                    disabled={locked}
+                                >
+                                    <option value="">— Select —</option>
+                                    {COMPLIANCE_STAGE_OPTIONS.map((opt) => (
+                                        <option key={opt} value={opt}>{opt}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        );
+                    }
 
                     if (label === MR_II_DUE_DATE) {
                         return (
@@ -371,6 +405,229 @@ function HeaderEntryStep({ templateId, reportId, locked, asset }: { templateId: 
                     );
                 })}
             </div>
+        </div>
+    );
+}
+
+const CLOSURE_STATUSES = ["Pending", "Closed"] as const;
+
+function ChecklistEntryStep({ templateId, reportId, locked }: { templateId: number; reportId: number; locked: boolean }) {
+    const { data: templateItems = [] } = useTemplateChecklistItems(templateId);
+    const { data: databank = [] } = useChecklistItems();
+    const { data: sections = [] } = useChecklistSections();
+    const { data: savedResults = [] } = useMriReportChecklistResults(reportId);
+    const setResult = useSetMriReportChecklistResult(reportId);
+
+    const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
+    const [localEdits, setLocalEdits] = useState<Record<number, Partial<MriReportChecklistResult>>>({});
+
+    function flash(msg: string, kind: "ok" | "err") {
+        setStatus({ msg, kind });
+        setTimeout(() => setStatus(null), 4000);
+    }
+
+    function itemInfo(checklistItemId: number) {
+        return databank.find((d) => d.id === checklistItemId);
+    }
+
+    function getResult(templateItemId: number): Partial<MriReportChecklistResult> {
+        const saved = savedResults.find((r) => r.template_checklist_item_id === templateItemId);
+        const edited = localEdits[templateItemId];
+        return {
+            status: null,
+            issue_details: "",
+            action_taken: "",
+            date_observed: todayIso(),
+            closure_status: "Pending",
+            ...saved,
+            ...edited,
+        };
+    }
+
+    function updateLocal(templateItemId: number, patch: Partial<MriReportChecklistResult>) {
+        setLocalEdits((prev) => ({
+            ...prev,
+            [templateItemId]: { ...getResult(templateItemId), ...prev[templateItemId], ...patch },
+        }));
+    }
+
+    async function autoSave(ti: (typeof templateItems)[number], patch: Partial<MriReportChecklistResult>) {
+        if (locked) return;
+        const current = { ...getResult(ti.id), ...patch };
+
+        if (current.status === "Fail" && (!current.issue_details?.trim() || !current.action_taken?.trim())) {
+            return;
+        }
+
+        try {
+            await setResult.mutateAsync({
+                id: 0,
+                report_id: reportId,
+                template_checklist_item_id: ti.id,
+                status: current.status ?? null,
+                issue_details: current.issue_details || null,
+                action_taken: current.action_taken || null,
+                date_observed: current.date_observed || todayIso(),
+                closure_status: current.closure_status ?? "Pending",
+            });
+        } catch (err) {
+            flash(String(err), "err");
+        }
+    }
+
+    const sortedItems = [...templateItems].sort((a, b) => a.display_order - b.display_order);
+
+    const grouped = (() => {
+        const groups = new Map<number | null, typeof sortedItems>();
+        for (const ti of sortedItems) {
+            const key = ti.section_id;
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key)!.push(ti);
+        }
+        const ordered = sections
+            .filter((s) => groups.has(s.id))
+            .map((s) => ({ label: s.name, items: groups.get(s.id)! }));
+        if (groups.has(null)) ordered.push({ label: "Unassigned", items: groups.get(null)! });
+        return ordered;
+    })();
+
+    const severityColor: Record<string, string> = {
+        Minor: "var(--accent)",
+        Moderate: "var(--accent-blue)",
+        Major: "var(--warn)",
+        Critical: "var(--danger)",
+    };
+
+    const COLS = "1.8fr 0.9fr 1.3fr 1.3fr 0.9fr 0.8fr 0.7fr";
+
+    if (sortedItems.length === 0) {
+        return <div className="empty">This template has no checklist items configured</div>;
+    }
+
+    return (
+        <div>
+            <h2>Checklist</h2>
+            {status && <div className={`toast ${status.kind}`} style={{ maxWidth: 500, marginBottom: 12 }}>{status.msg}</div>}
+
+            {grouped.map((group) => (
+                <div key={group.label} style={{ marginBottom: 24 }}>
+                    <div className="mri-preview-section-label">{group.label}</div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: COLS, gap: 10, alignItems: "center", padding: "6px 4px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", color: "var(--text-soft)" }}>
+                        <span>Checklist Item</span>
+                        <span>Pass / Fail</span>
+                        <span>Issue Details</span>
+                        <span>Action Taken</span>
+                        <span>Date Observed</span>
+                        <span>Closure Status</span>
+                        <span>Severity</span>
+                    </div>
+
+                    {group.items.map((ti) => {
+                        const info = itemInfo(ti.checklist_item_id);
+                        const result = getResult(ti.id);
+                        const isFail = result.status === "Fail";
+
+                        return (
+                            <div
+                                key={ti.id}
+                                style={{
+                                    display: "grid", gridTemplateColumns: COLS, gap: 10, alignItems: "center",
+                                    padding: "10px 4px", borderTop: "1px solid var(--border)", fontSize: 13,
+                                }}
+                            >
+                                <span style={{ whiteSpace: "normal" }}>
+                                    {info?.description}
+                                    {ti.required && <span style={{ color: "var(--danger)" }}> *</span>}
+                                </span>
+
+                                <div style={{ display: "flex", gap: 4 }}>
+
+                                    <button
+                                        className={result.status === "Pass" ? "primary" : "ghost"}
+                                        disabled={locked}
+                                        style={{ padding: "6px 10px", fontSize: 12 }}
+                                        onClick={() => {
+                                            const patch = { status: "Pass" as const, issue_details: "", action_taken: "" };
+                                            updateLocal(ti.id, patch);
+                                            autoSave(ti, patch);
+                                        }}
+                                    >
+                                        Pass
+                                    </button>
+                                    <button
+                                        className={result.status === "Fail" ? "danger" : "ghost"}
+                                        disabled={locked}
+                                        style={{ padding: "6px 10px", fontSize: 12 }}
+                                        onClick={() => updateLocal(ti.id, { status: "Fail" })}
+                                    >
+                                        Fail
+                                    </button>
+                                </div>
+
+                                <input
+                                    type="text"
+                                    className="trigger-input"
+                                    value={result.issue_details ?? ""}
+                                    onChange={(e) => updateLocal(ti.id, { issue_details: e.target.value })}
+                                    onBlur={() => autoSave(ti, {})}
+                                    disabled={locked || !isFail}
+                                    placeholder={isFail ? "Required" : "—"}
+                                />
+
+                                <input
+                                    type="text"
+                                    className="trigger-input"
+                                    value={result.action_taken ?? ""}
+                                    onChange={(e) => updateLocal(ti.id, { action_taken: e.target.value })}
+                                    onBlur={() => autoSave(ti, {})}
+                                    disabled={locked || !isFail}
+                                    placeholder={isFail ? "Required" : "—"}
+                                />
+
+                                <input
+                                    type="date"
+                                    className="trigger-input"
+                                    value={result.date_observed ?? todayIso()}
+                                    onChange={(e) => {
+                                        updateLocal(ti.id, { date_observed: e.target.value });
+                                        autoSave(ti, { date_observed: e.target.value });
+                                    }}
+                                    disabled={locked}
+                                />
+
+                                <select
+                                    className="neu-select"
+                                    value={result.closure_status ?? "Pending"}
+                                    onChange={(e) => {
+                                        const val = e.target.value as "Pending" | "Closed";
+                                        updateLocal(ti.id, { closure_status: val });
+                                        autoSave(ti, { closure_status: val });
+                                    }}
+                                    disabled={locked}
+                                >
+                                    {CLOSURE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                                </select>
+
+                                <div>
+                                    {ti.severity ? (
+                                        <span
+                                            style={{
+                                                fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 20,
+                                                color: "#fff", background: severityColor[ti.severity] ?? "var(--text-soft)",
+                                            }}
+                                        >
+                                            {ti.severity}
+                                        </span>
+                                    ) : (
+                                        <span style={{ fontSize: 11, color: "var(--text-soft)" }}>—</span>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            ))}
         </div>
     );
 }

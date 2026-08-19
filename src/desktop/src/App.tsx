@@ -184,9 +184,9 @@ function App() {
             --hover-highlight: #2bb8d8;
           }
           * { box-sizing: border-box; }
+          html { font-size: 17px; }
           html, body, #root { height: 100%; margin: 0; }
-          .app { font-family: var(--sans); background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-          .topband {
+          .app { font-family: var(--sans); background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; zoom: 1.15; }          .topband {
             background: var(--neu-bg);
             color: var(--text);
             padding: 14px clamp(16px, 3vw, 32px);
@@ -198,9 +198,9 @@ function App() {
             position: relative;
             z-index: 5;
           }
-          .topband .title-main { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
-          .topband .title-sep { color: var(--neu-shadow-dark); font-size: 14px; }
-          .topband .title-sub { font-size: 13px; font-weight: 500; color: #2f6fed; }
+          .topband .title-main { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
+          .topband .title-sep { color: var(--neu-shadow-dark); font-size: 16px; }
+          .topband .title-sub { font-size: 15px; font-weight: 500; color: #2f6fed; }
 
           .back-btn {
             background: var(--neu-bg);
@@ -225,10 +225,11 @@ function App() {
           }
           .back-btn svg { width: 17px; height: 17px; }
 
-          .content {
-            flex: 1; min-width: 0; overflow-y: auto; padding: clamp(16px, 3vw, 32px); background: var(--neu-bg);
+           .content {
+            flex: 1; min-width: 0; overflow-y: auto; padding: clamp(14px, 2vw, 22px); background: var(--neu-bg);
             container-type: inline-size;
           }
+
           .content { background: var(--neu-bg); }
           .menu-grid {
             display: grid;
@@ -283,9 +284,8 @@ function App() {
           .menu-card:active .menu-icon-wrap { color: #0d2f5c; }
           .menu-icon-wrap svg { width: clamp(20px, 5cqi, 26px); height: clamp(20px, 5cqi, 26px); }
 
-          .menu-card h3 { font-size: clamp(13px, 3cqi, 16px); margin: 0 0 6px; font-weight: 600; }
-          .menu-card p { font-size: clamp(11px, 2.4cqi, 12.5px); color: var(--text-soft); margin: 0; line-height: 1.4; }
-
+          .menu-card h3 { font-size: clamp(15px, 3.4cqi, 18px); margin: 0 0 6px; font-weight: 600; }
+          .menu-card p { font-size: clamp(13px, 2.8cqi, 14.5px); color: var(--text-soft); margin: 0; line-height: 1.4; }
           .uilab-fab {
             position: fixed;
             bottom: 20px;
@@ -545,8 +545,8 @@ function App() {
           }          
 
           .header { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
-          .header h1 { font-size: clamp(18px, 2vw, 22px); font-weight: 600; margin: 0; letter-spacing: -0.01em; }
-          .header .sub { font-size: 13px; color: var(--text-soft); font-family: var(--mono); }
+          .header h1 { font-size: clamp(20px, 2.2vw, 25px); font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+          .header .sub { font-size: 14px; color: var(--text-soft); font-family: var(--mono); }
 
           .layout { display: grid; grid-template-columns: minmax(280px, 340px) 1fr; gap: 20px; align-items: start; }
           @container (max-width: 720px) { .layout { grid-template-columns: 1fr; } }
@@ -558,21 +558,22 @@ function App() {
             padding: 22px;
             box-shadow: 8px 8px 16px var(--neu-shadow-dark), -8px -8px 16px var(--neu-shadow-light);
           }
-          .panel h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-soft); margin: 0 0 14px 0; }
-
+          .panel h2 { font-size: 15px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-soft); margin: 0 0 14px 0; }
           .field { margin-bottom: 12px; }
-          .field label { display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 4px; }
-          .field input[type="text"], .field select {
-            width: 100%; padding: 10px 12px; border: none; border-radius: 10px;
-            font-size: 14px; font-family: var(--sans); background: var(--neu-bg); color: var(--text);
+          .field label { display: block; font-size: 14px; color: var(--text-soft); margin-bottom: 4px; }          .field input[type="text"], .field input[type="number"], .field select {
+            width: 100%; padding: 12px 14px; border: none; border-radius: 10px;
+            font-size: 15px; font-family: var(--sans); background: var(--neu-bg); color: var(--text);
             box-shadow: inset 4px 4px 8px var(--neu-shadow-dark), inset -4px -4px 8px var(--neu-shadow-light);
           }
           .field input:disabled, .field select:disabled {
-            background: #e9ebed; color: #6b7280; box-shadow: none; cursor: not-allowed;
+            background: var(--neu-bg); color: var(--text-soft); box-shadow: none; cursor: not-allowed; opacity: 0.7;
           }
           .field input:focus, .field select:focus {
             outline: none;
             box-shadow: inset 5px 5px 10px var(--neu-shadow-dark), inset -5px -5px 10px var(--neu-shadow-light), 0 0 0 2px #2f6fed33;
+          }
+          .field label {
+            font-size: 13px;
           }
 
           .checks { display: flex; flex-wrap: wrap; gap: 14px; margin: 14px 0; }
@@ -627,8 +628,8 @@ function App() {
             grid-template-columns: 1.3fr 0.6fr 0.8fr 0.8fr 0.8fr 0.7fr 0.5fr;
             align-items: center;
             gap: 8px;
-            padding: 10px 4px;
-            font-size: 13px;
+            padding: 12px 4px;
+            font-size: 14px;
           }
           .trigger-row + .trigger-row {
             border-top: 1px solid var(--neu-shadow-light);
@@ -644,10 +645,10 @@ function App() {
           .trigger-row .pill { justify-self: start; }
           .trigger-input {
             width: 100%;
-            padding: 6px 8px;
+            padding: 9px 11px;
             border: none;
             border-radius: 8px;
-            font-size: 13px;
+            font-size: 14px;
             font-family: var(--sans);
             background: var(--neu-bg);
             color: var(--text);
@@ -708,9 +709,10 @@ function App() {
             grid-template-columns: 110px 1fr 90px 90px;
             gap: 12px;
             align-items: center;
-            padding: 10px 14px;
-            font-size: 13px;
+            padding: 12px 14px;
+            font-size: 14px;
           }
+
           .grid-row:nth-child(even):not(.grid-head) { background: rgba(0,0,0,0.02); }
           .grid-row:not(.grid-head):hover { background: var(--hover-highlight); }          
           .grid-head {
@@ -733,11 +735,11 @@ function App() {
           .pagination-info { font-size: 12px; color: var(--text-soft); font-family: var(--mono); }
           .pagination-controls { display: flex; align-items: center; gap: 4px; }
           .page-btn {
-            min-width: 30px;
-            height: 30px;
-            padding: 0 6px;
+            min-width: 36px;
+            height: 36px;
+            padding: 0 8px;
             border-radius: 8px;
-            font-size: 13px;
+            font-size: 14px;
             background: var(--neu-bg);
             color: var(--text-soft);
             box-shadow: 3px 3px 6px var(--neu-shadow-dark), -3px -3px 6px var(--neu-shadow-light);
@@ -761,13 +763,13 @@ function App() {
             justify-self: start;
           }
 
-          .check { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; user-select: none; }
-          .check input { accent-color: var(--accent); width: 15px; height: 15px; }
+          .check { display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; user-select: none; }
+          .check input { accent-color: var(--accent); width: 18px; height: 18px; }
 
           .actions { display: flex; gap: 8px; margin-top: 16px; }
           button {
-            font-family: var(--sans); font-size: 13px; font-weight: 500; border-radius: 10px;
-            border: none; padding: 10px 18px; cursor: pointer; transition: box-shadow 0.15s, transform 0.1s;
+            font-family: var(--sans); font-size: 14px; font-weight: 500; border-radius: 10px;
+            border: none; padding: 12px 20px; cursor: pointer; transition: box-shadow 0.15s, transform 0.1s;
             background: var(--neu-bg);
             box-shadow: 5px 5px 10px var(--neu-shadow-dark), -5px -5px 10px var(--neu-shadow-light);
           }
@@ -784,7 +786,7 @@ function App() {
 
           .table-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
           .search {
-            padding: 10px 14px; border: none; border-radius: 10px; font-size: 13px; width: min(260px, 100%);
+            padding: 12px 16px; border: none; border-radius: 10px; font-size: 14px; width: min(260px, 100%);
             background: var(--neu-bg);
             box-shadow: inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light);
           }
@@ -802,9 +804,8 @@ function App() {
             box-shadow: 0 -1px 0 var(--neu-shadow-dark);
           }
           .card-main { min-width: 0; }
-          .code { font-family: var(--mono); font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
-          .desc { font-size: 13px; color: var(--text-soft); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-          .meta { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+          .code { font-family: var(--mono); font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+          .desc { font-size: 14px; color: var(--text-soft); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }          .meta { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
           .pill { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
           .pill.active { background: var(--accent-soft); color: var(--accent); }
           .pill.inactive { background: var(--danger-soft); color: var(--danger); }
@@ -818,8 +819,8 @@ function App() {
 
           .card-actions { display: flex; gap: 6px; flex-shrink: 0; }
           .icon-btn {
-            width: 32px;
-            height: 32px;
+            width: 38px;
+            height: 38px;
             padding: 0;
             display: flex;
             align-items: center;
@@ -832,7 +833,7 @@ function App() {
           .icon-btn:active {
             box-shadow: inset 2px 2px 4px var(--neu-shadow-dark), inset -2px -2px 4px var(--neu-shadow-light);
           }
-          .icon-btn svg { width: 16px; height: 16px; color: inherit; }
+          .icon-btn svg { width: 19px; height: 19px; color: inherit; }
           .icon-btn.icon-danger svg { color: #a32d2d; }
 
           .modal-overlay {
@@ -1119,7 +1120,7 @@ function App() {
           }
 
           .admin-sidebar {
-            width: clamp(180px, 22cqi, 240px);
+            width: clamp(210px, 24cqi, 280px);
             flex-shrink: 0;
             display: flex;
             flex-direction: column;
@@ -1149,8 +1150,8 @@ function App() {
             background: transparent;
             border: none;
             border-radius: 14px;
-            padding: 10px 8px;
-            font-size: clamp(12px, 2.6cqi, 13px);
+            padding: 12px 10px;
+            font-size: clamp(14px, 2.8cqi, 15px);
             font-weight: 600;
             color: var(--text-soft);
             cursor: pointer;
@@ -1196,8 +1197,8 @@ function App() {
             background: transparent;
             border: none;
             border-radius: 10px;
-            padding: 8px 10px;
-            font-size: 12.5px;
+            padding: 10px 12px;
+            font-size: 14px;
             font-weight: 500;
             color: var(--text-soft);
             cursor: pointer;
@@ -1205,15 +1206,15 @@ function App() {
             transition: background 0.12s, box-shadow 0.12s, color 0.12s;
           }
           .admin-child-icon {
-            width: 22px;
-            height: 22px;
+            width: 26px;
+            height: 26px;
             flex-shrink: 0;
             display: flex;
             align-items: center;
             justify-content: center;
             color: inherit;
           }
-          .admin-child-icon svg { width: 14px; height: 14px; }
+          .admin-child-icon svg { width: 16px; height: 16px; }
           .admin-child-item:hover { background: rgba(0,0,0,0.03); }
           .admin-child-item:active { box-shadow: none; transform: none; }
           .admin-child-item.active {
@@ -1223,8 +1224,8 @@ function App() {
           }
 
           .admin-nav-icon {
-            width: 36px;
-            height: 36px;
+            width: 40px;
+            height: 40px;
             flex-shrink: 0;
             border-radius: 50%;
             display: flex;
@@ -1234,7 +1235,7 @@ function App() {
             background: var(--neu-bg);
             box-shadow: inset 4px 4px 8px var(--neu-shadow-dark), inset -4px -4px 8px var(--neu-shadow-light);
           }
-          .admin-nav-icon svg { width: 17px; height: 17px; }
+          .admin-nav-icon svg { width: 19px; height: 19px; }
 
           .admin-content { flex: 1; min-width: 0; min-height: 340px; }          
 

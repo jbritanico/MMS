@@ -4,6 +4,7 @@ import AssetTypes from "./AssetTypes";
 import ChecklistSections from "./ChecklistSections";
 import MriTemplates from "./MriTemplates";
 import LookupsManager from "./LookupsManager";
+import DataPurging from "./DataPurging";
 import DataBrowser from "./DataBrowser";
 
 export type AdminSection =
@@ -285,6 +286,8 @@ function Administration({ onOpenTemplate, active, setActive, openGroup, setOpenG
           <MriTemplates onOpenTemplate={onOpenTemplate} selectedTemplateId={selectedTemplateId} />
         ) : active === "data-browser" ? (
           <DataBrowser />
+        ) : active === "data-purge" ? (
+          <DataPurging />
         ) : (
           <div className="placeholder-screen">
             <h2>{LABELS[active]}</h2>

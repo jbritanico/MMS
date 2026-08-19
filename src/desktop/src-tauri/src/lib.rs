@@ -78,8 +78,14 @@ struct Trigger {
 const MR_LEVELS: [&str; 2] = ["MR-II", "MR-III"];
 const TRIGGER_TYPES: [&str; 5] = ["OH", "CA", "KM", "RIF", "EH"];
 
+// TEMPORARY: hardcoded encryption key. Once Entra ID auth exists, this should
+// be replaced with a key derived from the signed-in user's session, or at minimum
+// moved to OS-level secure storage (Windows Credential Manager) instead of source code.
+const DB_ENCRYPTION_KEY: &str = "sprint-mms-dev-key-change-before-production-834792F1=3#";
+
 fn get_connection() -> Result<Connection, String> {
     let conn = Connection::open("assets.db").map_err(|e| e.to_string())?;
+    conn.pragma_update(None, "key", DB_ENCRYPTION_KEY).map_err(|e| e.to_string())?;
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS asset_types (
@@ -1522,6 +1528,18 @@ struct NewMriReport {
 #[tauri::command]
 fn create_mri_report(report: NewMriReport) -> Result<i64, String> {
     let conn = get_connection()?;
+
+    // Reuse an existing Draft for this asset+template if one already exists
+    let existing_draft: Option<i64> = conn.query_row(
+        "SELECT id FROM mri_reports WHERE asset_id = ?1 AND template_id = ?2 AND status = 'Draft'",
+        rusqlite::params![report.asset_id, report.template_id],
+        |row| row.get(0),
+    ).ok();
+
+    if let Some(id) = existing_draft {
+        return Ok(id);
+    }
+
     let now = chrono_now();
     conn.execute(
         "INSERT INTO mri_reports (template_id, asset_id, status, created_date) VALUES (?1, ?2, 'Draft', ?3)",
@@ -2419,6 +2437,143 @@ fn import_assets_backup(backup_json: String) -> Result<String, String> {
     ))
 }
 
+// --- Reference data purging (skip rows still in use, report what happened) ---
+
+#[tauri::command]
+fn purge_asset_types() -> Result<String, String> {
+    let conn = get_connection()?;
+    let mut purged = 0;
+    let mut skipped = 0;
+    let mut stmt = conn.prepare("SELECT id FROM asset_types").map_err(|e| e.to_string())?;
+    let ids: Vec<i64> = stmt.query_map([], |row| row.get(0)).map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+    for id in ids {
+        match conn.execute("DELETE FROM asset_types WHERE id = ?1", [id]) {
+            Ok(_) => purged += 1,
+            Err(_) => skipped += 1,
+        }
+    }
+    Ok(format!("{} asset types purged, {} skipped (still in use by assets or templates)", purged, skipped))
+}
+
+#[tauri::command]
+fn purge_checklist_sections() -> Result<String, String> {
+    let conn = get_connection()?;
+    let mut purged = 0;
+    let mut skipped = 0;
+    let mut stmt = conn.prepare("SELECT id FROM checklist_sections").map_err(|e| e.to_string())?;
+    let ids: Vec<i64> = stmt.query_map([], |row| row.get(0)).map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+    for id in ids {
+        match conn.execute("DELETE FROM checklist_sections WHERE id = ?1", [id]) {
+            Ok(_) => purged += 1,
+            Err(_) => skipped += 1,
+        }
+    }
+    Ok(format!("{} sections purged, {} skipped (still in use by templates)", purged, skipped))
+}
+
+#[tauri::command]
+fn purge_checklist_databank() -> Result<String, String> {
+    let conn = get_connection()?;
+    let mut purged = 0;
+    let mut skipped = 0;
+    let mut stmt = conn.prepare("SELECT id FROM checklist_databank").map_err(|e| e.to_string())?;
+    let ids: Vec<i64> = stmt.query_map([], |row| row.get(0)).map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+    for id in ids {
+        match conn.execute("DELETE FROM checklist_databank WHERE id = ?1", [id]) {
+            Ok(_) => purged += 1,
+            Err(_) => skipped += 1,
+        }
+    }
+    Ok(format!("{} checklist items purged, {} skipped (still in use by templates)", purged, skipped))
+}
+
+#[tauri::command]
+fn purge_lookups(criteria: Option<String>) -> Result<String, String> {
+    let conn = get_connection()?;
+    let count: i64 = match &criteria {
+        Some(c) => conn.execute("DELETE FROM lookups WHERE criteria = ?1", [c]).map_err(|e| e.to_string())? as i64,
+        None => conn.execute("DELETE FROM lookups", []).map_err(|e| e.to_string())? as i64,
+    };
+    Ok(format!("{} lookup values purged", count))
+}
+
+// --- MR-I report purging (filtered by asset attributes, with preview) ---
+
+fn build_report_filter_sql(asset_id: Option<i64>, country: &Option<String>, service_line: &Option<String>, asset_type_id: Option<i64>) -> (String, Vec<Box<dyn rusqlite::ToSql>>) {
+    let mut clauses: Vec<String> = Vec::new();
+    let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+
+    if let Some(id) = asset_id {
+        clauses.push(format!("a.id = ?{}", params.len() + 1));
+        params.push(Box::new(id));
+    }
+    if let Some(c) = country {
+        clauses.push(format!("a.country = ?{}", params.len() + 1));
+        params.push(Box::new(c.clone()));
+    }
+    if let Some(sl) = service_line {
+        clauses.push(format!("a.service_line = ?{}", params.len() + 1));
+        params.push(Box::new(sl.clone()));
+    }
+    if let Some(atid) = asset_type_id {
+        clauses.push(format!("a.asset_type_id = ?{}", params.len() + 1));
+        params.push(Box::new(atid));
+    }
+
+    let where_sql = if clauses.is_empty() { "1=1".to_string() } else { clauses.join(" AND ") };
+    (where_sql, params)
+}
+
+#[derive(Serialize, Deserialize)]
+struct MriReportPurgeFilter {
+    asset_id: Option<i64>,
+    country: Option<String>,
+    service_line: Option<String>,
+    asset_type_id: Option<i64>,
+}
+
+#[tauri::command]
+fn preview_mri_report_purge(filter: MriReportPurgeFilter) -> Result<i64, String> {
+    let conn = get_connection()?;
+    let (where_sql, params) = build_report_filter_sql(filter.asset_id, &filter.country, &filter.service_line, filter.asset_type_id);
+    let sql = format!(
+        "SELECT COUNT(*) FROM mri_reports r JOIN assets a ON r.asset_id = a.id WHERE {}",
+        where_sql
+    );
+    let params_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+    let count: i64 = conn.query_row(&sql, params_refs.as_slice(), |row| row.get(0)).map_err(|e| e.to_string())?;
+    Ok(count)
+}
+
+#[tauri::command]
+fn purge_mri_reports(filter: MriReportPurgeFilter) -> Result<String, String> {
+    let conn = get_connection()?;
+    let (where_sql, params) = build_report_filter_sql(filter.asset_id, &filter.country, &filter.service_line, filter.asset_type_id);
+    let select_sql = format!(
+        "SELECT r.id FROM mri_reports r JOIN assets a ON r.asset_id = a.id WHERE {}",
+        where_sql
+    );
+    let params_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+
+    let mut stmt = conn.prepare(&select_sql).map_err(|e| e.to_string())?;
+    let report_ids: Vec<i64> = stmt.query_map(params_refs.as_slice(), |row| row.get(0)).map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+
+    let count = report_ids.len();
+    for id in &report_ids {
+        conn.execute("DELETE FROM mri_report_header_values WHERE report_id = ?1", [id]).map_err(|e| e.to_string())?;
+        conn.execute("DELETE FROM mri_report_checklist_results WHERE report_id = ?1", [id]).map_err(|e| e.to_string())?;
+        conn.execute("DELETE FROM mri_report_mid_values WHERE report_id = ?1", [id]).map_err(|e| e.to_string())?;
+        conn.execute("DELETE FROM mri_report_footer_values WHERE report_id = ?1", [id]).map_err(|e| e.to_string())?;
+        conn.execute("DELETE FROM mri_reports WHERE id = ?1", [id]).map_err(|e| e.to_string())?;
+    }
+
+    Ok(format!("{} MR-I report(s) purged, including all associated header/checklist/mid/footer data", count))
+}
+
 #[tauri::command]
 fn get_browsable_tables() -> Vec<String> {
     BROWSABLE_TABLES.iter().map(|s| s.to_string()).collect()
@@ -2615,7 +2770,13 @@ pub fn run() {
             export_assets_backup,
             import_assets_backup,
             export_mri_templates_backup,
-            import_mri_templates_backup
+            import_mri_templates_backup,
+            purge_asset_types,
+            purge_checklist_sections,
+            purge_checklist_databank,
+            purge_lookups,
+            preview_mri_report_purge,
+            purge_mri_reports
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
