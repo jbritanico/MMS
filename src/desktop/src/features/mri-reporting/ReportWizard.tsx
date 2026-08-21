@@ -193,7 +193,6 @@ function HeaderEntryStep({ templateId, reportId, locked, asset }: { templateId: 
         setLocalValues(initial);
     }, [savedValues]);
 
-    // Persist inherited values in the background once, per field, without blocking display
     useEffect(() => {
         if (!asset || locked || templateFields.length === 0) return;
         templateFields.forEach((tf) => {
@@ -212,7 +211,6 @@ function HeaderEntryStep({ templateId, reportId, locked, asset }: { templateId: 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [asset, templateFields.length, savedValues.length]);
 
-    // Persist auto-computed date fields (MR Initiation Date, MR II Due Date) once per field
     useEffect(() => {
         if (locked || templateFields.length === 0) return;
         templateFields.forEach((tf) => {

@@ -73,20 +73,16 @@ const KPI_DATA = [
 ];
 
 function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [themePickerOpen, setThemePickerOpen] = useState(false);
+
+  const [reportsExpanded, setReportsExpanded] = useState(false);
 
   function handleCardClick(id: Screen) {
     if (id === "reports") {
-      setPickerOpen(true);
-    } else {
-      onNavigate(id);
+      setReportsExpanded((prev) => !prev);
+      return;
     }
-  }
-
-  function handleSelectLevel(level: MrLevel) {
-    setPickerOpen(false);
-    onNavigate("reports", level);
+    onNavigate(id);
   }
 
   function handleThemeSelect(t: Theme) {
@@ -96,33 +92,52 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
 
   return (
     <>
+      <div className="menu-screen" onClick={() => setReportsExpanded(false)}>
       <div className="menu-grid">
         {OPTIONS.map((opt) => (
-          <div key={opt.id} className="menu-card" onClick={() => handleCardClick(opt.id)}>
+          <div
+            key={opt.id}
+            className="menu-card"
+            onClick={(e) => { e.stopPropagation(); handleCardClick(opt.id); }}
+          >
             <div className="menu-icon-wrap">{opt.icon}</div>
             <h3>{opt.label}</h3>
             <p>{opt.desc}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="kpi-footer">
-        {KPI_DATA.map((k) => (
-          <div key={k.key} className="kpi-footer-item" onClick={() => onNavigate("dashboard")}>
-            <span className="kpi-footer-label">{k.label}</span>
-            <div className="kpi-footer-row">
-              <span className={`kpi-footer-value ${k.key === "defects" ? "pale-red" : ""}`}>
-                {k.value}<span className="kpi-footer-unit">{k.unit}</span>
-              </span>
-              <span className={`kpi-footer-delta ${k.good ? "good" : "bad"}`}>{k.delta}</span>
-            </div>
-            {k.key === "availability" && (
-              <div className="kpi-gauge-track">
-                <div className="kpi-gauge-mask" style={{ width: `${100 - parseFloat(k.value)}%` }} />
+            {opt.id === "reports" && reportsExpanded && (
+              <div className="mr-level-row" onClick={(e) => e.stopPropagation()}>
+                {MR_LEVELS.map((lvl) => (
+                  <button
+                    key={lvl.id}
+                    className="mr-level-btn"
+                    onClick={() => onNavigate("reports", lvl.id)}
+                  >
+                    {lvl.short}
+                  </button>
+                ))}
               </div>
             )}
           </div>
         ))}
+      </div>
+
+        <div className="kpi-footer">
+          {KPI_DATA.map((k) => (
+            <div key={k.key} className="kpi-footer-item" onClick={() => onNavigate("dashboard")}>
+              <span className="kpi-footer-label">{k.label}</span>
+              <div className="kpi-footer-row">
+                <span className={`kpi-footer-value ${k.key === "defects" ? "pale-red" : ""}`}>
+                  {k.value}<span className="kpi-footer-unit">{k.unit}</span>
+                </span>
+                <span className={`kpi-footer-delta ${k.good ? "good" : "bad"}`}>{k.delta}</span>
+              </div>
+              {k.key === "availability" && (
+                <div className="kpi-gauge-track">
+                  <div className="kpi-gauge-mask" style={{ width: `${100 - parseFloat(k.value)}%` }} />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
       <button className="uilab-fab" aria-label="UI Lab" onClick={() => onNavigate("uilab")}>
@@ -157,24 +172,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
         </div>
       )}
 
-      {pickerOpen && (
-        <div className="level-picker-overlay" onClick={() => setPickerOpen(false)}>
-          <div className="level-picker">
-            {MR_LEVELS.map((lvl, i) => (
-              <div
-                key={lvl.id}
-                className="level-orb"
-                style={{ animationDelay: `${i * 90}ms` }}
-                onClick={(e) => { e.stopPropagation(); handleSelectLevel(lvl.id); }}
-              >
-                <span className="level-orb-short">{lvl.short}</span>
-                <span className="level-orb-label">{lvl.id}</span>
-                <span className="level-orb-desc">{lvl.desc}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+
     </>
   );
 }

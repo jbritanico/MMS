@@ -960,6 +960,24 @@ fn bulk_create_asset_types(descriptions: Vec<String>) -> Result<String, String> 
 #[tauri::command]
 fn delete_asset_type(id: i64) -> Result<String, String> {
     let conn = get_connection()?;
+
+    let asset_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM assets WHERE asset_type_id = ?1", [id], |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+    let template_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM mri_templates WHERE asset_type_id = ?1", [id], |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+
+    if asset_count > 0 || template_count > 0 {
+        let mut parts = Vec::new();
+        if asset_count > 0 { parts.push(format!("{} asset(s)", asset_count)); }
+        if template_count > 0 { parts.push(format!("{} MR-I template(s)", template_count)); }
+        return Err(format!(
+            "Cannot delete — still used by {}. Reassign or remove those first.",
+            parts.join(" and ")
+        ));
+    }
+
     conn.execute("DELETE FROM asset_types WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
     Ok("Asset type deleted".to_string())

@@ -70,9 +70,13 @@ function AssetTypes() {
 
     async function confirmDelete() {
         if (!pendingDelete) return;
-        await deleteType.mutateAsync(pendingDelete.id);
-        flash(`"${pendingDelete.description}" deleted`, "ok");
-        setPendingDelete(null);
+        try {
+            await deleteType.mutateAsync(pendingDelete.id);
+            flash(`"${pendingDelete.description}" deleted`, "ok");
+            setPendingDelete(null);
+        } catch (err) {
+            flash(String(err), "err");
+        }
     }
 
     function normalizeRows(rows: any[]): string[] {

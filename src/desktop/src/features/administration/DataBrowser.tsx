@@ -81,9 +81,13 @@ function DataBrowser() {
 
   async function confirmDelete() {
     if (!pendingDelete) return;
-    await deleteRow.mutateAsync(pendingDelete.id);
-    flash(`Row #${pendingDelete.id} deleted`, "ok");
-    setPendingDelete(null);
+    try {
+      await deleteRow.mutateAsync(pendingDelete.id);
+      flash(`Row #${pendingDelete.id} deleted`, "ok");
+      setPendingDelete(null);
+    } catch (err) {
+      flash(String(err), "err");
+    }
   }
 
   const displayColumns = columns.slice(0, 6);

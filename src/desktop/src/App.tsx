@@ -183,51 +183,34 @@ function App() {
             --danger-soft: #ffe0e1;
             --hover-highlight: #2bb8d8;
           }
+
           * { box-sizing: border-box; }
           html { font-size: 17px; }
-          html, body, #root { height: 100%; margin: 0; }
-          .app { font-family: var(--sans); background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; zoom: 1.15; }          .topband {
-            background: var(--neu-bg);
-            color: var(--text);
-            padding: 14px clamp(16px, 3vw, 32px);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-shrink: 0;
-            box-shadow: 0 4px 10px var(--neu-shadow-dark), 0 -2px 6px var(--neu-shadow-light);
-            position: relative;
-            z-index: 5;
-          }
-          .topband .title-main { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
-          .topband .title-sep { color: var(--neu-shadow-dark); font-size: 16px; }
-          .topband .title-sub { font-size: 15px; font-weight: 500; color: #2f6fed; }
+          html, body, #root { height: 100%; margin: 0; }          
+          .app { font-family: var(--sans); background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; zoom: 1.05; }
 
-          .back-btn {
-            background: var(--neu-bg);
-            border: none;
-            color: var(--text-soft);
-            border-radius: 10px;
-            width: 32px;
-            height: 32px;
-            padding: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            margin-right: 4px;
-            box-shadow: 3px 3px 6px var(--neu-shadow-dark), -3px -3px 6px var(--neu-shadow-light);
-            transition: box-shadow 0.12s, color 0.12s, transform 0.12s;
+          .ui-nav {
+            padding: 16px 16px 0;
           }
-          .back-btn:hover { color: #2f6fed; }
-          .back-btn:active {
-            box-shadow: inset 2px 2px 4px var(--neu-shadow-dark), inset -2px -2px 4px var(--neu-shadow-light);
-            transform: translateY(0);
-          }
-          .back-btn svg { width: 17px; height: 17px; }
 
-           .content {
-            flex: 1; min-width: 0; overflow-y: auto; padding: clamp(14px, 2vw, 22px); background: var(--neu-bg);
+          .content {
+            flex: 1; min-width: 0; overflow-y: auto; padding: clamp(12px, 1.6vw, 18px); background: var(--neu-bg);
             container-type: inline-size;
+          }
+
+          @keyframes screen-fade-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          .screen-fade {
+            animation: screen-fade-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+            min-height: 100%;
+          }
+          .screen-fade.fixed-height {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
           }
 
           .content { background: var(--neu-bg); }
@@ -235,9 +218,9 @@ function App() {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: clamp(14px, 3cqi, 28px);
-            flex: 1;
-            min-width: 0;
+            width: 100%;
           }
+            
           @container (max-width: 680px) {
             .menu-grid { grid-template-columns: repeat(2, 1fr); }
           }
@@ -252,12 +235,16 @@ function App() {
           .menu-card {
             background: var(--neu-bg);
             border-radius: 22px;
-            padding: clamp(18px, 4cqi, 32px) clamp(14px, 3cqi, 22px);
+            padding: clamp(16px, 3.4cqi, 26px) clamp(14px, 3cqi, 22px);
             text-align: center;
             cursor: pointer;
             border: none;
             box-shadow: 9px 9px 18px var(--neu-shadow-dark), -9px -9px 18px var(--neu-shadow-light);
             transition: box-shadow 0.18s, transform 0.18s;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 210px;
           }
           .menu-card:hover {
             transform: translateY(-3px);
@@ -268,9 +255,9 @@ function App() {
             box-shadow: inset 6px 6px 12px var(--neu-shadow-dark), inset -6px -6px 12px var(--neu-shadow-light);
           }
           .menu-icon-wrap {
-            width: clamp(44px, 12cqi, 60px);
-            height: clamp(44px, 12cqi, 60px);
-            margin: 0 auto clamp(10px, 2.5cqi, 16px);
+            width: clamp(40px, 10cqi, 52px);
+            height: clamp(40px, 10cqi, 52px);
+            margin: 0 auto clamp(8px, 2cqi, 12px);
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -280,12 +267,43 @@ function App() {
             box-shadow: inset 5px 5px 10px var(--neu-shadow-dark), inset -5px -5px 10px var(--neu-shadow-light);
             transition: color 0.18s;
           }
+
           .menu-card:hover .menu-icon-wrap { color: #1a4d8f; }
           .menu-card:active .menu-icon-wrap { color: #0d2f5c; }
           .menu-icon-wrap svg { width: clamp(20px, 5cqi, 26px); height: clamp(20px, 5cqi, 26px); }
 
           .menu-card h3 { font-size: clamp(15px, 3.4cqi, 18px); margin: 0 0 6px; font-weight: 600; }
           .menu-card p { font-size: clamp(13px, 2.8cqi, 14.5px); color: var(--text-soft); margin: 0; line-height: 1.4; }
+
+          .mr-level-row {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 14px;
+            height: 38px;
+            animation: mr-level-in 0.18s ease-out;
+          }
+          @keyframes mr-level-in {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          .mr-level-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            padding: 0;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--accent-blue);
+            background: var(--neu-bg);
+            box-shadow: 3px 3px 6px var(--neu-shadow-dark), -3px -3px 6px var(--neu-shadow-light);
+          }
+          .mr-level-btn:hover {
+            box-shadow: 4px 4px 8px var(--neu-shadow-dark), -4px -4px 8px var(--neu-shadow-light);
+          }
+          .mr-level-btn:active {
+            box-shadow: inset 2px 2px 4px var(--neu-shadow-dark), inset -2px -2px 4px var(--neu-shadow-light);
+          }
           .uilab-fab {
             position: fixed;
             bottom: 20px;
@@ -312,15 +330,23 @@ function App() {
           }
           .uilab-fab svg { width: 19px; height: 19px; }  
 
+          .menu-screen {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            max-height: 100%;
+            overflow: hidden;
+          }
+
           .kpi-footer {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
             display: flex;
             flex-direction: row;
             gap: 12px;
-            z-index: 5;
+            margin-top: auto;
+            padding-top: 12px;
           }
+
           .kpi-footer-item {
             display: flex;
             flex-direction: column;
@@ -391,7 +417,7 @@ function App() {
           }
 
           @media (max-width: 480px) {
-            .kpi-footer { left: 12px; bottom: 12px; gap: 8px; }
+            .kpi-footer { gap: 8px; }
             .kpi-footer-item { min-width: 130px; padding: 10px 12px; }
           }
 
@@ -469,31 +495,6 @@ function App() {
             border-radius: 50%;
             flex-shrink: 0;
             box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
-          }          
-          
-          .level-picker-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(231, 234, 240, 0.7);
-            backdrop-filter: blur(3px);
-            -webkit-backdrop-filter: blur(3px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 50;
-            animation: picker-backdrop-in 0.2s ease-out;
-          }
-          @keyframes picker-backdrop-in {
-            from { opacity: 0; }
-            to { opacity: 1; }
-          }
-
-          .level-picker {
-            display: flex;
-            gap: 28px;
-            flex-wrap: wrap;
-            justify-content: center;
-            padding: 20px;
           }
 
           .level-orb {
@@ -560,7 +561,8 @@ function App() {
           }
           .panel h2 { font-size: 15px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-soft); margin: 0 0 14px 0; }
           .field { margin-bottom: 12px; }
-          .field label { display: block; font-size: 14px; color: var(--text-soft); margin-bottom: 4px; }          .field input[type="text"], .field input[type="number"], .field select {
+          .field label { display: block; font-size: 14px; color: var(--text-soft); margin-bottom: 4px; }
+          .field input[type="text"], .field input[type="number"], .field select {
             width: 100%; padding: 12px 14px; border: none; border-radius: 10px;
             font-size: 15px; font-family: var(--sans); background: var(--neu-bg); color: var(--text);
             box-shadow: inset 4px 4px 8px var(--neu-shadow-dark), inset -4px -4px 8px var(--neu-shadow-light);
@@ -572,8 +574,28 @@ function App() {
             outline: none;
             box-shadow: inset 5px 5px 10px var(--neu-shadow-dark), inset -5px -5px 10px var(--neu-shadow-light), 0 0 0 2px #2f6fed33;
           }
-          .field label {
-            font-size: 13px;
+
+          .neu-select {
+            padding: 12px 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-family: var(--sans);
+            background: var(--neu-bg);
+            color: var(--text);
+            box-shadow: inset 4px 4px 8px var(--neu-shadow-dark), inset -4px -4px 8px var(--neu-shadow-light);
+            width: 100%;
+          }
+          .neu-select:focus {
+            outline: none;
+            box-shadow: inset 5px 5px 10px var(--neu-shadow-dark), inset -5px -5px 10px var(--neu-shadow-light), 0 0 0 2px #2f6fed33;
+          }
+          .neu-select:disabled {
+            background: var(--neu-bg);
+            color: var(--text-soft);
+            box-shadow: none;
+            cursor: not-allowed;
+            opacity: 0.7;
           }
 
           .checks { display: flex; flex-wrap: wrap; gap: 14px; margin: 14px 0; }
@@ -622,58 +644,6 @@ function App() {
             color: var(--text-soft);
           }          
 
-          .trigger-table { display: flex; flex-direction: column; }
-          .trigger-row {
-            display: grid;
-            grid-template-columns: 1.3fr 0.6fr 0.8fr 0.8fr 0.8fr 0.7fr 0.5fr;
-            align-items: center;
-            gap: 8px;
-            padding: 12px 4px;
-            font-size: 14px;
-          }
-          .trigger-row + .trigger-row {
-            border-top: 1px solid var(--neu-shadow-light);
-            box-shadow: 0 -1px 0 var(--neu-shadow-dark);
-          }
-          .trigger-head {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-            color: var(--text-soft);
-            font-weight: 600;
-          }
-          .trigger-row .pill { justify-self: start; }
-          .trigger-input {
-            width: 100%;
-            padding: 9px 11px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-family: var(--sans);
-            background: var(--neu-bg);
-            color: var(--text);
-            box-shadow: inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light);
-          }
-          .trigger-readonly {
-            font-family: var(--mono);
-            color: var(--text-soft);
-          }
-
-          .neu-select {
-            padding: 8px 12px;
-            border: none;
-            border-radius: 10px;
-            font-size: 13px;
-            font-family: var(--sans);
-            background: var(--neu-bg);
-            color: var(--text);
-            box-shadow: 3px 3px 6px var(--neu-shadow-dark), -3px -3px 6px var(--neu-shadow-light);
-          }
-          .neu-select:focus {
-            outline: none;
-            box-shadow: inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light);
-          }
-
           .checklist-item-controls {
             display: grid;
             grid-template-columns: 1fr 1fr auto;
@@ -691,6 +661,17 @@ function App() {
             .checklist-required-check { justify-self: start; }
           }          
 
+          .trigger-input {
+            width: 100%;
+            padding: 9px 11px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: var(--sans);
+            background: var(--neu-bg);
+            color: var(--text);
+            box-shadow: inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light);
+          }
           .trigger-input:disabled {
             background: #e9ebed;
             color: #6b7280;
@@ -805,7 +786,8 @@ function App() {
           }
           .card-main { min-width: 0; }
           .code { font-family: var(--mono); font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
-          .desc { font-size: 14px; color: var(--text-soft); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }          .meta { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+          .desc { font-size: 14px; color: var(--text-soft); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+          .meta { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
           .pill { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
           .pill.active { background: var(--accent-soft); color: var(--accent); }
           .pill.inactive { background: var(--danger-soft); color: var(--danger); }
@@ -814,7 +796,6 @@ function App() {
             cursor: pointer;
             transition: background 0.12s;
           }
-
           .card:hover { background: var(--hover-highlight); }
 
           .card-actions { display: flex; gap: 6px; flex-shrink: 0; }
@@ -1130,6 +1111,7 @@ function App() {
             padding: clamp(10px, 2cqi, 16px);
             box-shadow: 8px 8px 16px var(--neu-shadow-dark), -8px -8px 16px var(--neu-shadow-light);
           }
+
           @container (max-width: 640px) {
             .admin-sidebar {
               width: 100%;
@@ -1422,63 +1404,59 @@ function App() {
           }
         `}</style>
 
-        <div className="topband">
-          {screen !== "menu" && (
-            <button className="back-btn" aria-label="Back to main menu" onClick={() => setScreen("menu")}>
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+        {screen !== "menu" && (
+          <div className="ui-nav">
+            <button className="ghost" onClick={() => setScreen("menu")} style={{ padding: "6px 12px", fontSize: 12 }}>
+              ← Back to main menu
             </button>
-          )}
-          <span className="title-main">Maintenance Management System</span>
-          <span className="title-sep">|</span>
-          <span className="title-sub">{LABELS[screen]}</span>
-        </div>
+          </div>
+        )}
 
         <div className="content">
-          {screen === "menu" && (
-            <MainMenu onNavigate={handleNavigate} currentTheme={theme} onThemeChange={handleThemeChange} />
-          )}
-          {screen === "assets" && <AssetRegistry onViewTriggers={handleViewTriggers} />}
-          {screen === "reports" && mrLevel === "MR-I" && (
-            <SelectAssetForReport onReportCreated={handleReportCreated} />
-          )}
-          {screen === "reports" && mrLevel !== "MR-I" && <MaintenanceReport />}
-          {screen === "report-wizard" && selectedReportId !== null && (
-            <ReportWizard reportId={selectedReportId} onBack={() => setScreen("reports")} />
-          )}
-          {screen === "dashboard" && <Dashboard />}
-          {screen === "admin" && (
-            <Administration
-              onOpenTemplate={handleOpenTemplate}
-              active={adminActive}
-              setActive={setAdminActive}
-              openGroup={adminOpenGroup}
-              setOpenGroup={setAdminOpenGroup}
-              selectedTemplateId={selectedTemplate?.id ?? null}
-            />
-          )}
-          {screen === "triggers" && selectedAsset && (
-            <MaintenanceTriggers
-              assetId={selectedAsset.id}
-              assetCode={selectedAsset.code}
-              onBack={() => setScreen("assets")}
-            />
-          )}
-          {screen === "uilab" && <LiquidGlassTest />}
-          {screen === "template-builder" && selectedTemplate && (
-            <TemplateBuilder
-              templateId={selectedTemplate.id}
-              templateName={selectedTemplate.name}
-              onBack={() => {
-                setAdminActive("mri-template");
-                setAdminOpenGroup("mr-templates");
-                setScreen("admin");
-              }}
-            />
-          )}
+          <div key={screen} className={`screen-fade ${screen === "menu" ? "fixed-height" : ""}`}>
+            {screen === "menu" && (
+              <MainMenu onNavigate={handleNavigate} currentTheme={theme} onThemeChange={handleThemeChange} />
+            )}
+            {screen === "assets" && <AssetRegistry onViewTriggers={handleViewTriggers} />}
+            {screen === "reports" && mrLevel === "MR-I" && (
+              <SelectAssetForReport onReportCreated={handleReportCreated} />
+            )}
+            {screen === "reports" && mrLevel !== "MR-I" && <MaintenanceReport />}
+            {screen === "report-wizard" && selectedReportId !== null && (
+              <ReportWizard reportId={selectedReportId} onBack={() => setScreen("reports")} />
+            )}
+            {screen === "dashboard" && <Dashboard />}
+            {screen === "admin" && (
+              <Administration
+                onOpenTemplate={handleOpenTemplate}
+                active={adminActive}
+                setActive={setAdminActive}
+                openGroup={adminOpenGroup}
+                setOpenGroup={setAdminOpenGroup}
+                selectedTemplateId={selectedTemplate?.id ?? null}
+              />
+            )}
+            {screen === "triggers" && selectedAsset && (
+              <MaintenanceTriggers
+                assetId={selectedAsset.id}
+                assetCode={selectedAsset.code}
+                onBack={() => setScreen("assets")}
+              />
+            )}
+            {screen === "uilab" && <LiquidGlassTest />}
+            {screen === "template-builder" && selectedTemplate && (
+              <TemplateBuilder
+                templateId={selectedTemplate.id}
+                templateName={selectedTemplate.name}
+                onBack={() => {
+                  setAdminActive("mri-template");
+                  setAdminOpenGroup("mr-templates");
+                  setScreen("admin");
+                }}
+              />
+            )}
+          </div>
         </div>
-
       </div>
     </QueryClientProvider>
   );
