@@ -9,6 +9,7 @@ export interface AssetType {
   created_date: string;
   updated_by: string;
   updated_date: string;
+  icon: string;
 }
 
 const KEY = ["asset-types"];
@@ -31,7 +32,7 @@ export function useCreateAssetType() {
 export function useUpdateAssetType() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (item: { id: number; description: string; active: boolean }) =>
+    mutationFn: (item: { id: number; description: string; active: boolean; icon: string }) =>
       invoke("update_asset_type", item),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });

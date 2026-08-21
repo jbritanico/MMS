@@ -597,6 +597,55 @@ function App() {
             cursor: not-allowed;
             opacity: 0.7;
           }
+          .asset-select-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+          }
+          .asset-select-card {
+            background: var(--neu-bg);
+            border-radius: 16px;
+            padding: 18px;
+            box-shadow: 6px 6px 12px var(--neu-shadow-dark), -6px -6px 12px var(--neu-shadow-light);
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+            transition: box-shadow 0.15s, transform 0.15s;
+          }
+          .asset-select-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 8px 8px 16px var(--neu-shadow-dark), -8px -8px 16px var(--neu-shadow-light);
+          }
+          .asset-select-card:active {
+            transform: translateY(0);
+            box-shadow: inset 4px 4px 8px var(--neu-shadow-dark), inset -4px -4px 8px var(--neu-shadow-light);
+          }
+          .asset-select-card-disabled {
+            cursor: not-allowed;
+            opacity: 0.55;
+          }
+          .asset-select-card-disabled:hover {
+            transform: none;
+            box-shadow: 6px 6px 12px var(--neu-shadow-dark), -6px -6px 12px var(--neu-shadow-light);
+          }
+          .asset-select-code {
+            font-family: var(--mono);
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text);
+          }
+          .asset-select-desc {
+            font-size: 13px;
+            color: var(--text-soft);
+            margin-top: 4px;
+            min-height: 18px;
+          }
+          .asset-select-meta {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+          }        
 
           .checks { display: flex; flex-wrap: wrap; gap: 14px; margin: 14px 0; }
 
@@ -660,6 +709,30 @@ function App() {
             }
             .checklist-required-check { justify-self: start; }
           }          
+
+          .trigger-row {
+            display: grid;
+            grid-template-columns: 1.3fr 0.6fr 0.8fr 0.8fr 0.8fr 0.7fr 0.5fr;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 4px;
+            font-size: 14px;
+          }
+          .trigger-row + .trigger-row {
+            border-top: 1px solid var(--neu-shadow-light);
+          }
+          .trigger-row.trigger-head {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: var(--text-soft);
+            font-weight: 600;
+          }
+          .trigger-readonly {
+            font-family: var(--mono);
+            color: var(--text-soft);
+          }
+
 
           .trigger-input {
             width: 100%;

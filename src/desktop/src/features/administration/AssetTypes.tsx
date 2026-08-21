@@ -9,6 +9,7 @@ import {
     useBulkCreateAssetTypes,
     type AssetType,
 } from "./hooks/useAssetTypes";
+import IconUpload from "./IconUpload";
 
 function AssetTypes() {
     const { data: types = [], isLoading } = useAssetTypes();
@@ -16,6 +17,8 @@ function AssetTypes() {
     const updateType = useUpdateAssetType();
     const deleteType = useDeleteAssetType();
     const bulkCreate = useBulkCreateAssetTypes();
+    const [pickingIconFor, setPickingIconFor] = useState<AssetType | null>(null);
+    const [searchQuery, setSearchQuery] = useState("");
 
     const [newDescription, setNewDescription] = useState("");
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -43,6 +46,24 @@ function AssetTypes() {
         }
     }
 
+    async function handleIconSelected(dataUrl: string) {
+        if (!pickingIconFor) return;
+        try {
+            await updateType.mutateAsync({
+                id: pickingIconFor.id,
+                description: pickingIconFor.description,
+                active: pickingIconFor.active,
+                icon: dataUrl,
+            });
+            flash(`Icon updated for "${pickingIconFor.description}"`, "ok");
+        } catch (err) {
+            flash(String(err), "err");
+        } finally {
+            setPickingIconFor(null);
+        }
+    }
+
+
     function startEdit(t: AssetType) {
         setEditingId(t.id);
         setEditDescription(t.description);
@@ -51,7 +72,7 @@ function AssetTypes() {
     async function saveEdit(t: AssetType) {
         if (!editDescription.trim()) return;
         try {
-            await updateType.mutateAsync({ id: t.id, description: editDescription.trim(), active: t.active });
+            await updateType.mutateAsync({ id: t.id, description: editDescription.trim(), active: t.active, icon: t.icon });
             setEditingId(null);
             flash("Asset type updated", "ok");
         } catch (err) {
@@ -61,7 +82,7 @@ function AssetTypes() {
 
     async function toggleActive(t: AssetType) {
         try {
-            await updateType.mutateAsync({ id: t.id, description: t.description, active: !t.active });
+            await updateType.mutateAsync({ id: t.id, description: t.description, active: !t.active, icon: t.icon });
             flash(`${t.description} ${!t.active ? "activated" : "deactivated"}`, "ok");
         } catch (err) {
             flash(String(err), "err");
@@ -155,13 +176,20 @@ function AssetTypes() {
                 </div>
                 <button className="primary" onClick={handleCreate}>Add</button>
             </div>
-
-            <div style={{ marginBottom: 18 }}>
+            <div style={{ marginBottom: 18, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
                 <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" style={{ display: "none" }} onChange={handleFileSelected} />
                 <button className="ghost" onClick={() => fileInputRef.current?.click()}>Upload from CSV / Excel</button>
-                <span style={{ fontSize: 12, color: "var(--text-soft)", marginLeft: 10 }}>
+                <span style={{ fontSize: 12, color: "var(--text-soft)" }}>
                     Column: Description (or Asset Type)
                 </span>
+                <input
+                    type="text"
+                    className="search"
+                    placeholder="Search asset types..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{ marginLeft: "auto" }}
+                />
             </div>
 
             {status && <div className={`toast ${status.kind}`} style={{ maxWidth: 400, marginBottom: 12 }}>{status.msg}</div>}
@@ -192,79 +220,105 @@ function AssetTypes() {
                 </div>
             )}
 
-            {isLoading ? (
-                <div className="empty">Loading...</div>
-            ) : types.length === 0 ? (
-                <div className="empty">No asset types yet — add one above to get started</div>
-            ) : (
-                <div className="cards">
-                    {types.map((t) => (
-                        <div className="card" key={t.id} style={{ cursor: "default" }}>
-                            {editingId === t.id ? (
-                                <div className="card-main">
-                                    <input
-                                        type="text"
-                                        value={editDescription}
-                                        onChange={(e) => setEditDescription(e.target.value)}
-                                        onKeyDown={(e) => e.key === "Enter" && saveEdit(t)}
-                                        autoFocus
-                                    />
-                                </div>
-                            ) : (
-                                <div className="card-main">
-                                    <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500 }}>{t.description}</div>
-                                    <div className="meta">
-                                        <span className={`pill ${t.active ? "active" : "inactive"}`}>
-                                            {t.active ? "Active" : "Inactive"}
-                                        </span>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="card-actions">
+            {(() => {
+                const filteredTypes = types.filter((t) =>
+                    t.description.toLowerCase().includes(searchQuery.toLowerCase())
+                );
+                return isLoading ? (
+                    <div className="empty">Loading...</div>
+                ) : filteredTypes.length === 0 ? (
+                    <div className="empty">
+                        {types.length === 0 ? "No asset types yet — add one above to get started" : "No asset types match your search"}
+                    </div>
+                ) : (
+                    <div className="cards">
+                        {filteredTypes.map((t) => (
+                            <div className="card" key={t.id} style={{ cursor: "default" }}>
                                 {editingId === t.id ? (
-                                    <>
-                                        <button className="icon-btn" aria-label="Save" onClick={() => saveEdit(t)}>
-                                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                                            </svg>
-                                        </button>
-                                        <button className="icon-btn" aria-label="Cancel" onClick={() => setEditingId(null)}>
-                                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                            </svg>
-                                        </button>
-                                    </>
+                                    <div className="card-main">
+                                        <input
+                                            type="text"
+                                            value={editDescription}
+                                            onChange={(e) => setEditDescription(e.target.value)}
+                                            onKeyDown={(e) => e.key === "Enter" && saveEdit(t)}
+                                            autoFocus
+                                        />
+                                    </div>
                                 ) : (
-                                    <>
-                                        <button className="icon-btn" aria-label={t.active ? "Deactivate" : "Activate"} onClick={() => toggleActive(t)}>
-                                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                {t.active ? (
-                                                    <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                                                ) : (
-                                                    <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                                                )}
-                                            </svg>
+                                    <div className="card-main" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                        <div
+                                            style={{
+                                                width: 36, height: 36, flexShrink: 0, borderRadius: 10,
+                                                background: "var(--neu-bg)",
+                                                boxShadow: "inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light)",
+                                                display: "flex", alignItems: "center", justifyContent: "center",
+                                            }}
+                                        >
+                                            {t.icon && t.icon.trim().startsWith("data:") ? (
+                                                <img src={t.icon} alt="" style={{ width: 22, height: 22, objectFit: "contain" }} />
+                                            ) : (
+                                                <span style={{ fontSize: 11, color: "var(--text-soft)" }}>—</span>
+                                            )}
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500 }}>{t.description}</div>
+                                            <div className="meta">
+                                                <span className={`pill ${t.active ? "active" : "inactive"}`}>
+                                                    {t.active ? "Active" : "Inactive"}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <button className="ghost" onClick={() => setPickingIconFor(t)} style={{ padding: "6px 10px", fontSize: 12 }}>
+                                            Change icon
                                         </button>
-                                        <button className="icon-btn" aria-label="Edit" onClick={() => startEdit(t)}>
-                                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"
-                                                    stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
-                                            </svg>
-                                        </button>
-                                        <button className="icon-btn icon-danger" aria-label="Delete" onClick={() => setPendingDelete(t)}>
-                                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                                                <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                                            </svg>
-                                        </button>
-                                    </>
+                                    </div>
                                 )}
+
+                                <div className="card-actions">
+                                    {editingId === t.id ? (
+                                        <>
+                                            <button className="icon-btn" aria-label="Save" onClick={() => saveEdit(t)}>
+                                                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                                </svg>
+                                            </button>
+                                            <button className="icon-btn" aria-label="Cancel" onClick={() => setEditingId(null)}>
+                                                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                                </svg>
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <button className="icon-btn" aria-label={t.active ? "Deactivate" : "Activate"} onClick={() => toggleActive(t)}>
+                                                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    {t.active ? (
+                                                        <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                                                    ) : (
+                                                        <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                                                    )}
+                                                </svg>
+                                            </button>
+                                            <button className="icon-btn" aria-label="Edit" onClick={() => startEdit(t)}>
+                                                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"
+                                                        stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+                                                </svg>
+                                            </button>
+                                            <button className="icon-btn icon-danger" aria-label="Delete" onClick={() => setPendingDelete(t)}>
+                                                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                                                    <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                                                </svg>
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    ))}
-                </div>
-            )}
+                        ))}
+                    </div>
+                );
+            })()}
 
             {pendingDelete && (
                 <div className="modal-overlay">
@@ -286,6 +340,13 @@ function AssetTypes() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {pickingIconFor && (
+                <IconUpload
+                    onSelect={handleIconSelected}
+                    onClose={() => setPickingIconFor(null)}
+                />
             )}
         </div>
     );

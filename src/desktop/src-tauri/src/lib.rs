@@ -95,7 +95,8 @@ fn get_connection() -> Result<Connection, String> {
             created_by TEXT NOT NULL DEFAULT 'local user',
             created_date TEXT NOT NULL,
             updated_by TEXT NOT NULL DEFAULT 'local user',
-            updated_date TEXT NOT NULL
+            updated_date TEXT NOT NULL,
+            icon TEXT NOT NULL DEFAULT 'equipment'
         )",
         [],
     )
@@ -843,6 +844,7 @@ fn bulk_create_checklist_sections(names: Vec<String>) -> Result<String, String> 
     ))
 }
 
+
 #[derive(Serialize, Deserialize)]
 struct AssetType {
     id: i64,
@@ -852,13 +854,14 @@ struct AssetType {
     created_date: String,
     updated_by: String,
     updated_date: String,
+    icon: String,
 }
 
 #[tauri::command]
 fn get_asset_types() -> Result<Vec<AssetType>, String> {
     let conn = get_connection()?;
     let mut stmt = conn.prepare(
-        "SELECT id, description, active, created_by, created_date, updated_by, updated_date FROM asset_types ORDER BY description"
+        "SELECT id, description, active, created_by, created_date, updated_by, updated_date, icon FROM asset_types ORDER BY description"
     ).map_err(|e| e.to_string())?;
     let types = stmt
         .query_map([], |row| {
@@ -870,6 +873,7 @@ fn get_asset_types() -> Result<Vec<AssetType>, String> {
                 created_date: row.get(4)?,
                 updated_by: row.get(5)?,
                 updated_date: row.get(6)?,
+                icon: row.get(7)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -905,7 +909,7 @@ fn create_asset_type(description: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn update_asset_type(id: i64, description: String, active: bool) -> Result<String, String> {
+fn update_asset_type(id: i64, description: String, active: bool, icon: String) -> Result<String, String> {
     let conn = get_connection()?;
     let trimmed = description.trim();
     if trimmed.is_empty() {
@@ -913,8 +917,8 @@ fn update_asset_type(id: i64, description: String, active: bool) -> Result<Strin
     }
     let now = chrono_now();
     conn.execute(
-        "UPDATE asset_types SET description = ?1, active = ?2, updated_by = 'local user', updated_date = ?3 WHERE id = ?4",
-        rusqlite::params![trimmed, active as i32, now, id],
+        "UPDATE asset_types SET description = ?1, active = ?2, updated_by = 'local user', updated_date = ?3, icon = ?4 WHERE id = ?5",
+        rusqlite::params![trimmed, active as i32, now, icon, id],
     ).map_err(|e| e.to_string())?;
     Ok("Asset type updated".to_string())
 }
@@ -2609,6 +2613,39 @@ fn get_pending_checklist_item_ids(asset_id: i64, current_report_id: i64) -> Resu
     Ok(ids)
 }
 
+#[derive(Serialize, Deserialize)]
+struct IconSearchResult {
+    icons: Vec<String>,
+}
+
+#[tauri::command]
+async fn search_icons(query: String) -> Result<Vec<String>, String> {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return Ok(vec![]);
+    }
+    let url = format!(
+        "https://api.iconify.design/search?query={}&limit=48",
+        urlencoding::encode(trimmed)
+    );
+    let resp = reqwest::get(&url).await.map_err(|e| e.to_string())?;
+    let result: IconSearchResult = resp.json().await.map_err(|e| e.to_string())?;
+    Ok(result.icons)
+}
+
+#[tauri::command]
+async fn fetch_icon_svg(icon_id: String) -> Result<String, String> {
+    // icon_id comes as "prefix:name" from the search results
+    let parts: Vec<&str> = icon_id.splitn(2, ':').collect();
+    if parts.len() != 2 {
+        return Err("Invalid icon id".to_string());
+    }
+    let url = format!("https://api.iconify.design/{}/{}.svg", parts[0], parts[1]);
+    let resp = reqwest::get(&url).await.map_err(|e| e.to_string())?;
+    let svg = resp.text().await.map_err(|e| e.to_string())?;
+    Ok(svg)
+}
+
 #[tauri::command]
 fn get_browsable_tables() -> Vec<String> {
     BROWSABLE_TABLES.iter().map(|s| s.to_string()).collect()
@@ -2812,7 +2849,9 @@ pub fn run() {
             purge_lookups,
             preview_mri_report_purge,
             purge_mri_reports,
-            get_pending_checklist_item_ids
+            get_pending_checklist_item_ids,
+            search_icons,
+            fetch_icon_svg
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

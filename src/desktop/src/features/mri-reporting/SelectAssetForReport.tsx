@@ -70,31 +70,25 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
       />
 
       {status && <div className={`toast ${status.kind}`} style={{ maxWidth: 400, marginBottom: 12 }}>{status.msg}</div>}
-
       {filtered.length === 0 ? (
         <div className="empty">No active assets match your search</div>
       ) : (
-        <div className="cards">
+        <div className="asset-select-grid">
           {filtered.map((a) => {
             const template = findActiveTemplate(a.asset_type_id);
+            const disabled = !template || creatingFor === a.id;
             return (
-              <div key={a.id} className="card" style={{ cursor: "default" }}>
-                <div className="card-main">
-                  <div className="code">{a.asset_code}</div>
-                  <div className="desc">{a.asset_description || "—"}</div>
-                  <div className="meta">
-                    <span className="pill neutral">{assetTypeName(a.asset_type_id)}</span>
-                    {!template && <span className="pill inactive">No template available</span>}
-                  </div>
-                </div>
-                <div className="card-actions">
-                  <button
-                    className="primary"
-                    disabled={!template || creatingFor === a.id}
-                    onClick={() => a.id !== null && handleSelect(a.id, a.asset_type_id)}
-                  >
-                    {creatingFor === a.id ? "Starting..." : "Start report"}
-                  </button>
+              <div
+                key={a.id}
+                className={`asset-select-card ${disabled ? "asset-select-card-disabled" : ""}`}
+                onClick={() => !disabled && a.id !== null && handleSelect(a.id, a.asset_type_id)}
+              >
+                <div className="asset-select-code">{a.asset_code}</div>
+                <div className="asset-select-desc">{a.asset_description || "—"}</div>
+                <div className="asset-select-meta">
+                  <span className="pill neutral">{assetTypeName(a.asset_type_id)}</span>
+                  {!template && <span className="pill inactive">No template</span>}
+                  {creatingFor === a.id && <span className="pill neutral">Starting...</span>}
                 </div>
               </div>
             );
