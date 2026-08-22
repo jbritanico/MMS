@@ -83,12 +83,26 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
                 className={`asset-select-card ${disabled ? "asset-select-card-disabled" : ""}`}
                 onClick={() => !disabled && a.id !== null && handleSelect(a.id, a.asset_type_id)}
               >
-                <div className="asset-select-code">{a.asset_code}</div>
-                <div className="asset-select-desc">{a.asset_description || "—"}</div>
-                <div className="asset-select-meta">
-                  <span className="pill neutral">{assetTypeName(a.asset_type_id)}</span>
-                  {!template && <span className="pill inactive">No template</span>}
-                  {creatingFor === a.id && <span className="pill neutral">Starting...</span>}
+                <div className="asset-select-card-body">
+                  <div className="asset-select-icon">
+                    {(() => {
+                      const icon = assetTypes.find((t) => t.id === a.asset_type_id)?.icon;
+                      return icon && icon.trim().startsWith("data:") ? (
+                        <img src={icon} alt="" />
+                      ) : (
+                        <span className="asset-select-icon-placeholder">—</span>
+                      );
+                    })()}
+                  </div>
+                  <div className="asset-select-info">
+                    <div className="asset-select-code">{a.asset_code}</div>
+                    <div className="asset-select-desc">{a.asset_description || "—"}</div>
+                    <div className="asset-select-meta">
+                      <span className="pill neutral">{assetTypeName(a.asset_type_id)}</span>
+                      {!template && <span className="pill inactive">No template</span>}
+                      {creatingFor === a.id && <span className="pill neutral">Starting...</span>}
+                    </div>
+                  </div>
                 </div>
               </div>
             );

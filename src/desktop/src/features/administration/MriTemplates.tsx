@@ -184,11 +184,23 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
                   />
                 </div>
               ) : (
-                <div className="card-main">
-                  <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500 }}>{t.template_name}</div>
-                  <div className="desc">{assetTypeName(t.asset_type_id)}</div>
-                  <div className="meta">
-                    <span className={`pill ${statusPillClass(t.status)}`}>{t.status}</span>
+                <div className="asset-select-card-body" style={{ flex: 1 }}>
+                  <div className="asset-select-icon" style={{ flex: "0 0 84px" }}>
+                    {(() => {
+                      const icon = assetTypes.find((a) => a.id === t.asset_type_id)?.icon;
+                      return icon && icon.trim().startsWith("data:") ? (
+                        <img src={icon} alt="" />
+                      ) : (
+                        <span className="asset-select-icon-placeholder">—</span>
+                      );
+                    })()}
+                  </div>
+                  <div className="card-main" style={{ flex: 1 }}>
+                    <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500 }}>{t.template_name}</div>
+                    <div className="desc">{assetTypeName(t.asset_type_id)}</div>
+                    <div className="meta">
+                      <span className={`pill ${statusPillClass(t.status)}`}>{t.status}</span>
+                    </div>
                   </div>
                 </div>
               )}

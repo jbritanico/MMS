@@ -599,18 +599,46 @@ function App() {
           }
           .asset-select-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            gap: 16px;
+            grid-template-columns: repeat(auto-fill, minmax(460px, 1fr));
+            gap: 20px;
           }
           .asset-select-card {
             background: var(--neu-bg);
-            border-radius: 16px;
-            padding: 18px;
+            border-radius: 18px;
+            padding: 22px;
             box-shadow: 6px 6px 12px var(--neu-shadow-dark), -6px -6px 12px var(--neu-shadow-light);
-            display: flex;
-            flex-direction: column;
             cursor: pointer;
             transition: box-shadow 0.15s, transform 0.15s;
+          }
+          .asset-select-card-body {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+          }
+          .asset-select-icon {
+            flex: 0 0 35%;
+            aspect-ratio: 1 / 1;
+            border-radius: 12px;
+            background: var(--surface);
+            box-shadow: inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+          }
+          .asset-select-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            padding: 6px;
+          }
+          .asset-select-icon-placeholder {
+            font-size: 12px;
+            color: var(--text-soft);
+          }
+          .asset-select-info {
+            flex: 1;
+            min-width: 0;
           }
           .asset-select-card:hover {
             transform: translateY(-2px);
@@ -639,6 +667,7 @@ function App() {
             color: var(--text-soft);
             margin-top: 4px;
             min-height: 18px;
+            word-break: break-word;
           }
           .asset-select-meta {
             display: flex;

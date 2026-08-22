@@ -5,7 +5,7 @@ interface IconUploadProps {
   onClose: () => void;
 }
 
-const MAX_SIZE_BYTES = 500 * 1024; // 500KB safety cap
+const MAX_SIZE_BYTES = 1024 * 1024; // 1MB safety cap
 
 function IconUpload({ onSelect, onClose }: IconUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -22,7 +22,7 @@ function IconUpload({ onSelect, onClose }: IconUploadProps) {
       return;
     }
     if (file.size > MAX_SIZE_BYTES) {
-      setError("File is too large (max 500KB)");
+      setError("File is too large (max 1MB)");
       return;
     }
 
@@ -43,8 +43,7 @@ function IconUpload({ onSelect, onClose }: IconUploadProps) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" style={{ width: "min(420px, 92vw)" }} onClick={(e) => e.stopPropagation()}>
         <h3>Upload an icon</h3>
-        <p style={{ marginTop: -4 }}>Choose a .png or .ico file (max 500KB). Works fully offline.</p>
-
+        <p style={{ marginTop: -4 }}>Choose a .png or .ico file (max 1MB). Works fully offline.</p>
         <input
           ref={fileInputRef}
           type="file"
