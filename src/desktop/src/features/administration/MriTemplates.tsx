@@ -17,9 +17,10 @@ const STATUS_ORDER: TemplateStatus[] = ["Draft", "Active", "Inactive"];
 
 interface MriTemplatesProps {
   onOpenTemplate: (id: number, name: string) => void;
+  selectedTemplateId: number | null;
 }
 
-function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
+function MriTemplates({ onOpenTemplate, selectedTemplateId }: MriTemplatesProps) {
   const { data: templates = [], isLoading } = useMriTemplates();
   const { data: assetTypes = [] } = useAssetTypes();
   const createTemplate = useCreateMriTemplate();

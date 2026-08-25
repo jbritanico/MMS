@@ -4,6 +4,7 @@ import AssetTypes from "./AssetTypes";
 import ChecklistSections from "./ChecklistSections";
 import MriTemplates from "./MriTemplates";
 import LookupsManager from "./LookupsManager";
+import Users from "./Users";
 import DataPurging from "./DataPurging";
 import DataBrowser from "./DataBrowser";
 
@@ -224,7 +225,7 @@ interface AdministrationProps {
 
 function Administration({ onOpenTemplate, active, setActive, openGroup, setOpenGroup, selectedTemplateId }: AdministrationProps) {
   function toggleGroup(id: GroupId) {
-    setOpenGroup((prev) => (prev === id ? (prev as GroupId) : id));
+    setOpenGroup(id);
   }
 
   function selectChild(groupId: GroupId, childId: AdminSection) {
@@ -274,7 +275,9 @@ function Administration({ onOpenTemplate, active, setActive, openGroup, setOpenG
       </div>
 
       <div className="panel admin-content">
-        {active === "checklist-bank" ? (
+        {active === "users" ? (
+          <Users />
+        ) : active === "checklist-bank" ? (
           <ChecklistDatabank />
         ) : active === "asset-types" ? (
           <AssetTypes />

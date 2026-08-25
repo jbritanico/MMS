@@ -85,7 +85,8 @@ const DB_ENCRYPTION_KEY: &str = "sprint-mms-dev-key-change-before-production-834
 
 fn get_connection() -> Result<Connection, String> {
     let conn = Connection::open("assets.db").map_err(|e| e.to_string())?;
-    conn.pragma_update(None, "key", DB_ENCRYPTION_KEY).map_err(|e| e.to_string())?;
+    conn.pragma_update(None, "key", DB_ENCRYPTION_KEY)
+        .map_err(|e| e.to_string())?;
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS asset_types (
@@ -154,6 +155,57 @@ fn get_connection() -> Result<Connection, String> {
         [],
     )
     .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS app_users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT NOT NULL UNIQUE,
+            role TEXT NOT NULL,
+            active INTEGER NOT NULL DEFAULT 1,
+            created_date TEXT NOT NULL,
+            updated_date TEXT NOT NULL
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS permissions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT NOT NULL UNIQUE,
+            label TEXT NOT NULL,
+            category TEXT NOT NULL
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS role_permissions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            role TEXT NOT NULL,
+            permission_code TEXT NOT NULL,
+            UNIQUE(role, permission_code)
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS user_permission_overrides (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            permission_code TEXT NOT NULL,
+            granted INTEGER NOT NULL,
+            UNIQUE(user_id, permission_code),
+            FOREIGN KEY (user_id) REFERENCES app_users(id)
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    seed_permissions(&conn)?;
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS lookups (
@@ -368,6 +420,152 @@ fn get_connection() -> Result<Connection, String> {
     .map_err(|e| e.to_string())?;
 
     Ok(conn)
+}
+
+fn seed_permissions(conn: &Connection) -> Result<(), String> {
+    let perms: [(&str, &str, &str); 20] = [
+        ("assets.view", "View assets", "Asset Registry"),
+        ("assets.create", "Create assets", "Asset Registry"),
+        ("assets.edit", "Edit assets", "Asset Registry"),
+        ("assets.delete", "Delete assets", "Asset Registry"),
+        (
+            "triggers.edit",
+            "Edit maintenance triggers",
+            "Asset Registry",
+        ),
+        ("mri.submit", "Submit MR-I reports", "MR-I Reporting"),
+        (
+            "mri.edit_after_submit",
+            "Edit MR-I after submission",
+            "MR-I Reporting",
+        ),
+        ("mri.close_defect", "Close MR-I defects", "MR-I Reporting"),
+        ("mri.approve", "Approve MR-I reports", "MR-I Reporting"),
+        (
+            "mri.acknowledge_critical",
+            "Acknowledge critical defects",
+            "MR-I Reporting",
+        ),
+        (
+            "mri_templates.view",
+            "View MR-I templates",
+            "Administration",
+        ),
+        (
+            "mri_templates.edit",
+            "Create/edit MR-I templates",
+            "Administration",
+        ),
+        (
+            "mri_templates.delete",
+            "Delete MR-I templates",
+            "Administration",
+        ),
+        (
+            "references.edit",
+            "Edit reference data (asset types, checklist bank, lookups)",
+            "Administration",
+        ),
+        ("data_browser.view", "View Data Browser", "Administration"),
+        (
+            "data_browser.edit",
+            "Edit rows in Data Browser",
+            "Administration",
+        ),
+        (
+            "data_purging.execute",
+            "Execute data purging",
+            "Administration",
+        ),
+        ("backups.export", "Export backups", "Administration"),
+        ("backups.import", "Import backups", "Administration"),
+        (
+            "admin.users.manage",
+            "Manage users and permissions",
+            "Administration",
+        ),
+    ];
+    for (code, label, category) in perms.iter() {
+        conn.execute(
+            "INSERT OR IGNORE INTO permissions (code, label, category) VALUES (?1, ?2, ?3)",
+            rusqlite::params![code, label, category],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    let role_defaults: [(&str, &[&str]); 5] = [
+        (
+            "View Only",
+            &["assets.view", "mri_templates.view", "data_browser.view"],
+        ),
+        (
+            "Tier 1",
+            &[
+                "assets.view",
+                "mri.submit",
+                "mri_templates.view",
+                "data_browser.view",
+            ],
+        ),
+        (
+            "Tier 2",
+            &[
+                "assets.view",
+                "mri.submit",
+                "mri.edit_after_submit",
+                "mri.close_defect",
+                "mri_templates.view",
+                "data_browser.view",
+            ],
+        ),
+        (
+            "Tier 3",
+            &[
+                "assets.view",
+                "assets.edit",
+                "triggers.edit",
+                "mri.submit",
+                "mri.edit_after_submit",
+                "mri.close_defect",
+                "mri.approve",
+                "mri.acknowledge_critical",
+                "mri_templates.view",
+                "mri_templates.edit",
+                "data_browser.view",
+            ],
+        ),
+        (
+            "Administrator",
+            &[
+                "assets.view",
+                "assets.create",
+                "assets.edit",
+                "assets.delete",
+                "triggers.edit",
+                "mri_templates.view",
+                "mri_templates.edit",
+                "mri_templates.delete",
+                "references.edit",
+                "data_browser.view",
+                "data_browser.edit",
+                "data_purging.execute",
+                "backups.export",
+                "backups.import",
+                "admin.users.manage",
+            ],
+        ),
+    ];
+    for (role, codes) in role_defaults.iter() {
+        for code in codes.iter() {
+            conn.execute(
+                "INSERT OR IGNORE INTO role_permissions (role, permission_code) VALUES (?1, ?2)",
+                rusqlite::params![role, code],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+    }
+
+    Ok(())
 }
 
 fn seed_field_catalogs(conn: &Connection) -> Result<(), String> {
@@ -845,7 +1043,6 @@ fn bulk_create_checklist_sections(names: Vec<String>) -> Result<String, String> 
     ))
 }
 
-
 #[derive(Serialize, Deserialize)]
 struct AssetType {
     id: i64,
@@ -910,7 +1107,12 @@ fn create_asset_type(description: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn update_asset_type(id: i64, description: String, active: bool, icon: String) -> Result<String, String> {
+fn update_asset_type(
+    id: i64,
+    description: String,
+    active: bool,
+    icon: String,
+) -> Result<String, String> {
     let conn = get_connection()?;
     let trimmed = description.trim();
     if trimmed.is_empty() {
@@ -966,17 +1168,29 @@ fn bulk_create_asset_types(descriptions: Vec<String>) -> Result<String, String> 
 fn delete_asset_type(id: i64) -> Result<String, String> {
     let conn = get_connection()?;
 
-    let asset_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM assets WHERE asset_type_id = ?1", [id], |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
-    let template_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM mri_templates WHERE asset_type_id = ?1", [id], |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+    let asset_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM assets WHERE asset_type_id = ?1",
+            [id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    let template_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM mri_templates WHERE asset_type_id = ?1",
+            [id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
 
     if asset_count > 0 || template_count > 0 {
         let mut parts = Vec::new();
-        if asset_count > 0 { parts.push(format!("{} asset(s)", asset_count)); }
-        if template_count > 0 { parts.push(format!("{} MR-I template(s)", template_count)); }
+        if asset_count > 0 {
+            parts.push(format!("{} asset(s)", asset_count));
+        }
+        if template_count > 0 {
+            parts.push(format!("{} MR-I template(s)", template_count));
+        }
         return Err(format!(
             "Cannot delete — still used by {}. Reassign or remove those first.",
             parts.join(" and ")
@@ -1197,18 +1411,34 @@ fn rename_mri_template(id: i64, template_name: String) -> Result<String, String>
 fn delete_mri_template(id: i64) -> Result<String, String> {
     let conn = get_connection()?;
 
-    conn.execute("DELETE FROM template_header_fields WHERE template_id = ?1", [id])
-        .map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM template_checklist_items WHERE template_id = ?1", [id])
-        .map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM template_mid_fields WHERE template_id = ?1", [id])
-        .map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM template_footer_fields WHERE template_id = ?1", [id])
-        .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM template_header_fields WHERE template_id = ?1",
+        [id],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM template_checklist_items WHERE template_id = ?1",
+        [id],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM template_mid_fields WHERE template_id = ?1",
+        [id],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM template_footer_fields WHERE template_id = ?1",
+        [id],
+    )
+    .map_err(|e| e.to_string())?;
 
-    let report_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM mri_reports WHERE template_id = ?1", [id], |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+    let report_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM mri_reports WHERE template_id = ?1",
+            [id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
     if report_count > 0 {
         return Err(format!(
             "Cannot delete — {} MR-I report(s) were filed using this template. Set it to Inactive instead to preserve report history.",
@@ -1681,27 +1911,31 @@ struct MriReportChecklistResult {
 }
 
 #[tauri::command]
-fn get_mri_report_checklist_results(report_id: i64) -> Result<Vec<MriReportChecklistResult>, String> {
+fn get_mri_report_checklist_results(
+    report_id: i64,
+) -> Result<Vec<MriReportChecklistResult>, String> {
     let conn = get_connection()?;
     let mut stmt = conn.prepare(
         "SELECT id, report_id, template_checklist_item_id, status, severity, issue_details, action_taken, date_observed, closure_status
          FROM mri_report_checklist_results WHERE report_id = ?1"
     ).map_err(|e| e.to_string())?;
-    let results = stmt.query_map([report_id], |row| {
-        Ok(MriReportChecklistResult {
-            id: row.get(0)?,
-            report_id: row.get(1)?,
-            template_checklist_item_id: row.get(2)?,
-            status: row.get(3)?,
-            severity: row.get(4)?,
-            issue_details: row.get(5)?,
-            action_taken: row.get(6)?,
-            date_observed: row.get(7)?,
-            closure_status: row.get(8)?,
+    let results = stmt
+        .query_map([report_id], |row| {
+            Ok(MriReportChecklistResult {
+                id: row.get(0)?,
+                report_id: row.get(1)?,
+                template_checklist_item_id: row.get(2)?,
+                status: row.get(3)?,
+                severity: row.get(4)?,
+                issue_details: row.get(5)?,
+                action_taken: row.get(6)?,
+                date_observed: row.get(7)?,
+                closure_status: row.get(8)?,
+            })
         })
-    }).map_err(|e| e.to_string())?
-    .collect::<Result<Vec<_>, _>>()
-    .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
     Ok(results)
 }
 
@@ -1714,21 +1948,39 @@ fn set_mri_report_checklist_result(result: MriReportChecklistResult) -> Result<S
             return Err(format!("Invalid status '{}' — must be Pass or Fail", s));
         }
         if s == "Fail" {
-            if result.issue_details.as_deref().unwrap_or("").trim().is_empty() {
+            if result
+                .issue_details
+                .as_deref()
+                .unwrap_or("")
+                .trim()
+                .is_empty()
+            {
                 return Err("Issue details are required when status is Fail".to_string());
             }
-            if result.action_taken.as_deref().unwrap_or("").trim().is_empty() {
+            if result
+                .action_taken
+                .as_deref()
+                .unwrap_or("")
+                .trim()
+                .is_empty()
+            {
                 return Err("Action taken is required when status is Fail".to_string());
             }
         }
     }
     if let Some(sev) = &result.severity {
         if !sev.is_empty() && !valid_severity(sev) {
-            return Err(format!("Invalid severity '{}' — must be Minor, Moderate, Major, or Critical", sev));
+            return Err(format!(
+                "Invalid severity '{}' — must be Minor, Moderate, Major, or Critical",
+                sev
+            ));
         }
     }
     if !valid_closure_status(&result.closure_status) {
-        return Err(format!("Invalid closure status '{}' — must be Pending or Closed", result.closure_status));
+        return Err(format!(
+            "Invalid closure status '{}' — must be Pending or Closed",
+            result.closure_status
+        ));
     }
 
     conn.execute(
@@ -2456,16 +2708,24 @@ fn purge_asset_types() -> Result<String, String> {
     let conn = get_connection()?;
     let mut purged = 0;
     let mut skipped = 0;
-    let mut stmt = conn.prepare("SELECT id FROM asset_types").map_err(|e| e.to_string())?;
-    let ids: Vec<i64> = stmt.query_map([], |row| row.get(0)).map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT id FROM asset_types")
+        .map_err(|e| e.to_string())?;
+    let ids: Vec<i64> = stmt
+        .query_map([], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
     for id in ids {
         match conn.execute("DELETE FROM asset_types WHERE id = ?1", [id]) {
             Ok(_) => purged += 1,
             Err(_) => skipped += 1,
         }
     }
-    Ok(format!("{} asset types purged, {} skipped (still in use by assets or templates)", purged, skipped))
+    Ok(format!(
+        "{} asset types purged, {} skipped (still in use by assets or templates)",
+        purged, skipped
+    ))
 }
 
 #[tauri::command]
@@ -2473,16 +2733,24 @@ fn purge_checklist_sections() -> Result<String, String> {
     let conn = get_connection()?;
     let mut purged = 0;
     let mut skipped = 0;
-    let mut stmt = conn.prepare("SELECT id FROM checklist_sections").map_err(|e| e.to_string())?;
-    let ids: Vec<i64> = stmt.query_map([], |row| row.get(0)).map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT id FROM checklist_sections")
+        .map_err(|e| e.to_string())?;
+    let ids: Vec<i64> = stmt
+        .query_map([], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
     for id in ids {
         match conn.execute("DELETE FROM checklist_sections WHERE id = ?1", [id]) {
             Ok(_) => purged += 1,
             Err(_) => skipped += 1,
         }
     }
-    Ok(format!("{} sections purged, {} skipped (still in use by templates)", purged, skipped))
+    Ok(format!(
+        "{} sections purged, {} skipped (still in use by templates)",
+        purged, skipped
+    ))
 }
 
 #[tauri::command]
@@ -2490,31 +2758,48 @@ fn purge_checklist_databank() -> Result<String, String> {
     let conn = get_connection()?;
     let mut purged = 0;
     let mut skipped = 0;
-    let mut stmt = conn.prepare("SELECT id FROM checklist_databank").map_err(|e| e.to_string())?;
-    let ids: Vec<i64> = stmt.query_map([], |row| row.get(0)).map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT id FROM checklist_databank")
+        .map_err(|e| e.to_string())?;
+    let ids: Vec<i64> = stmt
+        .query_map([], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
     for id in ids {
         match conn.execute("DELETE FROM checklist_databank WHERE id = ?1", [id]) {
             Ok(_) => purged += 1,
             Err(_) => skipped += 1,
         }
     }
-    Ok(format!("{} checklist items purged, {} skipped (still in use by templates)", purged, skipped))
+    Ok(format!(
+        "{} checklist items purged, {} skipped (still in use by templates)",
+        purged, skipped
+    ))
 }
 
 #[tauri::command]
 fn purge_lookups(criteria: Option<String>) -> Result<String, String> {
     let conn = get_connection()?;
     let count: i64 = match &criteria {
-        Some(c) => conn.execute("DELETE FROM lookups WHERE criteria = ?1", [c]).map_err(|e| e.to_string())? as i64,
-        None => conn.execute("DELETE FROM lookups", []).map_err(|e| e.to_string())? as i64,
+        Some(c) => conn
+            .execute("DELETE FROM lookups WHERE criteria = ?1", [c])
+            .map_err(|e| e.to_string())? as i64,
+        None => conn
+            .execute("DELETE FROM lookups", [])
+            .map_err(|e| e.to_string())? as i64,
     };
     Ok(format!("{} lookup values purged", count))
 }
 
 // --- MR-I report purging (filtered by asset attributes, with preview) ---
 
-fn build_report_filter_sql(asset_id: Option<i64>, country: &Option<String>, service_line: &Option<String>, asset_type_id: Option<i64>) -> (String, Vec<Box<dyn rusqlite::ToSql>>) {
+fn build_report_filter_sql(
+    asset_id: Option<i64>,
+    country: &Option<String>,
+    service_line: &Option<String>,
+    asset_type_id: Option<i64>,
+) -> (String, Vec<Box<dyn rusqlite::ToSql>>) {
     let mut clauses: Vec<String> = Vec::new();
     let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
 
@@ -2535,7 +2820,11 @@ fn build_report_filter_sql(asset_id: Option<i64>, country: &Option<String>, serv
         params.push(Box::new(atid));
     }
 
-    let where_sql = if clauses.is_empty() { "1=1".to_string() } else { clauses.join(" AND ") };
+    let where_sql = if clauses.is_empty() {
+        "1=1".to_string()
+    } else {
+        clauses.join(" AND ")
+    };
     (where_sql, params)
 }
 
@@ -2550,20 +2839,32 @@ struct MriReportPurgeFilter {
 #[tauri::command]
 fn preview_mri_report_purge(filter: MriReportPurgeFilter) -> Result<i64, String> {
     let conn = get_connection()?;
-    let (where_sql, params) = build_report_filter_sql(filter.asset_id, &filter.country, &filter.service_line, filter.asset_type_id);
+    let (where_sql, params) = build_report_filter_sql(
+        filter.asset_id,
+        &filter.country,
+        &filter.service_line,
+        filter.asset_type_id,
+    );
     let sql = format!(
         "SELECT COUNT(*) FROM mri_reports r JOIN assets a ON r.asset_id = a.id WHERE {}",
         where_sql
     );
     let params_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
-    let count: i64 = conn.query_row(&sql, params_refs.as_slice(), |row| row.get(0)).map_err(|e| e.to_string())?;
+    let count: i64 = conn
+        .query_row(&sql, params_refs.as_slice(), |row| row.get(0))
+        .map_err(|e| e.to_string())?;
     Ok(count)
 }
 
 #[tauri::command]
 fn purge_mri_reports(filter: MriReportPurgeFilter) -> Result<String, String> {
     let conn = get_connection()?;
-    let (where_sql, params) = build_report_filter_sql(filter.asset_id, &filter.country, &filter.service_line, filter.asset_type_id);
+    let (where_sql, params) = build_report_filter_sql(
+        filter.asset_id,
+        &filter.country,
+        &filter.service_line,
+        filter.asset_type_id,
+    );
     let select_sql = format!(
         "SELECT r.id FROM mri_reports r JOIN assets a ON r.asset_id = a.id WHERE {}",
         where_sql
@@ -2571,32 +2872,63 @@ fn purge_mri_reports(filter: MriReportPurgeFilter) -> Result<String, String> {
     let params_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
 
     let mut stmt = conn.prepare(&select_sql).map_err(|e| e.to_string())?;
-    let report_ids: Vec<i64> = stmt.query_map(params_refs.as_slice(), |row| row.get(0)).map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+    let report_ids: Vec<i64> = stmt
+        .query_map(params_refs.as_slice(), |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
 
     let count = report_ids.len();
     for id in &report_ids {
-        conn.execute("DELETE FROM mri_report_header_values WHERE report_id = ?1", [id]).map_err(|e| e.to_string())?;
-        conn.execute("DELETE FROM mri_report_checklist_results WHERE report_id = ?1", [id]).map_err(|e| e.to_string())?;
-        conn.execute("DELETE FROM mri_report_mid_values WHERE report_id = ?1", [id]).map_err(|e| e.to_string())?;
-        conn.execute("DELETE FROM mri_report_footer_values WHERE report_id = ?1", [id]).map_err(|e| e.to_string())?;
-        conn.execute("DELETE FROM mri_reports WHERE id = ?1", [id]).map_err(|e| e.to_string())?;
+        conn.execute(
+            "DELETE FROM mri_report_header_values WHERE report_id = ?1",
+            [id],
+        )
+        .map_err(|e| e.to_string())?;
+        conn.execute(
+            "DELETE FROM mri_report_checklist_results WHERE report_id = ?1",
+            [id],
+        )
+        .map_err(|e| e.to_string())?;
+        conn.execute(
+            "DELETE FROM mri_report_mid_values WHERE report_id = ?1",
+            [id],
+        )
+        .map_err(|e| e.to_string())?;
+        conn.execute(
+            "DELETE FROM mri_report_footer_values WHERE report_id = ?1",
+            [id],
+        )
+        .map_err(|e| e.to_string())?;
+        conn.execute("DELETE FROM mri_reports WHERE id = ?1", [id])
+            .map_err(|e| e.to_string())?;
     }
 
-    Ok(format!("{} MR-I report(s) purged, including all associated header/checklist/mid/footer data", count))
+    Ok(format!(
+        "{} MR-I report(s) purged, including all associated header/checklist/mid/footer data",
+        count
+    ))
 }
 
 #[tauri::command]
-fn get_pending_checklist_item_ids(asset_id: i64, current_report_id: i64) -> Result<Vec<i64>, String> {
+fn get_pending_checklist_item_ids(
+    asset_id: i64,
+    current_report_id: i64,
+) -> Result<Vec<i64>, String> {
     let conn = get_connection()?;
-    let mut stmt = conn.prepare(
-        "SELECT DISTINCT tci.checklist_item_id
+    let mut stmt = conn
+        .prepare(
+            "SELECT DISTINCT tci.checklist_item_id
          FROM mri_report_checklist_results r
          JOIN mri_reports rep ON r.report_id = rep.id
          JOIN template_checklist_items tci ON r.template_checklist_item_id = tci.id
-         WHERE rep.asset_id = ?1 AND rep.id != ?2 AND r.closure_status = 'Pending'"
-    ).map_err(|e| e.to_string())?;
-    let ids: Vec<i64> = stmt.query_map(rusqlite::params![asset_id, current_report_id], |row| row.get(0))
+         WHERE rep.asset_id = ?1 AND rep.id != ?2 AND r.closure_status = 'Pending'",
+        )
+        .map_err(|e| e.to_string())?;
+    let ids: Vec<i64> = stmt
+        .query_map(rusqlite::params![asset_id, current_report_id], |row| {
+            row.get(0)
+        })
         .map_err(|e| e.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
@@ -2639,17 +2971,287 @@ async fn fetch_icon_svg(icon_id: String) -> Result<String, String> {
 #[tauri::command]
 fn get_assets_with_pending_issues() -> Result<Vec<i64>, String> {
     let conn = get_connection()?;
-    let mut stmt = conn.prepare(
-        "SELECT DISTINCT rep.asset_id
+    let mut stmt = conn
+        .prepare(
+            "SELECT DISTINCT rep.asset_id
          FROM mri_report_checklist_results r
          JOIN mri_reports rep ON r.report_id = rep.id
-         WHERE r.closure_status = 'Pending' AND r.status = 'Fail'"
-    ).map_err(|e| e.to_string())?;
-    let ids: Vec<i64> = stmt.query_map([], |row| row.get(0))
+         WHERE r.closure_status = 'Pending' AND r.status = 'Fail'",
+        )
+        .map_err(|e| e.to_string())?;
+    let ids: Vec<i64> = stmt
+        .query_map([], |row| row.get(0))
         .map_err(|e| e.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
     Ok(ids)
+}
+
+#[derive(Serialize, Deserialize)]
+struct AppUser {
+    id: i64,
+    name: String,
+    email: String,
+    role: String,
+    active: bool,
+    created_date: String,
+    updated_date: String,
+}
+
+#[tauri::command]
+fn get_app_users() -> Result<Vec<AppUser>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, name, email, role, active, created_date, updated_date FROM app_users ORDER BY name"
+    ).map_err(|e| e.to_string())?;
+    let users = stmt
+        .query_map([], |row| {
+            Ok(AppUser {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                email: row.get(2)?,
+                role: row.get(3)?,
+                active: row.get::<_, i32>(4)? != 0,
+                created_date: row.get(5)?,
+                updated_date: row.get(6)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(users)
+}
+
+#[derive(Serialize, Deserialize)]
+struct NewAppUser {
+    name: String,
+    email: String,
+    role: String,
+}
+
+#[tauri::command]
+fn create_app_user(user: NewAppUser) -> Result<String, String> {
+    let conn = get_connection()?;
+    let name = user.name.trim();
+    let email = user.email.trim();
+    if name.is_empty() || email.is_empty() {
+        return Err("Name and email cannot be empty".to_string());
+    }
+    let existing: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM app_users WHERE email = ?1",
+            [email],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if existing > 0 {
+        return Err(format!("A user with email '{}' already exists", email));
+    }
+    let now = chrono_now();
+    conn.execute(
+        "INSERT INTO app_users (name, email, role, active, created_date, updated_date) VALUES (?1, ?2, ?3, 1, ?4, ?4)",
+        rusqlite::params![name, email, user.role, now],
+    ).map_err(|e| e.to_string())?;
+    Ok("User created".to_string())
+}
+
+#[tauri::command]
+fn update_app_user(
+    id: i64,
+    name: String,
+    email: String,
+    role: String,
+    active: bool,
+) -> Result<String, String> {
+    let conn = get_connection()?;
+    let name = name.trim();
+    let email = email.trim();
+    if name.is_empty() || email.is_empty() {
+        return Err("Name and email cannot be empty".to_string());
+    }
+    let now = chrono_now();
+    conn.execute(
+        "UPDATE app_users SET name = ?1, email = ?2, role = ?3, active = ?4, updated_date = ?5 WHERE id = ?6",
+        rusqlite::params![name, email, role, active as i32, now, id],
+    ).map_err(|e| e.to_string())?;
+    Ok("User updated".to_string())
+}
+
+#[tauri::command]
+fn delete_app_user(id: i64) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute(
+        "DELETE FROM user_permission_overrides WHERE user_id = ?1",
+        [id],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM app_users WHERE id = ?1", [id])
+        .map_err(|e| e.to_string())?;
+    Ok("User deleted".to_string())
+}
+
+#[derive(Serialize, Deserialize)]
+struct Permission {
+    id: i64,
+    code: String,
+    label: String,
+    category: String,
+}
+
+#[tauri::command]
+fn get_permissions() -> Result<Vec<Permission>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare("SELECT id, code, label, category FROM permissions ORDER BY category, label")
+        .map_err(|e| e.to_string())?;
+    let perms = stmt
+        .query_map([], |row| {
+            Ok(Permission {
+                id: row.get(0)?,
+                code: row.get(1)?,
+                label: row.get(2)?,
+                category: row.get(3)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(perms)
+}
+
+#[tauri::command]
+fn get_role_permissions(role: String) -> Result<Vec<String>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare("SELECT permission_code FROM role_permissions WHERE role = ?1")
+        .map_err(|e| e.to_string())?;
+    let codes = stmt
+        .query_map([role], |row| row.get::<_, String>(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(codes)
+}
+
+#[tauri::command]
+fn set_role_permission(
+    role: String,
+    permission_code: String,
+    granted: bool,
+) -> Result<String, String> {
+    let conn = get_connection()?;
+    if granted {
+        conn.execute(
+            "INSERT OR IGNORE INTO role_permissions (role, permission_code) VALUES (?1, ?2)",
+            rusqlite::params![role, permission_code],
+        )
+        .map_err(|e| e.to_string())?;
+    } else {
+        conn.execute(
+            "DELETE FROM role_permissions WHERE role = ?1 AND permission_code = ?2",
+            rusqlite::params![role, permission_code],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok("Role permission updated".to_string())
+}
+
+#[derive(Serialize, Deserialize)]
+struct UserOverride {
+    permission_code: String,
+    granted: bool,
+}
+
+#[tauri::command]
+fn get_user_overrides(user_id: i64) -> Result<Vec<UserOverride>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT permission_code, granted FROM user_permission_overrides WHERE user_id = ?1",
+        )
+        .map_err(|e| e.to_string())?;
+    let overrides = stmt
+        .query_map([user_id], |row| {
+            Ok(UserOverride {
+                permission_code: row.get(0)?,
+                granted: row.get::<_, i32>(1)? != 0,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(overrides)
+}
+
+#[tauri::command]
+fn set_user_override(
+    user_id: i64,
+    permission_code: String,
+    granted: Option<bool>,
+) -> Result<String, String> {
+    let conn = get_connection()?;
+    match granted {
+        Some(g) => {
+            conn.execute(
+                "INSERT INTO user_permission_overrides (user_id, permission_code, granted) VALUES (?1, ?2, ?3)
+                 ON CONFLICT(user_id, permission_code) DO UPDATE SET granted = excluded.granted",
+                rusqlite::params![user_id, permission_code, g as i32],
+            ).map_err(|e| e.to_string())?;
+        }
+        None => {
+            // Clearing the override means "revert to role default"
+            conn.execute(
+                "DELETE FROM user_permission_overrides WHERE user_id = ?1 AND permission_code = ?2",
+                rusqlite::params![user_id, permission_code],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+    }
+    Ok("User override updated".to_string())
+}
+
+#[tauri::command]
+fn get_effective_permissions(user_id: i64) -> Result<Vec<String>, String> {
+    let conn = get_connection()?;
+    let role: String = conn
+        .query_row(
+            "SELECT role FROM app_users WHERE id = ?1",
+            [user_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    let mut stmt = conn
+        .prepare("SELECT permission_code FROM role_permissions WHERE role = ?1")
+        .map_err(|e| e.to_string())?;
+    let mut effective: std::collections::HashSet<String> = stmt
+        .query_map([&role], |row| row.get::<_, String>(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<std::collections::HashSet<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    let mut override_stmt = conn
+        .prepare(
+            "SELECT permission_code, granted FROM user_permission_overrides WHERE user_id = ?1",
+        )
+        .map_err(|e| e.to_string())?;
+    let overrides: Vec<(String, bool)> = override_stmt
+        .query_map([user_id], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i32>(1)? != 0))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    for (code, granted) in overrides {
+        if granted {
+            effective.insert(code);
+        } else {
+            effective.remove(&code);
+        }
+    }
+
+    Ok(effective.into_iter().collect())
 }
 
 #[tauri::command]
@@ -2858,7 +3460,17 @@ pub fn run() {
             get_pending_checklist_item_ids,
             search_icons,
             fetch_icon_svg,
-            get_assets_with_pending_issues
+            get_assets_with_pending_issues,
+            get_app_users,
+            create_app_user,
+            update_app_user,
+            delete_app_user,
+            get_permissions,
+            get_role_permissions,
+            set_role_permission,
+            get_user_overrides,
+            set_user_override,
+            get_effective_permissions
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

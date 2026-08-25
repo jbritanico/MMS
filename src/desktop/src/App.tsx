@@ -733,6 +733,35 @@ function App() {
             color: var(--text-soft);
           }          
 
+          .neu-toggle {
+            width: 42px;
+            height: 24px;
+            border-radius: 12px;
+            padding: 0;
+            position: relative;
+            background: var(--neu-bg);
+            box-shadow: inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light);
+            flex-shrink: 0;
+            transition: box-shadow 0.15s;
+          }
+          .neu-toggle[data-on="true"] {
+            box-shadow: inset 2px 2px 4px var(--neu-shadow-dark), inset -2px -2px 4px var(--neu-shadow-light);
+          }
+          .neu-toggle-knob {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--text-soft);
+            transition: transform 0.18s, background 0.18s;
+          }
+          .neu-toggle[data-on="true"] .neu-toggle-knob {
+            transform: translateX(18px);
+            background: var(--accent);
+          }
+
           .checklist-item-controls {
             display: grid;
             grid-template-columns: 1fr 1fr auto;
