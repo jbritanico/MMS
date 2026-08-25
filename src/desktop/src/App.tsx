@@ -636,6 +636,17 @@ function App() {
             font-size: 12px;
             color: var(--text-soft);
           }
+          .asset-status-dot {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid var(--surface);
+            box-shadow: 1px 1px 3px rgba(0,0,0,0.15);
+            z-index: 1;
+          }
           .asset-select-info {
             flex: 1;
             min-width: 0;

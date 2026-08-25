@@ -326,6 +326,7 @@ fn get_connection() -> Result<Connection, String> {
             report_id INTEGER NOT NULL,
             template_checklist_item_id INTEGER NOT NULL,
             status TEXT,
+            severity TEXT,
             issue_details TEXT,
             action_taken TEXT,
             date_observed TEXT,
@@ -1672,6 +1673,7 @@ struct MriReportChecklistResult {
     report_id: i64,
     template_checklist_item_id: i64,
     status: Option<String>,
+    severity: Option<String>,
     issue_details: Option<String>,
     action_taken: Option<String>,
     date_observed: Option<String>,
@@ -1679,30 +1681,27 @@ struct MriReportChecklistResult {
 }
 
 #[tauri::command]
-fn get_mri_report_checklist_results(
-    report_id: i64,
-) -> Result<Vec<MriReportChecklistResult>, String> {
+fn get_mri_report_checklist_results(report_id: i64) -> Result<Vec<MriReportChecklistResult>, String> {
     let conn = get_connection()?;
     let mut stmt = conn.prepare(
-        "SELECT id, report_id, template_checklist_item_id, status, issue_details, action_taken, date_observed, closure_status
+        "SELECT id, report_id, template_checklist_item_id, status, severity, issue_details, action_taken, date_observed, closure_status
          FROM mri_report_checklist_results WHERE report_id = ?1"
     ).map_err(|e| e.to_string())?;
-    let results = stmt
-        .query_map([report_id], |row| {
-            Ok(MriReportChecklistResult {
-                id: row.get(0)?,
-                report_id: row.get(1)?,
-                template_checklist_item_id: row.get(2)?,
-                status: row.get(3)?,
-                issue_details: row.get(4)?,
-                action_taken: row.get(5)?,
-                date_observed: row.get(6)?,
-                closure_status: row.get(7)?,
-            })
+    let results = stmt.query_map([report_id], |row| {
+        Ok(MriReportChecklistResult {
+            id: row.get(0)?,
+            report_id: row.get(1)?,
+            template_checklist_item_id: row.get(2)?,
+            status: row.get(3)?,
+            severity: row.get(4)?,
+            issue_details: row.get(5)?,
+            action_taken: row.get(6)?,
+            date_observed: row.get(7)?,
+            closure_status: row.get(8)?,
         })
-        .map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
+    }).map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(|e| e.to_string())?;
     Ok(results)
 }
 
@@ -1715,44 +1714,35 @@ fn set_mri_report_checklist_result(result: MriReportChecklistResult) -> Result<S
             return Err(format!("Invalid status '{}' — must be Pass or Fail", s));
         }
         if s == "Fail" {
-            if result
-                .issue_details
-                .as_deref()
-                .unwrap_or("")
-                .trim()
-                .is_empty()
-            {
+            if result.issue_details.as_deref().unwrap_or("").trim().is_empty() {
                 return Err("Issue details are required when status is Fail".to_string());
             }
-            if result
-                .action_taken
-                .as_deref()
-                .unwrap_or("")
-                .trim()
-                .is_empty()
-            {
+            if result.action_taken.as_deref().unwrap_or("").trim().is_empty() {
                 return Err("Action taken is required when status is Fail".to_string());
             }
         }
     }
+    if let Some(sev) = &result.severity {
+        if !sev.is_empty() && !valid_severity(sev) {
+            return Err(format!("Invalid severity '{}' — must be Minor, Moderate, Major, or Critical", sev));
+        }
+    }
     if !valid_closure_status(&result.closure_status) {
-        return Err(format!(
-            "Invalid closure status '{}' — must be Pending or Closed",
-            result.closure_status
-        ));
+        return Err(format!("Invalid closure status '{}' — must be Pending or Closed", result.closure_status));
     }
 
     conn.execute(
-        "INSERT INTO mri_report_checklist_results (report_id, template_checklist_item_id, status, issue_details, action_taken, date_observed, closure_status)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+        "INSERT INTO mri_report_checklist_results (report_id, template_checklist_item_id, status, severity, issue_details, action_taken, date_observed, closure_status)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
          ON CONFLICT(report_id, template_checklist_item_id) DO UPDATE SET
             status = excluded.status,
+            severity = excluded.severity,
             issue_details = excluded.issue_details,
             action_taken = excluded.action_taken,
             date_observed = excluded.date_observed,
             closure_status = excluded.closure_status",
         rusqlite::params![
-            result.report_id, result.template_checklist_item_id, result.status,
+            result.report_id, result.template_checklist_item_id, result.status, result.severity,
             result.issue_details, result.action_taken, result.date_observed, result.closure_status
         ],
     ).map_err(|e| e.to_string())?;
@@ -2647,6 +2637,22 @@ async fn fetch_icon_svg(icon_id: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+fn get_assets_with_pending_issues() -> Result<Vec<i64>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT rep.asset_id
+         FROM mri_report_checklist_results r
+         JOIN mri_reports rep ON r.report_id = rep.id
+         WHERE r.closure_status = 'Pending' AND r.status = 'Fail'"
+    ).map_err(|e| e.to_string())?;
+    let ids: Vec<i64> = stmt.query_map([], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(ids)
+}
+
+#[tauri::command]
 fn get_browsable_tables() -> Vec<String> {
     BROWSABLE_TABLES.iter().map(|s| s.to_string()).collect()
 }
@@ -2851,7 +2857,8 @@ pub fn run() {
             purge_mri_reports,
             get_pending_checklist_item_ids,
             search_icons,
-            fetch_icon_svg
+            fetch_icon_svg,
+            get_assets_with_pending_issues
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

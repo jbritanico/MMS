@@ -70,7 +70,7 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
   async function saveEdit(t: MriTemplate) {
     if (!editName.trim()) return;
     try {
-      await renameTemplate.mutateAsync({ id: t.id, template_name: editName.trim() });
+      await renameTemplate.mutateAsync({ id: t.id, templateName: editName.trim() });
       setEditingId(null);
       flash("Template renamed", "ok");
     } catch (err) {

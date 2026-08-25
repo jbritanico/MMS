@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAssets } from "../asset-registry/hooks/useAssets";
 import { useAssetTypes } from "../administration/hooks/useAssetTypes";
 import { useMriTemplates } from "../administration/hooks/useMriTemplates";
-import { useCreateMriReport } from "./hooks/useMriReports";
+import { useCreateMriReport, useMriReports, useAssetsWithPendingIssues } from "./hooks/useMriReports";
 
 interface SelectAssetForReportProps {
   onReportCreated: (reportId: number) => void;
@@ -12,6 +12,8 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
   const { data: assets = [] } = useAssets();
   const { data: assetTypes = [] } = useAssetTypes();
   const { data: templates = [] } = useMriTemplates();
+  const { data: existingReports = [] } = useMriReports();
+  const { data: pendingIssueAssetIds = [] } = useAssetsWithPendingIssues();
   const createReport = useCreateMriReport();
 
   const [query, setQuery] = useState("");
@@ -42,6 +44,15 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
       flash("No active MR-I template exists for this asset's type yet", "err");
       return;
     }
+
+    const existingDraft = existingReports.find(
+      (r) => r.asset_id === assetId && r.template_id === template.id && r.status === "Draft"
+    );
+    if (existingDraft) {
+      onReportCreated(existingDraft.id);
+      return;
+    }
+
     setCreatingFor(assetId);
     try {
       const reportId = await createReport.mutateAsync({ template_id: template.id, asset_id: assetId });
@@ -82,7 +93,17 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
                 key={a.id}
                 className={`asset-select-card ${disabled ? "asset-select-card-disabled" : ""}`}
                 onClick={() => !disabled && a.id !== null && handleSelect(a.id, a.asset_type_id)}
+                style={{ position: "relative" }}
               >
+                <span
+                  className="asset-status-dot"
+                  style={{
+                    background: a.id !== null && pendingIssueAssetIds.includes(a.id)
+                      ? "var(--danger)"
+                      : "var(--accent)",
+                  }}
+                  title={a.id !== null && pendingIssueAssetIds.includes(a.id) ? "Has pending issue" : "No pending issues"}
+                />
                 <div className="asset-select-card-body">
                   <div className="asset-select-icon">
                     {(() => {

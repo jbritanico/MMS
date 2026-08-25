@@ -81,3 +81,10 @@ export function usePendingChecklistItemIds(assetId: number, currentReportId: num
     enabled: !!assetId && !!currentReportId,
   });
 }
+
+export function useAssetsWithPendingIssues() {
+  return useQuery({
+    queryKey: ["assets-with-pending-issues"],
+    queryFn: () => invoke<number[]>("get_assets_with_pending_issues"),
+  });
+}

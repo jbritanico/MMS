@@ -44,7 +44,7 @@ export function useUpdateTemplateStatus() {
 export function useRenameMriTemplate() {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: (item: { id: number; template_name: string }) =>
+        mutationFn: (item: { id: number; templateName: string }) =>
             invoke("rename_mri_template", item),
         onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
     });
