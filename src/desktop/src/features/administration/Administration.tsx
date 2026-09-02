@@ -1,15 +1,18 @@
 import { useState } from "react";
+import type { JSX } from "react";
 import ChecklistDatabank from "./ChecklistDatabank";
 import AssetTypes from "./AssetTypes";
 import ChecklistSections from "./ChecklistSections";
 import MriTemplates from "./MriTemplates";
 import LookupsManager from "./LookupsManager";
 import Users from "./Users";
+import Roles from "./Roles";
 import DataPurging from "./DataPurging";
 import DataBrowser from "./DataBrowser";
 
 export type AdminSection =
   | "users"
+  | "roles"
   | "checklist-bank"
   | "asset-types"
   | "checklist-sections"
@@ -56,6 +59,16 @@ const GROUPS: Group[] = [
             <path d="M3 19c0-3 2.7-4.5 6-4.5s6 1.5 6 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             <circle cx="17" cy="7" r="2.2" stroke="currentColor" strokeWidth="1.4" />
             <path d="M15.5 19c.2-2.2 1.8-3.4 4-3.6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+          </svg>
+        ),
+      },
+      {
+        id: "roles",
+        label: "Roles",
+        icon: (
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+            <path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         ),
       },
@@ -202,6 +215,7 @@ const GROUPS: Group[] = [
 
 const LABELS: Record<AdminSection, string> = {
   users: "Users",
+  roles: "Roles",
   "checklist-bank": "Checklist Bank",
   "asset-types": "Asset Types",
   "checklist-sections": "Checklist Sections",
@@ -277,6 +291,8 @@ function Administration({ onOpenTemplate, active, setActive, openGroup, setOpenG
       <div className="panel admin-content">
         {active === "users" ? (
           <Users />
+        ) : active === "roles" ? (
+          <Roles />
         ) : active === "checklist-bank" ? (
           <ChecklistDatabank />
         ) : active === "asset-types" ? (

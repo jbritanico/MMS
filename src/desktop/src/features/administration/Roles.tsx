@@ -2,24 +2,17 @@ import { useState } from "react";
 import {
   usePermissions,
   useRolePermissions,
-  useUserOverrides,
-  useSetUserOverride,
-  type AppUser,
+  useSetRolePermission,
+  ROLES,
 } from "./hooks/useUserAdmin";
 import { getPermissionIcon } from "./permissionIcons";
 
-interface UserPermissionsProps {
-  user: AppUser;
-  onBack: () => void;
-}
+function Roles() {
+  const [selectedRole, setSelectedRole] = useState<string>(ROLES[0]);
 
-type EffectiveState = "default-on" | "default-off" | "granted" | "revoked";
-
-function UserPermissions({ user, onBack }: UserPermissionsProps) {
   const { data: permissions = [] } = usePermissions();
-  const { data: rolePerms = [] } = useRolePermissions(user.role);
-  const { data: overrides = [] } = useUserOverrides(user.id);
-  const setOverride = useSetUserOverride(user.id);
+  const { data: rolePerms = [] } = useRolePermissions(selectedRole);
+  const setRolePermission = useSetRolePermission(selectedRole);
 
   const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
 
@@ -28,23 +21,9 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
     setTimeout(() => setStatus(null), 3000);
   }
 
-  function stateFor(code: string): EffectiveState {
-    const override = overrides.find((o) => o.permission_code === code);
-    if (override) return override.granted ? "granted" : "revoked";
-    return rolePerms.includes(code) ? "default-on" : "default-off";
-  }
-
   async function toggle(code: string, currentlyOn: boolean) {
     try {
-      await setOverride.mutateAsync({ permissionCode: code, granted: !currentlyOn });
-    } catch (err) {
-      flash(String(err), "err");
-    }
-  }
-
-  async function resetToDefault(code: string) {
-    try {
-      await setOverride.mutateAsync({ permissionCode: code, granted: null });
+      await setRolePermission.mutateAsync({ permissionCode: code, granted: !currentlyOn });
     } catch (err) {
       flash(String(err), "err");
     }
@@ -52,26 +31,27 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
 
   const categories = Array.from(new Set(permissions.map((p) => p.category)));
 
-  const stateColor: Record<EffectiveState, string> = {
-    "default-on": "var(--accent)",
-    "default-off": "var(--text-soft)",
-    granted: "var(--accent)",
-    revoked: "var(--danger)",
-  };
-
   return (
     <div>
-      <div style={{ marginBottom: 14 }}>
-        <button className="ghost" onClick={onBack} style={{ padding: "6px 12px", fontSize: 12 }}>← Back to users</button>
-      </div>
-
-      <h2 style={{ marginBottom: 4 }}>Permissions — {user.name}</h2>
+      <h2 style={{ marginBottom: 4 }}>Roles</h2>
       <p style={{ fontSize: 13, color: "var(--text-soft)", marginBottom: 4 }}>
-        Role: <strong>{user.role}</strong>. Click any card to cycle: role default → override granted/revoked → back to role default.
+        Set the default permissions every user in a role starts with. Individual users can still be
+        granted or blocked specific permissions from their own Permissions screen — those overrides
+        take priority over whatever is set here.
       </p>
-      <p style={{ fontSize: 12, color: "var(--text-soft)", marginBottom: 18 }}>
-        Solid = allowed right now for this specific user. Faded = not allowed right now. Overrides are marked distinctly from role defaults.
-      </p>
+
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "16px 0 20px" }}>
+        {ROLES.map((role) => (
+          <button
+            key={role}
+            className={role === selectedRole ? "primary" : "ghost"}
+            style={{ padding: "6px 14px", fontSize: 12 }}
+            onClick={() => setSelectedRole(role)}
+          >
+            {role}
+          </button>
+        ))}
+      </div>
 
       {status && <div className={`toast ${status.kind}`} style={{ maxWidth: 400, marginBottom: 12 }}>{status.msg}</div>}
 
@@ -86,9 +66,7 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
             }}
           >
             {permissions.filter((p) => p.category === cat).map((p) => {
-              const state = stateFor(p.code);
-              const isOverride = state === "granted" || state === "revoked";
-              const isOn = state === "default-on" || state === "granted";
+              const isOn = rolePerms.includes(p.code);
               return (
                 <div
                   key={p.code}
@@ -106,8 +84,6 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
                     boxShadow: isOn
                       ? "inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light)"
                       : "5px 5px 10px var(--neu-shadow-dark), -5px -5px 10px var(--neu-shadow-light)",
-                    outline: isOverride ? `1.5px solid ${stateColor[state]}` : "none",
-                    outlineOffset: -1.5,
                     transition: "box-shadow 0.15s",
                   }}
                 >
@@ -134,20 +110,6 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
                     </button>
                   </div>
                   <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.3 }}>{p.label}</div>
-                  {isOverride && (
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: -4 }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: stateColor[state], textTransform: "uppercase", letterSpacing: 0.3 }}>
-                        Override
-                      </span>
-                      <button
-                        className="ghost"
-                        onClick={(e) => { e.stopPropagation(); resetToDefault(p.code); }}
-                        style={{ padding: "2px 8px", fontSize: 10 }}
-                      >
-                        Reset
-                      </button>
-                    </div>
-                  )}
                 </div>
               );
             })}
@@ -158,4 +120,4 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
   );
 }
 
-export default UserPermissions;
+export default Roles;
