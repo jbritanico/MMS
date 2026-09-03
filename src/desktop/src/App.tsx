@@ -91,6 +91,8 @@ function App() {
             --warn-soft: #faeeda;
             --danger: #a32d2d;
             --danger-soft: #fcebeb;
+            --success: #1f7a4d;
+            --success-soft: #dcf3e4;
             --radius: 10px;
             --mono: ui-monospace, "JetBrains Mono", Consolas, monospace;
             --sans: -apple-system, "Segoe UI", Inter, sans-serif;
@@ -116,6 +118,8 @@ function App() {
             --warn-soft: #3a2f1a;
             --danger: #f0716b;
             --danger-soft: #3a1f1e;
+            --success: #4ade80;
+            --success-soft: #1c3a2a;
           }
 
           [data-theme="ocean"] {
@@ -138,6 +142,8 @@ function App() {
             --warn-soft: #fbeddb;
             --danger: #b5433d;
             --danger-soft: #fbe5e3;
+            --success: #16805a;
+            --success-soft: #d3f0e3;
           }
 
           [data-theme="sepia"] {
@@ -160,6 +166,8 @@ function App() {
             --warn-soft: #f2e2c6;
             --danger: #9c3d33;
             --danger-soft: #f2ddd8;
+            --success: #56702c;
+            --success-soft: #e3edd0;
           }
 
           [data-theme="sprint"] {
@@ -179,8 +187,10 @@ function App() {
             --chart-green: #3d9463;
             --warn: #e0a94f;
             --warn-soft: #3a2f1a;
-            --danger: #b90005;
+             --danger: #b90005;
             --danger-soft: #ffe0e1;
+            --success: #0f7a4a;
+            --success-soft: #d9f5e6;
             --hover-highlight: #2bb8d8;
           }
 

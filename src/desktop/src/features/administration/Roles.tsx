@@ -80,11 +80,11 @@ function Roles() {
                     padding: 16,
                     borderRadius: 14,
                     cursor: "pointer",
-                    background: "var(--neu-bg)",
+                    background: isOn ? "var(--success-soft)" : "var(--neu-bg)",
                     boxShadow: isOn
                       ? "inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light)"
                       : "5px 5px 10px var(--neu-shadow-dark), -5px -5px 10px var(--neu-shadow-light)",
-                    transition: "box-shadow 0.15s",
+                    transition: "background 0.15s, box-shadow 0.15s",
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -92,8 +92,8 @@ function Roles() {
                       style={{
                         width: 34, height: 34, borderRadius: 9,
                         display: "flex", alignItems: "center", justifyContent: "center",
-                        color: isOn ? "var(--accent)" : "var(--text-soft)",
-                        background: isOn ? "var(--accent-soft)" : "transparent",
+                        color: isOn ? "var(--success)" : "var(--text-soft)",
+                        background: "transparent",
                         flexShrink: 0,
                       }}
                     >
@@ -109,7 +109,7 @@ function Roles() {
                       <span className="neu-toggle-knob" />
                     </button>
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.3 }}>{p.label}</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.3, color: isOn ? "var(--success)" : "var(--text)" }}>{p.label}</div>
                 </div>
               );
             })}

@@ -53,9 +53,9 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
   const categories = Array.from(new Set(permissions.map((p) => p.category)));
 
   const stateColor: Record<EffectiveState, string> = {
-    "default-on": "var(--accent)",
+    "default-on": "var(--success)",
     "default-off": "var(--text-soft)",
-    granted: "var(--accent)",
+    granted: "var(--success)",
     revoked: "var(--danger)",
   };
 
@@ -102,13 +102,13 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
                     padding: 16,
                     borderRadius: 14,
                     cursor: "pointer",
-                    background: "var(--neu-bg)",
+                    background: isOn ? "var(--success-soft)" : "var(--neu-bg)",
                     boxShadow: isOn
                       ? "inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light)"
                       : "5px 5px 10px var(--neu-shadow-dark), -5px -5px 10px var(--neu-shadow-light)",
                     outline: isOverride ? `1.5px solid ${stateColor[state]}` : "none",
                     outlineOffset: -1.5,
-                    transition: "box-shadow 0.15s",
+                    transition: "background 0.15s, box-shadow 0.15s",
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -116,8 +116,8 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
                       style={{
                         width: 34, height: 34, borderRadius: 9,
                         display: "flex", alignItems: "center", justifyContent: "center",
-                        color: isOn ? "var(--accent)" : "var(--text-soft)",
-                        background: isOn ? "var(--accent-soft)" : "transparent",
+                        color: isOn ? "var(--success)" : "var(--text-soft)",
+                        background: "transparent",
                         flexShrink: 0,
                       }}
                     >
@@ -133,7 +133,7 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
                       <span className="neu-toggle-knob" />
                     </button>
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.3 }}>{p.label}</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.3, color: isOn ? "var(--success)" : "var(--text)" }}>{p.label}</div>
                   {isOverride && (
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: -4 }}>
                       <span style={{ fontSize: 10, fontWeight: 700, color: stateColor[state], textTransform: "uppercase", letterSpacing: 0.3 }}>
