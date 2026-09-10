@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { JSX } from "react";
 import ChecklistDatabank from "./ChecklistDatabank";
 import AssetTypes from "./AssetTypes";
@@ -9,6 +9,7 @@ import Users from "./Users";
 import Roles from "./Roles";
 import DataPurging from "./DataPurging";
 import DataBrowser from "./DataBrowser";
+import { useCurrentUserPermissionCodes } from "../../lib/useCurrentUserPermissions";
 
 export type AdminSection =
   | "users"
@@ -213,6 +214,23 @@ const GROUPS: Group[] = [
   },
 ];
 
+// Permission required to see each section's nav item and content. A section with
+// no entry here is always visible (used for the still-unbuilt placeholder screens).
+const SECTION_PERMISSION: Partial<Record<AdminSection, string>> = {
+  users: "admin.users.manage",
+  roles: "admin.users.manage",
+  "checklist-bank": "references.edit",
+  "asset-types": "references.edit",
+  "checklist-sections": "references.edit",
+  "lookups": "references.edit",
+  "data-browser": "data_browser.view",
+  "data-removal": "data_browser.edit",
+  "data-purge": "data_purging.execute",
+  "mri-template": "mri_templates.view",
+  "mrii-template": "mri_templates.view",
+  "mriii-template": "mri_templates.view",
+};
+
 const LABELS: Record<AdminSection, string> = {
   users: "Users",
   roles: "Roles",
@@ -238,6 +256,33 @@ interface AdministrationProps {
 }
 
 function Administration({ onOpenTemplate, active, setActive, openGroup, setOpenGroup, selectedTemplateId }: AdministrationProps) {
+
+  const permCodes = useCurrentUserPermissionCodes();
+
+  function canSee(section: AdminSection): boolean {
+    if (permCodes === null) return true; // fail-open: still loading, or no matching user yet
+    const required = SECTION_PERMISSION[section];
+    if (!required) return true; // unmapped sections (not yet built) stay visible
+    return permCodes.has(required);
+  }
+
+  const visibleGroups = GROUPS
+    .map((group) => ({ ...group, children: group.children.filter((c) => canSee(c.id)) }))
+    .filter((group) => group.children.length > 0);
+
+  // If the current section becomes restricted (permissions changed, or the
+  // default section isn't allowed for this user), fall back to the first
+  // section this user can actually see instead of showing a dead screen.
+  useEffect(() => {
+    if (canSee(active)) return;
+    const fallback = visibleGroups[0]?.children[0];
+    if (fallback) {
+      setOpenGroup(visibleGroups[0].id);
+      setActive(fallback.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, permCodes]);
+
   function toggleGroup(id: GroupId) {
     setOpenGroup(id);
   }
@@ -250,7 +295,7 @@ function Administration({ onOpenTemplate, active, setActive, openGroup, setOpenG
   return (
     <div className="admin-layout">
       <div className="admin-sidebar">
-        {GROUPS.map((group) => {
+        {visibleGroups.map((group) => {
           const isOpen = openGroup === group.id;
           const hasActiveChild = group.children.some((c) => c.id === active);
           return (
@@ -289,7 +334,12 @@ function Administration({ onOpenTemplate, active, setActive, openGroup, setOpenG
       </div>
 
       <div className="panel admin-content">
-        {active === "users" ? (
+        {!canSee(active) ? (
+          <div className="placeholder-screen">
+            <h2>Restricted</h2>
+            <p>You don't have permission to view {LABELS[active].toLowerCase()}.</p>
+          </div>
+        ) : active === "users" ? (
           <Users />
         ) : active === "roles" ? (
           <Roles />

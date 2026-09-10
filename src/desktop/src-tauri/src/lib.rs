@@ -493,6 +493,20 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     }
 
+        // Only seed the baseline role -> permission defaults ONCE, the first time this
+    // database is created. get_connection() calls seed_permissions() on every single
+    // command invocation, so if we always re-inserted these defaults, any permission
+    // an admin turned OFF in the Roles screen (e.g. "View assets" for View Only) would
+    // silently come back the very next time any command ran. Checking that no role
+    // has any permission recorded yet limits this to a true fresh install.
+    let existing_role_perm_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM role_permissions", [], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+
+    if existing_role_perm_count > 0 {
+        return Ok(());
+    }
+
     let role_defaults: [(&str, &[&str]); 5] = [
         (
             "View Only",

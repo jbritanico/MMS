@@ -12,6 +12,7 @@ import {
 } from "./hooks/useMriTemplates";
 import { useAssetTypes } from "./hooks/useAssetTypes";
 import AssetTypeCombobox from "./AssetTypeCombobox";
+import TemplateGraphModal from "../mri-template-builder/TemplateGraphModal";
 
 const STATUS_ORDER: TemplateStatus[] = ["Draft", "Active", "Inactive"];
 
@@ -40,6 +41,7 @@ function MriTemplates({ onOpenTemplate, selectedTemplateId }: MriTemplatesProps)
   const [editName, setEditName] = useState("");
   const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<MriTemplate | null>(null);
+    const [graphTemplate, setGraphTemplate] = useState<MriTemplate | null>(null);
 
   const assetTypeName = (id: number) => assetTypes.find((a) => a.id === id)?.description ?? "—";
 
@@ -222,6 +224,12 @@ function MriTemplates({ onOpenTemplate, selectedTemplateId }: MriTemplatesProps)
                   </>
                 ) : (
                   <>
+                    <button className="icon-btn" aria-label="3D structure" onClick={(e) => { e.stopPropagation(); setGraphTemplate(t); }} title="View this template's structure in 3D">
+                      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+                        <path d="M12 3v9M12 21v-9M4 7.5l8 4.5 8-4.5" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+                      </svg>
+                    </button>
                     <button className="icon-btn" aria-label="Cycle status" onClick={(e) => { e.stopPropagation(); cycleStatus(t); }} title="Click to cycle Draft → Active → Inactive">
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -268,8 +276,11 @@ function MriTemplates({ onOpenTemplate, selectedTemplateId }: MriTemplatesProps)
           </div>
         </div>
       )}
+
+      {graphTemplate && (
+        <TemplateGraphModal template={graphTemplate} onClose={() => setGraphTemplate(null)} />
+      )}
     </div>
   );
 }
-
 export default MriTemplates;
