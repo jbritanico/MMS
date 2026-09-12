@@ -788,8 +788,18 @@ function DrawingChecklistView({
     locked, severityColor, severityIcon, selectedHotspotId, setSelectedHotspotId,
     attachmentsFor, onAddAttachment, onDeleteAttachment,
 }: DrawingChecklistViewProps) {
+    const { data: sections = [] } = useChecklistSections();
+
     function itemsForHotspot(h: any) {
         return templateItems.filter((ti) => h.checklist_item_ids.includes(ti.id));
+    }
+
+    function sectionNamesForHotspot(h: any) {
+        const items = itemsForHotspot(h);
+        const names = Array.from(
+            new Set(items.map((ti: any) => sections.find((s) => s.id === ti.section_id)?.name ?? "Unassigned"))
+        );
+        return names;
     }
 
     function hotspotColor(h: any) {
@@ -814,7 +824,7 @@ function DrawingChecklistView({
         <div style={{ display: "grid", gridTemplateColumns: selectedHotspot ? "1fr 360px" : "1fr", gap: 16 }}>
             <div
                 style={{
-                    position: "relative", borderRadius: 16, overflow: "hidden", background: "#000",
+                    position: "relative", borderRadius: 16, overflow: "hidden", background: "var(--neu-bg)",
                     boxShadow: "inset 3px 3px 8px var(--neu-shadow-dark), inset -3px -3px 8px var(--neu-shadow-light)",
                 }}
             >
@@ -833,8 +843,8 @@ function DrawingChecklistView({
                             display: "flex", alignItems: "center", justifyContent: "center",
                             fontSize: 12, fontWeight: 700, color: "#fff",
                             background: hotspotColor(h),
-                            border: selectedHotspotId === h.id ? "2px solid #fff" : "2px solid rgba(255,255,255,0.6)",
-                            boxShadow: "0 0 0 2px rgba(0,0,0,0.4)",
+                            border: selectedHotspotId === h.id ? "2px solid var(--accent)" : "2px solid var(--surface)",
+                            boxShadow: "0 0 0 2px rgba(0,0,0,0.25)",
                             cursor: "pointer",
                         }}
                     >
@@ -847,7 +857,11 @@ function DrawingChecklistView({
                 <div className="panel" style={{ padding: 16, maxHeight: 640, overflowY: "auto" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                         <h3 style={{ margin: 0 }}>
-                            {selectedHotspot.label ?? `Hotspot #${hotspots.findIndex((h) => h.id === selectedHotspot.id) + 1}`}
+                            {(() => {
+                                const names = sectionNamesForHotspot(selectedHotspot);
+                                if (names.length > 0) return names.join(" / ");
+                                return selectedHotspot.label ?? `Hotspot #${hotspots.findIndex((h) => h.id === selectedHotspot.id) + 1}`;
+                            })()}
                         </h3>
                         <button className="icon-btn" aria-label="Close" onClick={() => setSelectedHotspotId(null)}>
                             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
