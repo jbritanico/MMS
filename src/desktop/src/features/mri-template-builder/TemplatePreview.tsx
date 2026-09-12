@@ -54,7 +54,6 @@ function TemplatePreview({ templateId, templateName }: TemplatePreviewProps) {
   const severityColor: Record<string, string> = {
     Minor: "var(--accent)",
     Moderate: "var(--accent-blue)",
-    Major: "var(--warn)",
     Critical: "var(--danger)",
   };
 

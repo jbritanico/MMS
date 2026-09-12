@@ -60,3 +60,26 @@ export function useBulkCreateLookups(criteria: string) {
     },
   });
 }
+
+export function useRenameLookupCriteria() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { oldCriteria: string; newCriteria: string }) =>
+      invoke<string>("rename_lookup_criteria", { oldCriteria: vars.oldCriteria, newCriteria: vars.newCriteria }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["lookup-criteria"] });
+      qc.invalidateQueries({ queryKey: ["lookups"] });
+    },
+  });
+}
+
+export function useDeleteLookupCriteria() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (criteria: string) => invoke<string>("delete_lookup_criteria", { criteria }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["lookup-criteria"] });
+      qc.invalidateQueries({ queryKey: ["lookups"] });
+    },
+  });
+}

@@ -375,7 +375,6 @@ function ChecklistStep({ templateId }: { templateId: number }) {
                             <option value="">— Severity —</option>
                             <option value="Minor">Minor</option>
                             <option value="Moderate">Moderate</option>
-                            <option value="Major">Major</option>
                             <option value="Critical">Critical</option>
                           </select>
                           <label className="check checklist-required-check">

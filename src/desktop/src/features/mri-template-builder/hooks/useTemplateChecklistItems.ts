@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { invoke } from "../../../lib/ipc";
 
-export type Severity = "Minor" | "Moderate" | "Major" | "Critical";
+export type Severity = "Minor" | "Moderate" | "Critical";
 
 export interface TemplateChecklistItem {
   id: number;

@@ -13,6 +13,7 @@ export interface MriReportChecklistResult {
   report_id: number;
   template_checklist_item_id: number;
   status: "Pass" | "Fail" | null;
+  severity: "Minor" | "Moderate" | "Critical" | null;
   issue_details: string | null;
   action_taken: string | null;
   date_observed: string | null;

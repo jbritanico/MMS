@@ -8,6 +8,8 @@ import {
   useUpdateLookup,
   useDeleteLookup,
   useBulkCreateLookups,
+  useRenameLookupCriteria,
+  useDeleteLookupCriteria,
   type LookupValue,
 } from "./hooks/useLookups";
 
@@ -23,12 +25,18 @@ function LookupsManager() {
   const updateLookup = useUpdateLookup(effectiveCriteria);
   const deleteLookup = useDeleteLookup(effectiveCriteria);
   const bulkCreate = useBulkCreateLookups(effectiveCriteria);
+  const renameCriteria = useRenameLookupCriteria();
+  const deleteCriteriaMut = useDeleteLookupCriteria();
 
   const [newValue, setNewValue] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
   const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<LookupValue | null>(null);
+
+  const [renamingCriteria, setRenamingCriteria] = useState(false);
+  const [criteriaRenameValue, setCriteriaRenameValue] = useState("");
+  const [pendingDeleteCriteria, setPendingDeleteCriteria] = useState<string | null>(null);
 
   const [previewRows, setPreviewRows] = useState<string[] | null>(null);
   const [importing, setImporting] = useState(false);
@@ -42,6 +50,7 @@ function LookupsManager() {
   function selectCriteria(c: string) {
     setActiveCriteria(c);
     setEditingId(null);
+    setRenamingCriteria(false);
   }
 
   function addNewCriteria() {
@@ -49,6 +58,42 @@ function LookupsManager() {
     if (!name) return;
     setActiveCriteria(name);
     setNewCriteriaInput("");
+  }
+
+  function startRenameCriteria() {
+    if (!effectiveCriteria) return;
+    setCriteriaRenameValue(effectiveCriteria);
+    setRenamingCriteria(true);
+  }
+
+  async function saveCriteriaRename() {
+    const newName = criteriaRenameValue.trim().toUpperCase();
+    if (!newName || !effectiveCriteria) return;
+    if (newName === effectiveCriteria) {
+      setRenamingCriteria(false);
+      return;
+    }
+    try {
+      await renameCriteria.mutateAsync({ oldCriteria: effectiveCriteria, newCriteria: newName });
+      setActiveCriteria(newName);
+      setRenamingCriteria(false);
+      flash(`Renamed to ${newName}`, "ok");
+    } catch (err) {
+      flash(String(err), "err");
+    }
+  }
+
+  async function confirmDeleteCriteria() {
+    if (!pendingDeleteCriteria) return;
+    try {
+      const result = await deleteCriteriaMut.mutateAsync(pendingDeleteCriteria);
+      flash(result, "ok");
+      setActiveCriteria("");
+    } catch (err) {
+      flash(String(err), "err");
+    } finally {
+      setPendingDeleteCriteria(null);
+    }
   }
 
   async function handleAddValue() {
@@ -152,22 +197,75 @@ function LookupsManager() {
 
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 18 }}>
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap", padding: 4, background: "rgba(0,0,0,0.04)", borderRadius: 12 }}>
-          {criteriaList.map((c) => (
-            <button
-              key={c}
-              onClick={() => selectCriteria(c)}
-              style={{
-                padding: "7px 16px", borderRadius: 9, fontSize: 13, fontWeight: 600,
-                background: effectiveCriteria === c ? "var(--neu-bg)" : "transparent",
-                color: effectiveCriteria === c ? "#2f6fed" : "var(--text-soft)",
-                boxShadow: effectiveCriteria === c
-                  ? "inset 2px 2px 4px var(--neu-shadow-dark), inset -2px -2px 4px var(--neu-shadow-light)"
-                  : "none",
-              }}
-            >
-              {c}
-            </button>
-          ))}
+          {criteriaList.map((c) => {
+            const isActive = effectiveCriteria === c;
+            if (isActive && renamingCriteria) {
+              return (
+                <div key={c} style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                  <input
+                    type="text"
+                    className="trigger-input"
+                    value={criteriaRenameValue}
+                    autoFocus
+                    onChange={(e) => setCriteriaRenameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveCriteriaRename();
+                      if (e.key === "Escape") setRenamingCriteria(false);
+                    }}
+                    style={{ width: 140 }}
+                  />
+                  <button className="icon-btn" aria-label="Save name" onClick={saveCriteriaRename}>
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                  <button className="icon-btn" aria-label="Cancel" onClick={() => setRenamingCriteria(false)}>
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                </div>
+              );
+            }
+            return (
+              <div key={c} style={{ display: "flex", alignItems: "center", gap: isActive ? 2 : 0 }}>
+                <button
+                  onClick={() => selectCriteria(c)}
+                  style={{
+                    padding: "7px 16px", borderRadius: 9, fontSize: 13, fontWeight: 600,
+                    background: isActive ? "var(--neu-bg)" : "transparent",
+                    color: isActive ? "#2f6fed" : "var(--text-soft)",
+                    boxShadow: isActive
+                      ? "inset 2px 2px 4px var(--neu-shadow-dark), inset -2px -2px 4px var(--neu-shadow-light)"
+                      : "none",
+                  }}
+                >
+                  {c}
+                </button>
+                {isActive && (
+                  <>
+                    <button className="icon-btn" aria-label="Rename criteria" title="Rename criteria" onClick={startRenameCriteria}>
+                      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 15, height: 15 }}>
+                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"
+                          stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                    <button
+                      className="icon-btn icon-danger"
+                      aria-label="Delete criteria"
+                      title="Delete criteria"
+                      onClick={() => setPendingDeleteCriteria(c)}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 15, height: 15 }}>
+                        <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         <div style={{ display: "flex", gap: 6 }}>
@@ -311,6 +409,27 @@ function LookupsManager() {
             <div className="modal-actions">
               <button className="ghost" onClick={() => setPendingDelete(null)}>Cancel</button>
               <button className="danger" onClick={confirmDelete}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingDeleteCriteria && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 9V13M12 17H12.01M10.29 3.86L1.82 18A2 2 0 0 0 3.54 21H20.46A2 2 0 0 0 22.18 18L13.71 3.86A2 2 0 0 0 10.29 3.86Z"
+                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <h3>Delete criteria?</h3>
+            <p>
+              This will permanently delete <strong>{pendingDeleteCriteria}</strong> and every value under it. This cannot be undone.
+            </p>
+            <div className="modal-actions">
+              <button className="ghost" onClick={() => setPendingDeleteCriteria(null)}>Cancel</button>
+              <button className="danger" onClick={confirmDeleteCriteria}>Delete</button>
             </div>
           </div>
         </div>

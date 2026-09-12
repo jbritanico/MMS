@@ -411,6 +411,7 @@ function HeaderEntryStep({ templateId, reportId, locked, asset }: { templateId: 
 }
 
 const CLOSURE_STATUSES = ["Pending", "Closed"] as const;
+const SEVERITIES = ["Minor", "Moderate", "Critical"] as const;
 
 function ChecklistEntryStep({ templateId, reportId, locked, assetId }: { templateId: number; reportId: number; locked: boolean; assetId: number }) {
     const { data: templateItems = [] } = useTemplateChecklistItems(templateId);
@@ -443,6 +444,9 @@ function ChecklistEntryStep({ templateId, reportId, locked, assetId }: { templat
         const edited = localEdits[ti.id];
         return {
             status: defaultStatusFor(ti),
+            // Default severity comes from the template's checklist item, but a saved or
+            // in-progress edit on this report always wins — the user can override it per report.
+            severity: ti.severity ?? null,
             issue_details: "",
             action_taken: "",
             date_observed: todayIso(),
@@ -473,6 +477,7 @@ function ChecklistEntryStep({ templateId, reportId, locked, assetId }: { templat
                 report_id: reportId,
                 template_checklist_item_id: ti.id,
                 status: current.status ?? null,
+                severity: current.severity ?? null,
                 issue_details: current.issue_details || null,
                 action_taken: current.action_taken || null,
                 date_observed: current.date_observed || todayIso(),
@@ -533,14 +538,6 @@ function ChecklistEntryStep({ templateId, reportId, locked, assetId }: { templat
                         <circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
                         <path d="M12 11v5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
                         <circle cx="12" cy="8" r="1" fill={color} />
-                    </svg>
-                );
-            case "Major":
-                return (
-                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 17, height: 17 }}>
-                        <path d="M12 3.5l9.5 16.5H2.5L12 3.5z" stroke={color} strokeWidth="1.8" strokeLinejoin="round" />
-                        <path d="M12 10v4.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-                        <circle cx="12" cy="17" r="1" fill={color} />
                     </svg>
                 );
             case "Critical":
@@ -672,22 +669,26 @@ function ChecklistEntryStep({ templateId, reportId, locked, assetId }: { templat
                                     {CLOSURE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                                 </select>
 
-                                <div style={{ display: "flex", justifyContent: "center" }}>
-                                    {ti.severity ? (
-                                        <div
-                                            title={`Severity: ${ti.severity}`}
-                                            style={{
-                                                width: 32, height: 32, borderRadius: "50%", cursor: "help",
-                                                background: "var(--neu-bg)",
-                                                boxShadow: "3px 3px 6px var(--neu-shadow-dark), -3px -3px 6px var(--neu-shadow-light)",
-                                                display: "flex", alignItems: "center", justifyContent: "center",
-                                            }}
-                                        >
-                                            {severityIcon(ti.severity, severityColor[ti.severity] ?? "var(--text-soft)")}
-                                        </div>
-                                    ) : (
-                                        <span style={{ fontSize: 11, color: "var(--text-soft)" }}>—</span>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
+                                    {result.severity && (
+                                        <span title={`Severity: ${result.severity}`} style={{ display: "flex" }}>
+                                            {severityIcon(result.severity, severityColor[result.severity] ?? "var(--text-soft)")}
+                                        </span>
                                     )}
+                                    <select
+                                        className="neu-select"
+                                        style={{ fontSize: 12, padding: "4px 6px" }}
+                                        value={result.severity ?? ""}
+                                        onChange={(e) => {
+                                            const val = (e.target.value || null) as typeof result.severity;
+                                            updateLocal(ti, { severity: val });
+                                            autoSave(ti, { severity: val });
+                                        }}
+                                        disabled={locked}
+                                    >
+                                        <option value="">—</option>
+                                        {SEVERITIES.map((s) => <option key={s} value={s}>{s}</option>)}
+                                    </select>
                                 </div>
                             </div>
                         );

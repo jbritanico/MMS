@@ -1548,7 +1548,7 @@ struct TemplateChecklistItem {
 }
 
 fn valid_severity(s: &str) -> bool {
-    matches!(s, "Minor" | "Moderate" | "Major" | "Critical")
+    matches!(s, "Minor" | "Moderate" | "Critical")
 }
 
 #[tauri::command]
@@ -1607,7 +1607,7 @@ fn update_template_checklist_item(item: TemplateChecklistItem) -> Result<String,
     if let Some(sev) = &item.severity {
         if !sev.is_empty() && !valid_severity(sev) {
             return Err(format!(
-                "Invalid severity '{}' — must be Minor, Moderate, Major, or Critical",
+                "Invalid severity '{}' — must be Minor, Moderate, or Critical",
                 sev
             ));
         }
@@ -2232,6 +2232,56 @@ fn bulk_create_lookups(criteria: String, names: Vec<String>) -> Result<String, S
     Ok(format!(
         "{} added, {} skipped (duplicates or empty)",
         added, skipped
+    ))
+}
+
+// A "criteria" isn't its own table — it's just the distinct `criteria` column value shared
+// by a group of lookup rows — so renaming/deleting one means renaming/deleting every row
+// that carries that value.
+#[tauri::command]
+fn rename_lookup_criteria(old_criteria: String, new_criteria: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    let old_criteria = old_criteria.trim();
+    let new_criteria = new_criteria.trim().to_uppercase();
+    if old_criteria.is_empty() || new_criteria.is_empty() {
+        return Err("Criteria name cannot be empty".to_string());
+    }
+    if old_criteria == new_criteria {
+        return Ok("No change".to_string());
+    }
+    let clash: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM lookups WHERE criteria = ?1",
+            [&new_criteria],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if clash > 0 {
+        return Err(format!("A criteria named '{}' already exists", new_criteria));
+    }
+    conn.execute(
+        "UPDATE lookups SET criteria = ?1 WHERE criteria = ?2",
+        rusqlite::params![new_criteria, old_criteria],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok("Criteria renamed".to_string())
+}
+
+#[tauri::command]
+fn delete_lookup_criteria(criteria: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    let criteria = criteria.trim();
+    if criteria.is_empty() {
+        return Err("Criteria cannot be empty".to_string());
+    }
+    let count = conn
+        .execute("DELETE FROM lookups WHERE criteria = ?1", [criteria])
+        .map_err(|e| e.to_string())?;
+    Ok(format!(
+        "Criteria '{}' deleted ({} value{} removed)",
+        criteria,
+        count,
+        if count == 1 { "" } else { "s" }
     ))
 }
 
@@ -3460,6 +3510,8 @@ pub fn run() {
             update_lookup,
             delete_lookup,
             bulk_create_lookups,
+            rename_lookup_criteria,
+            delete_lookup_criteria,
             get_previous_engine_hours,
             export_assets_backup,
             import_assets_backup,
