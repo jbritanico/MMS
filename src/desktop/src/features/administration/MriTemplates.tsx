@@ -224,10 +224,12 @@ function MriTemplates({ onOpenTemplate, selectedTemplateId }: MriTemplatesProps)
                   </>
                 ) : (
                   <>
-                    <button className="icon-btn" aria-label="3D structure" onClick={(e) => { e.stopPropagation(); setGraphTemplate(t); }} title="View this template's structure in 3D">
+                    <button className="icon-btn" aria-label="Structure" onClick={(e) => { e.stopPropagation(); setGraphTemplate(t); }} title="View this template's structure">
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-                        <path d="M12 3v9M12 21v-9M4 7.5l8 4.5 8-4.5" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+                        <rect x="10" y="3" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.6" />
+                        <rect x="3" y="17" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.6" />
+                        <rect x="17" y="17" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.6" />
+                        <path d="M12 7v4M12 11H5v6M12 11h7v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </button>
                     <button className="icon-btn" aria-label="Cycle status" onClick={(e) => { e.stopPropagation(); cycleStatus(t); }} title="Click to cycle Draft → Active → Inactive">
