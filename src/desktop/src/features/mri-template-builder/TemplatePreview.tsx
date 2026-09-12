@@ -52,9 +52,9 @@ function TemplatePreview({ templateId, templateName }: TemplatePreviewProps) {
   })();
 
   const severityColor: Record<string, string> = {
-    Minor: "var(--accent)",
-    Moderate: "var(--accent-blue)",
-    Critical: "var(--danger)",
+    Minor: "#d4ac0d",
+    Moderate: "#d97706",
+    Critical: "#c0392b",
   };
 
   return (

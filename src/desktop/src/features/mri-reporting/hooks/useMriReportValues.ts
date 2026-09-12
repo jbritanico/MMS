@@ -34,6 +34,16 @@ export interface MriReportFooterValue {
   value: string | null;
 }
 
+export interface MriReportAttachment {
+  id: number;
+  report_id: number;
+  template_checklist_item_id: number;
+  file_name: string;
+  file_type: string;
+  data: string;
+  uploaded_date: string;
+}
+
 // Header
 export function useMriReportHeaderValues(reportId: number) {
   return useQuery({
@@ -89,11 +99,35 @@ export function useMriReportFooterValues(reportId: number) {
     queryFn: () => invoke<MriReportFooterValue[]>("get_mri_report_footer_values", { reportId }),
   });
 }
+
 export function useSetMriReportFooterValue(reportId: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (item: { templateFooterFieldId: number; value: string }) =>
       invoke("set_mri_report_footer_value", { reportId, ...item }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["mri-report-footer-values", reportId] }),
+  });
+}
+
+// Attachments (photos/files) — one report can have several per checklist item
+export function useMriReportAttachments(reportId: number) {
+  return useQuery({
+    queryKey: ["mri-report-attachments", reportId],
+    queryFn: () => invoke<MriReportAttachment[]>("get_mri_report_attachments", { reportId }),
+  });
+}
+export function useAddMriReportAttachment(reportId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (item: { templateChecklistItemId: number; fileName: string; fileType: string; data: string }) =>
+      invoke<number>("add_mri_report_attachment", { reportId, ...item }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["mri-report-attachments", reportId] }),
+  });
+}
+export function useDeleteMriReportAttachment(reportId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => invoke<string>("delete_mri_report_attachment", { id }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["mri-report-attachments", reportId] }),
   });
 }

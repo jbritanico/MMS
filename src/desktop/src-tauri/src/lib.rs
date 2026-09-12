@@ -2,7 +2,7 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const BROWSABLE_TABLES: [&str; 20] = [
+const BROWSABLE_TABLES: [&str; 24] = [
     "assets",
     "maintenance_triggers",
     "checklist_databank",
@@ -16,11 +16,15 @@ const BROWSABLE_TABLES: [&str; 20] = [
     "template_checklist_items",
     "template_mid_fields",
     "template_footer_fields",
+    "template_drawings",
+    "template_drawing_hotspots",
+    "template_drawing_hotspot_items",
     "mri_reports",
     "mri_report_header_values",
     "mri_report_checklist_results",
     "mri_report_mid_values",
     "mri_report_footer_values",
+    "mri_report_attachments",
     "lookups",
     "sqlite_sequence",
 ];
@@ -340,6 +344,54 @@ fn get_connection() -> Result<Connection, String> {
     )
     .map_err(|e| e.to_string())?;
 
+    // One equipment drawing per template. image_data holds the uploaded picture as a
+    // data: URL (same base64-in-SQLite approach already used for asset type icons), which
+    // keeps everything inside the single encrypted SQLite file with no separate file storage
+    // to manage offline.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS template_drawings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            template_id INTEGER NOT NULL UNIQUE,
+            image_data TEXT NOT NULL,
+            updated_date TEXT NOT NULL,
+            FOREIGN KEY (template_id) REFERENCES mri_templates(id)
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // A clickable point on the drawing. x/y are stored as fractions (0.0-1.0) of the
+    // image's width/height rather than pixels, so the same hotspot still lines up correctly
+    // no matter what size the image is rendered at.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS template_drawing_hotspots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            template_id INTEGER NOT NULL,
+            x REAL NOT NULL,
+            y REAL NOT NULL,
+            label TEXT,
+            display_order INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (template_id) REFERENCES mri_templates(id)
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // Many-to-many: a hotspot can represent more than one checklist item (e.g. a cluster of
+    // bolts), and the same checklist item can be pinned at more than one spot on the drawing.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS template_drawing_hotspot_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            hotspot_id INTEGER NOT NULL,
+            template_checklist_item_id INTEGER NOT NULL,
+            FOREIGN KEY (hotspot_id) REFERENCES template_drawing_hotspots(id),
+            FOREIGN KEY (template_checklist_item_id) REFERENCES template_checklist_items(id),
+            UNIQUE(hotspot_id, template_checklist_item_id)
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
     conn.execute(
         "CREATE TABLE IF NOT EXISTS mri_reports (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -414,6 +466,24 @@ fn get_connection() -> Result<Connection, String> {
             FOREIGN KEY (report_id) REFERENCES mri_reports(id),
             FOREIGN KEY (template_footer_field_id) REFERENCES template_footer_fields(id),
             UNIQUE(report_id, template_footer_field_id)
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // Supporting photos/files attached to one checklist item's result on one report.
+    // Several can be attached to the same item (a gallery), so this is not UNIQUE per item.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS mri_report_attachments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            report_id INTEGER NOT NULL,
+            template_checklist_item_id INTEGER NOT NULL,
+            file_name TEXT NOT NULL,
+            file_type TEXT NOT NULL,
+            data TEXT NOT NULL,
+            uploaded_date TEXT NOT NULL,
+            FOREIGN KEY (report_id) REFERENCES mri_reports(id),
+            FOREIGN KEY (template_checklist_item_id) REFERENCES template_checklist_items(id)
         )",
         [],
     )
@@ -1446,6 +1516,8 @@ fn delete_mri_template(id: i64) -> Result<String, String> {
     )
     .map_err(|e| e.to_string())?;
 
+    delete_template_drawing(id)?;
+
     let report_count: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM mri_reports WHERE template_id = ?1",
@@ -1596,6 +1668,13 @@ fn add_template_checklist_item(
 #[tauri::command]
 fn remove_template_checklist_item(id: i64) -> Result<String, String> {
     let conn = get_connection()?;
+    // A hotspot can point at this checklist item — drop those links first so no
+    // hotspot is left referencing a checklist item that no longer exists.
+    conn.execute(
+        "DELETE FROM template_drawing_hotspot_items WHERE template_checklist_item_id = ?1",
+        [id],
+    )
+    .map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM template_checklist_items WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
     Ok("Checklist item removed from template".to_string())
@@ -1617,6 +1696,194 @@ fn update_template_checklist_item(item: TemplateChecklistItem) -> Result<String,
         rusqlite::params![item.section_id, item.severity, item.display_order, item.required as i32, item.id],
     ).map_err(|e| e.to_string())?;
     Ok("Checklist item updated".to_string())
+}
+
+// --- Template equipment drawing + hotspots ---
+
+#[derive(Serialize, Deserialize)]
+struct TemplateDrawing {
+    id: i64,
+    template_id: i64,
+    image_data: String,
+    updated_date: String,
+}
+
+#[tauri::command]
+fn get_template_drawing(template_id: i64) -> Result<Option<TemplateDrawing>, String> {
+    let conn = get_connection()?;
+    conn.query_row(
+        "SELECT id, template_id, image_data, updated_date FROM template_drawings WHERE template_id = ?1",
+        [template_id],
+        |row| {
+            Ok(TemplateDrawing {
+                id: row.get(0)?,
+                template_id: row.get(1)?,
+                image_data: row.get(2)?,
+                updated_date: row.get(3)?,
+            })
+        },
+    )
+    .ok()
+    .map_or(Ok(None), |d| Ok(Some(d)))
+}
+
+#[tauri::command]
+fn set_template_drawing(template_id: i64, image_data: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    if image_data.trim().is_empty() {
+        return Err("Image data cannot be empty".to_string());
+    }
+    let now = chrono_now();
+    conn.execute(
+        "INSERT INTO template_drawings (template_id, image_data, updated_date) VALUES (?1, ?2, ?3)
+         ON CONFLICT(template_id) DO UPDATE SET image_data = excluded.image_data, updated_date = excluded.updated_date",
+        rusqlite::params![template_id, image_data, now],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok("Drawing saved".to_string())
+}
+
+#[tauri::command]
+fn delete_template_drawing(template_id: i64) -> Result<String, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare("SELECT id FROM template_drawing_hotspots WHERE template_id = ?1")
+        .map_err(|e| e.to_string())?;
+    let hotspot_ids: Vec<i64> = stmt
+        .query_map([template_id], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    drop(stmt);
+    for hid in hotspot_ids {
+        conn.execute(
+            "DELETE FROM template_drawing_hotspot_items WHERE hotspot_id = ?1",
+            [hid],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    conn.execute(
+        "DELETE FROM template_drawing_hotspots WHERE template_id = ?1",
+        [template_id],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM template_drawings WHERE template_id = ?1",
+        [template_id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok("Drawing removed".to_string())
+}
+
+#[derive(Serialize, Deserialize)]
+struct Hotspot {
+    id: i64,
+    template_id: i64,
+    x: f64,
+    y: f64,
+    label: Option<String>,
+    display_order: i64,
+    checklist_item_ids: Vec<i64>,
+}
+
+#[tauri::command]
+fn get_template_drawing_hotspots(template_id: i64) -> Result<Vec<Hotspot>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, template_id, x, y, label, display_order
+             FROM template_drawing_hotspots WHERE template_id = ?1 ORDER BY display_order",
+        )
+        .map_err(|e| e.to_string())?;
+    let mut hotspots = stmt
+        .query_map([template_id], |row| {
+            Ok(Hotspot {
+                id: row.get(0)?,
+                template_id: row.get(1)?,
+                x: row.get(2)?,
+                y: row.get(3)?,
+                label: row.get(4)?,
+                display_order: row.get(5)?,
+                checklist_item_ids: Vec::new(),
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    let mut item_stmt = conn
+        .prepare("SELECT template_checklist_item_id FROM template_drawing_hotspot_items WHERE hotspot_id = ?1")
+        .map_err(|e| e.to_string())?;
+    for h in hotspots.iter_mut() {
+        h.checklist_item_ids = item_stmt
+            .query_map([h.id], |row| row.get(0))
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(hotspots)
+}
+
+#[derive(Serialize, Deserialize)]
+struct NewHotspot {
+    template_id: i64,
+    x: f64,
+    y: f64,
+    label: Option<String>,
+    display_order: i64,
+}
+
+#[tauri::command]
+fn create_hotspot(hotspot: NewHotspot) -> Result<i64, String> {
+    let conn = get_connection()?;
+    conn.execute(
+        "INSERT INTO template_drawing_hotspots (template_id, x, y, label, display_order) VALUES (?1, ?2, ?3, ?4, ?5)",
+        rusqlite::params![hotspot.template_id, hotspot.x, hotspot.y, hotspot.label, hotspot.display_order],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(conn.last_insert_rowid())
+}
+
+#[tauri::command]
+fn update_hotspot(id: i64, x: f64, y: f64, label: Option<String>) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute(
+        "UPDATE template_drawing_hotspots SET x = ?1, y = ?2, label = ?3 WHERE id = ?4",
+        rusqlite::params![x, y, label, id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok("Hotspot updated".to_string())
+}
+
+#[tauri::command]
+fn delete_hotspot(id: i64) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute(
+        "DELETE FROM template_drawing_hotspot_items WHERE hotspot_id = ?1",
+        [id],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM template_drawing_hotspots WHERE id = ?1", [id])
+        .map_err(|e| e.to_string())?;
+    Ok("Hotspot deleted".to_string())
+}
+
+#[tauri::command]
+fn set_hotspot_checklist_items(hotspot_id: i64, checklist_item_ids: Vec<i64>) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute(
+        "DELETE FROM template_drawing_hotspot_items WHERE hotspot_id = ?1",
+        [hotspot_id],
+    )
+    .map_err(|e| e.to_string())?;
+    for item_id in checklist_item_ids {
+        conn.execute(
+            "INSERT OR IGNORE INTO template_drawing_hotspot_items (hotspot_id, template_checklist_item_id) VALUES (?1, ?2)",
+            rusqlite::params![hotspot_id, item_id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok("Hotspot links updated".to_string())
 }
 
 #[derive(Serialize, Deserialize)]
@@ -2105,6 +2372,76 @@ fn set_mri_report_footer_value(
     )
     .map_err(|e| e.to_string())?;
     Ok("Footer value saved".to_string())
+}
+
+// --- Supporting photos/files attached to a checklist item's result on a report ---
+
+#[derive(Serialize, Deserialize)]
+struct MriReportAttachment {
+    id: i64,
+    report_id: i64,
+    template_checklist_item_id: i64,
+    file_name: String,
+    file_type: String,
+    data: String,
+    uploaded_date: String,
+}
+
+#[tauri::command]
+fn get_mri_report_attachments(report_id: i64) -> Result<Vec<MriReportAttachment>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, report_id, template_checklist_item_id, file_name, file_type, data, uploaded_date
+             FROM mri_report_attachments WHERE report_id = ?1 ORDER BY uploaded_date",
+        )
+        .map_err(|e| e.to_string())?;
+    let items = stmt
+        .query_map([report_id], |row| {
+            Ok(MriReportAttachment {
+                id: row.get(0)?,
+                report_id: row.get(1)?,
+                template_checklist_item_id: row.get(2)?,
+                file_name: row.get(3)?,
+                file_type: row.get(4)?,
+                data: row.get(5)?,
+                uploaded_date: row.get(6)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(items)
+}
+
+#[tauri::command]
+fn add_mri_report_attachment(
+    report_id: i64,
+    template_checklist_item_id: i64,
+    file_name: String,
+    file_type: String,
+    data: String,
+) -> Result<i64, String> {
+    let conn = get_connection()?;
+    if data.trim().is_empty() {
+        return Err("File data cannot be empty".to_string());
+    }
+    let now = chrono_now();
+    conn.execute(
+        "INSERT INTO mri_report_attachments (report_id, template_checklist_item_id, file_name, file_type, data, uploaded_date)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        rusqlite::params![report_id, template_checklist_item_id, file_name, file_type, data, now],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(conn.last_insert_rowid())
+}
+
+#[tauri::command]
+fn delete_mri_report_attachment(id: i64) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute("DELETE FROM mri_report_attachments WHERE id = ?1", [id])
+        .map_err(|e| e.to_string())?;
+    Ok("Attachment deleted".to_string())
 }
 
 #[derive(Serialize, Deserialize)]
@@ -3479,6 +3816,14 @@ pub fn run() {
             add_template_checklist_item,
             remove_template_checklist_item,
             update_template_checklist_item,
+            get_template_drawing,
+            set_template_drawing,
+            delete_template_drawing,
+            get_template_drawing_hotspots,
+            create_hotspot,
+            update_hotspot,
+            delete_hotspot,
+            set_hotspot_checklist_items,
             get_template_mid_fields,
             add_template_mid_field,
             remove_template_mid_field,
@@ -3504,6 +3849,9 @@ pub fn run() {
             set_mri_report_mid_value,
             get_mri_report_footer_values,
             set_mri_report_footer_value,
+            get_mri_report_attachments,
+            add_mri_report_attachment,
+            delete_mri_report_attachment,
             get_lookup_criteria,
             get_lookups,
             create_lookup,

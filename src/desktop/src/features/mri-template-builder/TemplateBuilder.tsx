@@ -29,12 +29,14 @@ import {
   useRemoveTemplateFooterField,
 } from "./hooks/useTemplateFooterFields";
 import TemplatePreview from "./TemplatePreview";
+import TemplateDrawingStep from "./TemplateDrawingStep";
 
-type Step = "header" | "checklist" | "mid" | "footer" | "review";
+type Step = "header" | "checklist" | "drawing" | "mid" | "footer" | "review";
 
 const STEPS: { id: Step; label: string }[] = [
   { id: "header", label: "Header Fields" },
   { id: "checklist", label: "Checklist" },
+  { id: "drawing", label: "Drawing" },
   { id: "mid", label: "Mid-Section" },
   { id: "footer", label: "Footer" },
   { id: "review", label: "Review & Save" },
@@ -82,6 +84,7 @@ function TemplateBuilder({ templateId, templateName, onBack }: TemplateBuilderPr
       <div className="panel" style={{ minHeight: 320 }}>
         {step === "header" && <HeaderFieldsStep templateId={templateId} />}
         {step === "checklist" && <ChecklistStep templateId={templateId} />}
+        {step === "drawing" && <TemplateDrawingStep templateId={templateId} />}
         {step === "mid" && <MidFieldsStep templateId={templateId} />}
         {step === "footer" && <FooterFieldsStep templateId={templateId} />}
         {step === "review" && <div className="empty">Review & save goes here</div>}
@@ -268,7 +271,7 @@ function ChecklistStep({ templateId }: { templateId: number }) {
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(ti);
     }
-    const ordered = sections
+    const ordered: { sectionId: number | null; sectionLabel: string; items: TemplateChecklistItem[] }[] = sections
       .filter((s) => groups.has(s.id))
       .map((s) => ({ sectionId: s.id, sectionLabel: s.name, items: groups.get(s.id)! }));
     if (groups.has(null)) {
