@@ -10,9 +10,10 @@ import TemplateBuilder from "./features/mri-template-builder/TemplateBuilder";
 import SelectAssetForReport from "./features/mri-reporting/SelectAssetForReport";
 import ReportWizard from "./features/mri-reporting/ReportWizard";
 import LiquidGlassTest from "./features/ui-lab/LiquidGlassTest";
+import DistanceMapTest from "./features/distance-map-test/DistanceMapTest";
 import { THEMES, type Theme } from "./lib/theme";
 
-type Screen = "menu" | "assets" | "reports" | "dashboard" | "admin" | "triggers" | "uilab" | "template-builder" | "select-asset-report" | "report-wizard";
+type Screen = "menu" | "assets" | "reports" | "dashboard" | "admin" | "triggers" | "uilab" | "distance-map-test" | "template-builder" | "select-asset-report" | "report-wizard";
 type MrLevel = "MR-I" | "MR-II" | "MR-III";
 
 const LABELS: Record<Screen, string> = {
@@ -23,6 +24,7 @@ const LABELS: Record<Screen, string> = {
   admin: "Administration",
   triggers: "Maintenance Triggers",
   uilab: "UI Lab",
+  "distance-map-test": "Distance Map (Test)",
   "template-builder": "MR-I Template Builder",
   "select-asset-report": "Select Asset",
   "report-wizard": "MR-I Report",
@@ -1727,6 +1729,7 @@ function App() {
               />
             )}
             {screen === "uilab" && <LiquidGlassTest />}
+            {screen === "distance-map-test" && <DistanceMapTest />}
             {screen === "template-builder" && selectedTemplate && (
               <TemplateBuilder
                 templateId={selectedTemplate.id}

@@ -3,11 +3,17 @@ import { useMriReport, useSubmitMriReport, usePreviousEngineHours, usePendingChe
 import { useAssets } from "../asset-registry/hooks/useAssets";
 import { useMriTemplates } from "../administration/hooks/useMriTemplates";
 import { useTemplateHeaderFields, useHeaderFieldCatalog } from "../mri-template-builder/hooks/useTemplateHeaderFields";
+import { useTemplateMidFields, useMidFieldCatalog } from "../mri-template-builder/hooks/useTemplateMidFields";
+import { useTemplateFooterFields, useFooterFieldCatalog } from "../mri-template-builder/hooks/useTemplateFooterFields";
 import {
     useMriReportHeaderValues,
     useSetMriReportHeaderValue,
     useMriReportChecklistResults,
     useSetMriReportChecklistResult,
+    useMriReportMidValues,
+    useSetMriReportMidValue,
+    useMriReportFooterValues,
+    useSetMriReportFooterValue,
     useMriReportAttachments,
     useAddMriReportAttachment,
     useDeleteMriReportAttachment,
@@ -44,6 +50,7 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
 
     const [step, setStep] = useState<Step>("header");
     const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
+    const [reviewIssues, setReviewIssues] = useState<string[]>([]);
     const currentIndex = STEPS.findIndex((s) => s.id === step);
 
     function flash(msg: string, kind: "ok" | "err") {
@@ -59,6 +66,10 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
     }
 
     async function handleSubmit() {
+        if (reviewIssues.length > 0) {
+            flash("Resolve the issues listed in Review before submitting", "err");
+            return;
+        }
         try {
             await submitReport.mutateAsync(reportId);
             flash("Report submitted — now locked from further editing", "ok");
@@ -115,12 +126,12 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
                 {step === "mid" && <div className="empty">Mid-section entry goes here</div>}
                 {step === "footer" && <div className="empty">Footer entry goes here</div>}
                 {step === "review" && (
-                    <div>
-                        <h2>Review</h2>
-                        <p style={{ fontSize: 13, color: "var(--text-soft)" }}>
-                            Review each section using the steps above, then submit when ready.
-                        </p>
-                    </div>
+                    <ReviewStep
+                        templateId={report.template_id}
+                        reportId={reportId}
+                        locked={isLocked}
+                        onValidate={setReviewIssues}
+                    />
                 )}
             </div>
 
@@ -129,8 +140,13 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
                 {step !== "review" ? (
                     <button className="primary" onClick={goNext}>Next →</button>
                 ) : (
-                    <button className="primary" onClick={handleSubmit} disabled={isLocked}>
-                        {isLocked ? "Already submitted" : "Submit Report"}
+                    <button
+                        className="primary"
+                        onClick={handleSubmit}
+                        disabled={isLocked || reviewIssues.length > 0}
+                        title={reviewIssues.length > 0 ? "Resolve the issues listed above first" : undefined}
+                    >
+                        {isLocked ? "Already submitted" : `Submit Report${reviewIssues.length > 0 ? ` (${reviewIssues.length} issue${reviewIssues.length === 1 ? "" : "s"})` : ""}`}
                     </button>
                 )}
             </div>
@@ -763,7 +779,186 @@ function ChecklistEntryStep({ templateId, reportId, locked, assetId }: { templat
     );
 }
 
+interface ReviewStepProps {
+    templateId: number;
+    reportId: number;
+    locked: boolean;
+    onValidate: (issues: string[]) => void;
+}
+
+function ReviewStep({ templateId, reportId, locked, onValidate }: ReviewStepProps) {
+    const { data: headerFields = [] } = useTemplateHeaderFields(templateId);
+    const { data: headerCatalog = [] } = useHeaderFieldCatalog();
+    const { data: headerValues = [] } = useMriReportHeaderValues(reportId);
+
+    const { data: templateItems = [] } = useTemplateChecklistItems(templateId);
+    const { data: databank = [] } = useChecklistItems();
+    const { data: sections = [] } = useChecklistSections();
+    const { data: checklistResults = [] } = useMriReportChecklistResults(reportId);
+
+    const { data: midFields = [] } = useTemplateMidFields(templateId);
+    const { data: midCatalog = [] } = useMidFieldCatalog();
+    const { data: midValues = [] } = useMriReportMidValues(reportId);
+
+    const { data: footerFields = [] } = useTemplateFooterFields(templateId);
+    const { data: footerCatalog = [] } = useFooterFieldCatalog();
+    const { data: footerValues = [] } = useMriReportFooterValues(reportId);
+
+    function itemInfo(checklistItemId: number) {
+        return databank.find((d) => d.id === checklistItemId);
+    }
+    function sectionName(sectionId: number | null) {
+        return sections.find((s) => s.id === sectionId)?.name ?? "Unassigned";
+    }
+
+    const headerRows = [...headerFields]
+        .sort((a, b) => a.display_order - b.display_order)
+        .map((tf) => ({
+            id: tf.id,
+            label: headerCatalog.find((c) => c.id === tf.header_field_id)?.label ?? "—",
+            required: tf.required,
+            value: headerValues.find((v) => v.template_header_field_id === tf.id)?.value ?? "",
+        }));
+
+    const midRows = [...midFields]
+        .sort((a, b) => a.display_order - b.display_order)
+        .map((tf) => ({
+            id: tf.id,
+            label: midCatalog.find((c) => c.id === tf.mid_field_id)?.label ?? "—",
+            value: midValues.find((v) => v.template_mid_field_id === tf.id)?.value ?? "",
+        }));
+
+    const footerRows = [...footerFields]
+        .sort((a, b) => a.display_order - b.display_order)
+        .map((tf) => ({
+            id: tf.id,
+            label: footerCatalog.find((c) => c.id === tf.footer_field_id)?.label ?? "—",
+            value: footerValues.find((v) => v.template_footer_field_id === tf.id)?.value ?? "",
+        }));
+
+    const checklistRows = [...templateItems]
+        .sort((a, b) => a.display_order - b.display_order)
+        .map((ti) => {
+            const result = checklistResults.find((r) => r.template_checklist_item_id === ti.id) ?? null;
+            return { ti, info: itemInfo(ti.checklist_item_id), result };
+        });
+
+    const passCount = checklistRows.filter((r) => r.result?.status === "Pass").length;
+    const failCount = checklistRows.filter((r) => r.result?.status === "Fail").length;
+    const openCount = checklistRows.filter((r) => r.result?.status === "Fail" && r.result.closure_status !== "Closed").length;
+
+    const issues: string[] = [];
+    headerRows.forEach((r) => {
+        if (r.required && !r.value.trim()) issues.push(`Header — "${r.label}" is required`);
+    });
+    checklistRows.forEach(({ ti, info, result }) => {
+        const name = info?.description ?? `Item #${ti.id}`;
+        if (!result || !result.status) {
+            if (ti.required) issues.push(`Checklist — "${name}" has not been assessed yet`);
+            return;
+        }
+        if (result.status === "Fail") {
+            if (!result.issue_details?.trim()) issues.push(`Checklist — "${name}" is marked Fail but has no issue details`);
+            if (!result.action_taken?.trim()) issues.push(`Checklist — "${name}" is marked Fail but has no action taken`);
+            if (!result.severity) issues.push(`Checklist — "${name}" is marked Fail but has no severity`);
+        }
+    });
+
+    useEffect(() => {
+        onValidate(issues);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [issues.join("|")]);
+
+    return (
+        <div>
+            <h2>Review</h2>
+            <p style={{ fontSize: 13, color: "var(--text-soft)", marginBottom: 16 }}>
+                Review every section below before submitting. {locked ? "This report is locked and read-only." : "Fix any issues listed to enable submission."}
+            </p>
+
+            {!locked && issues.length > 0 && (
+                <div className="toast err" style={{ marginBottom: 16 }}>
+                    <div style={{ fontWeight: 700, marginBottom: 4 }}>{issues.length} issue{issues.length === 1 ? "" : "s"} to resolve before submitting:</div>
+                    <ul style={{ margin: 0, paddingLeft: 18 }}>
+                        {issues.map((msg, i) => <li key={i} style={{ fontSize: 12.5 }}>{msg}</li>)}
+                    </ul>
+                </div>
+            )}
+
+            <div className="mri-preview-section-label">Header</div>
+            <div className="mri-preview-table" style={{ marginBottom: 20 }}>
+                {headerRows.map((r) => (
+                    <div key={r.id} className="mri-preview-table-row">
+                        <label>{r.label}{r.required && <span style={{ color: "var(--danger)" }}> *</span>}</label>
+                        <span>{r.value || "—"}</span>
+                    </div>
+                ))}
+                {headerRows.length === 0 && <div className="empty">No header fields configured</div>}
+            </div>
+
+            <div className="mri-preview-section-label">
+                Checklist — {passCount} Pass · {failCount} Fail{openCount > 0 ? ` (${openCount} open)` : ""}
+            </div>
+            <div style={{ marginBottom: 20 }}>
+                {checklistRows.length === 0 && <div className="empty">No checklist items configured</div>}
+                {checklistRows.map(({ ti, info, result }) => (
+                    <div
+                        key={ti.id}
+                        style={{
+                            display: "grid", gridTemplateColumns: "1.6fr 0.6fr 1fr 0.8fr", gap: 10, alignItems: "center",
+                            padding: "8px 4px", borderTop: "1px solid var(--border)", fontSize: 13,
+                        }}
+                    >
+                        <span>
+                            <span style={{ color: "var(--text-soft)", fontSize: 11 }}>{sectionName(ti.section_id)}</span>
+                            <br />
+                            {info?.description}
+                            {ti.required && <span style={{ color: "var(--danger)" }}> *</span>}
+                        </span>
+                        <span style={{ fontWeight: 700, color: result?.status === "Fail" ? "var(--danger)" : "var(--accent)" }}>
+                            {result?.status ?? "—"}
+                        </span>
+                        <span style={{ fontSize: 12, color: "var(--text-soft)" }}>
+                            {result?.status === "Fail" ? (result.issue_details || "—") : "—"}
+                        </span>
+                        <span style={{ fontSize: 12 }}>
+                            {result?.status === "Fail" ? `${result.severity ?? "—"} · ${result.closure_status ?? "Pending"}` : "—"}
+                        </span>
+                    </div>
+                ))}
+            </div>
+
+            <div className="mri-preview-section-label">Mid-Section</div>
+            <div className="mri-preview-table" style={{ marginBottom: 20 }}>
+                {midRows.map((r) => (
+                    <div key={r.id} className="mri-preview-table-row">
+                        <label>{r.label}</label>
+                        <span>{r.value || "—"}</span>
+                    </div>
+                ))}
+                {midRows.length === 0 && <div className="empty">No mid-section fields configured</div>}
+            </div>
+
+            <div className="mri-preview-section-label">Footer</div>
+            <div className="mri-preview-table">
+                {footerRows.map((r) => (
+                    <div key={r.id} className="mri-preview-table-row">
+                        <label>{r.label}</label>
+                        <span>{r.value || "—"}</span>
+                    </div>
+                ))}
+                {footerRows.length === 0 && <div className="empty">No footer fields configured</div>}
+            </div>
+        </div>
+    );
+}
+
 const SEVERITY_RANK: Record<string, number> = { Critical: 3, Moderate: 2, Minor: 1 };
+const PASS_COLOR = "#2f9e44";
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 3;
+const ZOOM_STEP = 0.25;
+const DRAWING_VIEW_HEIGHT = 640;
 
 interface DrawingChecklistViewProps {
     drawing: { image_data: string };
@@ -789,6 +984,43 @@ function DrawingChecklistView({
     attachmentsFor, onAddAttachment, onDeleteAttachment,
 }: DrawingChecklistViewProps) {
     const { data: sections = [] } = useChecklistSections();
+    const [zoom, setZoom] = useState(1);
+    const [pan, setPan] = useState({ x: 0, y: 0 });
+    const [isPanning, setIsPanning] = useState(false);
+    const panDrag = useRef<{ startX: number; startY: number; startPanX: number; startPanY: number } | null>(null);
+
+    function zoomIn() {
+        setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)));
+    }
+    function zoomOut() {
+        setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)));
+    }
+    function zoomReset() {
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+    }
+
+    function startPan(e: React.PointerEvent) {
+        if (e.button !== 0) return;
+        panDrag.current = { startX: e.clientX, startY: e.clientY, startPanX: pan.x, startPanY: pan.y };
+        setIsPanning(true);
+
+        function onMove(ev: PointerEvent) {
+            if (!panDrag.current) return;
+            setPan({
+                x: panDrag.current.startPanX + (ev.clientX - panDrag.current.startX),
+                y: panDrag.current.startPanY + (ev.clientY - panDrag.current.startY),
+            });
+        }
+        function onUp() {
+            panDrag.current = null;
+            setIsPanning(false);
+            window.removeEventListener("pointermove", onMove);
+            window.removeEventListener("pointerup", onUp);
+        }
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onUp);
+    }
 
     function itemsForHotspot(h: any) {
         return templateItems.filter((ti) => h.checklist_item_ids.includes(ti.id));
@@ -802,7 +1034,7 @@ function DrawingChecklistView({
         return names;
     }
 
-    function hotspotColor(h: any) {
+    function hotspotWorstSeverity(h: any): string | null {
         const items = itemsForHotspot(h);
         let worst: string | null = null;
         for (const ti of items) {
@@ -811,12 +1043,19 @@ function DrawingChecklistView({
                 if (!worst || SEVERITY_RANK[result.severity] > SEVERITY_RANK[worst]) worst = result.severity;
             }
         }
+        return worst;
+    }
+
+    function hotspotColor(h: any) {
+        const items = itemsForHotspot(h);
+        if (items.length === 0) return "var(--text-soft)";
+
+        const worst = hotspotWorstSeverity(h);
         if (worst) return severityColor[worst] ?? "var(--danger)";
         const anyFail = items.some((ti) => getResult(ti).status === "Fail");
         if (anyFail) return "var(--danger)";
-        return "var(--accent)";
+        return PASS_COLOR;
     }
-
     const selectedHotspot = hotspots.find((h) => h.id === selectedHotspotId) ?? null;
     const selectedItems = selectedHotspot ? itemsForHotspot(selectedHotspot) : [];
 
@@ -824,37 +1063,114 @@ function DrawingChecklistView({
         <div style={{ display: "grid", gridTemplateColumns: selectedHotspot ? "1fr 360px" : "1fr", gap: 16 }}>
             <div
                 style={{
-                    position: "relative", borderRadius: 16, overflow: "hidden", background: "var(--neu-bg)",
+                    position: "relative", borderRadius: 16, overflow: "hidden", background: "#000",
+                    height: DRAWING_VIEW_HEIGHT,
                     boxShadow: "inset 3px 3px 8px var(--neu-shadow-dark), inset -3px -3px 8px var(--neu-shadow-light)",
                 }}
             >
-                <img src={drawing.image_data} alt="Equipment drawing" style={{ display: "block", width: "100%", height: "auto" }} />
-                {hotspots.map((h, i) => (
-                    <button
-                        key={h.id}
-                        onClick={() => setSelectedHotspotId(h.id)}
-                        title={h.label ?? `Hotspot ${i + 1}`}
+                <div style={{ position: "absolute", top: 10, right: 10, zIndex: 2, display: "flex", gap: 4 }}>
+                    <button className="icon-btn" aria-label="Zoom out" title="Zoom out" onClick={zoomOut} disabled={zoom <= ZOOM_MIN}>
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M5 12h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                        </svg>
+                    </button>
+                    <button className="icon-btn" aria-label="Reset zoom" title={`Reset zoom (${Math.round(zoom * 100)}%)`} onClick={zoomReset}>
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.8" />
+                        </svg>
+                    </button>
+                    <button className="icon-btn" aria-label="Zoom in" title="Zoom in" onClick={zoomIn} disabled={zoom >= ZOOM_MAX}>
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div
+                    onPointerDown={startPan}
+                    style={{
+                        position: "absolute", inset: 0, overflow: "hidden",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        cursor: isPanning ? "grabbing" : "grab", touchAction: "none", userSelect: "none",
+                    }}
+                >
+                    <div
                         style={{
-                            position: "absolute",
-                            left: `${h.x * 100}%`,
-                            top: `${h.y * 100}%`,
-                            transform: "translate(-50%, -50%)",
-                            width: 28, height: 28, borderRadius: "50%",
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            fontSize: 12, fontWeight: 700, color: "#fff",
-                            background: hotspotColor(h),
-                            border: selectedHotspotId === h.id ? "2px solid var(--accent)" : "2px solid var(--surface)",
-                            boxShadow: "0 0 0 2px rgba(0,0,0,0.25)",
-                            cursor: "pointer",
+                            position: "relative", width: `${zoom * 100}%`, flexShrink: 0,
+                            transform: `translate(${pan.x}px, ${pan.y}px)`,
+                            transition: isPanning ? "none" : "width 0.15s ease",
                         }}
                     >
-                        {i + 1}
-                    </button>
-                ))}
+                        <img
+                            src={drawing.image_data}
+                            alt="Equipment drawing"
+                            draggable={false}
+                            style={{ display: "block", width: "100%", height: "auto", pointerEvents: "none" }}
+                        />
+                        {hotspots.map((h, i) => {
+                            const worstSeverity = hotspotWorstSeverity(h);
+                            const alertColor = worstSeverity ? (severityColor[worstSeverity] ?? "var(--danger)") : undefined;
+                            return (
+                                <button
+                                    key={h.id}
+                                    onClick={() => setSelectedHotspotId(h.id)}
+                                    title={h.label ?? `Hotspot ${i + 1}`}
+                                    className={worstSeverity ? "hotspot-alert" : undefined}
+                                    style={{
+                                        position: "absolute",
+                                        left: `${h.x * 100}%`,
+                                        top: `${h.y * 100}%`,
+                                        transform: "translate(-50%, -50%)",
+                                        width: 28, height: 28, borderRadius: "50%",
+                                        display: "flex", alignItems: "center", justifyContent: "center",
+                                        fontSize: 12, fontWeight: 700, color: "#fff",
+                                        background: hotspotColor(h),
+                                        border: alertColor
+                                            ? `2px solid ${alertColor}`
+                                            : selectedHotspotId === h.id
+                                                ? "2px solid var(--accent)"
+                                                : "2px solid var(--surface)",
+                                        boxShadow: selectedHotspotId === h.id
+                                            ? "0 0 0 2px var(--accent), 0 0 0 4px rgba(0,0,0,0.25)"
+                                            : "0 0 0 2px rgba(0,0,0,0.25)",
+                                        cursor: "pointer",
+                                        ...(alertColor ? ({ "--pulse-color": alertColor } as React.CSSProperties) : {}),
+                                    }}
+                                >
+                                    {i + 1}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
             </div>
 
+            <style>{`
+                @keyframes hotspot-throb {
+                    0%, 100% { transform: translate(-50%, -50%) scale(1); }
+                    50% { transform: translate(-50%, -50%) scale(1.3); }
+                }
+                @keyframes hotspot-ring {
+                    0% { opacity: 0.95; transform: scale(0.8); }
+                    80% { opacity: 0; transform: scale(3); }
+                    100% { opacity: 0; transform: scale(3); }
+                }
+                .hotspot-alert {
+                    animation: hotspot-throb 1.3s ease-in-out infinite;
+                }
+                .hotspot-alert::after {
+                    content: "";
+                    position: absolute;
+                    inset: -20px;
+                    border-radius: 50%;
+                    background: radial-gradient(circle, var(--pulse-color, var(--danger)) 0%, color-mix(in srgb, var(--pulse-color, var(--danger)) 70%, transparent) 55%, transparent 85%);
+                    animation: hotspot-ring 1.3s ease-out infinite;
+                    pointer-events: none;
+                }
+            `}</style>
+
             {selectedHotspot && (
-                <div className="panel" style={{ padding: 16, maxHeight: 640, overflowY: "auto" }}>
+                <div className="panel" style={{ padding: 16, height: DRAWING_VIEW_HEIGHT, overflowY: "auto" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                         <h3 style={{ margin: 0 }}>
                             {(() => {
@@ -877,8 +1193,19 @@ function DrawingChecklistView({
                             const info = itemInfo(ti.checklist_item_id);
                             const result = getResult(ti);
                             const isFail = result.status === "Fail";
+                            const cardColor = isFail
+                                ? (result.severity ? severityColor[result.severity] ?? "var(--danger)" : "var(--danger)")
+                                : PASS_COLOR;
                             return (
-                                <div key={ti.id} style={{ paddingBottom: 16, marginBottom: 16, borderBottom: "1px solid var(--border)" }}>
+                                <div
+                                    key={ti.id}
+                                    style={{
+                                        marginBottom: 12, borderRadius: 10,
+                                        borderLeft: `4px solid ${cardColor}`,
+                                        background: `color-mix(in srgb, ${cardColor} 10%, transparent)`,
+                                        padding: "12px 14px 16px",
+                                    }}
+                                >
                                     <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
                                         {info?.description}
                                         {ti.required && <span style={{ color: "var(--danger)" }}> *</span>}

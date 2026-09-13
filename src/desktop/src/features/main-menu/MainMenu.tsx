@@ -2,8 +2,9 @@ import { useState } from "react";
 import { THEMES, type Theme } from "../../lib/theme";
 import { CURRENT_USER_EMAIL } from "../../lib/currentUser";
 import { useAppUsers } from "../administration/hooks/useUserAdmin";
+import { isMapFeatureEnabled, setMapFeatureEnabled } from "../../lib/mapFeatureFlag";
 
-type Screen = "assets" | "reports" | "dashboard" | "admin" | "uilab";
+type Screen = "assets" | "reports" | "dashboard" | "admin" | "uilab" | "distance-map-test";
 type MrLevel = "MR-I" | "MR-II" | "MR-III";
 
 interface MainMenuProps {
@@ -78,6 +79,13 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
     const [drawerOpen, setDrawerOpen] = useState(false);
 
   const [reportsExpanded, setReportsExpanded] = useState(false);
+  const [mapFeatureOn, setMapFeatureOn] = useState(() => isMapFeatureEnabled());
+
+  function handleMapFeatureToggle() {
+    const next = !mapFeatureOn;
+    setMapFeatureOn(next);
+    setMapFeatureEnabled(next);
+  }
 
   const { data: appUsers } = useAppUsers();
   const currentAppUser = appUsers?.find(
@@ -181,7 +189,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
             </div>
 
             <div>
-              <div className="drawer-section-label">More</div>
+            <div className="drawer-section-label">More</div>
               <button
                 className="drawer-nav-btn"
                 onClick={() => { setDrawerOpen(false); onNavigate("uilab"); }}
@@ -192,6 +200,38 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
                 </svg>
                 UI Lab
               </button>
+              <button
+                className="drawer-nav-btn"
+                onClick={() => { setDrawerOpen(false); onNavigate("distance-map-test"); }}
+              >
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 4l-5 2v14l5-2 6 2 5-2V4l-5 2-6-2z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+                  <path d="M9 4v14M15 6v14" stroke="currentColor" strokeWidth="1.6" />
+                </svg>
+                Distance Map (Test)
+              </button>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "10px 12px",
+                  gap: 12,
+                }}
+              >
+                <span style={{ fontSize: 13, color: "var(--text-soft)" }}>
+                  Enable Map &amp; Routing (MR-I)
+                </span>
+                <button
+                  className="neu-toggle"
+                  data-on={mapFeatureOn}
+                  onClick={handleMapFeatureToggle}
+                  aria-label="Toggle map and routing feature"
+                >
+                  <span className="neu-toggle-knob" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
