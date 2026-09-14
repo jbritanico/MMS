@@ -22,6 +22,7 @@ import {
     type MriReportChecklistResult,
     type MriReportAttachment,
 } from "./hooks/useMriReportValues";
+import { useEnsureMriFaultApproval } from "./hooks/useMriFaultApprovals";
 import { useTemplateChecklistItems } from "../mri-template-builder/hooks/useTemplateChecklistItems";
 import { useChecklistItems } from "../administration/hooks/useChecklistDatabank";
 import { useTemplateDrawing, useTemplateDrawingHotspots } from "../mri-template-builder/hooks/useTemplateDrawing";
@@ -751,7 +752,7 @@ function ChecklistEntryStep({ templateId, reportId, locked, assetId }: { templat
     const { data: templateItems = [] } = useTemplateChecklistItems(templateId);
     const { data: databank = [] } = useChecklistItems();
     const { data: sections = [] } = useChecklistSections();
-    const { data: savedResults = [] } = useMriReportChecklistResults(reportId);
+    const { data: savedResults = [], isSuccess: savedResultsLoaded } = useMriReportChecklistResults(reportId);
     const setResult = useSetMriReportChecklistResult(reportId);
     const { data: pendingItemIds = [] } = usePendingChecklistItemIds(assetId, reportId);
     const { data: drawing } = useTemplateDrawing(templateId);
@@ -759,6 +760,7 @@ function ChecklistEntryStep({ templateId, reportId, locked, assetId }: { templat
     const { data: attachments = [] } = useMriReportAttachments(reportId);
     const addAttachment = useAddMriReportAttachment(reportId);
     const deleteAttachment = useDeleteMriReportAttachment(reportId);
+    const ensureFaultApproval = useEnsureMriFaultApproval(reportId);
 
     function attachmentsFor(templateChecklistItemId: number) {
         return attachments.filter((a) => a.template_checklist_item_id === templateChecklistItemId);
@@ -812,10 +814,6 @@ function ChecklistEntryStep({ templateId, reportId, locked, assetId }: { templat
         if (locked) return;
         const current = { ...getResult(ti), ...patch };
 
-        if (current.status === "Fail" && (!current.issue_details?.trim() || !current.action_taken?.trim())) {
-            return;
-        }
-
         try {
             await setResult.mutateAsync({
                 id: 0,
@@ -828,6 +826,13 @@ function ChecklistEntryStep({ templateId, reportId, locked, assetId }: { templat
                 date_observed: current.date_observed || todayIso(),
                 closure_status: current.closure_status ?? "Pending",
             });
+
+            if (current.status === "Fail" && (current.severity === "Moderate" || current.severity === "Critical")) {
+                ensureFaultApproval.mutate({
+                    templateChecklistItemId: ti.id,
+                    originalSeverity: current.severity,
+                });
+            }
         } catch (err) {
             flash(String(err), "err");
         }
@@ -852,7 +857,7 @@ function ChecklistEntryStep({ templateId, reportId, locked, assetId }: { templat
     }, [sortedItems, localEdits, savedResults, pendingItemIds]);
 
     useEffect(() => {
-        if (locked || templateItems.length === 0) return;
+        if (locked || templateItems.length === 0 || !savedResultsLoaded) return;
         templateItems.forEach((ti) => {
             if (autoDefaulted.has(ti.id)) return;
             const alreadySaved = savedResults.find((r) => r.template_checklist_item_id === ti.id);
@@ -861,7 +866,7 @@ function ChecklistEntryStep({ templateId, reportId, locked, assetId }: { templat
             autoSave(ti, { status: defaultStatusFor(ti) });
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [templateItems.length, pendingItemIds.length, locked]);
+    }, [templateItems.length, pendingItemIds.length, locked, savedResultsLoaded]);
 
     const grouped = (() => {
         const groups = new Map<number | null, typeof sortedItems>();
@@ -881,6 +886,21 @@ function ChecklistEntryStep({ templateId, reportId, locked, assetId }: { templat
         Minor: "#d4ac0d",
         Moderate: "#d97706",
         Critical: "#c0392b",
+    };
+
+    const SEVERITY_GUIDANCE: Record<string, { action: string; reviewer: string }> = {
+        Minor: {
+            action: "No functional impact. Monitor and rectify during planned maintenance — no approval required.",
+            reviewer: "No approval required.",
+        },
+        Moderate: {
+            action: "Early-stage abnormality. Plan rectification and monitor closely.",
+            reviewer: "Reviewed by Operations Coordinator / Maintenance Supervisor — may reclassify. Maintenance Manager/FSM informed.",
+        },
+        Critical: {
+            action: "Currently affecting reliability, performance, or safety. Stop use immediately and Red-Tag the equipment.",
+            reviewer: "Reviewed by FSM / Maintenance Manager. Return to service requires rectification and verification.",
+        },
     };
 
     function severityIcon(severity: string, color: string) {
@@ -972,6 +992,7 @@ function ChecklistEntryStep({ templateId, reportId, locked, assetId }: { templat
                     locked={locked}
                     severityColor={severityColor}
                     severityIcon={severityIcon}
+                    severityGuidance={SEVERITY_GUIDANCE}
                     selectedHotspotId={selectedHotspotId}
                     setSelectedHotspotId={setSelectedHotspotId}
                     attachmentsFor={attachmentsFor}
@@ -1002,123 +1023,217 @@ function ChecklistEntryStep({ templateId, reportId, locked, assetId }: { templat
                         const result = getResult(ti);
                         const isFail = result.status === "Fail";
 
+                        const guidance = isFail && result.severity ? SEVERITY_GUIDANCE[result.severity] : null;
+
                         return (
-                            <div
-                                key={ti.id}
-                                style={{
-                                    display: "grid", gridTemplateColumns: COLS, gap: 10, alignItems: "center",
-                                    padding: "10px 4px", borderTop: "1px solid var(--border)", fontSize: 13,
-                                }}
-                            >
-                                <span style={{ whiteSpace: "normal" }}>
-                                    {info?.description}
-                                    {ti.required && <span style={{ color: "var(--danger)" }}> *</span>}
-                                </span>
-
-                                <div style={{ display: "flex", gap: 4 }}>
-                                    <button
-                                        className="ghost"
-                                        disabled={locked}
-                                        style={{
-                                            padding: "6px 10px", fontSize: 12,
-                                            ...(result.status === "Pass" ? { background: "var(--accent)", color: "#fff" } : {}),
-                                        }}
-                                        onClick={() => {
-                                            const patch = { status: "Pass" as const, issue_details: "", action_taken: "" };
-                                            updateLocal(ti, patch);
-                                            autoSave(ti, patch);
-                                        }}
-                                    >
-                                        Pass
-                                    </button>
-                                    <button
-                                        className={result.status === "Fail" ? "danger" : "ghost"}
-                                        disabled={locked}
-                                        style={{ padding: "6px 10px", fontSize: 12 }}
-                                        onClick={() => updateLocal(ti, { status: "Fail" })}
-                                    >
-                                        Fail
-                                    </button>
-                                </div>
-
-                                <input
-                                    type="text"
-                                    className="trigger-input"
-                                    value={result.issue_details ?? ""}
-                                    onChange={(e) => updateLocal(ti, { issue_details: e.target.value })}
-                                    onBlur={() => autoSave(ti, {})}
-                                    disabled={locked || !isFail}
-                                    placeholder={isFail ? "Required" : "—"}
-                                />
-
-                                <input
-                                    type="text"
-                                    className="trigger-input"
-                                    value={result.action_taken ?? ""}
-                                    onChange={(e) => updateLocal(ti, { action_taken: e.target.value })}
-                                    onBlur={() => autoSave(ti, {})}
-                                    disabled={locked || !isFail}
-                                    placeholder={isFail ? "Required" : "—"}
-                                />
-
-                                <input
-                                    type="date"
-                                    className="trigger-input"
-                                    value={result.date_observed ?? todayIso()}
-                                    onChange={(e) => {
-                                        updateLocal(ti, { date_observed: e.target.value });
-                                        autoSave(ti, { date_observed: e.target.value });
+                            <div key={ti.id}>
+                                <div
+                                    style={{
+                                        display: "grid", gridTemplateColumns: COLS, gap: 10, alignItems: "center",
+                                        padding: "10px 4px", borderTop: "1px solid var(--border)", fontSize: 13,
                                     }}
-                                    disabled={locked}
-                                />
-
-                                <select
-                                    className="neu-select"
-                                    value={result.closure_status ?? "Pending"}
-                                    onChange={(e) => {
-                                        const val = e.target.value as "Pending" | "Closed";
-                                        updateLocal(ti, { closure_status: val });
-                                        autoSave(ti, { closure_status: val });
-                                    }}
-                                    disabled={locked}
                                 >
-                                    {CLOSURE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                                </select>
+                                    <span style={{ whiteSpace: "normal" }}>
+                                        {info?.description}
+                                        {ti.required && <span style={{ color: "var(--danger)" }}> *</span>}
+                                    </span>
 
-                                <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
-                                    {result.severity && (
-                                        <span title={`Severity: ${result.severity}`} style={{ display: "flex" }}>
-                                            {severityIcon(result.severity, severityColor[result.severity] ?? "var(--text-soft)")}
-                                        </span>
-                                    )}
+                                    <div style={{ display: "flex", gap: 4 }}>
+                                        <button
+                                            className="ghost"
+                                            disabled={locked}
+                                            style={{
+                                                padding: "6px 10px", fontSize: 12,
+                                                ...(result.status === "Pass" ? { background: "var(--accent)", color: "#fff" } : {}),
+                                            }}
+                                            onClick={() => {
+                                                const patch = { status: "Pass" as const, issue_details: "", action_taken: "" };
+                                                updateLocal(ti, patch);
+                                                autoSave(ti, patch);
+                                            }}
+                                        >
+                                            Pass
+                                        </button>
+                                        <button
+                                            className={result.status === "Fail" ? "danger" : "ghost"}
+                                            disabled={locked}
+                                            style={{ padding: "6px 10px", fontSize: 12 }}
+                                            onClick={() => {
+                                                updateLocal(ti, { status: "Fail" });
+                                                autoSave(ti, { status: "Fail" });
+                                            }}
+                                        >
+                                            Fail
+                                        </button>
+                                    </div>
+
+                                    <input
+                                        type="text"
+                                        className="trigger-input"
+                                        value={result.issue_details ?? ""}
+                                        onChange={(e) => updateLocal(ti, { issue_details: e.target.value })}
+                                        onBlur={() => autoSave(ti, {})}
+                                        disabled={locked || !isFail}
+                                        placeholder={isFail ? "Required" : "—"}
+                                    />
+
+                                    <input
+                                        type="text"
+                                        className="trigger-input"
+                                        value={result.action_taken ?? ""}
+                                        onChange={(e) => updateLocal(ti, { action_taken: e.target.value })}
+                                        onBlur={() => autoSave(ti, {})}
+                                        disabled={locked || !isFail}
+                                        placeholder={isFail ? "Required" : "—"}
+                                    />
+
+                                    <input
+                                        type="date"
+                                        className="trigger-input"
+                                        value={result.date_observed ?? todayIso()}
+                                        onChange={(e) => {
+                                            updateLocal(ti, { date_observed: e.target.value });
+                                            autoSave(ti, { date_observed: e.target.value });
+                                        }}
+                                        disabled={locked}
+                                    />
+
                                     <select
                                         className="neu-select"
-                                        style={{ fontSize: 12, padding: "4px 6px" }}
-                                        value={result.severity ?? ""}
+                                        value={result.closure_status ?? "Pending"}
                                         onChange={(e) => {
-                                            const val = (e.target.value || null) as typeof result.severity;
-                                            updateLocal(ti, { severity: val });
-                                            autoSave(ti, { severity: val });
+                                            const val = e.target.value as "Pending" | "Closed";
+                                            updateLocal(ti, { closure_status: val });
+                                            autoSave(ti, { closure_status: val });
                                         }}
                                         disabled={locked}
                                     >
-                                        <option value="">—</option>
-                                        {SEVERITIES.map((s) => <option key={s} value={s}>{s}</option>)}
+                                        {CLOSURE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                                     </select>
+
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
+                                        {result.severity && (
+                                            <span title={`Severity: ${result.severity}`} style={{ display: "flex" }}>
+                                                {severityIcon(result.severity, severityColor[result.severity] ?? "var(--text-soft)")}
+                                            </span>
+                                        )}
+                                        <select
+                                            className="neu-select"
+                                            style={{ fontSize: 12, padding: "4px 6px" }}
+                                            value={result.severity ?? ""}
+                                            onChange={(e) => {
+                                                const val = (e.target.value || null) as typeof result.severity;
+                                                updateLocal(ti, { severity: val });
+                                                autoSave(ti, { severity: val });
+                                            }}
+                                            disabled={locked}
+                                        >
+                                            <option value="">—</option>
+                                            {SEVERITIES.map((s) => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                    </div>
+
+                                    <AttachmentGallery
+                                        attachments={attachmentsFor(ti.id)}
+                                        locked={locked}
+                                        onAdd={(file) => addAttachment.mutate({ templateChecklistItemId: ti.id, ...file })}
+                                        onDelete={(id) => deleteAttachment.mutate(id)}
+                                        variant="compact"
+                                    />
                                 </div>
 
-                                <AttachmentGallery
-                                    attachments={attachmentsFor(ti.id)}
-                                    locked={locked}
-                                    onAdd={(file) => addAttachment.mutate({ templateChecklistItemId: ti.id, ...file })}
-                                    onDelete={(id) => deleteAttachment.mutate(id)}
-                                    variant="compact"
-                                />
+                                {guidance && (
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            gap: 2,
+                                            padding: "8px 10px",
+                                            borderRadius: 8,
+                                            marginBottom: 4,
+                                            fontSize: 11.5,
+                                            lineHeight: 1.4,
+                                            background: `${severityColor[result.severity!]}14`,
+                                            borderLeft: `3px solid ${severityColor[result.severity!]}`,
+                                        }}
+                                    >
+                                        <span style={{ fontWeight: 600, color: severityColor[result.severity!] }}>
+                                            {result.severity} — Required Action
+                                        </span>
+                                        <span style={{ color: "var(--text-soft)" }}>{guidance.action}</span>
+                                        <span style={{ color: "var(--text-soft)" }}>{guidance.reviewer}</span>
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
                 </div>
             ))}
+        </div>
+    );
+}
+
+function DistanceRouteThumbnail({ routePointsRaw }: { routePointsRaw: string | null | undefined }) {
+    let points: { lng: number; lat: number }[] = [];
+    if (routePointsRaw) {
+        try {
+            const parsed = JSON.parse(routePointsRaw);
+            if (Array.isArray(parsed)) points = parsed;
+        } catch {
+            points = [];
+        }
+    }
+
+    const boxStyle: React.CSSProperties = {
+        width: 90,
+        height: 90,
+        flexShrink: 0,
+        borderRadius: 10,
+        background: "var(--neu-bg)",
+        boxShadow: "inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        overflow: "hidden",
+    };
+
+    if (points.length < 2) {
+        return (
+            <div style={boxStyle}>
+                <span style={{ fontSize: 9.5, color: "var(--text-soft)", textAlign: "center", padding: "0 8px", lineHeight: 1.3 }}>
+                    No route plotted
+                </span>
+            </div>
+        );
+    }
+
+    const lngs = points.map((p) => p.lng);
+    const lats = points.map((p) => p.lat);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const spanLng = maxLng - minLng || 1;
+    const spanLat = maxLat - minLat || 1;
+    const pad = 12;
+    const size = 100;
+
+    function project(p: { lng: number; lat: number }) {
+        const x = pad + ((p.lng - minLng) / spanLng) * (size - pad * 2);
+        const y = pad + (1 - (p.lat - minLat) / spanLat) * (size - pad * 2);
+        return { x, y };
+    }
+
+    const projected = points.map(project);
+    const pathD = projected.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+
+    return (
+        <div style={boxStyle}>
+            <svg viewBox={`0 0 ${size} ${size}`} style={{ width: "100%", height: "100%" }}>
+                <path d={pathD} fill="none" stroke="#2f6fed" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx={projected[0].x} cy={projected[0].y} r="3.4" fill="#2f9e44" />
+                <circle cx={projected[projected.length - 1].x} cy={projected[projected.length - 1].y} r="3.4" fill="#c0392b" />
+            </svg>
         </div>
     );
 }
@@ -1198,6 +1313,7 @@ function ReviewStep({ templateId, reportId, locked, onValidate }: ReviewStepProp
             id: tf.id,
             label: midCatalog.find((c) => c.id === tf.mid_field_id)?.label ?? "—",
             value: midValues.find((v) => v.template_mid_field_id === tf.id)?.value ?? "",
+            routePoints: midValues.find((v) => v.template_mid_field_id === tf.id)?.route_points ?? null,
         }));
 
     const footerRows = [...footerFields]
@@ -1207,7 +1323,10 @@ function ReviewStep({ templateId, reportId, locked, onValidate }: ReviewStepProp
             label: footerCatalog.find((c) => c.id === tf.footer_field_id)?.label ?? "—",
             value: footerValues.find((v) => v.template_footer_field_id === tf.id)?.value ?? "",
         }));
-
+    const footerCheckboxRows = footerRows.filter((r) => FOOTER_CHECKBOX_FIELDS.includes(r.label.trim().toLowerCase()));
+    const footerOtherRows = footerRows.filter((r) => !FOOTER_CHECKBOX_FIELDS.includes(r.label.trim().toLowerCase()));
+    const footerRemarksRow = footerOtherRows.find((r) => r.label.trim().toLowerCase() === FOOTER_REMARKS_FIELD) ?? null;
+    const footerSignoffRows = footerOtherRows.filter((r) => r.label.trim().toLowerCase() !== FOOTER_REMARKS_FIELD);
     const checklistRows = [...templateItems]
         .sort((a, b) => a.display_order - b.display_order)
         .map((ti) => {
@@ -1243,13 +1362,18 @@ function ReviewStep({ templateId, reportId, locked, onValidate }: ReviewStepProp
 
     return (
         <div>
-            <h2>Review</h2>
-            <p style={{ fontSize: 13, color: "var(--text-soft)", marginBottom: 16 }}>
+            <div className="no-print" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+                <h2 style={{ margin: 0 }}>Review</h2>
+                <button className="ghost" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => window.print()}>
+                    Print / Export PDF
+                </button>
+            </div>
+            <p className="no-print" style={{ fontSize: 13, color: "var(--text-soft)", marginBottom: 16 }}>
                 Review every section below before submitting. {locked ? "This report is locked and read-only." : "Fix any issues listed to enable submission."}
             </p>
 
             {!locked && issues.length > 0 && (
-                <div className="toast err" style={{ marginBottom: 16 }}>
+                <div className="toast err no-print" style={{ marginBottom: 16 }}>
                     <div style={{ fontWeight: 700, marginBottom: 4 }}>{issues.length} issue{issues.length === 1 ? "" : "s"} to resolve before submitting:</div>
                     <ul style={{ margin: 0, paddingLeft: 18 }}>
                         {issues.map((msg, i) => <li key={i} style={{ fontSize: 12.5 }}>{msg}</li>)}
@@ -1257,121 +1381,161 @@ function ReviewStep({ templateId, reportId, locked, onValidate }: ReviewStepProp
                 </div>
             )}
 
-            <div className="mri-preview-section-label">Header</div>
-            <div className="mri-preview-table" style={{ marginBottom: 20 }}>
-                {headerRows.map((r) => (
-                    <div key={r.id} className="mri-preview-table-row">
-                        <label>{r.label}{r.required && <span style={{ color: "var(--danger)" }}> *</span>}</label>
-                        <span>{r.value || "—"}</span>
-                    </div>
-                ))}
-                {headerRows.length === 0 && <div className="empty">No header fields configured</div>}
-            </div>
+            <div className="print-area">
+                <div className="mri-preview-section-label">Header</div>
+                <div className="mri-preview-mid-grid" style={{ marginBottom: 20 }}>
+                    {headerRows.map((r) => (
+                        <div key={r.id} className="mri-preview-mid-pair">
+                            <label>{r.label}{r.required && <span style={{ color: "var(--danger)" }}> *</span>}</label>
+                            <span className="mri-review-value">{r.value || "—"}</span>
+                        </div>
+                    ))}
+                    {headerRows.length === 0 && <div className="empty">No header fields configured</div>}
+                </div>
 
-            <div className="mri-preview-section-label">
-                Checklist — {passCount} Pass · {failCount} Fail{openCount > 0 ? ` (${openCount} open)` : ""}
-            </div>
-            <div style={{ marginBottom: 20 }}>
-                {checklistRows.length === 0 && <div className="empty">No checklist items configured</div>}
-                {checklistRows.map(({ ti, info, result }) => {
-                    const hotspotNumber = hotspotNumberForItem(ti.id);
-                    return (
+                {drawing && (
+                    <>
+                        <div className="mri-preview-section-label">Drawing</div>
                         <div
-                            key={ti.id}
                             style={{
-                                display: "grid", gridTemplateColumns: "28px 1.6fr 0.6fr 1fr 0.8fr", gap: 10, alignItems: "center",
-                                padding: "8px 4px", borderTop: "1px solid var(--border)", fontSize: 13,
+                                position: "relative", borderRadius: 16, overflow: "hidden", background: "#000",
+                                marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "center",
                             }}
                         >
-                            <span
+                            <div style={{ position: "relative", width: "100%" }}>
+                                <img
+                                    src={drawing.image_data}
+                                    alt="Equipment drawing"
+                                    style={{ display: "block", width: "100%", height: "auto" }}
+                                />
+                                {hotspots.map((h, i) => (
+                                    <span
+                                        key={h.id}
+                                        title={h.label ?? `Hotspot ${i + 1}`}
+                                        style={{
+                                            position: "absolute",
+                                            left: `${h.x * 100}%`,
+                                            top: `${h.y * 100}%`,
+                                            transform: "translate(-50%, -50%)",
+                                            width: 26, height: 26, borderRadius: "50%",
+                                            display: "flex", alignItems: "center", justifyContent: "center",
+                                            fontSize: 11, fontWeight: 700, color: "#fff",
+                                            background: hotspotSeverityColor(h),
+                                            border: "2px solid var(--surface)",
+                                            boxShadow: "0 0 0 2px rgba(0,0,0,0.25)",
+                                        }}
+                                    >
+                                        {i + 1}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                <div className="mri-preview-section-label">
+                    Checklist — {passCount} Pass · {failCount} Fail{openCount > 0 ? ` (${openCount} open)` : ""}
+                </div>
+                <div style={{ marginBottom: 20 }}>
+                    {checklistRows.length === 0 && <div className="empty">No checklist items configured</div>}
+                    {checklistRows.map(({ ti, info, result }) => {
+                        const hotspotNumber = hotspotNumberForItem(ti.id);
+                        return (
+                            <div
+                                key={ti.id}
                                 style={{
-                                    width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-                                    fontSize: 11, fontWeight: 700, color: hotspotNumber ? "#fff" : "var(--text-soft)",
-                                    background: hotspotNumber ? hotspotSeverityColor(hotspots[hotspotNumber - 1]) : "transparent",
+                                    display: "grid", gridTemplateColumns: "28px 1.6fr 0.6fr 1fr 0.8fr", gap: 10, alignItems: "center",
+                                    padding: "8px 4px", borderTop: "1px solid var(--border)", fontSize: 13,
                                 }}
                             >
-                                {hotspotNumber ?? ""}
-                            </span>
-                            <span>
-                                <span style={{ color: "var(--text-soft)", fontSize: 11 }}>{sectionName(ti.section_id)}</span>
-                                <br />
-                                {info?.description}
-                                {ti.required && <span style={{ color: "var(--danger)" }}> *</span>}
-                            </span>
-                            <span style={{ fontWeight: 700, color: result?.status === "Fail" ? "var(--danger)" : "var(--accent)" }}>
-                                {result?.status ?? "—"}
-                            </span>
-                            <span style={{ fontSize: 12, color: "var(--text-soft)" }}>
-                                {result?.status === "Fail" ? (result.issue_details || "—") : "—"}
-                            </span>
-                            <span style={{ fontSize: 12 }}>
-                                {result?.status === "Fail" ? `${result.severity ?? "—"} · ${result.closure_status ?? "Pending"}` : "—"}
-                            </span>
-                        </div>
-                    );
-                })}
-            </div>
-
-            {drawing && (
-                <>
-                    <div className="mri-preview-section-label">Drawing</div>
-                    <div
-                        style={{
-                            position: "relative", borderRadius: 16, overflow: "hidden", background: "#000",
-                            marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "center",
-                        }}
-                    >
-                        <div style={{ position: "relative", width: "100%" }}>
-                            <img
-                                src={drawing.image_data}
-                                alt="Equipment drawing"
-                                style={{ display: "block", width: "100%", height: "auto" }}
-                            />
-                            {hotspots.map((h, i) => (
                                 <span
-                                    key={h.id}
-                                    title={h.label ?? `Hotspot ${i + 1}`}
                                     style={{
-                                        position: "absolute",
-                                        left: `${h.x * 100}%`,
-                                        top: `${h.y * 100}%`,
-                                        transform: "translate(-50%, -50%)",
-                                        width: 26, height: 26, borderRadius: "50%",
-                                        display: "flex", alignItems: "center", justifyContent: "center",
-                                        fontSize: 11, fontWeight: 700, color: "#fff",
-                                        background: hotspotSeverityColor(h),
-                                        border: "2px solid var(--surface)",
-                                        boxShadow: "0 0 0 2px rgba(0,0,0,0.25)",
+                                        width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                                        fontSize: 11, fontWeight: 700, color: hotspotNumber ? "#fff" : "var(--text-soft)",
+                                        background: hotspotNumber ? hotspotSeverityColor(hotspots[hotspotNumber - 1]) : "transparent",
                                     }}
                                 >
-                                    {i + 1}
+                                    {hotspotNumber ?? ""}
                                 </span>
-                            ))}
+                                <span>
+                                    <span style={{ color: "var(--text-soft)", fontSize: 11 }}>{sectionName(ti.section_id)}</span>
+                                    <br />
+                                    {info?.description}
+                                    {ti.required && <span style={{ color: "var(--danger)" }}> *</span>}
+                                </span>
+                                <span
+                                    style={{
+                                        fontWeight: 700,
+                                        color: result?.status === "Fail"
+                                            ? (result.severity ? REVIEW_SEVERITY_COLOR[result.severity] ?? "var(--danger)" : "var(--danger)")
+                                            : "var(--accent)",
+                                    }}
+                                >
+                                    {result?.status === "Fail" ? (result.severity ?? "Fail") : (result?.status ?? "—")}
+                                </span>
+                                <span style={{ fontSize: 12, color: "var(--text-soft)" }}>
+                                    {result?.status === "Fail" ? (result.issue_details || "—") : "—"}
+                                </span>
+                                <span style={{ fontSize: 12 }}>
+                                    {result?.status === "Fail" ? `${result.severity ?? "—"} · ${result.closure_status ?? "Pending"}` : "—"}
+                                </span>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                <div className="mri-preview-section-label">Distance Travelled</div>
+                <div style={{ marginBottom: 20 }}>
+                    {midRows.map((r) => (
+                        <div
+                            key={r.id}
+                            style={{
+                                display: "flex", alignItems: "center", gap: 14,
+                                padding: "8px 0", borderTop: "1px solid var(--border)",
+                            }}
+                        >
+                            <div style={{ flex: 1 }}>
+                                <label style={{ fontSize: 12.5, color: "var(--text-soft)", display: "block", marginBottom: 2 }}>{r.label}</label>
+                                <span className="mri-review-value">{r.value || "—"}</span>
+                            </div>
+                            {r.value && <DistanceRouteThumbnail routePointsRaw={r.routePoints} />}
                         </div>
-                    </div>
-                </>
-            )}
+                    ))}
+                    {midRows.length === 0 && <div className="empty">No mid-section fields configured</div>}
+                </div>
 
-            <div className="mri-preview-section-label">Distance Travelled</div>
-            <div className="mri-preview-table" style={{ marginBottom: 20 }}>
-                {midRows.map((r) => (
-                    <div key={r.id} className="mri-preview-table-row">
-                        <label>{r.label}</label>
-                        <span>{r.value || "—"}</span>
+                <div className="mri-preview-section-label">Footer</div>
+                <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 20 }}>
+                    <div style={{ flex: "0 0 220px", display: "flex", flexDirection: "column", gap: 10 }}>
+                        {footerCheckboxRows.map((r) => (
+                            <div key={r.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                                <label style={{ fontSize: 12.5, color: "var(--text-soft)" }}>{r.label}</label>
+                                <label className="neu-check" style={{ cursor: "default" }}>
+                                    <input type="checkbox" className="neu-check-input" checked={r.value === "Yes"} disabled readOnly />
+                                    <span className="neu-check-box">
+                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                    </span>
+                                </label>
+                            </div>
+                        ))}
+                        {footerCheckboxRows.length === 0 && <div className="empty">No status fields configured</div>}
                     </div>
-                ))}
-                {midRows.length === 0 && <div className="empty">No mid-section fields configured</div>}
-            </div>
-
-            <div className="mri-preview-section-label">Footer</div>
-            <div className="mri-preview-table">
-                {footerRows.map((r) => (
-                    <div key={r.id} className="mri-preview-table-row">
-                        <label>{r.label}</label>
-                        <span>{r.value || "—"}</span>
+                    <div className="mri-preview-mid-grid" style={{ flex: "1 1 320px", minWidth: 260 }}>
+                        {footerSignoffRows.map((r) => (
+                            <div key={r.id} className="mri-preview-mid-pair">
+                                <label>{r.label}</label>
+                                <span className="mri-review-value">{r.value || "—"}</span>
+                            </div>
+                        ))}
+                        {footerSignoffRows.length === 0 && <div className="empty">No footer fields configured</div>}
                     </div>
-                ))}
-                {footerRows.length === 0 && <div className="empty">No footer fields configured</div>}
+                    <div style={{ flex: "1 1 220px", minWidth: 200 }}>
+                        <label style={{ fontSize: 12.5, color: "var(--text-soft)", display: "block", marginBottom: 4 }}>Remarks</label>
+                        <span className="mri-review-value" style={{ whiteSpace: "pre-wrap", display: "block" }}>{footerRemarksRow?.value || "—"}</span>
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -1400,6 +1564,7 @@ interface DrawingChecklistViewProps {
     locked: boolean;
     severityColor: Record<string, string>;
     severityIcon: (severity: string, color: string) => any;
+    severityGuidance: Record<string, { action: string; reviewer: string }>;
     selectedHotspotId: number | null;
     setSelectedHotspotId: (id: number | null) => void;
     attachmentsFor: (templateChecklistItemId: number) => MriReportAttachment[];
@@ -1409,7 +1574,7 @@ interface DrawingChecklistViewProps {
 
 function DrawingChecklistView({
     drawing, hotspots, templateItems, itemInfo, getResult, updateLocal, autoSave,
-    locked, severityColor, severityIcon, selectedHotspotId, setSelectedHotspotId,
+    locked, severityColor, severityIcon, severityGuidance, selectedHotspotId, setSelectedHotspotId,
     attachmentsFor, onAddAttachment, onDeleteAttachment,
 }: DrawingChecklistViewProps) {
     const { data: sections = [] } = useChecklistSections();
@@ -1662,7 +1827,10 @@ function DrawingChecklistView({
                                                 className={result.status === "Fail" ? "danger" : "ghost"}
                                                 disabled={locked}
                                                 style={{ padding: "6px 10px", fontSize: 12, flex: 1 }}
-                                                onClick={() => updateLocal(ti, { status: "Fail" })}
+                                                onClick={() => {
+                                                    updateLocal(ti, { status: "Fail" });
+                                                    autoSave(ti, { status: "Fail" });
+                                                }}
                                             >
                                                 Fail
                                             </button>
@@ -1750,6 +1918,29 @@ function DrawingChecklistView({
                                             </select>
                                         </div>
                                     </div>
+
+                                    {isFail && result.severity && severityGuidance[result.severity] && (
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                flexDirection: "column",
+                                                gap: 2,
+                                                padding: "8px 10px",
+                                                borderRadius: 8,
+                                                marginBottom: 10,
+                                                fontSize: 11.5,
+                                                lineHeight: 1.4,
+                                                background: `${severityColor[result.severity]}14`,
+                                                borderLeft: `3px solid ${severityColor[result.severity]}`,
+                                            }}
+                                        >
+                                            <span style={{ fontWeight: 600, color: severityColor[result.severity] }}>
+                                                {result.severity} — Required Action
+                                            </span>
+                                            <span style={{ color: "var(--text-soft)" }}>{severityGuidance[result.severity].action}</span>
+                                            <span style={{ color: "var(--text-soft)" }}>{severityGuidance[result.severity].reviewer}</span>
+                                        </div>
+                                    )}
 
                                     <div className="field">
                                         <label>Attachments</label>

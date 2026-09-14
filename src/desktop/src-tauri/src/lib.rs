@@ -511,6 +511,33 @@ fn get_connection() -> Result<Connection, String> {
     )
     .map_err(|e| e.to_string())?;
 
+    // Tracks the reviewer approval/reclassification workflow for a single Fail'd
+    // checklist result on a report — one row per (report_id, template_checklist_item_id).
+    // Created automatically (Pending) the first time a Moderate or Critical severity is
+    // set on a Fail. decision moves Pending -> Approved | Reclassified | Rejected.
+    // review_method distinguishes an in-person approval from one taken over the phone
+    // while offline, per the Faults Severity Classification doc's offline approval flow.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS mri_fault_approvals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            report_id INTEGER NOT NULL,
+            template_checklist_item_id INTEGER NOT NULL,
+            original_severity TEXT NOT NULL,
+            decision TEXT NOT NULL DEFAULT 'Pending',
+            new_severity TEXT,
+            reviewer TEXT,
+            review_method TEXT,
+            notes TEXT,
+            created_date TEXT NOT NULL,
+            updated_date TEXT NOT NULL,
+            FOREIGN KEY (report_id) REFERENCES mri_reports(id),
+            FOREIGN KEY (template_checklist_item_id) REFERENCES template_checklist_items(id),
+            UNIQUE(report_id, template_checklist_item_id)
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
     Ok(conn)
 }
 
@@ -585,14 +612,16 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     }
 
-        // Only seed the baseline role -> permission defaults ONCE, the first time this
+    // Only seed the baseline role -> permission defaults ONCE, the first time this
     // database is created. get_connection() calls seed_permissions() on every single
     // command invocation, so if we always re-inserted these defaults, any permission
     // an admin turned OFF in the Roles screen (e.g. "View assets" for View Only) would
     // silently come back the very next time any command ran. Checking that no role
     // has any permission recorded yet limits this to a true fresh install.
     let existing_role_perm_count: i64 = conn
-        .query_row("SELECT COUNT(*) FROM role_permissions", [], |row| row.get(0))
+        .query_row("SELECT COUNT(*) FROM role_permissions", [], |row| {
+            row.get(0)
+        })
         .map_err(|e| e.to_string())?;
 
     if existing_role_perm_count > 0 {
@@ -1891,7 +1920,10 @@ fn delete_hotspot(id: i64) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn set_hotspot_checklist_items(hotspot_id: i64, checklist_item_ids: Vec<i64>) -> Result<String, String> {
+fn set_hotspot_checklist_items(
+    hotspot_id: i64,
+    checklist_item_ids: Vec<i64>,
+) -> Result<String, String> {
     let conn = get_connection()?;
     conn.execute(
         "DELETE FROM template_drawing_hotspot_items WHERE hotspot_id = ?1",
@@ -2250,26 +2282,10 @@ fn set_mri_report_checklist_result(result: MriReportChecklistResult) -> Result<S
         if !s.is_empty() && !valid_checklist_status(s) {
             return Err(format!("Invalid status '{}' — must be Pass or Fail", s));
         }
-        if s == "Fail" {
-            if result
-                .issue_details
-                .as_deref()
-                .unwrap_or("")
-                .trim()
-                .is_empty()
-            {
-                return Err("Issue details are required when status is Fail".to_string());
-            }
-            if result
-                .action_taken
-                .as_deref()
-                .unwrap_or("")
-                .trim()
-                .is_empty()
-            {
-                return Err("Action taken is required when status is Fail".to_string());
-            }
-        }
+        // Issue details / action taken are no longer required here — a Fail mark
+        // now saves immediately so it's never silently lost, and the Review step
+        // validates completeness (issue details, action taken, severity) before
+        // the report can be submitted.
     }
     if let Some(sev) = &result.severity {
         if !sev.is_empty() && !valid_severity(sev) {
@@ -2302,6 +2318,194 @@ fn set_mri_report_checklist_result(result: MriReportChecklistResult) -> Result<S
         ],
     ).map_err(|e| e.to_string())?;
     Ok("Checklist result saved".to_string())
+}
+
+fn valid_approval_decision(s: &str) -> bool {
+    matches!(s, "Pending" | "Approved" | "Reclassified" | "Rejected")
+}
+
+fn valid_review_method(s: &str) -> bool {
+    matches!(s, "In-Person" | "Phone")
+}
+
+#[derive(Serialize, Deserialize)]
+struct MriFaultApproval {
+    id: i64,
+    report_id: i64,
+    template_checklist_item_id: i64,
+    original_severity: String,
+    decision: String,
+    new_severity: Option<String>,
+    reviewer: Option<String>,
+    review_method: Option<String>,
+    notes: Option<String>,
+    created_date: String,
+    updated_date: String,
+}
+
+#[tauri::command]
+fn get_mri_fault_approvals(report_id: i64) -> Result<Vec<MriFaultApproval>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, report_id, template_checklist_item_id, original_severity, decision, new_severity, reviewer, review_method, notes, created_date, updated_date
+         FROM mri_fault_approvals WHERE report_id = ?1"
+    ).map_err(|e| e.to_string())?;
+    let approvals = stmt
+        .query_map([report_id], |row| {
+            Ok(MriFaultApproval {
+                id: row.get(0)?,
+                report_id: row.get(1)?,
+                template_checklist_item_id: row.get(2)?,
+                original_severity: row.get(3)?,
+                decision: row.get(4)?,
+                new_severity: row.get(5)?,
+                reviewer: row.get(6)?,
+                review_method: row.get(7)?,
+                notes: row.get(8)?,
+                created_date: row.get(9)?,
+                updated_date: row.get(10)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(approvals)
+}
+
+#[tauri::command]
+fn ensure_mri_fault_approval(
+    report_id: i64,
+    template_checklist_item_id: i64,
+    original_severity: String,
+) -> Result<String, String> {
+    let conn = get_connection()?;
+    let sev = original_severity.trim();
+    if !matches!(sev, "Moderate" | "Critical") {
+        // Minor faults don't require approval — nothing to create.
+        return Ok("No approval required for this severity".to_string());
+    }
+    let now = chrono_now();
+
+    let existing_decision: Option<String> = conn
+        .query_row(
+            "SELECT decision FROM mri_fault_approvals WHERE report_id = ?1 AND template_checklist_item_id = ?2",
+            rusqlite::params![report_id, template_checklist_item_id],
+            |row| row.get(0),
+        )
+        .ok();
+
+    match existing_decision {
+        None => {
+            conn.execute(
+                "INSERT INTO mri_fault_approvals (report_id, template_checklist_item_id, original_severity, decision, created_date, updated_date)
+                 VALUES (?1, ?2, ?3, 'Pending', ?4, ?4)",
+                rusqlite::params![report_id, template_checklist_item_id, sev, now],
+            ).map_err(|e| e.to_string())?;
+        }
+        Some(decision) if decision == "Pending" => {
+            // Still awaiting review — keep the recorded original_severity in sync with
+            // whatever severity is currently set on the checklist result.
+            conn.execute(
+                "UPDATE mri_fault_approvals SET original_severity = ?1, updated_date = ?2 WHERE report_id = ?3 AND template_checklist_item_id = ?4",
+                rusqlite::params![sev, now, report_id, template_checklist_item_id],
+            ).map_err(|e| e.to_string())?;
+        }
+        _ => {
+            // Already reviewed (Approved/Reclassified/Rejected) — leave the historical record alone.
+        }
+    }
+    Ok("Fault approval ensured".to_string())
+}
+
+#[derive(Serialize, Deserialize)]
+struct PendingFaultApprovalRow {
+    id: i64,
+    report_id: i64,
+    template_checklist_item_id: i64,
+    original_severity: String,
+    created_date: String,
+    asset_code: Option<String>,
+    checklist_description: Option<String>,
+    issue_details: Option<String>,
+    action_taken: Option<String>,
+}
+
+#[tauri::command]
+fn get_pending_mri_fault_approvals() -> Result<Vec<PendingFaultApprovalRow>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT fa.id, fa.report_id, fa.template_checklist_item_id, fa.original_severity, fa.created_date,
+                a.asset_code, cd.description, r.issue_details, r.action_taken
+         FROM mri_fault_approvals fa
+         JOIN mri_reports rep ON fa.report_id = rep.id
+         LEFT JOIN assets a ON rep.asset_id = a.id
+         LEFT JOIN template_checklist_items tci ON fa.template_checklist_item_id = tci.id
+         LEFT JOIN checklist_databank cd ON tci.checklist_item_id = cd.id
+         LEFT JOIN mri_report_checklist_results r ON r.report_id = fa.report_id AND r.template_checklist_item_id = fa.template_checklist_item_id
+         WHERE fa.decision = 'Pending'
+         ORDER BY fa.created_date DESC"
+    ).map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(PendingFaultApprovalRow {
+                id: row.get(0)?,
+                report_id: row.get(1)?,
+                template_checklist_item_id: row.get(2)?,
+                original_severity: row.get(3)?,
+                created_date: row.get(4)?,
+                asset_code: row.get(5)?,
+                checklist_description: row.get(6)?,
+                issue_details: row.get(7)?,
+                action_taken: row.get(8)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
+}
+
+#[tauri::command]
+fn set_mri_fault_approval_decision(
+    id: i64,
+    decision: String,
+    new_severity: Option<String>,
+    reviewer: String,
+    review_method: String,
+    notes: Option<String>,
+) -> Result<String, String> {
+    let conn = get_connection()?;
+    let decision = decision.trim();
+    if !valid_approval_decision(decision) {
+        return Err(format!(
+            "Invalid decision '{}' — must be Pending, Approved, Reclassified, or Rejected",
+            decision
+        ));
+    }
+    let review_method = review_method.trim();
+    if !valid_review_method(review_method) {
+        return Err(format!(
+            "Invalid review method '{}' — must be In-Person or Phone",
+            review_method
+        ));
+    }
+    let reviewer = reviewer.trim();
+    if reviewer.is_empty() {
+        return Err("Reviewer name is required".to_string());
+    }
+    if decision == "Reclassified" {
+        match &new_severity {
+            Some(sev) if valid_severity(sev) => {}
+            _ => return Err("A valid new severity is required when reclassifying".to_string()),
+        }
+    }
+
+    let now = chrono_now();
+    conn.execute(
+        "UPDATE mri_fault_approvals SET decision = ?1, new_severity = ?2, reviewer = ?3, review_method = ?4, notes = ?5, updated_date = ?6 WHERE id = ?7",
+        rusqlite::params![decision, new_severity, reviewer, review_method, notes, now, id],
+    ).map_err(|e| e.to_string())?;
+    Ok("Fault approval decision saved".to_string())
 }
 
 #[derive(Serialize, Deserialize)]
@@ -2619,7 +2823,10 @@ fn rename_lookup_criteria(old_criteria: String, new_criteria: String) -> Result<
         )
         .map_err(|e| e.to_string())?;
     if clash > 0 {
-        return Err(format!("A criteria named '{}' already exists", new_criteria));
+        return Err(format!(
+            "A criteria named '{}' already exists",
+            new_criteria
+        ));
     }
     conn.execute(
         "UPDATE lookups SET criteria = ?1 WHERE criteria = ?2",
@@ -3271,8 +3478,11 @@ fn preview_mri_report_purge(filter: MriReportPurgeFilter) -> Result<i64, String>
         &filter.service_line,
         filter.asset_type_id,
     );
+    // LEFT JOIN so reports whose asset no longer exists (or has a null asset_id)
+    // are still counted/purgeable when no asset-specific filter is applied,
+    // instead of silently surviving every purge forever.
     let sql = format!(
-        "SELECT COUNT(*) FROM mri_reports r JOIN assets a ON r.asset_id = a.id WHERE {}",
+        "SELECT COUNT(*) FROM mri_reports r LEFT JOIN assets a ON r.asset_id = a.id WHERE {}",
         where_sql
     );
     let params_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
@@ -3291,8 +3501,10 @@ fn purge_mri_reports(filter: MriReportPurgeFilter) -> Result<String, String> {
         &filter.service_line,
         filter.asset_type_id,
     );
+    // LEFT JOIN so reports whose asset no longer exists (or has a null asset_id)
+    // are still selected for deletion when no asset-specific filter is applied.
     let select_sql = format!(
-        "SELECT r.id FROM mri_reports r JOIN assets a ON r.asset_id = a.id WHERE {}",
+        "SELECT r.id FROM mri_reports r LEFT JOIN assets a ON r.asset_id = a.id WHERE {}",
         where_sql
     );
     let params_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
@@ -3326,12 +3538,17 @@ fn purge_mri_reports(filter: MriReportPurgeFilter) -> Result<String, String> {
             [id],
         )
         .map_err(|e| e.to_string())?;
+        conn.execute(
+            "DELETE FROM mri_report_attachments WHERE report_id = ?1",
+            [id],
+        )
+        .map_err(|e| e.to_string())?;
         conn.execute("DELETE FROM mri_reports WHERE id = ?1", [id])
             .map_err(|e| e.to_string())?;
     }
 
     Ok(format!(
-        "{} MR-I report(s) purged, including all associated header/checklist/mid/footer data",
+        "{} MR-I report(s) purged, including all associated header/checklist/mid/footer/attachment data",
         count
     ))
 }
@@ -3909,7 +4126,11 @@ pub fn run() {
             set_role_permission,
             get_user_overrides,
             set_user_override,
-            get_effective_permissions
+            get_effective_permissions,
+            get_mri_fault_approvals,
+            ensure_mri_fault_approval,
+            set_mri_fault_approval_decision,
+            get_pending_mri_fault_approvals
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -11,9 +11,12 @@ import SelectAssetForReport from "./features/mri-reporting/SelectAssetForReport"
 import ReportWizard from "./features/mri-reporting/ReportWizard";
 import LiquidGlassTest from "./features/ui-lab/LiquidGlassTest";
 import DistanceMapTest from "./features/distance-map-test/DistanceMapTest";
+import PendingApprovals from "./features/mri-reporting/PendingApprovals";
 import { THEMES, type Theme } from "./lib/theme";
+import { CurrentUserProvider } from "./lib/currentUser";
+import UserPickerGate from "./lib/UserPickerGate";
 
-type Screen = "menu" | "assets" | "reports" | "dashboard" | "admin" | "triggers" | "uilab" | "distance-map-test" | "template-builder" | "select-asset-report" | "report-wizard";
+type Screen = "menu" | "assets" | "reports" | "dashboard" | "admin" | "triggers" | "uilab" | "distance-map-test" | "template-builder" | "select-asset-report" | "report-wizard" | "pending-approvals";
 type MrLevel = "MR-I" | "MR-II" | "MR-III";
 
 const LABELS: Record<Screen, string> = {
@@ -28,6 +31,7 @@ const LABELS: Record<Screen, string> = {
   "template-builder": "MR-I Template Builder",
   "select-asset-report": "Select Asset",
   "report-wizard": "MR-I Report",
+  "pending-approvals": "Pending Approvals",
 };
 
 const queryClient = new QueryClient();
@@ -71,7 +75,8 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="app" data-theme={theme}>
+      <CurrentUserProvider>
+        <div className="app" data-theme={theme}>
         <style>{`
           :root, [data-theme="light"] {
             --bg: #f3f4f5;
@@ -1259,6 +1264,12 @@ function App() {
             .mri-preview-mid-pair { display: flex; flex-direction: column; gap: 4px; }
           }
 
+          .mri-review-value {
+            font-size: 12.5px;
+            font-weight: 600;
+            color: var(--text);
+          }
+
           .mri-footer-preview {
             display: flex;
             flex-direction: column;
@@ -1687,8 +1698,27 @@ function App() {
             0%, 100% { box-shadow: inset 5px 5px 10px var(--neu-shadow-dark), inset -5px -5px 10px var(--neu-shadow-light); }
             50% { box-shadow: inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light); }
           }
+
+          @media print {
+            .no-print, .ui-nav, .wizard-steps, .actions,
+            .side-drawer-handle, .theme-fab, .uilab-fab, .current-user-banner {
+              display: none !important;
+            }
+            body * { visibility: hidden; }
+            .print-area, .print-area * { visibility: visible; }
+            .print-area {
+              position: absolute;
+              left: 0;
+              top: 0;
+              width: 100%;
+            }
+            .panel { box-shadow: none; background: #fff; padding: 0; }
+            .mri-preview-section-label { break-after: avoid; }
+            .mri-preview-table-row, .mri-checklist-row { break-inside: avoid; }
+          }
         `}</style>
 
+        <UserPickerGate>
         {screen !== "menu" && (
           <div className="ui-nav">
             <button className="ghost" onClick={() => setScreen("menu")} style={{ padding: "6px 12px", fontSize: 12 }}>
@@ -1730,6 +1760,7 @@ function App() {
             )}
             {screen === "uilab" && <LiquidGlassTest />}
             {screen === "distance-map-test" && <DistanceMapTest />}
+            {screen === "pending-approvals" && <PendingApprovals />}
             {screen === "template-builder" && selectedTemplate && (
               <TemplateBuilder
                 templateId={selectedTemplate.id}
@@ -1743,7 +1774,9 @@ function App() {
             )}
           </div>
         </div>
-      </div>
+        </UserPickerGate>
+          </div>
+      </CurrentUserProvider>
     </QueryClientProvider>
   );
 }

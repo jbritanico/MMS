@@ -10,19 +10,13 @@
 // someone's set up) risks locking the app before anyone can go create the first
 // user. Once Administrators start using the Users/Roles screens, this stops
 // being permissive for anyone actually added to app_users with a restrictive role.
-import { useMemo } from "react";
-import { useAppUsers, useEffectivePermissions } from "../features/administration/hooks/useUserAdmin";
-import { CURRENT_USER_EMAIL } from "./currentUser";
+import { useEffectivePermissions } from "../features/administration/hooks/useUserAdmin";
+import { useCurrentUser } from "./currentUser";
 
-/** Null means "don't enforce yet" (still loading, or no matching user record). */
+/** Null means "don't enforce yet" (still loading, or no user picked yet — the
+ *  UserPickerGate should already be blocking this case, but stay fail-open here too). */
 export function useCurrentUserPermissionCodes(): Set<string> | null {
-    const { data: users, isLoading: usersLoading } = useAppUsers();
-
-    const currentUser = useMemo(
-        () => users?.find((u) => u.email.toLowerCase() === CURRENT_USER_EMAIL.toLowerCase()) ?? null,
-        [users]
-    );
-
+    const { user: currentUser, isLoading: usersLoading } = useCurrentUser();
     const { data: codes, isLoading: permsLoading } = useEffectivePermissions(currentUser?.id ?? 0);
 
     if (usersLoading) return null;

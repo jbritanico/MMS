@@ -8,7 +8,7 @@ import { useAssetTypes } from "../administration/hooks/useAssetTypes";
 import { useMriTemplates } from "../administration/hooks/useMriTemplates";
 import { useLookups } from "../administration/hooks/useLookups";
 import AssetTypeCombobox from "../administration/AssetTypeCombobox";
-import { CURRENT_USER_EMAIL } from "../../lib/currentUser";
+import { useCurrentUser } from "../../lib/currentUser";
 
 type Mode = "create" | "edit" | "view";
 
@@ -28,13 +28,15 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
   const exportBackup = useExportAssetsBackup();
   const importBackup = useImportAssetsBackup();
   const importFileRef = useRef<HTMLInputElement>(null);
+  const { user: currentUser } = useCurrentUser();
+  const currentUserLabel = currentUser?.email ?? currentUser?.name ?? "Unknown user";
 
   const activeTemplateAssetTypeIds = new Set(
     templates.filter((t) => t.status === "Active").map((t) => t.asset_type_id)
   );
   const eligibleAssetTypes = assetTypes.filter((a) => activeTemplateAssetTypeIds.has(a.id));
 
-  const [form, setForm] = useState<Asset>({ ...emptyAsset, last_action_by: CURRENT_USER_EMAIL });
+  const [form, setForm] = useState<Asset>({ ...emptyAsset, last_action_by: currentUserLabel });
   const [mode, setMode] = useState<Mode>("create");
   const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
   const [query, setQuery] = useState("");
@@ -51,7 +53,7 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
   }
 
   function resetForm() {
-    setForm({ ...emptyAsset, last_action_by: CURRENT_USER_EMAIL });
+    setForm({ ...emptyAsset, last_action_by: currentUserLabel });
     setMode("create");
   }
 
@@ -61,7 +63,7 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
       return;
     }
     try {
-      const payload = { ...form, last_action_dt: new Date().toISOString(), last_action_by: CURRENT_USER_EMAIL };
+      const payload = { ...form, last_action_dt: new Date().toISOString(), last_action_by: currentUserLabel };
       if (mode === "create") {
         await createAsset.mutateAsync(payload);
         setStatus({ msg: `${form.asset_code} created`, kind: "ok" });

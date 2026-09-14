@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { THEMES, type Theme } from "../../lib/theme";
-import { CURRENT_USER_EMAIL } from "../../lib/currentUser";
-import { useAppUsers } from "../administration/hooks/useUserAdmin";
+import { useCurrentUser } from "../../lib/currentUser";
 import { isMapFeatureEnabled, setMapFeatureEnabled } from "../../lib/mapFeatureFlag";
+import { useEffectivePermissions } from "../administration/hooks/useUserAdmin";
+import { usePendingMriFaultApprovals } from "../mri-reporting/hooks/useMriFaultApprovals";
 
-type Screen = "assets" | "reports" | "dashboard" | "admin" | "uilab" | "distance-map-test";
+type Screen = "assets" | "reports" | "dashboard" | "admin" | "uilab" | "distance-map-test" | "pending-approvals";
 type MrLevel = "MR-I" | "MR-II" | "MR-III";
 
 interface MainMenuProps {
@@ -13,7 +14,7 @@ interface MainMenuProps {
   onThemeChange: (theme: Theme) => void;
 }
 
-const OPTIONS: { id: Screen; label: string; desc: string; icon: JSX.Element }[] = [
+const OPTIONS: { id: Screen; label: string; desc: string; icon: ReactElement }[] = [
   {
     id: "assets",
     label: "Asset Registry",
@@ -76,7 +77,7 @@ const KPI_DATA = [
 ];
 
 function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
-    const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const [reportsExpanded, setReportsExpanded] = useState(false);
   const [mapFeatureOn, setMapFeatureOn] = useState(() => isMapFeatureEnabled());
@@ -87,10 +88,16 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
     setMapFeatureEnabled(next);
   }
 
-  const { data: appUsers } = useAppUsers();
-  const currentAppUser = appUsers?.find(
-    (u) => u.email.toLowerCase() === CURRENT_USER_EMAIL.toLowerCase()
-  ) ?? null;
+  const { user: currentUser, clearCurrentUser } = useCurrentUser();
+  const { data: effectivePermissions = [] } = useEffectivePermissions(currentUser?.id ?? 0);
+  const canReviewApprovals = effectivePermissions.includes("mri.close_defect") || effectivePermissions.includes("mri.approve");
+  const { data: pendingApprovals = [] } = usePendingMriFaultApprovals();
+  const pendingApprovalsCount = pendingApprovals.length;
+
+  function handleSwitchUser() {
+    setDrawerOpen(false);
+    clearCurrentUser();
+  }
 
   function handleCardClick(id: Screen) {
     if (id === "reports") {
@@ -155,7 +162,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
         </div>
       </div>
 
-       <button className="side-drawer-handle" aria-label="Open menu" onClick={() => setDrawerOpen((v) => !v)}>
+      <button className="side-drawer-handle" aria-label="Open menu" onClick={() => setDrawerOpen((v) => !v)}>
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8" />
           <path d="M4.5 20c0-3.6 3.4-6.5 7.5-6.5s7.5 2.9 7.5 6.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -166,13 +173,42 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
         <div className="side-drawer-overlay" onClick={() => setDrawerOpen(false)}>
           <div className="side-drawer" onClick={(e) => e.stopPropagation()}>
             <div className="drawer-user-card">
-              <div className="drawer-user-name">{CURRENT_USER_EMAIL}</div>
-              <div className="drawer-user-role">
-                {currentAppUser
-                  ? currentAppUser.role
-                  : "No matching user record (permissions unlocked)"}
-              </div>
+              <div className="drawer-user-name">{currentUser?.name ?? "Unknown user"}</div>
+              <div className="drawer-user-role">{currentUser?.role ?? "No role"}</div>
+              <button
+                className="ghost"
+                style={{ marginTop: 8, padding: "6px 12px", fontSize: 12, width: "100%" }}
+                onClick={handleSwitchUser}
+              >
+                Switch User
+              </button>
             </div>
+
+            {canReviewApprovals && (
+              <div>
+                <div className="drawer-section-label">Fault Review</div>
+                <button
+                  className="drawer-nav-btn"
+                  onClick={() => { setDrawerOpen(false); onNavigate("pending-approvals"); }}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.6" />
+                  </svg>
+                  Pending Approvals
+                  {pendingApprovalsCount > 0 && (
+                    <span
+                      style={{
+                        marginLeft: "auto", fontSize: 11, fontWeight: 700, padding: "2px 8px",
+                        borderRadius: 20, background: "var(--danger)", color: "#fff",
+                      }}
+                    >
+                      {pendingApprovalsCount}
+                    </span>
+                  )}
+                </button>
+              </div>
+            )}
 
             <div>
               <div className="drawer-section-label">Theme</div>
@@ -189,7 +225,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
             </div>
 
             <div>
-            <div className="drawer-section-label">More</div>
+              <div className="drawer-section-label">More</div>
               <button
                 className="drawer-nav-btn"
                 onClick={() => { setDrawerOpen(false); onNavigate("uilab"); }}
