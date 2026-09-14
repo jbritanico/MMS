@@ -25,6 +25,7 @@ export interface MriReportMidValue {
   report_id: number;
   template_mid_field_id: number;
   value: string | null;
+  route_points: string | null;
 }
 
 export interface MriReportFooterValue {
@@ -83,11 +84,17 @@ export function useMriReportMidValues(reportId: number) {
     queryFn: () => invoke<MriReportMidValue[]>("get_mri_report_mid_values", { reportId }),
   });
 }
+
 export function useSetMriReportMidValue(reportId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (item: { templateMidFieldId: number; value: string }) =>
-      invoke("set_mri_report_mid_value", { reportId, ...item }),
+    mutationFn: (item: { templateMidFieldId: number; value: string; routePoints?: string | null }) =>
+      invoke("set_mri_report_mid_value", {
+        reportId,
+        templateMidFieldId: item.templateMidFieldId,
+        value: item.value,
+        routePoints: item.routePoints ?? null,
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["mri-report-mid-values", reportId] }),
   });
 }

@@ -457,6 +457,28 @@ fn get_connection() -> Result<Connection, String> {
     )
     .map_err(|e| e.to_string())?;
 
+    {
+        let mut has_route_points = false;
+        let mut stmt = conn
+            .prepare("PRAGMA table_info(mri_report_mid_values)")
+            .map_err(|e| e.to_string())?;
+        let cols = stmt
+            .query_map([], |row| row.get::<_, String>(1))
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        if cols.iter().any(|c| c == "route_points") {
+            has_route_points = true;
+        }
+        if !has_route_points {
+            conn.execute(
+                "ALTER TABLE mri_report_mid_values ADD COLUMN route_points TEXT",
+                [],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+    }
+
     conn.execute(
         "CREATE TABLE IF NOT EXISTS mri_report_footer_values (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2288,13 +2310,14 @@ struct MriReportMidValue {
     report_id: i64,
     template_mid_field_id: i64,
     value: Option<String>,
+    route_points: Option<String>,
 }
 
 #[tauri::command]
 fn get_mri_report_mid_values(report_id: i64) -> Result<Vec<MriReportMidValue>, String> {
     let conn = get_connection()?;
     let mut stmt = conn.prepare(
-        "SELECT id, report_id, template_mid_field_id, value FROM mri_report_mid_values WHERE report_id = ?1"
+        "SELECT id, report_id, template_mid_field_id, value, route_points FROM mri_report_mid_values WHERE report_id = ?1"
     ).map_err(|e| e.to_string())?;
     let values = stmt
         .query_map([report_id], |row| {
@@ -2303,6 +2326,7 @@ fn get_mri_report_mid_values(report_id: i64) -> Result<Vec<MriReportMidValue>, S
                 report_id: row.get(1)?,
                 template_mid_field_id: row.get(2)?,
                 value: row.get(3)?,
+                route_points: row.get(4)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -2316,13 +2340,14 @@ fn set_mri_report_mid_value(
     report_id: i64,
     template_mid_field_id: i64,
     value: String,
+    route_points: Option<String>,
 ) -> Result<String, String> {
     let conn = get_connection()?;
     conn.execute(
-        "INSERT INTO mri_report_mid_values (report_id, template_mid_field_id, value)
-         VALUES (?1, ?2, ?3)
-         ON CONFLICT(report_id, template_mid_field_id) DO UPDATE SET value = excluded.value",
-        rusqlite::params![report_id, template_mid_field_id, value],
+        "INSERT INTO mri_report_mid_values (report_id, template_mid_field_id, value, route_points)
+         VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(report_id, template_mid_field_id) DO UPDATE SET value = excluded.value, route_points = excluded.route_points",
+        rusqlite::params![report_id, template_mid_field_id, value, route_points],
     )
     .map_err(|e| e.to_string())?;
     Ok("Mid value saved".to_string())
