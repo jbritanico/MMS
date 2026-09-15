@@ -2609,64 +2609,6 @@ fn get_pending_mri_fault_approvals() -> Result<Vec<PendingFaultApprovalRow>, Str
     Ok(rows)
 }
 
-#[derive(Serialize, Deserialize)]
-struct ProvisionalFaultApprovalRow {
-    id: i64,
-    report_id: i64,
-    template_checklist_item_id: i64,
-    original_severity: String,
-    decision: String,
-    new_severity: Option<String>,
-    reviewer: Option<String>,
-    review_method: Option<String>,
-    recorded_by: Option<String>,
-    created_date: String,
-    asset_code: Option<String>,
-    checklist_description: Option<String>,
-}
-
-// Cross-report queue of phoned-in decisions still awaiting the real authority's
-// confirmation. Deliberately not filtered by fa.decision — a Provisional entry keeps
-// that status regardless of what the decision ended up being (Approved/Reclassified/
-// Rejected/Carryforward), since confirmation is about the paper trail, not the outcome.
-#[tauri::command]
-fn get_provisional_mri_fault_approvals() -> Result<Vec<ProvisionalFaultApprovalRow>, String> {
-    let conn = get_connection()?;
-    let mut stmt = conn.prepare(
-        "SELECT fa.id, fa.report_id, fa.template_checklist_item_id, fa.original_severity, fa.decision, fa.new_severity,
-                fa.reviewer, fa.review_method, fa.recorded_by, fa.created_date,
-                a.asset_code, cd.description
-         FROM mri_fault_approvals fa
-         JOIN mri_reports rep ON fa.report_id = rep.id
-         LEFT JOIN assets a ON rep.asset_id = a.id
-         LEFT JOIN template_checklist_items tci ON fa.template_checklist_item_id = tci.id
-         LEFT JOIN checklist_databank cd ON tci.checklist_item_id = cd.id
-         WHERE fa.provisional_status = 'Provisional'
-         ORDER BY fa.created_date DESC"
-    ).map_err(|e| e.to_string())?;
-    let rows = stmt
-        .query_map([], |row| {
-            Ok(ProvisionalFaultApprovalRow {
-                id: row.get(0)?,
-                report_id: row.get(1)?,
-                template_checklist_item_id: row.get(2)?,
-                original_severity: row.get(3)?,
-                decision: row.get(4)?,
-                new_severity: row.get(5)?,
-                reviewer: row.get(6)?,
-                review_method: row.get(7)?,
-                recorded_by: row.get(8)?,
-                created_date: row.get(9)?,
-                asset_code: row.get(10)?,
-                checklist_description: row.get(11)?,
-            })
-        })
-        .map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
-    Ok(rows)
-}
-
 #[tauri::command]
 fn set_mri_fault_approval_decision(
     id: i64,
@@ -4678,7 +4620,6 @@ pub fn run() {
             set_mri_fault_approval_decision,
             get_pending_mri_fault_approvals,
             confirm_provisional_approval,
-            get_provisional_mri_fault_approvals,
             get_mri_fault_rectifications,
             get_pending_mri_fault_rectifications,
             update_mri_fault_rectification,

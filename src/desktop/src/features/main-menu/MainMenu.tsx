@@ -1,5 +1,6 @@
 import { useState, type ReactElement } from "react";
 import { THEMES, type Theme } from "../../lib/theme";
+import fieldOpsImage from "../../assets/FieldMaintenance.png";
 import { useCurrentUser } from "../../lib/currentUser";
 import { isMapFeatureEnabled, setMapFeatureEnabled } from "../../lib/mapFeatureFlag";
 import { useEffectivePermissions } from "../administration/hooks/useUserAdmin";
@@ -114,51 +115,101 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
 
   return (
     <>
-      <div className="menu-screen" onClick={() => setReportsExpanded(false)}>
-        <div className="menu-grid">
-          {OPTIONS.map((opt) => (
-            <div
-              key={opt.id}
-              className="menu-card"
-              onClick={(e) => { e.stopPropagation(); handleCardClick(opt.id); }}
-            >
-              <div className="menu-icon-wrap">{opt.icon}</div>
-              <h3>{opt.label}</h3>
-              <p>{opt.desc}</p>
-              {opt.id === "reports" && reportsExpanded && (
-                <div className="mr-level-row" onClick={(e) => e.stopPropagation()}>
-                  {MR_LEVELS.map((lvl) => (
-                    <button
-                      key={lvl.id}
-                      className="mr-level-btn"
-                      onClick={() => onNavigate("reports", lvl.id)}
-                    >
-                      {lvl.short}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+      <div style={{ position: "relative", height: "100vh", overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
+          <img
+            src={fieldOpsImage}
+            alt=""
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "linear-gradient(100deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.82) 30%, rgba(255,255,255,0.45) 65%, rgba(255,255,255,0.15) 100%)",
+            }}
+          />
         </div>
-
-        <div className="kpi-footer">
-          {KPI_DATA.map((k) => (
-            <div key={k.key} className="kpi-footer-item" onClick={() => onNavigate("dashboard")}>
-              <span className="kpi-footer-label">{k.label}</span>
-              <div className="kpi-footer-row">
-                <span className={`kpi-footer-value ${k.key === "defects" ? "pale-red" : ""}`}>
-                  {k.value}<span className="kpi-footer-unit">{k.unit}</span>
-                </span>
-                <span className={`kpi-footer-delta ${k.good ? "good" : "bad"}`}>{k.delta}</span>
+        <div className="menu-screen" style={{ position: "relative", zIndex: 1 }} onClick={() => setReportsExpanded(false)}>
+          <div className="menu-grid">
+            {OPTIONS.map((opt) => (
+              <div
+                key={opt.id}
+                className="menu-card"
+                onClick={(e) => { e.stopPropagation(); handleCardClick(opt.id); }}
+                style={{ background: "rgba(255,255,255,0.5)", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}
+              >
+                <div className="menu-icon-wrap">{opt.icon}</div>
+                <h3>{opt.label}</h3>
+                <p>{opt.desc}</p>
+                {opt.id === "reports" && reportsExpanded && (
+                  <div className="mr-level-row" onClick={(e) => e.stopPropagation()}>
+                    {MR_LEVELS.map((lvl) => (
+                      <button
+                        key={lvl.id}
+                        className="mr-level-btn"
+                        onClick={() => onNavigate("reports", lvl.id)}
+                      >
+                        {lvl.short}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              {k.key === "availability" && (
-                <div className="kpi-gauge-track">
-                  <div className="kpi-gauge-mask" style={{ width: `${100 - parseFloat(k.value)}%` }} />
+            ))}
+          </div>
+
+          <div
+            style={{
+              position: "fixed",
+              left: 24,
+              top: "50%",
+              transform: "translateY(-50%)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 20,
+              zIndex: 5,
+              width: 200,
+            }}
+          >
+            {KPI_DATA.map((k) => (
+              <div
+                key={k.key}
+                onClick={() => onNavigate("dashboard")}
+                style={{ background: "none", boxShadow: "none", border: "none", padding: 0, cursor: "pointer" }}
+              >
+                <span className="kpi-footer-label" style={{ textShadow: "0 1px 4px rgba(255,255,255,0.85)" }}>
+                  {k.label}
+                </span>
+                <div className="kpi-footer-row">
+                  <span
+                    className={`kpi-footer-value ${k.key === "defects" ? "pale-red" : ""}`}
+                    style={{ textShadow: "0 1px 4px rgba(255,255,255,0.85)" }}
+                  >
+                    {k.value}
+                    <span className="kpi-footer-unit">{k.unit}</span>
+                  </span>
+                  <span className={`kpi-footer-delta ${k.good ? "good" : "bad"}`}>{k.delta}</span>
                 </div>
-              )}
-            </div>
-          ))}
+                {k.key === "availability" && (
+                  <div
+                    style={{
+                      background: "rgba(255,255,255,0.7)",
+                      borderRadius: 8,
+                      padding: "4px 6px",
+                      marginTop: 4,
+                      boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
+                    }}
+                  >
+                    <div className="kpi-gauge-track">
+                      <div className="kpi-gauge-mask" style={{ width: `${100 - parseFloat(k.value)}%` }} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
