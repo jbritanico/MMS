@@ -23,7 +23,7 @@ export interface UserOverride {
   granted: boolean;
 }
 
-export const ROLES = ["View Only", "Tier 1", "Tier 2", "Tier 3", "Administrator"];
+export const ROLES = ["Data Miner View", "Operator", "Job Supervisor", "Maintenance Supervisor", "Maintenance Manager / FSM", "Administrator"];
 
 // Users
 export function useAppUsers() {

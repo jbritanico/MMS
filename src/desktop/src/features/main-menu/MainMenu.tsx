@@ -1,12 +1,14 @@
 import { useState, type ReactElement } from "react";
+import { createPortal } from "react-dom";
 import { THEMES, type Theme } from "../../lib/theme";
 import fieldOpsImage from "../../assets/FieldMaintenance.png";
 import { useCurrentUser } from "../../lib/currentUser";
 import { isMapFeatureEnabled, setMapFeatureEnabled } from "../../lib/mapFeatureFlag";
 import { useEffectivePermissions } from "../administration/hooks/useUserAdmin";
-import { usePendingMriFaultApprovals } from "../mri-reporting/hooks/useMriFaultApprovals";
+import { usePendingMriFaultApprovals, useProvisionalMriFaultApprovals } from "../mri-reporting/hooks/useMriFaultApprovals";
+import { usePendingMriFaultRectifications } from "../mri-reporting/hooks/useMriFaultRectifications";
 
-type Screen = "assets" | "reports" | "dashboard" | "admin" | "uilab" | "distance-map-test" | "pending-approvals";
+type Screen = "assets" | "reports" | "dashboard" | "admin" | "uilab" | "distance-map-test" | "pending-approvals" | "rectification-queue";
 type MrLevel = "MR-I" | "MR-II" | "MR-III";
 
 interface MainMenuProps {
@@ -79,6 +81,7 @@ const KPI_DATA = [
 
 function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [faultDrawerOpen, setFaultDrawerOpen] = useState(false);
 
   const [reportsExpanded, setReportsExpanded] = useState(false);
   const [mapFeatureOn, setMapFeatureOn] = useState(() => isMapFeatureEnabled());
@@ -94,7 +97,14 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
   const canReviewApprovals = effectivePermissions.includes("mri.close_defect") || effectivePermissions.includes("mri.approve");
   const { data: pendingApprovals = [] } = usePendingMriFaultApprovals();
   const pendingApprovalsCount = pendingApprovals.length;
-
+  const canRectify = effectivePermissions.includes("mri.rectify");
+  const { data: pendingRectifications = [] } = usePendingMriFaultRectifications();
+  const pendingRectificationsCount = pendingRectifications.length;
+  const canConfirmProvisional = effectivePermissions.includes("mri.confirm_provisional");
+  const { data: provisionalApprovals = [] } = useProvisionalMriFaultApprovals();
+  const provisionalCount = provisionalApprovals.length;
+  const canOpenFaultReview = canReviewApprovals || canRectify || canConfirmProvisional;
+  const faultReviewTotal = pendingApprovalsCount + provisionalCount + pendingRectificationsCount;
   function handleSwitchUser() {
     setDrawerOpen(false);
     clearCurrentUser();
@@ -120,7 +130,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
           <img
             src={fieldOpsImage}
             alt=""
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: 0.5 }}
           />
           <div
             style={{
@@ -220,7 +230,100 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
         </svg>
       </button>
 
-      {drawerOpen && (
+      {canOpenFaultReview && (
+        <button
+          className="side-drawer-handle"
+          aria-label="Open Fault Review"
+          style={{ top: "calc(50% - 112px)" }}
+          onClick={() => setFaultDrawerOpen((v) => !v)}
+        >
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 3l9 16H3L12 3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+            <path d="M12 10v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            <circle cx="12" cy="17" r="0.9" fill="currentColor" />
+          </svg>
+          {faultReviewTotal > 0 && (
+            <span
+              style={{
+                position: "absolute", top: -6, right: -6, fontSize: 10, fontWeight: 700,
+                minWidth: 16, height: 16, padding: "0 4px", borderRadius: 10,
+                background: "var(--danger)", color: "#fff", display: "flex",
+                alignItems: "center", justifyContent: "center",
+              }}
+            >
+              {faultReviewTotal}
+            </span>
+          )}
+        </button>
+      )}
+
+      {faultDrawerOpen && createPortal(
+        <div className="side-drawer-overlay" onClick={() => setFaultDrawerOpen(false)}>
+          <div className="side-drawer" onClick={(e) => e.stopPropagation()}>
+            <div className="drawer-section-label">Fault Review</div>
+
+            {canReviewApprovals && (
+              <div className="drawer-user-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <div>
+                  <div className="drawer-user-name">Pending Approvals</div>
+                  <div className="drawer-user-role">Moderate/Critical faults awaiting review</div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                  <span style={{ fontSize: 20, fontWeight: 700, color: "var(--text)" }}>{pendingApprovalsCount}</span>
+                  <button
+                    className="primary"
+                    style={{ padding: "5px 10px", fontSize: 12 }}
+                    onClick={() => { setFaultDrawerOpen(false); onNavigate("pending-approvals"); }}
+                  >
+                    Review
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {canConfirmProvisional && (
+              <div className="drawer-user-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <div>
+                  <div className="drawer-user-name">Awaiting Confirmation</div>
+                  <div className="drawer-user-role">Phoned-in decisions needing sign-off</div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                  <span style={{ fontSize: 20, fontWeight: 700, color: "var(--text)" }}>{provisionalCount}</span>
+                  <button
+                    className="primary"
+                    style={{ padding: "5px 10px", fontSize: 12 }}
+                    onClick={() => { setFaultDrawerOpen(false); onNavigate("pending-approvals"); }}
+                  >
+                    Review
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {canRectify && (
+              <div className="drawer-user-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <div>
+                  <div className="drawer-user-name">Rectification Queue</div>
+                  <div className="drawer-user-role">Critical faults still Red-Tagged</div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                  <span style={{ fontSize: 20, fontWeight: 700, color: "var(--text)" }}>{pendingRectificationsCount}</span>
+                  <button
+                    className="primary"
+                    style={{ padding: "5px 10px", fontSize: 12 }}
+                    onClick={() => { setFaultDrawerOpen(false); onNavigate("rectification-queue"); }}
+                  >
+                    Review
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {drawerOpen && createPortal(
         <div className="side-drawer-overlay" onClick={() => setDrawerOpen(false)}>
           <div className="side-drawer" onClick={(e) => e.stopPropagation()}>
             <div className="drawer-user-card">
@@ -234,32 +337,6 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
                 Switch User
               </button>
             </div>
-
-            {canReviewApprovals && (
-              <div>
-                <div className="drawer-section-label">Fault Review</div>
-                <button
-                  className="drawer-nav-btn"
-                  onClick={() => { setDrawerOpen(false); onNavigate("pending-approvals"); }}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.6" />
-                  </svg>
-                  Pending Approvals
-                  {pendingApprovalsCount > 0 && (
-                    <span
-                      style={{
-                        marginLeft: "auto", fontSize: 11, fontWeight: 700, padding: "2px 8px",
-                        borderRadius: 20, background: "var(--danger)", color: "#fff",
-                      }}
-                    >
-                      {pendingApprovalsCount}
-                    </span>
-                  )}
-                </button>
-              </div>
-            )}
 
             <div>
               <div className="drawer-section-label">Theme</div>
@@ -321,7 +398,8 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
 

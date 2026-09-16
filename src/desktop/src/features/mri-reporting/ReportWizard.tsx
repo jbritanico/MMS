@@ -22,7 +22,9 @@ import {
     type MriReportChecklistResult,
     type MriReportAttachment,
 } from "./hooks/useMriReportValues";
-import { useEnsureMriFaultApproval } from "./hooks/useMriFaultApprovals";
+import { useEnsureMriFaultApproval, useCarriedForwardFaults } from "./hooks/useMriFaultApprovals";
+import { useCurrentUser } from "../../lib/currentUser";
+import { useAppUsers } from "../administration/hooks/useUserAdmin";
 import { useTemplateChecklistItems } from "../mri-template-builder/hooks/useTemplateChecklistItems";
 import { useChecklistItems } from "../administration/hooks/useChecklistDatabank";
 import { useTemplateDrawing, useTemplateDrawingHotspots } from "../mri-template-builder/hooks/useTemplateDrawing";
@@ -49,6 +51,7 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
     const { data: report } = useMriReport(reportId);
     const { data: assets = [] } = useAssets();
     const { data: templates = [] } = useMriTemplates();
+    const { data: carriedForward = [] } = useCarriedForwardFaults(reportId);
     const submitReport = useSubmitMriReport();
 
     const [step, setStep] = useState<Step>("header");
@@ -101,6 +104,20 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
                 <h1>{asset?.asset_code ?? "Report"} — MR-I</h1>
                 <span className="sub">{template?.template_name ?? ""} · {report.status}</span>
             </div>
+
+            {carriedForward.length > 0 && (
+                <div className="toast err" style={{ maxWidth: 600, marginBottom: 16 }}>
+                    <strong>Inheriting {carriedForward.length} carried-forward issue{carriedForward.length === 1 ? "" : "s"} from a previous report:</strong>
+                    <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+                        {carriedForward.map((f) => (
+                            <li key={f.id}>
+                                {f.checklist_description ?? "Checklist item"} — {f.original_severity}
+                                {f.notes ? ` (${f.notes})` : ""}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
 
             {isLocked && (
                 <div className="toast err" style={{ maxWidth: 500, marginBottom: 16 }}>
@@ -589,6 +606,8 @@ function FooterEntryStep({ templateId, reportId, locked }: { templateId: number;
     const { data: catalog = [] } = useFooterFieldCatalog();
     const { data: savedValues = [] } = useMriReportFooterValues(reportId);
     const setValue = useSetMriReportFooterValue(reportId);
+    const { user: currentUser } = useCurrentUser();
+    const { data: allUsers = [] } = useAppUsers();
 
     const [localValues, setLocalValues] = useState<Record<number, string>>({});
 
@@ -605,6 +624,27 @@ function FooterEntryStep({ templateId, reportId, locked }: { templateId: number;
     }, [savedValues]);
 
     const sortedFields = [...templateFields].sort((a, b) => a.display_order - b.display_order);
+
+    // Operator/Job Supervisor footer fields identify each other: whichever of the two is
+    // signed in gets their own field auto-filled and locked, and the OTHER field becomes a
+    // dropdown of the matching role's users (see the render branches below).
+    useEffect(() => {
+        if (locked || !currentUser) return;
+        const operatorField = sortedFields.find((tf) => fieldLabel(tf.footer_field_id).trim().toLowerCase() === "operator");
+        const supervisorField = sortedFields.find((tf) => fieldLabel(tf.footer_field_id).trim().toLowerCase() === "supervisor");
+        if (currentUser.role === "Operator" && operatorField) {
+            const existing = savedValues.find((v) => v.template_footer_field_id === operatorField.id)?.value ?? "";
+            if (existing !== currentUser.name) {
+                setValue.mutateAsync({ templateFooterFieldId: operatorField.id, value: currentUser.name });
+            }
+        }
+        if (currentUser.role === "Job Supervisor" && supervisorField) {
+            const existing = savedValues.find((v) => v.template_footer_field_id === supervisorField.id)?.value ?? "";
+            if (existing !== currentUser.name) {
+                setValue.mutateAsync({ templateFooterFieldId: supervisorField.id, value: currentUser.name });
+            }
+        }
+    }, [currentUser, sortedFields, savedValues, locked]);
 
     function handleChange(fieldId: number, value: string) {
         setLocalValues((prev) => ({ ...prev, [fieldId]: value }));
@@ -690,6 +730,60 @@ function FooterEntryStep({ templateId, reportId, locked }: { templateId: number;
                                 />
                             </div>
                         );
+                    }
+
+                    if (label === "operator") {
+                        if (currentUser?.role === "Operator") {
+                            return (
+                                <div key={tf.id} className="mri-preview-table-row">
+                                    <label>{fieldLabel(tf.footer_field_id)}</label>
+                                    <input type="text" className="trigger-input" value={currentUser.name} disabled
+                                        title="Automatically set to the signed-in Operator" />
+                                </div>
+                            );
+                        }
+                        if (currentUser?.role === "Job Supervisor") {
+                            return (
+                                <div key={tf.id} className="mri-preview-table-row">
+                                    <label>{fieldLabel(tf.footer_field_id)}</label>
+                                    <select className="neu-select" value={localValues[tf.id] ?? ""}
+                                        onChange={(e) => handleChange(tf.id, e.target.value)}
+                                        onBlur={() => handleBlur(tf.id)} disabled={locked}>
+                                        <option value="">— Select Operator —</option>
+                                        {allUsers.filter((u) => u.role === "Operator" && u.active).map((u) => (
+                                            <option key={u.id} value={u.name}>{u.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            );
+                        }
+                    }
+
+                    if (label === "supervisor") {
+                        if (currentUser?.role === "Job Supervisor") {
+                            return (
+                                <div key={tf.id} className="mri-preview-table-row">
+                                    <label>{fieldLabel(tf.footer_field_id)}</label>
+                                    <input type="text" className="trigger-input" value={currentUser.name} disabled
+                                        title="Automatically set to the signed-in Job Supervisor" />
+                                </div>
+                            );
+                        }
+                        if (currentUser?.role === "Operator") {
+                            return (
+                                <div key={tf.id} className="mri-preview-table-row">
+                                    <label>{fieldLabel(tf.footer_field_id)}</label>
+                                    <select className="neu-select" value={localValues[tf.id] ?? ""}
+                                        onChange={(e) => handleChange(tf.id, e.target.value)}
+                                        onBlur={() => handleBlur(tf.id)} disabled={locked}>
+                                        <option value="">— Select Job Supervisor —</option>
+                                        {allUsers.filter((u) => u.role === "Job Supervisor" && u.active).map((u) => (
+                                            <option key={u.id} value={u.name}>{u.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            );
+                        }
                     }
 
                     return (

@@ -12,6 +12,9 @@ export interface Asset {
   last_action_dt: string;
   asset_type_id: number | null;
   client: string;
+  // Read-only — set entirely by the MR-I fault approval/rectification workflow, never
+  // editable from the Asset Registry form. null = not yet tagged by any fault outcome.
+  tag_status: "Red" | "Green" | null;
 }
 
 export const emptyAsset: Asset = {
@@ -28,6 +31,7 @@ export const emptyAsset: Asset = {
   last_action_dt: "",
   asset_type_id: null,
   client: "",
+  tag_status: null,
 };
 
 export const MR_ACTIONS = ["ENROLLMENT", "EDIT", "MR-I", "MR-II", "MR-III"];

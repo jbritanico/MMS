@@ -158,6 +158,29 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
               onChange={(e) => updateField("asset_description", e.target.value)}
               placeholder="e.g. Diesel generator, 60kVA" disabled={isView} />
           </div>
+          {mode !== "create" && (
+            <div className="field">
+              <label>Tag status</label>
+              <div>
+                {form.tag_status ? (
+                  <span
+                    className="pill"
+                    style={{
+                      background: form.tag_status === "Red" ? "var(--danger)" : "var(--success)",
+                      color: "#fff",
+                    }}
+                  >
+                    {form.tag_status} Tag
+                  </span>
+                ) : (
+                  <span className="pill neutral">Not tagged</span>
+                )}
+              </div>
+              <span style={{ fontSize: 11, color: "var(--text-soft)" }}>
+                Set automatically by the MR-I fault approval/rectification workflow — not editable here.
+              </span>
+            </div>
+          )}
           <div className="field">
             <label>Asset type</label>
             {isView ? (
@@ -289,6 +312,17 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
                     <div className="code">{a.asset_code}</div>
                     <div className="desc">{a.asset_description || "—"}</div>
                     <div className="meta">
+                      {a.tag_status && (
+                        <span
+                          className="pill"
+                          style={{
+                            background: a.tag_status === "Red" ? "var(--danger)" : "var(--success)",
+                            color: "#fff",
+                          }}
+                        >
+                          {a.tag_status} Tag
+                        </span>
+                      )}
                       <span className={`pill ${a.active ? "active" : "inactive"}`}>
                         {a.active ? "Active" : "Inactive"}
                       </span>

@@ -64,6 +64,8 @@ struct Asset {
     last_action_dt: String,
     asset_type_id: Option<i64>,
     client: String,
+    #[serde(default)]
+    tag_status: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -133,6 +135,26 @@ fn get_connection() -> Result<Connection, String> {
         [],
     )
     .map_err(|e| e.to_string())?;
+
+    // Migration: add tag_status to assets for databases created before the Red/Green
+    // Tag workflow existed. NULL = not yet tagged by any MR-I fault outcome. This column
+    // is only ever written by the fault-approval/rectification workflow (Critical closure
+    // -> 'Red', rectification verified -> 'Green') -- never editable from the Asset
+    // Registry edit form.
+    {
+        let mut stmt = conn
+            .prepare("PRAGMA table_info(assets)")
+            .map_err(|e| e.to_string())?;
+        let cols = stmt
+            .query_map([], |row| row.get::<_, String>(1))
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        if !cols.iter().any(|c| c == "tag_status") {
+            conn.execute("ALTER TABLE assets ADD COLUMN tag_status TEXT", [])
+                .map_err(|e| e.to_string())?;
+        }
+    }
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS maintenance_triggers (
@@ -969,7 +991,7 @@ fn create_asset(asset: Asset) -> Result<String, String> {
 #[tauri::command]
 fn get_assets() -> Result<Vec<Asset>, String> {
     let conn = get_connection()?;
-    let mut stmt = conn.prepare("SELECT id, asset_code, asset_description, country, service_line, active, service_asset, vehicle, mr_last_action, last_action_by, last_action_dt, asset_type_id, client FROM assets")
+    let mut stmt = conn.prepare("SELECT id, asset_code, asset_description, country, service_line, active, service_asset, vehicle, mr_last_action, last_action_by, last_action_dt, asset_type_id, client, tag_status FROM assets")
         .map_err(|e| e.to_string())?;
     let assets = stmt
         .query_map([], |row| {
@@ -987,6 +1009,7 @@ fn get_assets() -> Result<Vec<Asset>, String> {
                 last_action_dt: row.get(10)?,
                 asset_type_id: row.get(11)?,
                 client: row.get(12)?,
+                tag_status: row.get(13)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -2265,16 +2288,35 @@ fn create_mri_report(report: NewMriReport) -> Result<i64, String> {
         |row| row.get(0),
     ).ok();
 
-    if let Some(id) = existing_draft {
-        return Ok(id);
-    }
+    let report_id = if let Some(id) = existing_draft {
+        id
+    } else {
+        let now = chrono_now();
+        conn.execute(
+            "INSERT INTO mri_reports (template_id, asset_id, status, created_date) VALUES (?1, ?2, 'Draft', ?3)",
+            rusqlite::params![report.template_id, report.asset_id, now],
+        ).map_err(|e| e.to_string())?;
+        conn.last_insert_rowid()
+    };
 
-    let now = chrono_now();
+    // Link any not-yet-linked Carryforward faults from an earlier cycle on this same
+    // asset+template to this report, so there's a traceable path from the original
+    // Carryforward decision to the report it reappears on. Idempotent — the
+    // carried_to_report_id IS NULL guard means re-running this is a no-op once linked.
     conn.execute(
-        "INSERT INTO mri_reports (template_id, asset_id, status, created_date) VALUES (?1, ?2, 'Draft', ?3)",
-        rusqlite::params![report.template_id, report.asset_id, now],
-    ).map_err(|e| e.to_string())?;
-    Ok(conn.last_insert_rowid())
+        "UPDATE mri_fault_approvals
+         SET carried_to_report_id = ?1
+         WHERE decision = 'Carryforward'
+           AND carried_to_report_id IS NULL
+           AND report_id IN (
+               SELECT id FROM mri_reports
+               WHERE asset_id = ?2 AND template_id = ?3 AND id != ?1
+           )",
+        rusqlite::params![report_id, report.asset_id, report.template_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(report_id)
 }
 
 #[tauri::command]
@@ -2610,6 +2652,47 @@ fn get_pending_mri_fault_approvals() -> Result<Vec<PendingFaultApprovalRow>, Str
 }
 
 #[derive(Serialize, Deserialize)]
+struct CarriedForwardFaultRow {
+    id: i64,
+    original_report_id: i64,
+    checklist_description: Option<String>,
+    original_severity: String,
+    notes: Option<String>,
+    created_date: String,
+}
+
+// Faults inherited INTO this report from an earlier cycle on the same asset (see the
+// carried_to_report_id link set by create_mri_report). Surfaced as a banner so whoever
+// is doing this inspection knows they're picking up an open issue, not starting fresh.
+#[tauri::command]
+fn get_carried_forward_faults(report_id: i64) -> Result<Vec<CarriedForwardFaultRow>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT fa.id, fa.report_id, cd.description, fa.original_severity, fa.notes, fa.created_date
+         FROM mri_fault_approvals fa
+         LEFT JOIN template_checklist_items tci ON fa.template_checklist_item_id = tci.id
+         LEFT JOIN checklist_databank cd ON tci.checklist_item_id = cd.id
+         WHERE fa.carried_to_report_id = ?1
+         ORDER BY fa.created_date DESC"
+    ).map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([report_id], |row| {
+            Ok(CarriedForwardFaultRow {
+                id: row.get(0)?,
+                original_report_id: row.get(1)?,
+                checklist_description: row.get(2)?,
+                original_severity: row.get(3)?,
+                notes: row.get(4)?,
+                created_date: row.get(5)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
+}
+
+#[derive(Serialize, Deserialize)]
 struct ProvisionalFaultApprovalRow {
     id: i64,
     report_id: i64,
@@ -2859,6 +2942,16 @@ fn set_mri_fault_approval_decision(
         .map_err(|e| e.to_string())?;
     }
 
+    // Reflect the tag directly on the asset record too. The subquery naturally no-ops if
+    // this report isn't linked to an asset, so no special-casing is needed.
+    let asset_tag_value = if stays_critical { "Red" } else { "Green" };
+    conn.execute(
+        "UPDATE assets SET tag_status = ?1
+         WHERE id = (SELECT asset_id FROM mri_reports WHERE id = ?2)",
+        rusqlite::params![asset_tag_value, report_id],
+    )
+    .map_err(|e| e.to_string())?;
+
     Ok("Fault approval decision saved".to_string())
 }
 
@@ -3050,6 +3143,14 @@ fn verify_mri_fault_rectification(id: i64, verified_by: String) -> Result<String
         )
         .map_err(|e| e.to_string())?;
     }
+
+    // Flip the asset's own tag back to Green now that the repair is verified.
+    conn.execute(
+        "UPDATE assets SET tag_status = 'Green'
+         WHERE id = (SELECT asset_id FROM mri_reports WHERE id = ?1)",
+        [report_id],
+    )
+    .map_err(|e| e.to_string())?;
 
     Ok("Rectification verified -- tag removed".to_string())
 }
@@ -4682,7 +4783,8 @@ pub fn run() {
             get_mri_fault_rectifications,
             get_pending_mri_fault_rectifications,
             update_mri_fault_rectification,
-            verify_mri_fault_rectification
+            verify_mri_fault_rectification,
+            get_carried_forward_faults
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

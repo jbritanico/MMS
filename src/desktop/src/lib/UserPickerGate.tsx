@@ -299,45 +299,25 @@ function UserPickerGate({ children }: { children: ReactNode }) {
           </p>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 36 }}>
-            {activeUsers.map((u) => {
-              const badge = roleBadge(u.role);
-              return (
-                <button
-                  key={u.id}
-                  className="menu-card"
-                  style={{ minHeight: 140, textAlign: "left", alignItems: "flex-start" }}
-                  onClick={() => setCurrentUserId(u.id)}
-                >
-                  <div className="menu-icon-wrap">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8" />
-                      <path d="M4.5 20c0-3.6 3.4-6.5 7.5-6.5s7.5 2.9 7.5 6.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                    </svg>
-                  </div>
-                  <h3 style={{ margin: "10px 0 6px" }}>{u.name}</h3>
-                  <span
-                    style={{
-                      display: "inline-block",
-                      fontSize: 10.5,
-                      fontWeight: 700,
-                      letterSpacing: "0.04em",
-                      textTransform: "uppercase",
-                      color: badge.color,
-                      background: `${badge.color}1a`,
-                      border: `1px solid ${badge.color}55`,
-                      borderRadius: 20,
-                      padding: "2px 10px",
-                      marginBottom: 8,
-                    }}
-                  >
-                    {badge.label}
-                  </span>
-                  <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-soft)" }}>
-                    {TIER_REFERENCE.find((t) => roleBadge(t.name).label === badge.label)?.description ?? ""}
-                  </p>
-                </button>
-              );
-            })}
+            {activeUsers.map((u) => (
+              <button
+                key={u.id}
+                className="menu-card"
+                style={{ minHeight: 140, textAlign: "left", alignItems: "flex-start" }}
+                onClick={() => setCurrentUserId(u.id)}
+              >
+                <div className="menu-icon-wrap">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8" />
+                    <path d="M4.5 20c0-3.6 3.4-6.5 7.5-6.5s7.5 2.9 7.5 6.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  </svg>
+                </div>
+                <h3 style={{ margin: "10px 0 6px" }}>{u.name}</h3>
+                <p style={{ margin: 0, fontSize: 13, color: "var(--text-soft)" }}>
+                  {u.role}
+                </p>
+              </button>
+            ))}
           </div>
         )}
 

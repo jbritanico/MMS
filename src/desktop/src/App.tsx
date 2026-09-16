@@ -12,11 +12,12 @@ import ReportWizard from "./features/mri-reporting/ReportWizard";
 import LiquidGlassTest from "./features/ui-lab/LiquidGlassTest";
 import DistanceMapTest from "./features/distance-map-test/DistanceMapTest";
 import PendingApprovals from "./features/mri-reporting/PendingApprovals";
+import RectificationQueue from "./features/mri-reporting/RectificationQueue";
 import { THEMES, type Theme } from "./lib/theme";
 import { CurrentUserProvider } from "./lib/currentUser";
 import UserPickerGate from "./lib/UserPickerGate";
 
-type Screen = "menu" | "assets" | "reports" | "dashboard" | "admin" | "triggers" | "uilab" | "distance-map-test" | "template-builder" | "select-asset-report" | "report-wizard" | "pending-approvals";
+type Screen = "menu" | "assets" | "reports" | "dashboard" | "admin" | "triggers" | "uilab" | "distance-map-test" | "template-builder" | "select-asset-report" | "report-wizard" | "pending-approvals" | "rectification-queue";
 type MrLevel = "MR-I" | "MR-II" | "MR-III";
 
 const LABELS: Record<Screen, string> = {
@@ -32,7 +33,9 @@ const LABELS: Record<Screen, string> = {
   "select-asset-report": "Select Asset",
   "report-wizard": "MR-I Report",
   "pending-approvals": "Pending Approvals",
+  "rectification-queue": "Rectification Queue",
 };
+
 
 const queryClient = new QueryClient();
 
@@ -532,14 +535,14 @@ function App() {
             box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
           }
 
-                  .side-drawer-handle {
+          .side-drawer-handle {
             position: fixed;
             top: 50%;
             right: 0;
             transform: translateY(-50%);
-            width: 28px;
-            height: 64px;
-            border-radius: 12px 0 0 12px;
+            width: 42px;
+            height: 96px;
+            border-radius: 18px 0 0 18px;
             border: none;
             padding: 0;
             display: flex;
@@ -547,18 +550,18 @@ function App() {
             justify-content: center;
             cursor: pointer;
             color: var(--text-soft);
-            background: var(--neu-bg);
+            background: color-mix(in srgb, var(--neu-bg) 60%, transparent);
             box-shadow: -5px 5px 10px var(--neu-shadow-dark), -5px -5px 10px var(--neu-shadow-light);
             transition: color 0.15s, width 0.15s;
             z-index: 20;
           }
-          .side-drawer-handle:hover { color: var(--accent-blue); width: 34px; }
-          .side-drawer-handle svg { width: 16px; height: 16px; }
+          .side-drawer-handle:hover { color: var(--accent-blue); width: 51px; }
+          .side-drawer-handle svg { width: 24px; height: 24px; }
 
           .side-drawer-overlay {
             position: fixed;
             inset: 0;
-            z-index: 60;
+            z-index: 500;
             background: rgba(0,0,0,0.15);
           }
 
@@ -569,6 +572,8 @@ function App() {
             bottom: 0;
             width: min(300px, 84vw);
             background: var(--neu-bg);
+            font-family: var(--sans);
+            color: var(--text);
             box-shadow: -10px 0 30px rgba(0,0,0,0.18);
             padding: 20px 16px;
             display: flex;
@@ -1761,6 +1766,7 @@ function App() {
             {screen === "uilab" && <LiquidGlassTest />}
             {screen === "distance-map-test" && <DistanceMapTest />}
             {screen === "pending-approvals" && <PendingApprovals />}
+            {screen === "rectification-queue" && <RectificationQueue />}
             {screen === "template-builder" && selectedTemplate && (
               <TemplateBuilder
                 templateId={selectedTemplate.id}

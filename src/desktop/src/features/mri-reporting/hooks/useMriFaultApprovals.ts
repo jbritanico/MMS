@@ -120,3 +120,22 @@ export function useConfirmProvisionalApproval(reportId: number) {
     },
   });
 }
+
+export interface CarriedForwardFaultRow {
+  id: number;
+  original_report_id: number;
+  checklist_description: string | null;
+  original_severity: "Minor" | "Moderate" | "Critical";
+  notes: string | null;
+  created_date: string;
+}
+
+// Faults inherited INTO this report from an earlier cycle on the same asset — surfaced
+// as a banner so whoever is doing this inspection knows they're picking up an open issue.
+export function useCarriedForwardFaults(reportId: number) {
+  return useQuery({
+    queryKey: ["carried-forward-faults", reportId],
+    queryFn: () => invoke<CarriedForwardFaultRow[]>("get_carried_forward_faults", { reportId }),
+    enabled: !!reportId,
+  });
+}
