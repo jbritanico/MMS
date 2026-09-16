@@ -57,6 +57,7 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
     const [step, setStep] = useState<Step>("header");
     const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
     const [reviewIssues, setReviewIssues] = useState<string[]>([]);
+    const [showSubmittedDialog, setShowSubmittedDialog] = useState(false);
     const currentIndex = STEPS.findIndex((s) => s.id === step);
 
     function flash(msg: string, kind: "ok" | "err") {
@@ -78,7 +79,7 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
         }
         try {
             await submitReport.mutateAsync(reportId);
-            flash("Report submitted — now locked from further editing", "ok");
+            setShowSubmittedDialog(true);
         } catch (err) {
             flash(String(err), "err");
         }
@@ -170,6 +171,31 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
                     </button>
                 )}
             </div>
+
+            {showSubmittedDialog && (
+                <div className="modal-overlay">
+                    <div className="modal">
+                        <div className="modal-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M20 6L9 17L4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                        </div>
+                        <h3>Report submitted</h3>
+                        <p>The report has been submitted and is now locked from further editing.</p>
+                        <div className="modal-actions">
+                            <button
+                                className="primary"
+                                onClick={() => {
+                                    setShowSubmittedDialog(false);
+                                    onBack();
+                                }}
+                            >
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -623,7 +649,10 @@ function FooterEntryStep({ templateId, reportId, locked }: { templateId: number;
         setLocalValues(initial);
     }, [savedValues]);
 
-    const sortedFields = [...templateFields].sort((a, b) => a.display_order - b.display_order);
+    const sortedFields = useMemo(
+        () => [...templateFields].sort((a, b) => a.display_order - b.display_order),
+        [templateFields]
+    );
 
     // Operator/Job Supervisor footer fields identify each other: whichever of the two is
     // signed in gets their own field auto-filled and locked, and the OTHER field becomes a

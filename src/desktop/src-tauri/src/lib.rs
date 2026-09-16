@@ -665,6 +665,27 @@ fn get_connection() -> Result<Connection, String> {
     )
     .map_err(|e| e.to_string())?;
 
+    // One-time (but safe to run every startup) cleanup: earlier versions of
+    // purge_mri_reports deleted reports without also clearing their Fault Review data,
+    // leaving orphaned rows that kept showing up in the Pending Approvals / Awaiting
+    // Confirmation / Rectification Queue drawer after a purge. This removes any fault
+    // approval (and its rectification, if any) whose report no longer exists. Naturally
+    // idempotent -- a no-op once there's nothing orphaned left to clean.
+    conn.execute(
+        "DELETE FROM mri_fault_rectifications
+         WHERE fault_approval_id IN (
+             SELECT id FROM mri_fault_approvals
+             WHERE report_id NOT IN (SELECT id FROM mri_reports)
+         )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM mri_fault_approvals WHERE report_id NOT IN (SELECT id FROM mri_reports)",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
     Ok(conn)
 }
 
@@ -3002,7 +3023,8 @@ struct MriFaultRectification {
     updated_date: String,
 }
 
-const MRI_FAULT_RECTIFICATION_SELECT: &str = "SELECT fr.id, fr.fault_approval_id, fa.report_id, fa.template_checklist_item_id,
+const MRI_FAULT_RECTIFICATION_SELECT: &str =
+    "SELECT fr.id, fr.fault_approval_id, fa.report_id, fa.template_checklist_item_id,
                 a.asset_code, cd.description,
                 fr.assigned_technician, fr.parts_status, fr.repair_date,
                 fr.verified_by, fr.verified_date, fr.tag_status, fr.created_date, fr.updated_date
@@ -3035,7 +3057,10 @@ fn map_mri_fault_rectification_row(row: &rusqlite::Row) -> rusqlite::Result<MriF
 #[tauri::command]
 fn get_mri_fault_rectifications(report_id: i64) -> Result<Vec<MriFaultRectification>, String> {
     let conn = get_connection()?;
-    let sql = format!("{} WHERE fa.report_id = ?1 ORDER BY fr.created_date DESC", MRI_FAULT_RECTIFICATION_SELECT);
+    let sql = format!(
+        "{} WHERE fa.report_id = ?1 ORDER BY fr.created_date DESC",
+        MRI_FAULT_RECTIFICATION_SELECT
+    );
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map([report_id], map_mri_fault_rectification_row)
@@ -3050,7 +3075,10 @@ fn get_mri_fault_rectifications(report_id: i64) -> Result<Vec<MriFaultRectificat
 #[tauri::command]
 fn get_pending_mri_fault_rectifications() -> Result<Vec<MriFaultRectification>, String> {
     let conn = get_connection()?;
-    let sql = format!("{} WHERE fr.tag_status = 'Red' ORDER BY fr.created_date DESC", MRI_FAULT_RECTIFICATION_SELECT);
+    let sql = format!(
+        "{} WHERE fr.tag_status = 'Red' ORDER BY fr.created_date DESC",
+        MRI_FAULT_RECTIFICATION_SELECT
+    );
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map([], map_mri_fault_rectification_row)
@@ -4165,6 +4193,23 @@ fn purge_mri_reports(filter: MriReportPurgeFilter) -> Result<String, String> {
 
     let count = report_ids.len();
     for id in &report_ids {
+        // Clear any dangling carryforward links pointing INTO a report we're about to
+        // delete, so a surviving fault approval never references a purged report.
+        conn.execute(
+            "UPDATE mri_fault_approvals SET carried_to_report_id = NULL WHERE carried_to_report_id = ?1",
+            [id],
+        )
+        .map_err(|e| e.to_string())?;
+        // Fault Review data (Pending Approvals / Awaiting Confirmation / Rectification
+        // Queue) is keyed off report_id and must be purged alongside the report itself,
+        // or the drawer keeps showing counts for reports that no longer exist.
+        conn.execute(
+            "DELETE FROM mri_fault_rectifications WHERE fault_approval_id IN (SELECT id FROM mri_fault_approvals WHERE report_id = ?1)",
+            [id],
+        )
+        .map_err(|e| e.to_string())?;
+        conn.execute("DELETE FROM mri_fault_approvals WHERE report_id = ?1", [id])
+            .map_err(|e| e.to_string())?;
         conn.execute(
             "DELETE FROM mri_report_header_values WHERE report_id = ?1",
             [id],

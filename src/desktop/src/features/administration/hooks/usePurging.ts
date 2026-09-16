@@ -53,6 +53,15 @@ export function usePurgeMriReports() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (filter: MriReportPurgeFilter) => invoke<string>("purge_mri_reports", { filter }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["mri-reports"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["mri-reports"] });
+      // Purging reports also clears their Fault Review data on the backend (Step 43),
+      // so the drawer's cached queries need to be told to refetch too -- otherwise it
+      // keeps showing stale "open issues" from before the purge.
+      qc.invalidateQueries({ queryKey: ["pending-mri-fault-approvals"] });
+      qc.invalidateQueries({ queryKey: ["provisional-mri-fault-approvals"] });
+      qc.invalidateQueries({ queryKey: ["mri-fault-rectifications"] });
+      qc.invalidateQueries({ queryKey: ["carried-forward-faults"] });
+    },
   });
 }

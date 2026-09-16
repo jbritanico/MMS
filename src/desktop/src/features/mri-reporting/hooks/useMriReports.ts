@@ -53,7 +53,13 @@ export function useSubmitMriReport() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: number) => invoke("submit_mri_report", { id }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: KEY });
+      // The wizard reads the single report via its own ["mri-report", id] key --
+      // without this, it keeps showing the stale "Draft" status after submit and
+      // never locks/shows confirmation.
+      qc.invalidateQueries({ queryKey: ["mri-report", id] });
+    },
   });
 }
 
