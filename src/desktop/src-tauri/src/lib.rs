@@ -839,7 +839,9 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
             "Maintenance Manager / FSM",
             &[
                 "assets.view",
+                "assets.create",
                 "assets.edit",
+                "assets.delete",
                 "triggers.edit",
                 "mri.submit",
                 "mri.edit_after_submit",
@@ -2321,6 +2323,25 @@ fn create_mri_report(report: NewMriReport) -> Result<i64, String> {
     let report_id = if let Some(id) = existing_draft {
         id
     } else {
+        // Block starting a brand new report while an earlier one on this asset is still
+        // pending -- Submitted, Endorsed, or Escalated all mean the Supervisor hasn't
+        // signed off and closed it yet. Draft and Approved don't block.
+        let blocking: Option<(i64, String)> = conn
+            .query_row(
+                "SELECT id, status FROM mri_reports
+                 WHERE asset_id = ?1 AND status NOT IN ('Draft', 'Approved')
+                 LIMIT 1",
+                [report.asset_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .ok();
+        if let Some((pending_id, pending_status)) = blocking {
+            return Err(format!(
+                "Report #{} for this asset is still {} — it must be endorsed and closed before a new MR-I report can be started for this asset.",
+                pending_id, pending_status
+            ));
+        }
+
         let now = chrono_now();
         conn.execute(
             "INSERT INTO mri_reports (template_id, asset_id, status, created_date) VALUES (?1, ?2, 'Draft', ?3)",
@@ -2702,20 +2723,128 @@ fn endorse_mri_report(report_id: i64, endorsed_by: String) -> Result<String, Str
         }
     }
 
+    // Endorsing never closes the report by itself -- it only records the Supervisor's
+    // review. A Moderate/Critical report moves to Escalated and stays open until every
+    // escalated fault is resolved; a Minor-only (or no-issue) report moves to Endorsed
+    // and still needs an explicit Close Report action (see close_mri_report).
+    let new_status = if escalated_count > 0 { "Escalated" } else { "Endorsed" };
     conn.execute(
-        "UPDATE mri_reports SET status = 'Approved', approved_by = ?1, approved_date = ?2 WHERE id = ?3",
-        rusqlite::params![endorsed_by, now, report_id],
+        "UPDATE mri_reports SET status = ?1, approved_by = ?2, approved_date = ?3 WHERE id = ?4",
+        rusqlite::params![new_status, endorsed_by, now, report_id],
     )
     .map_err(|e| e.to_string())?;
 
     if escalated_count > 0 {
         Ok(format!(
-            "Report endorsed — {} fault(s) escalated for review",
+            "Report endorsed — {} fault(s) escalated for review. The report stays open until every escalated fault is resolved and someone closes it.",
             escalated_count
         ))
     } else {
-        Ok("Report endorsed and closed — no faults required escalation".to_string())
+        Ok("Report endorsed — no faults required escalation. It still needs to be explicitly closed.".to_string())
     }
+}
+
+// Explicit closure step — deliberately separate from endorse_mri_report so nothing
+// closes automatically. Valid from 'Endorsed' (Minor-only, already reviewed) directly,
+// or from 'Escalated' once every fault on the report has been resolved: reviewed
+// (decision no longer 'Pending') and, for any that stayed Critical, rectified and
+// verified (tag_status no longer 'Red').
+#[tauri::command]
+fn close_mri_report(report_id: i64, closed_by: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    let closed_by = closed_by.trim();
+    if closed_by.is_empty() {
+        return Err("Closed-by name is required".to_string());
+    }
+
+    let status: String = conn
+        .query_row(
+            "SELECT status FROM mri_reports WHERE id = ?1",
+            [report_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    if status == "Escalated" {
+        let still_open: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM mri_fault_approvals fa
+                 LEFT JOIN mri_fault_rectifications rec ON rec.fault_approval_id = fa.id
+                 WHERE fa.report_id = ?1
+                   AND (fa.decision = 'Pending' OR rec.tag_status = 'Red')",
+                [report_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        if still_open > 0 {
+            return Err(format!(
+                "{} escalated fault(s) on this report are still unresolved — they must be reviewed (and, if Critical, rectified and verified) before the report can be closed.",
+                still_open
+            ));
+        }
+    } else if status != "Endorsed" {
+        return Err(format!(
+            "Report must be Endorsed, or Escalated with everything resolved, before it can be closed (current status: {})",
+            status
+        ));
+    }
+
+    let now = chrono_now();
+    conn.execute(
+        "UPDATE mri_reports SET status = 'Approved', approved_by = ?1, approved_date = ?2 WHERE id = ?3",
+        rusqlite::params![closed_by, now, report_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok("Report closed".to_string())
+}
+
+#[derive(Serialize, Deserialize)]
+struct ReportNeedingActionRow {
+    id: i64,
+    status: String,
+    asset_code: Option<String>,
+    submitted_by: Option<String>,
+    submitted_date: Option<String>,
+}
+
+// Everything currently needing a Supervisor's attention: Submitted (awaiting endorsement),
+// Endorsed (Minor-only, reviewed but not yet closed), and Escalated reports whose faults
+// have all been resolved (ready to close). Still-open Escalated reports are deliberately
+// excluded -- they're tracked in the Pending Approvals / Rectification queues instead.
+#[tauri::command]
+fn get_reports_needing_supervisor_action() -> Result<Vec<ReportNeedingActionRow>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT r.id, r.status, a.asset_code, r.submitted_by, r.submitted_date
+             FROM mri_reports r
+             JOIN assets a ON a.id = r.asset_id
+             WHERE r.status = 'Submitted'
+                OR r.status = 'Endorsed'
+                OR (r.status = 'Escalated' AND NOT EXISTS (
+                    SELECT 1 FROM mri_fault_approvals fa
+                    LEFT JOIN mri_fault_rectifications rec ON rec.fault_approval_id = fa.id
+                    WHERE fa.report_id = r.id
+                      AND (fa.decision = 'Pending' OR rec.tag_status = 'Red')
+                ))
+             ORDER BY r.submitted_date ASC",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows: Vec<ReportNeedingActionRow> = stmt
+        .query_map([], |row| {
+            Ok(ReportNeedingActionRow {
+                id: row.get(0)?,
+                status: row.get(1)?,
+                asset_code: row.get(2)?,
+                submitted_by: row.get(3)?,
+                submitted_date: row.get(4)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
 }
 
 #[derive(Serialize, Deserialize)]
@@ -4968,6 +5097,9 @@ pub fn run() {
             get_effective_permissions,
             get_mri_fault_approvals,
             ensure_mri_fault_approval,
+            endorse_mri_report,
+            close_mri_report,
+            get_reports_needing_supervisor_action,
             set_mri_fault_approval_decision,
             get_pending_mri_fault_approvals,
             confirm_provisional_approval,

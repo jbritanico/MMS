@@ -72,6 +72,11 @@ const TIER_REFERENCE: TierReference[] = [
   },
 ];
 
+function tierAccent(role: string): string {
+  const match = TIER_REFERENCE.find((t) => t.name === role);
+  return match ? match.accent : roleBadge(role).color;
+}
+
 function roleBadge(role: string): { label: string; color: string } {
   const r = role.toLowerCase();
   if (r.includes("admin")) return { label: role, color: "#2f6fed" };
@@ -174,10 +179,12 @@ function UserPickerGate({ children }: { children: ReactNode }) {
   const { user, users, isLoading, setCurrentUserId } = useCurrentUser();
   const now = useLiveClock();
   const [authMode, setAuthMode] = useState<AuthMode>("local");
+  const [userIndex, setUserIndex] = useState(0);
+  const [flipDir, setFlipDir] = useState<"next" | "prev">("next");
 
   if (isLoading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
         <span style={{ color: "var(--text-soft)", fontSize: 13 }}>Loading users...</span>
       </div>
     );
@@ -191,8 +198,41 @@ function UserPickerGate({ children }: { children: ReactNode }) {
   const dateLabel = now.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
   const timeLabel = now.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
+  const safeUserIndex = activeUsers.length === 0 ? 0 : userIndex % activeUsers.length;
+  const activeUser = activeUsers[safeUserIndex];
+
+  function nextUser() {
+    if (activeUsers.length < 2) return;
+    setFlipDir("next");
+    setUserIndex((i) => (i + 1) % activeUsers.length);
+  }
+
+  function prevUser() {
+    if (activeUsers.length < 2) return;
+    setFlipDir("prev");
+    setUserIndex((i) => (i - 1 + activeUsers.length) % activeUsers.length);
+  }
+
   return (
-    <div style={{ position: "relative", minHeight: "100vh", background: "var(--bg, #f4f5f2)" }}>
+    <>
+      <style>{`
+        @keyframes flip-in-next {
+          from { transform: perspective(1000px) rotateY(90deg); opacity: 0; }
+          to { transform: perspective(1000px) rotateY(0deg); opacity: 1; }
+        }
+        @keyframes flip-in-prev {
+          from { transform: perspective(1000px) rotateY(-90deg); opacity: 0; }
+          to { transform: perspective(1000px) rotateY(0deg); opacity: 1; }
+        }
+        .user-hero-card {
+          animation-duration: 0.35s;
+          animation-timing-function: ease;
+          backface-visibility: hidden;
+        }
+        .flip-next { animation-name: flip-in-next; }
+        .flip-prev { animation-name: flip-in-prev; }
+      `}</style>
+      <div style={{ position: "relative", height: "100%", overflowY: "auto", background: "var(--bg, #f4f5f2)" }}>
       {/* Full-bleed photo backdrop, top of the page only */}
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 560, overflow: "hidden" }}>
         <img
@@ -233,6 +273,7 @@ function UserPickerGate({ children }: { children: ReactNode }) {
               display: "flex",
               gap: 20,
               alignItems: "center",
+              flexWrap: "wrap",
               background: "var(--surface, #fff)",
               border: "1px solid var(--line, #e2e2e2)",
               borderRadius: 12,
@@ -298,26 +339,68 @@ function UserPickerGate({ children }: { children: ReactNode }) {
             No active users found. Add a user under Administration first.
           </p>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 36 }}>
-            {activeUsers.map((u) => (
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 14, marginBottom: 16 }}>
+            {activeUsers.length > 1 && (
               <button
-                key={u.id}
-                className="menu-card"
-                style={{ minHeight: 140, textAlign: "left", alignItems: "flex-start" }}
-                onClick={() => setCurrentUserId(u.id)}
+                aria-label="Previous user"
+                onClick={prevUser}
+                style={{
+                  flex: "0 0 auto", width: 34, height: 34, borderRadius: "50%",
+                  border: "1px solid var(--line, #e2e2e2)", background: "var(--surface, #fff)",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.12)", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
+                }}
               >
-                <div className="menu-icon-wrap">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8" />
-                    <path d="M4.5 20c0-3.6 3.4-6.5 7.5-6.5s7.5 2.9 7.5 6.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                  </svg>
-                </div>
-                <h3 style={{ margin: "10px 0 6px" }}>{u.name}</h3>
-                <p style={{ margin: 0, fontSize: 13, color: "var(--text-soft)" }}>
-                  {u.role}
-                </p>
+                ‹
               </button>
-            ))}
+            )}
+            <div style={{ perspective: 1200, width: "100%", maxWidth: 420 }}>
+              {activeUser && (
+                <button
+                  key={activeUser.id}
+                  className={`menu-card user-hero-card ${flipDir === "next" ? "flip-next" : "flip-prev"}`}
+                  style={{
+                    width: "100%",
+                    minHeight: 150,
+                    textAlign: "left",
+                    alignItems: "flex-start",
+                    borderLeft: `16px solid ${tierAccent(activeUser.role)}`,
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+                  }}
+                  onClick={() => setCurrentUserId(activeUser.id)}
+                >
+                  <div className="menu-icon-wrap">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8" />
+                      <path d="M4.5 20c0-3.6 3.4-6.5 7.5-6.5s7.5 2.9 7.5 6.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                  <h3 style={{ margin: "10px 0 6px" }}>{activeUser.name}</h3>
+                  <p style={{ margin: 0, fontSize: 13, color: "var(--text-soft)" }}>
+                    {activeUser.role}
+                  </p>
+                </button>
+              )}
+              {activeUsers.length > 1 && (
+                <p style={{ textAlign: "center", fontSize: 11.5, color: "var(--text-soft)", margin: "10px 0 0" }}>
+                  {safeUserIndex + 1} of {activeUsers.length}
+                </p>
+              )}
+            </div>
+            {activeUsers.length > 1 && (
+              <button
+                aria-label="Next user"
+                onClick={nextUser}
+                style={{
+                  flex: "0 0 auto", width: 34, height: 34, borderRadius: "50%",
+                  border: "1px solid var(--line, #e2e2e2)", background: "var(--surface, #fff)",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.12)", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
+                }}
+              >
+                ›
+              </button>
+            )}
           </div>
         )}
 
@@ -360,6 +443,7 @@ function UserPickerGate({ children }: { children: ReactNode }) {
         </div>
       </div>
     </div>
+    </>
   );
 }
 

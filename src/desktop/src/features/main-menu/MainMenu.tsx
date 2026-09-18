@@ -7,8 +7,9 @@ import { isMapFeatureEnabled, setMapFeatureEnabled } from "../../lib/mapFeatureF
 import { useEffectivePermissions } from "../administration/hooks/useUserAdmin";
 import { usePendingMriFaultApprovals, useProvisionalMriFaultApprovals } from "../mri-reporting/hooks/useMriFaultApprovals";
 import { usePendingMriFaultRectifications } from "../mri-reporting/hooks/useMriFaultRectifications";
+import { useReportsNeedingSupervisorAction } from "../mri-reporting/hooks/useMriReports";
 
-type Screen = "assets" | "reports" | "dashboard" | "admin" | "uilab" | "distance-map-test" | "pending-approvals" | "rectification-queue";
+type Screen = "assets" | "reports" | "dashboard" | "admin" | "uilab" | "distance-map-test" | "pending-approvals" | "rectification-queue" | "report-review-queue";
 type MrLevel = "MR-I" | "MR-II" | "MR-III";
 
 interface MainMenuProps {
@@ -103,8 +104,11 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
   const canConfirmProvisional = effectivePermissions.includes("mri.confirm_provisional");
   const { data: provisionalApprovals = [] } = useProvisionalMriFaultApprovals();
   const provisionalCount = provisionalApprovals.length;
-  const canOpenFaultReview = canReviewApprovals || canRectify || canConfirmProvisional;
-  const faultReviewTotal = pendingApprovalsCount + provisionalCount + pendingRectificationsCount;
+  const canReviewReports = effectivePermissions.includes("mri.endorse_report");
+  const { data: reportsNeedingAction = [] } = useReportsNeedingSupervisorAction();
+  const reportsNeedingActionCount = reportsNeedingAction.length;
+  const canOpenFaultReview = canReviewApprovals || canRectify || canConfirmProvisional || canReviewReports;
+  const faultReviewTotal = pendingApprovalsCount + provisionalCount + pendingRectificationsCount + reportsNeedingActionCount;
   function handleSwitchUser() {
     setDrawerOpen(false);
     clearCurrentUser();
@@ -274,6 +278,25 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
                     className="primary"
                     style={{ padding: "5px 10px", fontSize: 12 }}
                     onClick={() => { setFaultDrawerOpen(false); onNavigate("pending-approvals"); }}
+                  >
+                    Review
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {canReviewReports && (
+              <div className="drawer-user-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <div>
+                  <div className="drawer-user-name">Reports to Review</div>
+                  <div className="drawer-user-role">MR-I reports awaiting endorsement or closure</div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                  <span style={{ fontSize: 20, fontWeight: 700, color: "var(--text)" }}>{reportsNeedingActionCount}</span>
+                  <button
+                    className="primary"
+                    style={{ padding: "5px 10px", fontSize: 12 }}
+                    onClick={() => { setFaultDrawerOpen(false); onNavigate("report-review-queue"); }}
                   >
                     Review
                   </button>

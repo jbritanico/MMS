@@ -13,11 +13,12 @@ import LiquidGlassTest from "./features/ui-lab/LiquidGlassTest";
 import DistanceMapTest from "./features/distance-map-test/DistanceMapTest";
 import PendingApprovals from "./features/mri-reporting/PendingApprovals";
 import RectificationQueue from "./features/mri-reporting/RectificationQueue";
+import ReportReviewQueue from "./features/mri-reporting/ReportReviewQueue";
 import { THEMES, type Theme } from "./lib/theme";
 import { CurrentUserProvider } from "./lib/currentUser";
 import UserPickerGate from "./lib/UserPickerGate";
 
-type Screen = "menu" | "assets" | "reports" | "dashboard" | "admin" | "triggers" | "uilab" | "distance-map-test" | "template-builder" | "select-asset-report" | "report-wizard" | "pending-approvals" | "rectification-queue";
+type Screen = "menu" | "assets" | "reports" | "dashboard" | "admin" | "triggers" | "uilab" | "distance-map-test" | "template-builder" | "select-asset-report" | "report-wizard" | "pending-approvals" | "rectification-queue" | "report-review-queue";
 type MrLevel = "MR-I" | "MR-II" | "MR-III";
 
 const LABELS: Record<Screen, string> = {
@@ -34,6 +35,7 @@ const LABELS: Record<Screen, string> = {
   "report-wizard": "MR-I Report",
   "pending-approvals": "Pending Approvals",
   "rectification-queue": "Rectification Queue",
+  "report-review-queue": "Reports to Review",
 };
 
 
@@ -1767,6 +1769,7 @@ function App() {
             {screen === "distance-map-test" && <DistanceMapTest />}
             {screen === "pending-approvals" && <PendingApprovals />}
             {screen === "rectification-queue" && <RectificationQueue />}
+            {screen === "report-review-queue" && <ReportReviewQueue onOpenReport={handleReportCreated} />}
             {screen === "template-builder" && selectedTemplate && (
               <TemplateBuilder
                 templateId={selectedTemplate.id}

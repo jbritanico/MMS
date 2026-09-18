@@ -9,6 +9,7 @@ import { useMriTemplates } from "../administration/hooks/useMriTemplates";
 import { useLookups } from "../administration/hooks/useLookups";
 import AssetTypeCombobox from "../administration/AssetTypeCombobox";
 import { useCurrentUser } from "../../lib/currentUser";
+import { useEffectivePermissions } from "../administration/hooks/useUserAdmin";
 
 type Mode = "create" | "edit" | "view";
 
@@ -30,6 +31,10 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
   const importFileRef = useRef<HTMLInputElement>(null);
   const { user: currentUser } = useCurrentUser();
   const currentUserLabel = currentUser?.email ?? currentUser?.name ?? "Unknown user";
+  const { data: permissions = [] } = useEffectivePermissions(currentUser?.id ?? 0);
+  const canCreate = permissions.includes("assets.create");
+  const canEdit = permissions.includes("assets.edit");
+  const canDelete = permissions.includes("assets.delete");
 
   const activeTemplateAssetTypeIds = new Set(
     templates.filter((t) => t.status === "Active").map((t) => t.asset_type_id)
@@ -62,6 +67,14 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
       setStatus({ msg: "Asset code is required", kind: "err" });
       return;
     }
+    if (mode === "create" && !canCreate) {
+      setStatus({ msg: "You don't have permission to create assets", kind: "err" });
+      return;
+    }
+    if (mode === "edit" && !canEdit) {
+      setStatus({ msg: "You don't have permission to edit assets", kind: "err" });
+      return;
+    }
     try {
       const payload = { ...form, last_action_dt: new Date().toISOString(), last_action_by: currentUserLabel };
       if (mode === "create") {
@@ -84,12 +97,20 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
 
   function handleEdit(e: React.MouseEvent, asset: Asset) {
     e.stopPropagation();
+    if (!canEdit) {
+      setStatus({ msg: "You don't have permission to edit assets", kind: "err" });
+      return;
+    }
     setForm(asset);
     setMode("edit");
   }
 
   function requestDelete(e: React.MouseEvent, asset: Asset) {
     e.stopPropagation();
+    if (!canDelete) {
+      setStatus({ msg: "You don't have permission to delete assets", kind: "err" });
+      return;
+    }
     setPendingDelete(asset);
   }
 
@@ -112,6 +133,11 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
 
   async function confirmDelete() {
     if (!pendingDelete || pendingDelete.id === null) return;
+    if (!canDelete) {
+      setStatus({ msg: "You don't have permission to delete assets", kind: "err" });
+      setPendingDelete(null);
+      return;
+    }
     await deleteAsset.mutateAsync(pendingDelete.id);
     setStatus({ msg: `${pendingDelete.asset_code} deleted`, kind: "ok" });
     setPendingDelete(null);
@@ -263,7 +289,7 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
           <div className="actions">
             {mode === "view" ? (
               <>
-                <button className="primary" onClick={() => setMode("edit")}>Edit</button>
+                <button className="primary" onClick={() => setMode("edit")} disabled={!canEdit} title={!canEdit ? "Your role doesn't have permission to edit assets" : undefined}>Edit</button>
                 <button className="ghost" onClick={() => form.id !== null && onViewTriggers(form.id, form.asset_code)}>
                   View triggers
                 </button>
@@ -271,9 +297,14 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
               </>
             ) : (
               <>
-                <button className="primary" onClick={handleSave}>
+                <button className="primary" onClick={handleSave} disabled={mode === "create" && !canCreate}>
                   {mode === "create" ? "Create asset" : "Save changes"}
                 </button>
+                {mode === "create" && !canCreate && (
+                  <span style={{ fontSize: 11, color: "var(--text-soft)" }}>
+                    Your role doesn't have permission to create assets.
+                  </span>
+                )}
                 {mode === "edit" && (
                   <button className="ghost" onClick={resetForm}>Cancel</button>
                 )}
@@ -336,13 +367,13 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
                     </div>
                   </div>
                   <div className="card-actions">
-                    <button className="icon-btn" aria-label="Edit" onClick={(e) => handleEdit(e, a)}>
+                    <button className="icon-btn" aria-label="Edit" onClick={(e) => handleEdit(e, a)} disabled={!canEdit} title={!canEdit ? "Your role doesn't have permission to edit assets" : "Edit"}>
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"
                           stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
                       </svg>
                     </button>
-                    <button className="icon-btn icon-danger" aria-label="Delete" onClick={(e) => requestDelete(e, a)}>
+                    <button className="icon-btn icon-danger" aria-label="Delete" onClick={(e) => requestDelete(e, a)} disabled={!canDelete} title={!canDelete ? "Your role doesn't have permission to delete assets" : "Delete"}>
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                         <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />

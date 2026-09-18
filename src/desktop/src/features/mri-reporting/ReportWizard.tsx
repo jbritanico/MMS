@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { useMriReport, useSubmitMriReport, usePreviousEngineHours, usePendingChecklistItemIds } from "./hooks/useMriReports";
+import { useMriReport, useSubmitMriReport, useEndorseMriReport, useCloseMriReport, usePreviousEngineHours, usePendingChecklistItemIds } from "./hooks/useMriReports";
 import { useAssets } from "../asset-registry/hooks/useAssets";
 import { useMriTemplates } from "../administration/hooks/useMriTemplates";
 import { useTemplateHeaderFields, useHeaderFieldCatalog } from "../mri-template-builder/hooks/useTemplateHeaderFields";
@@ -22,9 +22,9 @@ import {
     type MriReportChecklistResult,
     type MriReportAttachment,
 } from "./hooks/useMriReportValues";
-import { useEnsureMriFaultApproval, useCarriedForwardFaults, useOpenPriorIssues } from "./hooks/useMriFaultApprovals";
+import { useCarriedForwardFaults, useOpenPriorIssues } from "./hooks/useMriFaultApprovals";
 import { useCurrentUser } from "../../lib/currentUser";
-import { useAppUsers } from "../administration/hooks/useUserAdmin";
+import { useAppUsers, useEffectivePermissions } from "../administration/hooks/useUserAdmin";
 import { useTemplateChecklistItems } from "../mri-template-builder/hooks/useTemplateChecklistItems";
 import { useChecklistItems } from "../administration/hooks/useChecklistDatabank";
 import { useTemplateDrawing, useTemplateDrawingHotspots } from "../mri-template-builder/hooks/useTemplateDrawing";
@@ -54,11 +54,18 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
     const { data: carriedForward = [] } = useCarriedForwardFaults(reportId);
     const { data: openPriorIssues = [] } = useOpenPriorIssues(report?.asset_id ?? null, reportId);
     const submitReport = useSubmitMriReport();
+    const endorseReport = useEndorseMriReport();
+    const closeReport = useCloseMriReport();
+    const { user: currentUser } = useCurrentUser();
+    const { data: permissions = [] } = useEffectivePermissions(currentUser?.id ?? 0);
+    const canEndorse = permissions.includes("mri.endorse_report");
 
     const [step, setStep] = useState<Step>("header");
     const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
     const [reviewIssues, setReviewIssues] = useState<string[]>([]);
     const [showSubmittedDialog, setShowSubmittedDialog] = useState(false);
+    const [showEndorsedDialog, setShowEndorsedDialog] = useState<string | null>(null);
+    const [showClosedDialog, setShowClosedDialog] = useState(false);
     const currentIndex = STEPS.findIndex((s) => s.id === step);
 
     function flash(msg: string, kind: "ok" | "err") {
@@ -81,6 +88,26 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
         try {
             await submitReport.mutateAsync(reportId);
             setShowSubmittedDialog(true);
+        } catch (err) {
+            flash(String(err), "err");
+        }
+    }
+
+    async function handleEndorse() {
+        if (!currentUser) return;
+        try {
+            const message = await endorseReport.mutateAsync({ reportId, endorsedBy: currentUser.name });
+            setShowEndorsedDialog(message);
+        } catch (err) {
+            flash(String(err), "err");
+        }
+    }
+
+    async function handleClose() {
+        if (!currentUser) return;
+        try {
+            await closeReport.mutateAsync({ reportId, closedBy: currentUser.name });
+            setShowClosedDialog(true);
         } catch (err) {
             flash(String(err), "err");
         }
@@ -146,6 +173,28 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
                 </div>
             )}
 
+            {report.status === "Submitted" && canEndorse && (
+                <div className="panel" style={{ maxWidth: 500, marginBottom: 16, padding: 14 }}>
+                    <p style={{ fontSize: 13, marginBottom: 10 }}>
+                        This report is awaiting your endorsement. If it's Minor-only it will be marked
+                        Endorsed; if it has Moderate/Critical faults it will be Escalated for review.
+                        Either way it still needs to be closed afterward.
+                    </p>
+                    <button className="primary" onClick={handleEndorse}>Endorse Report</button>
+                </div>
+            )}
+
+            {(report.status === "Endorsed" || report.status === "Escalated") && canEndorse && (
+                <div className="panel" style={{ maxWidth: 500, marginBottom: 16, padding: 14 }}>
+                    <p style={{ fontSize: 13, marginBottom: 10 }}>
+                        {report.status === "Endorsed"
+                            ? "This report was endorsed with no faults requiring escalation. Close it to finish."
+                            : "This report is Escalated. It can be closed once every escalated fault has been reviewed (and, if Critical, rectified and verified)."}
+                    </p>
+                    <button className="primary" onClick={handleClose}>Close Report</button>
+                </div>
+            )}
+
             <div className="wizard-steps">
                 {STEPS.map((s, i) => (
                     <div key={s.id} className={`wizard-step ${i === currentIndex ? "active" : ""} ${i < currentIndex ? "done" : ""}`}>
@@ -207,6 +256,56 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
                                 className="primary"
                                 onClick={() => {
                                     setShowSubmittedDialog(false);
+                                    onBack();
+                                }}
+                            >
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showEndorsedDialog && (
+                <div className="modal-overlay">
+                    <div className="modal">
+                        <div className="modal-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M20 6L9 17L4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                        </div>
+                        <h3>Report endorsed</h3>
+                        <p>{showEndorsedDialog}</p>
+                        <div className="modal-actions">
+                            <button
+                                className="primary"
+                                onClick={() => {
+                                    setShowEndorsedDialog(null);
+                                    onBack();
+                                }}
+                            >
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showClosedDialog && (
+                <div className="modal-overlay">
+                    <div className="modal">
+                        <div className="modal-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M20 6L9 17L4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                        </div>
+                        <h3>Report closed</h3>
+                        <p>This MR-I report is now closed. A new report can be started for this asset.</p>
+                        <div className="modal-actions">
+                            <button
+                                className="primary"
+                                onClick={() => {
+                                    setShowClosedDialog(false);
                                     onBack();
                                 }}
                             >
@@ -903,7 +1002,7 @@ function ChecklistEntryStep({ templateId, reportId, locked, assetId }: { templat
     const { data: attachments = [] } = useMriReportAttachments(reportId);
     const addAttachment = useAddMriReportAttachment(reportId);
     const deleteAttachment = useDeleteMriReportAttachment(reportId);
-    const ensureFaultApproval = useEnsureMriFaultApproval(reportId);
+  
 
     function attachmentsFor(templateChecklistItemId: number) {
         return attachments.filter((a) => a.template_checklist_item_id === templateChecklistItemId);
@@ -970,12 +1069,10 @@ function ChecklistEntryStep({ templateId, reportId, locked, assetId }: { templat
                 closure_status: current.closure_status ?? "Pending",
             });
 
-            if (current.status === "Fail" && (current.severity === "Moderate" || current.severity === "Critical")) {
-                ensureFaultApproval.mutate({
-                    templateChecklistItemId: ti.id,
-                    originalSeverity: current.severity,
-                });
-            }
+            // Escalation to the higher-level Pending Approvals queue no longer happens
+            // here at data-entry time -- it happens when the Job Supervisor endorses the
+            // submitted report (see endorse_mri_report), so nothing reaches the review
+            // queue until someone has actually looked at the completed report.
         } catch (err) {
             flash(String(err), "err");
         }
