@@ -22,7 +22,7 @@ import {
     type MriReportChecklistResult,
     type MriReportAttachment,
 } from "./hooks/useMriReportValues";
-import { useEnsureMriFaultApproval, useCarriedForwardFaults } from "./hooks/useMriFaultApprovals";
+import { useEnsureMriFaultApproval, useCarriedForwardFaults, useOpenPriorIssues } from "./hooks/useMriFaultApprovals";
 import { useCurrentUser } from "../../lib/currentUser";
 import { useAppUsers } from "../administration/hooks/useUserAdmin";
 import { useTemplateChecklistItems } from "../mri-template-builder/hooks/useTemplateChecklistItems";
@@ -52,6 +52,7 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
     const { data: assets = [] } = useAssets();
     const { data: templates = [] } = useMriTemplates();
     const { data: carriedForward = [] } = useCarriedForwardFaults(reportId);
+    const { data: openPriorIssues = [] } = useOpenPriorIssues(report?.asset_id ?? null, reportId);
     const submitReport = useSubmitMriReport();
 
     const [step, setStep] = useState<Step>("header");
@@ -114,6 +115,25 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
                             <li key={f.id}>
                                 {f.checklist_description ?? "Checklist item"} — {f.original_severity}
                                 {f.notes ? ` (${f.notes})` : ""}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+
+            {openPriorIssues.length > 0 && (
+                <div className="panel" style={{ maxWidth: 600, marginBottom: 16, padding: 14, background: "var(--neu-bg)" }}>
+                    <strong style={{ fontSize: 13 }}>
+                        {openPriorIssues.length} open issue{openPriorIssues.length === 1 ? "" : "s"} still pending from earlier reports on this asset (read-only history):
+                    </strong>
+                    <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                        {openPriorIssues.map((issue) => (
+                            <li key={issue.id} style={{ fontSize: 12.5, marginBottom: 6 }}>
+                                <strong>{issue.checklist_description ?? "Checklist item"}</strong>
+                                {issue.severity ? ` — ${issue.severity}` : ""}
+                                {issue.issue_details ? <div style={{ color: "var(--text-soft)" }}>Issue: {issue.issue_details}</div> : null}
+                                {issue.action_taken ? <div style={{ color: "var(--text-soft)" }}>Action Taken: {issue.action_taken}</div> : null}
+                                {issue.date_observed ? <div style={{ color: "var(--text-soft)" }}>Observed: {issue.date_observed} (Report #{issue.report_id})</div> : null}
                             </li>
                         ))}
                     </ul>

@@ -139,3 +139,22 @@ export function useCarriedForwardFaults(reportId: number) {
     enabled: !!reportId,
   });
 }
+
+// Read-only history of any checklist item still closure_status = 'Pending' on an earlier
+// report for the same asset, regardless of severity -- query-derived, not a stored link.
+export interface OpenPriorIssueRow {
+  id: number;
+  report_id: number;
+  checklist_description: string | null;
+  severity: "Minor" | "Moderate" | "Critical" | null;
+  issue_details: string | null;
+  action_taken: string | null;
+  date_observed: string | null;
+}
+export function useOpenPriorIssues(assetId: number | null, currentReportId: number) {
+  return useQuery({
+    queryKey: ["open-prior-issues", assetId, currentReportId],
+    queryFn: () => invoke<OpenPriorIssueRow[]>("get_open_prior_issues", { assetId, currentReportId }),
+    enabled: !!assetId && !!currentReportId,
+  });
+}

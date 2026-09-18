@@ -690,7 +690,7 @@ fn get_connection() -> Result<Connection, String> {
 }
 
 fn seed_permissions(conn: &Connection) -> Result<(), String> {
-    let perms: [(&str, &str, &str); 23] = [
+    let perms: [(&str, &str, &str); 24] = [
         ("assets.view", "View assets", "Asset Registry"),
         ("assets.create", "Create assets", "Asset Registry"),
         ("assets.edit", "Edit assets", "Asset Registry"),
@@ -708,6 +708,11 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
         ),
         ("mri.close_defect", "Close MR-I defects", "MR-I Reporting"),
         ("mri.approve", "Approve MR-I reports", "MR-I Reporting"),
+        (
+            "mri.endorse_report",
+            "Endorse a submitted MR-I report -- closes it if Minor-only, or escalates its Moderate/Critical faults for review",
+            "MR-I Reporting",
+        ),
         (
             "mri.acknowledge_critical",
             "Acknowledge critical defects",
@@ -811,6 +816,7 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
                 "assets.view",
                 "mri.submit",
                 "mri.record_provisional",
+                "mri.endorse_report",
                 "mri_templates.view",
                 "data_browser.view",
             ],
@@ -824,6 +830,7 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
                 "mri.close_defect",
                 "mri.confirm_provisional",
                 "mri.rectify",
+                "mri.endorse_report",
                 "mri_templates.view",
                 "data_browser.view",
             ],
@@ -840,6 +847,7 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
                 "mri.approve",
                 "mri.acknowledge_critical",
                 "mri.confirm_provisional",
+                "mri.endorse_report",
                 "mri_templates.view",
                 "mri_templates.edit",
                 "data_browser.view",
@@ -861,6 +869,7 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
                 "mri.rectify",
                 "mri.confirm_provisional",
                 "mri.record_provisional",
+                "mri.endorse_report",
                 "mri_templates.view",
                 "mri_templates.edit",
                 "mri_templates.delete",
@@ -2624,6 +2633,91 @@ fn ensure_mri_fault_approval(
     Ok("Fault approval ensured".to_string())
 }
 
+// The Job Supervisor's endorsement of a Submitted report. This is the ONE action that
+// closes a Minor-only report AND escalates any Moderate/Critical faults on it -- fault
+// approval records are no longer created immediately at data-entry time (see the removed
+// call in ChecklistEntryStep's autoSave); they're created here, at endorsement, so nothing
+// reaches the higher-level Pending Approvals queue until the Supervisor has reviewed and
+// endorsed the report it came from.
+#[tauri::command]
+fn endorse_mri_report(report_id: i64, endorsed_by: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    let endorsed_by = endorsed_by.trim();
+    if endorsed_by.is_empty() {
+        return Err("Endorsed-by name is required".to_string());
+    }
+
+    let status: String = conn
+        .query_row(
+            "SELECT status FROM mri_reports WHERE id = ?1",
+            [report_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if status != "Submitted" {
+        return Err(format!(
+            "Report must be Submitted before it can be endorsed (current status: {})",
+            status
+        ));
+    }
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT template_checklist_item_id, severity FROM mri_report_checklist_results
+             WHERE report_id = ?1 AND status = 'Fail' AND severity IN ('Moderate', 'Critical')",
+        )
+        .map_err(|e| e.to_string())?;
+    let items: Vec<(i64, String)> = stmt
+        .query_map([report_id], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    drop(stmt);
+
+    let now = chrono_now();
+    let escalated_count = items.len();
+    for (template_checklist_item_id, severity) in &items {
+        let existing_decision: Option<String> = conn
+            .query_row(
+                "SELECT decision FROM mri_fault_approvals WHERE report_id = ?1 AND template_checklist_item_id = ?2",
+                rusqlite::params![report_id, template_checklist_item_id],
+                |row| row.get(0),
+            )
+            .ok();
+        match existing_decision {
+            None => {
+                conn.execute(
+                    "INSERT INTO mri_fault_approvals (report_id, template_checklist_item_id, original_severity, decision, created_date, updated_date)
+                     VALUES (?1, ?2, ?3, 'Pending', ?4, ?4)",
+                    rusqlite::params![report_id, template_checklist_item_id, severity, now],
+                ).map_err(|e| e.to_string())?;
+            }
+            Some(decision) if decision == "Pending" => {
+                conn.execute(
+                    "UPDATE mri_fault_approvals SET original_severity = ?1, updated_date = ?2 WHERE report_id = ?3 AND template_checklist_item_id = ?4",
+                    rusqlite::params![severity, now, report_id, template_checklist_item_id],
+                ).map_err(|e| e.to_string())?;
+            }
+            _ => {}
+        }
+    }
+
+    conn.execute(
+        "UPDATE mri_reports SET status = 'Approved', approved_by = ?1, approved_date = ?2 WHERE id = ?3",
+        rusqlite::params![endorsed_by, now, report_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    if escalated_count > 0 {
+        Ok(format!(
+            "Report endorsed — {} fault(s) escalated for review",
+            escalated_count
+        ))
+    } else {
+        Ok("Report endorsed and closed — no faults required escalation".to_string())
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct PendingFaultApprovalRow {
     id: i64,
@@ -4270,6 +4364,58 @@ fn get_pending_checklist_item_ids(
     Ok(ids)
 }
 
+// Read-only history: any checklist item still closure_status = 'Pending' on an EARLIER
+// report for this asset, regardless of severity (Minor included) or whether it ever went
+// through the mri_fault_approvals escalation table. This is intentionally query-derived
+// rather than a stored link column -- it's always correct off of closure_status directly,
+// with no separate state to keep in sync or go stale (see the purge/orphaned-drawer-data
+// bug from a few days ago for why a stored pointer would be the wrong call here).
+#[derive(Serialize, Deserialize)]
+struct OpenPriorIssueRow {
+    id: i64,
+    report_id: i64,
+    checklist_description: Option<String>,
+    severity: Option<String>,
+    issue_details: Option<String>,
+    action_taken: Option<String>,
+    date_observed: Option<String>,
+}
+
+#[tauri::command]
+fn get_open_prior_issues(
+    asset_id: i64,
+    current_report_id: i64,
+) -> Result<Vec<OpenPriorIssueRow>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT r.id, r.report_id, cd.description, r.severity, r.issue_details, r.action_taken, r.date_observed
+         FROM mri_report_checklist_results r
+         JOIN mri_reports rep ON r.report_id = rep.id
+         JOIN template_checklist_items tci ON r.template_checklist_item_id = tci.id
+         LEFT JOIN checklist_databank cd ON tci.checklist_item_id = cd.id
+         WHERE rep.asset_id = ?1 AND rep.id != ?2 AND r.closure_status = 'Pending'
+         ORDER BY r.date_observed DESC",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(rusqlite::params![asset_id, current_report_id], |row| {
+            Ok(OpenPriorIssueRow {
+                id: row.get(0)?,
+                report_id: row.get(1)?,
+                checklist_description: row.get(2)?,
+                severity: row.get(3)?,
+                issue_details: row.get(4)?,
+                action_taken: row.get(5)?,
+                date_observed: row.get(6)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
+}
+
 #[derive(Serialize, Deserialize)]
 struct IconSearchResult {
     icons: Vec<String>,
@@ -4806,6 +4952,7 @@ pub fn run() {
             preview_mri_report_purge,
             purge_mri_reports,
             get_pending_checklist_item_ids,
+            get_open_prior_issues,
             search_icons,
             fetch_icon_svg,
             get_assets_with_pending_issues,
