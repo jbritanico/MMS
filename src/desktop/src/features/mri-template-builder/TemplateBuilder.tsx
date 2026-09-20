@@ -14,7 +14,7 @@ import {
   useUpdateTemplateChecklistItem,
   type TemplateChecklistItem,
 } from "./hooks/useTemplateChecklistItems";
-import { useChecklistItems } from "../administration/hooks/useChecklistDatabank";
+import { useChecklistItems } from "../administration/hooks/useChecklistDataBank";
 import { useChecklistSections } from "../administration/hooks/useChecklistSections";
 import {
   useMidFieldCatalog,

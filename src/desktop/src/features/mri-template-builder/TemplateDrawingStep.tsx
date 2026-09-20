@@ -10,7 +10,7 @@ import {
   useSetHotspotChecklistItems,
 } from "./hooks/useTemplateDrawing";
 import { useTemplateChecklistItems } from "./hooks/useTemplateChecklistItems";
-import { useChecklistItems } from "../administration/hooks/useChecklistDatabank";
+import { useChecklistItems } from "../administration/hooks/useChecklistDataBank";
 import { useChecklistSections } from "../administration/hooks/useChecklistSections";
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB safety cap for equipment drawings

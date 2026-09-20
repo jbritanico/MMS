@@ -7,9 +7,9 @@ import { isMapFeatureEnabled, setMapFeatureEnabled } from "../../lib/mapFeatureF
 import { useEffectivePermissions } from "../administration/hooks/useUserAdmin";
 import { usePendingMriFaultApprovals, useProvisionalMriFaultApprovals } from "../mri-reporting/hooks/useMriFaultApprovals";
 import { usePendingMriFaultRectifications } from "../mri-reporting/hooks/useMriFaultRectifications";
-import { useReportsNeedingSupervisorAction } from "../mri-reporting/hooks/useMriReports";
+import { useReportsNeedingSupervisorAction, useMyOpenMriReports } from "../mri-reporting/hooks/useMriReports";
 
-type Screen = "assets" | "reports" | "dashboard" | "admin" | "uilab" | "distance-map-test" | "pending-approvals" | "rectification-queue" | "report-review-queue";
+type Screen = "assets" | "reports" | "dashboard" | "admin" | "uilab" | "distance-map-test" | "pending-approvals" | "rectification-queue" | "report-review-queue" | "my-reports-queue";
 type MrLevel = "MR-I" | "MR-II" | "MR-III";
 
 interface MainMenuProps {
@@ -96,19 +96,26 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
   const { user: currentUser, clearCurrentUser } = useCurrentUser();
   const { data: effectivePermissions = [] } = useEffectivePermissions(currentUser?.id ?? 0);
   const canReviewApprovals = effectivePermissions.includes("mri.close_defect") || effectivePermissions.includes("mri.approve");
-  const { data: pendingApprovals = [] } = usePendingMriFaultApprovals();
+  const { data: pendingApprovals = [] } = usePendingMriFaultApprovals(currentUser?.id ?? 0);
   const pendingApprovalsCount = pendingApprovals.length;
   const canRectify = effectivePermissions.includes("mri.rectify");
-  const { data: pendingRectifications = [] } = usePendingMriFaultRectifications();
+  const { data: pendingRectifications = [] } = usePendingMriFaultRectifications(currentUser?.id ?? 0);
   const pendingRectificationsCount = pendingRectifications.length;
   const canConfirmProvisional = effectivePermissions.includes("mri.confirm_provisional");
-  const { data: provisionalApprovals = [] } = useProvisionalMriFaultApprovals();
+  const { data: provisionalApprovals = [] } = useProvisionalMriFaultApprovals(currentUser?.id ?? 0);
   const provisionalCount = provisionalApprovals.length;
   const canReviewReports = effectivePermissions.includes("mri.endorse_report");
-  const { data: reportsNeedingAction = [] } = useReportsNeedingSupervisorAction();
+  const { data: reportsNeedingAction = [] } = useReportsNeedingSupervisorAction(currentUser?.id ?? 0);
   const reportsNeedingActionCount = reportsNeedingAction.length;
-  const canOpenFaultReview = canReviewApprovals || canRectify || canConfirmProvisional || canReviewReports;
-  const faultReviewTotal = pendingApprovalsCount + provisionalCount + pendingRectificationsCount + reportsNeedingActionCount;
+  const { data: myOpenReports = [] } = useMyOpenMriReports(currentUser?.name);
+  const myOpenReportsCount = myOpenReports.length;
+  const canOpenFaultReview = canReviewApprovals || canRectify || canConfirmProvisional || canReviewReports || myOpenReportsCount > 0;
+  const faultReviewTotal =
+    (canReviewApprovals ? pendingApprovalsCount : 0) +
+    (canConfirmProvisional ? provisionalCount : 0) +
+    (canRectify ? pendingRectificationsCount : 0) +
+    (canReviewReports ? reportsNeedingActionCount : 0) +
+    myOpenReportsCount;
   function handleSwitchUser() {
     setDrawerOpen(false);
     clearCurrentUser();
@@ -263,7 +270,12 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
 
       {faultDrawerOpen && createPortal(
         <div className="side-drawer-overlay" onClick={() => setFaultDrawerOpen(false)}>
-          <div className="side-drawer" onClick={(e) => e.stopPropagation()}>
+          <div className="side-drawer side-drawer-wide" onClick={(e) => e.stopPropagation()}>
+            <div className="drawer-user-card">
+              <div className="drawer-user-name">{currentUser?.name ?? "Unknown user"}</div>
+              <div className="drawer-user-role">{currentUser?.role ?? "No role"}</div>
+            </div>
+
             <div className="drawer-section-label">Fault Review</div>
 
             {canReviewApprovals && (
@@ -280,6 +292,25 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
                     onClick={() => { setFaultDrawerOpen(false); onNavigate("pending-approvals"); }}
                   >
                     Review
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {myOpenReportsCount > 0 && (
+              <div className="drawer-user-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <div>
+                  <div className="drawer-user-name">My Reports</div>
+                  <div className="drawer-user-role">MR-I reports you submitted that aren't closed yet</div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                  <span style={{ fontSize: 20, fontWeight: 700, color: "var(--text)" }}>{myOpenReportsCount}</span>
+                  <button
+                    className="primary"
+                    style={{ padding: "5px 10px", fontSize: 12 }}
+                    onClick={() => { setFaultDrawerOpen(false); onNavigate("my-reports-queue"); }}
+                  >
+                    View
                   </button>
                 </div>
               </div>

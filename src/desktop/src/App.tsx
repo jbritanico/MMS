@@ -14,30 +14,13 @@ import DistanceMapTest from "./features/distance-map-test/DistanceMapTest";
 import PendingApprovals from "./features/mri-reporting/PendingApprovals";
 import RectificationQueue from "./features/mri-reporting/RectificationQueue";
 import ReportReviewQueue from "./features/mri-reporting/ReportReviewQueue";
-import { THEMES, type Theme } from "./lib/theme";
+import MyReportsQueue from "./features/mri-reporting/MyReportsQueue";
+import type { Theme } from "./lib/theme";
 import { CurrentUserProvider } from "./lib/currentUser";
 import UserPickerGate from "./lib/UserPickerGate";
 
-type Screen = "menu" | "assets" | "reports" | "dashboard" | "admin" | "triggers" | "uilab" | "distance-map-test" | "template-builder" | "select-asset-report" | "report-wizard" | "pending-approvals" | "rectification-queue" | "report-review-queue";
+type Screen = "menu" | "assets" | "reports" | "dashboard" | "admin" | "triggers" | "uilab" | "distance-map-test" | "template-builder" | "select-asset-report" | "report-wizard" | "pending-approvals" | "rectification-queue" | "report-review-queue" | "my-reports-queue";
 type MrLevel = "MR-I" | "MR-II" | "MR-III";
-
-const LABELS: Record<Screen, string> = {
-  menu: "Main Menu",
-  assets: "Asset Registry",
-  reports: "Maintenance Report",
-  dashboard: "Dashboard",
-  admin: "Administration",
-  triggers: "Maintenance Triggers",
-  uilab: "UI Lab",
-  "distance-map-test": "Distance Map (Test)",
-  "template-builder": "MR-I Template Builder",
-  "select-asset-report": "Select Asset",
-  "report-wizard": "MR-I Report",
-  "pending-approvals": "Pending Approvals",
-  "rectification-queue": "Rectification Queue",
-  "report-review-queue": "Reports to Review",
-};
-
 
 const queryClient = new QueryClient();
 
@@ -583,6 +566,9 @@ function App() {
             gap: 18px;
             overflow-y: auto;
             animation: drawer-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+          }
+          .side-drawer-wide {
+            width: min(420px, 90vw);
           }
           @keyframes drawer-in {
             from { transform: translateX(100%); }
@@ -1770,6 +1756,7 @@ function App() {
             {screen === "pending-approvals" && <PendingApprovals />}
             {screen === "rectification-queue" && <RectificationQueue />}
             {screen === "report-review-queue" && <ReportReviewQueue onOpenReport={handleReportCreated} />}
+            {screen === "my-reports-queue" && <MyReportsQueue onOpenReport={handleReportCreated} />}
             {screen === "template-builder" && selectedTemplate && (
               <TemplateBuilder
                 templateId={selectedTemplate.id}

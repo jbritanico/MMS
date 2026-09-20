@@ -21,7 +21,7 @@ interface MriTemplatesProps {
   selectedTemplateId: number | null;
 }
 
-function MriTemplates({ onOpenTemplate, selectedTemplateId }: MriTemplatesProps) {
+function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
   const { data: templates = [], isLoading } = useMriTemplates();
   const { data: assetTypes = [] } = useAssetTypes();
   const createTemplate = useCreateMriTemplate();

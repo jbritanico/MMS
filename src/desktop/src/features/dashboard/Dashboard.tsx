@@ -419,7 +419,7 @@ function Dashboard() {
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
         {kpis.map((k) => (
-          <KPICard key={k.key} {...k} active={tabToKpi[tab] === k.key} onClick={() => {
+          <KPICard {...k} key={k.key} active={tabToKpi[tab] === k.key} onClick={() => {
             const target = Object.keys(tabToKpi).find((t) => tabToKpi[t] === k.key);
             if (target) setTab(target);
           }} />

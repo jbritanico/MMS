@@ -1,18 +1,18 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-16T04:46:58.158Z",
+  "generatedAt": "2026-09-19T14:25:11.599Z",
   "rootPath": "c:\\Users\\IS\\Documents\\GitHub\\MMS",
   "summary": {
-    "totalFiles": 63,
-    "totalEdges": 136,
-    "totalLines": 14235,
+    "totalFiles": 64,
+    "totalEdges": 142,
+    "totalLines": 14806,
     "languages": [
       "js"
     ],
     "flowStages": {
       "start": 7,
       "main": 28,
-      "core": 5,
+      "core": 6,
       "helpers": 23
     }
   },
@@ -23,20 +23,20 @@
       "stage": "start",
       "lang": "js",
       "ext": ".tsx",
-      "lines": 1791,
-      "size": 68845,
+      "lines": 1794,
+      "size": 69101,
       "collaboration": {
         "status": "collaborative",
         "impact": "bridge",
         "summary": "Connects multiple parts of the code flow.",
-        "score": 41
+        "score": 44
       },
-      "crossStageLinks": 12,
-      "impactScore": 41,
+      "crossStageLinks": 13,
+      "impactScore": 44,
       "isDeadCode": false,
       "isOrphan": false,
       "isCircular": false,
-      "hotspotScore": 42,
+      "hotspotScore": 44,
       "hotspotLevel": "high",
       "summary": "Entry or startup logic. Functions: App, handleOpenTemplate, handleReportCreated, handleThemeChange",
       "functions": [
@@ -66,6 +66,7 @@
         "src/desktop/src/features/distance-map-test/DistanceMapTest.tsx",
         "src/desktop/src/features/mri-reporting/PendingApprovals.tsx",
         "src/desktop/src/features/mri-reporting/RectificationQueue.tsx",
+        "src/desktop/src/features/mri-reporting/ReportReviewQueue.tsx",
         "src/desktop/src/lib/theme.ts",
         "src/desktop/src/lib/currentUser.tsx",
         "src/desktop/src/lib/UserPickerGate.tsx"
@@ -706,8 +707,8 @@
       "stage": "helpers",
       "lang": "js",
       "ext": ".ts",
-      "lines": 58,
-      "size": 1871,
+      "lines": 67,
+      "size": 2431,
       "collaboration": {
         "status": "connected",
         "impact": "leaf",
@@ -753,19 +754,19 @@
       "lang": "js",
       "ext": ".ts",
       "lines": 112,
-      "size": 3207,
+      "size": 3268,
       "collaboration": {
         "status": "collaborative",
         "impact": "bridge",
         "summary": "Connects multiple parts of the code flow.",
-        "score": 27
+        "score": 33
       },
-      "crossStageLinks": 9,
-      "impactScore": 27,
+      "crossStageLinks": 11,
+      "impactScore": 33,
       "isDeadCode": false,
       "isOrphan": false,
       "isCircular": false,
-      "hotspotScore": 31,
+      "hotspotScore": 37,
       "hotspotLevel": "high",
       "summary": "Support or shared utility code. Functions: useAppUsers, useCreateAppUser, useUpdateAppUser, useDeleteAppUser",
       "functions": [
@@ -801,9 +802,11 @@
         "src/desktop/src/features/administration/Roles.tsx",
         "src/desktop/src/features/administration/UserPermissions.tsx",
         "src/desktop/src/features/administration/Users.tsx",
+        "src/desktop/src/features/asset-registry/AssetRegistry.tsx",
         "src/desktop/src/features/main-menu/MainMenu.tsx",
         "src/desktop/src/features/mri-reporting/PendingApprovals.tsx",
         "src/desktop/src/features/mri-reporting/RectificationQueue.tsx",
+        "src/desktop/src/features/mri-reporting/ReportWizard.tsx",
         "src/desktop/src/lib/currentUser.tsx",
         "src/desktop/src/lib/useCurrentUserPermissions.ts"
       ]
@@ -1148,20 +1151,20 @@
       "stage": "main",
       "lang": "js",
       "ext": ".tsx",
-      "lines": 351,
-      "size": 15715,
+      "lines": 416,
+      "size": 18727,
       "collaboration": {
         "status": "collaborative",
         "impact": "bridge",
         "summary": "Connects multiple parts of the code flow.",
-        "score": 20
+        "score": 23
       },
-      "crossStageLinks": 6,
-      "impactScore": 20,
+      "crossStageLinks": 7,
+      "impactScore": 23,
       "isDeadCode": false,
       "isOrphan": false,
       "isCircular": false,
-      "hotspotScore": 23,
+      "hotspotScore": 25,
       "hotspotLevel": "medium",
       "summary": "Main orchestration code. Functions: AssetRegistry, updateField, resetForm, handleSave",
       "functions": [
@@ -1184,7 +1187,8 @@
         "src/desktop/src/features/administration/hooks/useMriTemplates.ts",
         "src/desktop/src/features/administration/hooks/useLookups.ts",
         "src/desktop/src/features/administration/AssetTypeCombobox.tsx",
-        "src/desktop/src/lib/currentUser.tsx"
+        "src/desktop/src/lib/currentUser.tsx",
+        "src/desktop/src/features/administration/hooks/useUserAdmin.ts"
       ],
       "usedBy": [
         "src/desktop/src/App.tsx"
@@ -1323,8 +1327,8 @@
       "stage": "helpers",
       "lang": "js",
       "ext": ".ts",
-      "lines": 33,
-      "size": 743,
+      "lines": 37,
+      "size": 980,
       "collaboration": {
         "status": "connected",
         "impact": "leaf",
@@ -1446,20 +1450,20 @@
       "stage": "start",
       "lang": "js",
       "ext": ".tsx",
-      "lines": 410,
-      "size": 17974,
+      "lines": 433,
+      "size": 19386,
       "collaboration": {
         "status": "collaborative",
         "impact": "bridge",
         "summary": "Connects multiple parts of the code flow.",
-        "score": 17
+        "score": 20
       },
-      "crossStageLinks": 5,
-      "impactScore": 17,
+      "crossStageLinks": 6,
+      "impactScore": 20,
       "isDeadCode": false,
       "isOrphan": false,
       "isCircular": false,
-      "hotspotScore": 21,
+      "hotspotScore": 23,
       "hotspotLevel": "medium",
       "summary": "Entry or startup logic. Functions: MainMenu, handleMapFeatureToggle, handleSwitchUser, handleCardClick",
       "functions": [
@@ -1477,7 +1481,8 @@
         "src/desktop/src/lib/mapFeatureFlag.ts",
         "src/desktop/src/features/administration/hooks/useUserAdmin.ts",
         "src/desktop/src/features/mri-reporting/hooks/useMriFaultApprovals.ts",
-        "src/desktop/src/features/mri-reporting/hooks/useMriFaultRectifications.ts"
+        "src/desktop/src/features/mri-reporting/hooks/useMriFaultRectifications.ts",
+        "src/desktop/src/features/mri-reporting/hooks/useMriReports.ts"
       ],
       "usedBy": [
         "src/desktop/src/App.tsx"
@@ -1561,8 +1566,8 @@
       "stage": "start",
       "lang": "js",
       "ext": ".ts",
-      "lines": 122,
-      "size": 4609,
+      "lines": 161,
+      "size": 6093,
       "collaboration": {
         "status": "connected",
         "impact": "leaf",
@@ -1583,7 +1588,9 @@
         "useProvisionalMriFaultApprovals",
         "useEnsureMriFaultApproval",
         "useSetMriFaultApprovalDecision",
-        "useConfirmProvisionalApproval"
+        "useConfirmProvisionalApproval",
+        "useCarriedForwardFaults",
+        "useOpenPriorIssues"
       ],
       "classes": [],
       "exports": [
@@ -1592,7 +1599,9 @@
         "useProvisionalMriFaultApprovals",
         "useEnsureMriFaultApproval",
         "useSetMriFaultApprovalDecision",
-        "useConfirmProvisionalApproval"
+        "useConfirmProvisionalApproval",
+        "useCarriedForwardFaults",
+        "useOpenPriorIssues"
       ],
       "imports": [
         "src/desktop/src/lib/ipc.ts"
@@ -1652,20 +1661,20 @@
       "stage": "helpers",
       "lang": "js",
       "ext": ".ts",
-      "lines": 90,
-      "size": 2805,
+      "lines": 148,
+      "size": 5348,
       "collaboration": {
         "status": "collaborative",
         "impact": "bridge",
         "summary": "Connects multiple parts of the code flow.",
-        "score": 9
+        "score": 15
       },
-      "crossStageLinks": 3,
-      "impactScore": 9,
+      "crossStageLinks": 5,
+      "impactScore": 15,
       "isDeadCode": false,
       "isOrphan": false,
       "isCircular": false,
-      "hotspotScore": 13,
+      "hotspotScore": 19,
       "hotspotLevel": "medium",
       "summary": "Support or shared utility code. Functions: useMriReports, useMriReport, useCreateMriReport, useDeleteMriReport",
       "functions": [
@@ -1674,6 +1683,9 @@
         "useCreateMriReport",
         "useDeleteMriReport",
         "useSubmitMriReport",
+        "useEndorseMriReport",
+        "useCloseMriReport",
+        "useReportsNeedingSupervisorAction",
         "useSetMriReportStatus",
         "usePreviousEngineHours",
         "usePendingChecklistItemIds",
@@ -1686,6 +1698,9 @@
         "useCreateMriReport",
         "useDeleteMriReport",
         "useSubmitMriReport",
+        "useEndorseMriReport",
+        "useCloseMriReport",
+        "useReportsNeedingSupervisorAction",
         "useSetMriReportStatus",
         "usePreviousEngineHours",
         "usePendingChecklistItemIds",
@@ -1695,6 +1710,8 @@
         "src/desktop/src/lib/ipc.ts"
       ],
       "usedBy": [
+        "src/desktop/src/features/main-menu/MainMenu.tsx",
+        "src/desktop/src/features/mri-reporting/ReportReviewQueue.tsx",
         "src/desktop/src/features/mri-reporting/ReportWizard.tsx",
         "src/desktop/src/features/mri-reporting/SelectAssetForReport.tsx"
       ]
@@ -1840,25 +1857,59 @@
       ]
     },
     {
+      "path": "src/desktop/src/features/mri-reporting/ReportReviewQueue.tsx",
+      "fileType": "module",
+      "stage": "core",
+      "lang": "js",
+      "ext": ".tsx",
+      "lines": 66,
+      "size": 3392,
+      "collaboration": {
+        "status": "connected",
+        "impact": "leaf",
+        "summary": "Part of the local code flow with a focused role.",
+        "score": 4
+      },
+      "crossStageLinks": 2,
+      "impactScore": 4,
+      "isDeadCode": false,
+      "isOrphan": false,
+      "isCircular": false,
+      "hotspotScore": 9,
+      "hotspotLevel": "low",
+      "summary": "Core business logic. Functions: ReportReviewQueue",
+      "functions": [
+        "ReportReviewQueue"
+      ],
+      "classes": [],
+      "exports": [],
+      "imports": [
+        "src/desktop/src/features/mri-reporting/hooks/useMriReports.ts"
+      ],
+      "usedBy": [
+        "src/desktop/src/App.tsx"
+      ]
+    },
+    {
       "path": "src/desktop/src/features/mri-reporting/ReportWizard.tsx",
       "fileType": "module",
       "stage": "core",
       "lang": "js",
       "ext": ".tsx",
-      "lines": 2240,
-      "size": 116021,
+      "lines": 2480,
+      "size": 129789,
       "collaboration": {
         "status": "collaborative",
         "impact": "bridge",
         "summary": "Connects multiple parts of the code flow.",
-        "score": 43
+        "score": 49
       },
-      "crossStageLinks": 14,
-      "impactScore": 43,
+      "crossStageLinks": 16,
+      "impactScore": 49,
       "isDeadCode": false,
       "isOrphan": false,
       "isCircular": false,
-      "hotspotScore": 39,
+      "hotspotScore": 43,
       "hotspotLevel": "high",
       "summary": "Core business logic. Functions: ReportWizard, flash, goNext, goBack",
       "functions": [
@@ -1867,6 +1918,8 @@
         "goNext",
         "goBack",
         "handleSubmit",
+        "handleEndorse",
+        "handleClose",
         "todayIso",
         "HeaderEntryStep",
         "fieldLabel",
@@ -1884,9 +1937,7 @@
         "itemInfo",
         "defaultStatusFor",
         "getResult",
-        "updateLocal",
-        "autoSave",
-        "severityIcon"
+        "updateLocal"
       ],
       "classes": [],
       "exports": [],
@@ -1900,6 +1951,8 @@
         "src/desktop/src/features/mri-template-builder/hooks/useTemplateFooterFields.ts",
         "src/desktop/src/features/mri-reporting/hooks/useMriReportValues.ts",
         "src/desktop/src/features/mri-reporting/hooks/useMriFaultApprovals.ts",
+        "src/desktop/src/lib/currentUser.tsx",
+        "src/desktop/src/features/administration/hooks/useUserAdmin.ts",
         "src/desktop/src/features/mri-template-builder/hooks/useTemplateChecklistItems.ts",
         "src/desktop/src/features/mri-template-builder/hooks/useTemplateDrawing.ts",
         "src/desktop/src/features/administration/hooks/useChecklistSections.ts",
@@ -2459,14 +2512,14 @@
         "status": "collaborative",
         "impact": "bridge",
         "summary": "Connects multiple parts of the code flow.",
-        "score": 18
+        "score": 21
       },
-      "crossStageLinks": 5,
-      "impactScore": 18,
+      "crossStageLinks": 6,
+      "impactScore": 21,
       "isDeadCode": false,
       "isOrphan": false,
       "isCircular": false,
-      "hotspotScore": 27,
+      "hotspotScore": 30,
       "hotspotLevel": "medium",
       "summary": "Main orchestration code. Functions: CurrentUserProvider, setCurrentUserId, clearCurrentUser, useCurrentUser",
       "functions": [
@@ -2489,6 +2542,7 @@
         "src/desktop/src/features/main-menu/MainMenu.tsx",
         "src/desktop/src/features/mri-reporting/PendingApprovals.tsx",
         "src/desktop/src/features/mri-reporting/RectificationQueue.tsx",
+        "src/desktop/src/features/mri-reporting/ReportWizard.tsx",
         "src/desktop/src/lib/useCurrentUserPermissions.ts",
         "src/desktop/src/lib/UserPickerGate.tsx"
       ]
@@ -2657,8 +2711,8 @@
       "stage": "main",
       "lang": "js",
       "ext": ".tsx",
-      "lines": 386,
-      "size": 14975,
+      "lines": 450,
+      "size": 17605,
       "collaboration": {
         "status": "connected",
         "impact": "leaf",
@@ -2672,13 +2726,16 @@
       "isCircular": false,
       "hotspotScore": 11,
       "hotspotLevel": "medium",
-      "summary": "Main orchestration code. Functions: roleBadge, useLiveClock, StatusPill, Microsoft365Mockup",
+      "summary": "Main orchestration code. Functions: tierAccent, roleBadge, useLiveClock, StatusPill",
       "functions": [
+        "tierAccent",
         "roleBadge",
         "useLiveClock",
         "StatusPill",
         "Microsoft365Mockup",
-        "UserPickerGate"
+        "UserPickerGate",
+        "nextUser",
+        "prevUser"
       ],
       "classes": [],
       "exports": [],

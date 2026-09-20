@@ -41,10 +41,13 @@ export interface PendingFaultApprovalRow {
 
 const PENDING_APPROVALS_KEY = ["pending-mri-fault-approvals"];
 
-export function usePendingMriFaultApprovals() {
+// Country-scoped server-side: a Maintenance Supervisor/Manager-FSM/Job Supervisor with
+// countries assigned only sees faults on assets in those countries.
+export function usePendingMriFaultApprovals(viewerUserId: number) {
   return useQuery({
-    queryKey: PENDING_APPROVALS_KEY,
-    queryFn: () => invoke<PendingFaultApprovalRow[]>("get_pending_mri_fault_approvals"),
+    queryKey: [...PENDING_APPROVALS_KEY, viewerUserId],
+    queryFn: () => invoke<PendingFaultApprovalRow[]>("get_pending_mri_fault_approvals", { viewerUserId }),
+    enabled: !!viewerUserId,
   });
 }
 
@@ -67,10 +70,12 @@ const PROVISIONAL_APPROVALS_KEY = ["provisional-mri-fault-approvals"];
 
 // Phoned-in decisions still awaiting the real authority's confirmation, regardless of
 // what the decision itself was — this is a separate queue from "pending review".
-export function useProvisionalMriFaultApprovals() {
+// Country-scoped server-side, same as the other review queues.
+export function useProvisionalMriFaultApprovals(viewerUserId: number) {
   return useQuery({
-    queryKey: PROVISIONAL_APPROVALS_KEY,
-    queryFn: () => invoke<ProvisionalFaultApprovalRow[]>("get_provisional_mri_fault_approvals"),
+    queryKey: [...PROVISIONAL_APPROVALS_KEY, viewerUserId],
+    queryFn: () => invoke<ProvisionalFaultApprovalRow[]>("get_provisional_mri_fault_approvals", { viewerUserId }),
+    enabled: !!viewerUserId,
   });
 }
 

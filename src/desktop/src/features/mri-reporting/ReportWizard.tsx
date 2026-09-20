@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { useMriReport, useSubmitMriReport, useEndorseMriReport, useCloseMriReport, usePreviousEngineHours, usePendingChecklistItemIds } from "./hooks/useMriReports";
+import { useMriReport, useSubmitMriReport, useEndorseMriReport, useCloseMriReport, useReviewAndCloseMriReport, usePreviousEngineHours, usePendingChecklistItemIds } from "./hooks/useMriReports";
 import { useAssets } from "../asset-registry/hooks/useAssets";
 import { useMriTemplates } from "../administration/hooks/useMriTemplates";
 import { useTemplateHeaderFields, useHeaderFieldCatalog } from "../mri-template-builder/hooks/useTemplateHeaderFields";
@@ -26,7 +26,7 @@ import { useCarriedForwardFaults, useOpenPriorIssues } from "./hooks/useMriFault
 import { useCurrentUser } from "../../lib/currentUser";
 import { useAppUsers, useEffectivePermissions } from "../administration/hooks/useUserAdmin";
 import { useTemplateChecklistItems } from "../mri-template-builder/hooks/useTemplateChecklistItems";
-import { useChecklistItems } from "../administration/hooks/useChecklistDatabank";
+import { useChecklistItems } from "../administration/hooks/useChecklistDataBank";
 import { useTemplateDrawing, useTemplateDrawingHotspots } from "../mri-template-builder/hooks/useTemplateDrawing";
 import { useChecklistSections } from "../administration/hooks/useChecklistSections";
 import { useLookups } from "../administration/hooks/useLookups";
@@ -56,9 +56,19 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
     const submitReport = useSubmitMriReport();
     const endorseReport = useEndorseMriReport();
     const closeReport = useCloseMriReport();
+    const reviewAndCloseReport = useReviewAndCloseMriReport();
     const { user: currentUser } = useCurrentUser();
     const { data: permissions = [] } = useEffectivePermissions(currentUser?.id ?? 0);
     const canEndorse = permissions.includes("mri.endorse_report");
+    const { data: checklistResultsForReview = [] } = useMriReportChecklistResults(reportId);
+    const hasEscalatableFault = checklistResultsForReview.some(
+        (r) => r.status === "Fail" && (r.severity === "Moderate" || r.severity === "Critical")
+    );
+    // While the report is Submitted and awaiting review, the Supervisor may unlock and
+    // close pending Minor checklist items before using Close & Approve Report -- but only
+    // on the no-issue/Minor path (a report with escalatable faults must go through Endorse
+    // Report and the Pending Approvals queue instead).
+    const canReviewClosure = report?.status === "Submitted" && canEndorse && !hasEscalatableFault;
 
     const [step, setStep] = useState<Step>("header");
     const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
@@ -107,6 +117,16 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
         if (!currentUser) return;
         try {
             await closeReport.mutateAsync({ reportId, closedBy: currentUser.name });
+            setShowClosedDialog(true);
+        } catch (err) {
+            flash(String(err), "err");
+        }
+    }
+
+    async function handleReviewAndClose() {
+        if (!currentUser) return;
+        try {
+            await reviewAndCloseReport.mutateAsync({ reportId, closedBy: currentUser.name });
             setShowClosedDialog(true);
         } catch (err) {
             flash(String(err), "err");
@@ -173,23 +193,32 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
                 </div>
             )}
 
-            {report.status === "Submitted" && canEndorse && (
+            {report.status === "Submitted" && canEndorse && hasEscalatableFault && (
                 <div className="panel" style={{ maxWidth: 500, marginBottom: 16, padding: 14 }}>
                     <p style={{ fontSize: 13, marginBottom: 10 }}>
-                        This report is awaiting your endorsement. If it's Minor-only it will be marked
-                        Endorsed; if it has Moderate/Critical faults it will be Escalated for review.
-                        Either way it still needs to be closed afterward.
+                        This report has Moderate/Critical faults requiring escalation. Endorsing it will
+                        move it to Escalated and send those faults to the Pending Approvals queue. It
+                        still needs to be closed afterward, once every escalated fault is resolved.
                     </p>
                     <button className="primary" onClick={handleEndorse}>Endorse Report</button>
                 </div>
             )}
 
-            {(report.status === "Endorsed" || report.status === "Escalated") && canEndorse && (
+            {report.status === "Submitted" && canEndorse && !hasEscalatableFault && (
                 <div className="panel" style={{ maxWidth: 500, marginBottom: 16, padding: 14 }}>
                     <p style={{ fontSize: 13, marginBottom: 10 }}>
-                        {report.status === "Endorsed"
-                            ? "This report was endorsed with no faults requiring escalation. Close it to finish."
-                            : "This report is Escalated. It can be closed once every escalated fault has been reviewed (and, if Critical, rectified and verified)."}
+                        This report has no Moderate/Critical faults. Review the checklist below — you can
+                        mark any pending Minor issue as Closed — then close and approve the report directly.
+                    </p>
+                    <button className="primary" onClick={handleReviewAndClose}>Close &amp; Approve Report</button>
+                </div>
+            )}
+
+            {report.status === "Escalated" && canEndorse && (
+                <div className="panel" style={{ maxWidth: 500, marginBottom: 16, padding: 14 }}>
+                    <p style={{ fontSize: 13, marginBottom: 10 }}>
+                        This report is Escalated. It can be closed once every escalated fault has been
+                        reviewed (and, if Critical, rectified and verified).
                     </p>
                     <button className="primary" onClick={handleClose}>Close Report</button>
                 </div>
@@ -211,7 +240,7 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
                     <HeaderEntryStep templateId={report.template_id} reportId={reportId} locked={isLocked} asset={asset} />
                 )}
                 {step === "checklist" && (
-                    <ChecklistEntryStep templateId={report.template_id} reportId={reportId} locked={isLocked} assetId={report.asset_id} />
+                    <ChecklistEntryStep templateId={report.template_id} reportId={reportId} locked={isLocked} assetId={report.asset_id} canReviewClosure={canReviewClosure} />
                 )}
                 {step === "mid" && <MidEntryStep templateId={report.template_id} reportId={reportId} locked={isLocked} />}
                 {step === "footer" && <FooterEntryStep templateId={report.template_id} reportId={reportId} locked={isLocked} />}
@@ -990,7 +1019,7 @@ function SeverityDistributionSummary({
     );
 }
 
-function ChecklistEntryStep({ templateId, reportId, locked, assetId }: { templateId: number; reportId: number; locked: boolean; assetId: number }) {
+function ChecklistEntryStep({ templateId, reportId, locked, assetId, canReviewClosure }: { templateId: number; reportId: number; locked: boolean; assetId: number; canReviewClosure?: boolean }) {
     const { data: templateItems = [] } = useTemplateChecklistItems(templateId);
     const { data: databank = [] } = useChecklistItems();
     const { data: sections = [] } = useChecklistSections();
@@ -1230,6 +1259,7 @@ function ChecklistEntryStep({ templateId, reportId, locked, assetId }: { templat
                     updateLocal={updateLocal}
                     autoSave={autoSave}
                     locked={locked}
+                    canReviewClosure={canReviewClosure}
                     severityColor={severityColor}
                     severityIcon={severityIcon}
                     severityGuidance={SEVERITY_GUIDANCE}
@@ -1346,7 +1376,7 @@ function ChecklistEntryStep({ templateId, reportId, locked, assetId }: { templat
                                             updateLocal(ti, { closure_status: val });
                                             autoSave(ti, { closure_status: val });
                                         }}
-                                        disabled={locked}
+                                        disabled={locked && !canReviewClosure}
                                     >
                                         {CLOSURE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                                     </select>
@@ -1802,6 +1832,7 @@ interface DrawingChecklistViewProps {
     updateLocal: (ti: any, patch: Partial<MriReportChecklistResult>) => void;
     autoSave: (ti: any, patch: Partial<MriReportChecklistResult>) => void;
     locked: boolean;
+    canReviewClosure?: boolean;
     severityColor: Record<string, string>;
     severityIcon: (severity: string, color: string) => any;
     severityGuidance: Record<string, { action: string; reviewer: string }>;
@@ -1814,7 +1845,7 @@ interface DrawingChecklistViewProps {
 
 function DrawingChecklistView({
     drawing, hotspots, templateItems, itemInfo, getResult, updateLocal, autoSave,
-    locked, severityColor, severityIcon, severityGuidance, selectedHotspotId, setSelectedHotspotId,
+    locked, canReviewClosure, severityColor, severityIcon, severityGuidance, selectedHotspotId, setSelectedHotspotId,
     attachmentsFor, onAddAttachment, onDeleteAttachment,
 }: DrawingChecklistViewProps) {
     const { data: sections = [] } = useChecklistSections();
@@ -2127,7 +2158,7 @@ function DrawingChecklistView({
                                                     updateLocal(ti, { closure_status: val });
                                                     autoSave(ti, { closure_status: val });
                                                 }}
-                                                disabled={locked}
+                                                disabled={locked && !canReviewClosure}
                                             >
                                                 {CLOSURE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                                             </select>

@@ -30,10 +30,13 @@ export function useMriFaultRectifications(reportId: number) {
 }
 
 // Cross-report queue of everything still Red-Tagged, for the Rectification Queue screen.
-export function usePendingMriFaultRectifications() {
+// Country-scoped server-side: a user with countries assigned only sees faults on assets
+// in those countries.
+export function usePendingMriFaultRectifications(viewerUserId: number) {
   return useQuery({
-    queryKey: PENDING_RECTIFICATIONS_KEY,
-    queryFn: () => invoke<MriFaultRectification[]>("get_pending_mri_fault_rectifications"),
+    queryKey: [...PENDING_RECTIFICATIONS_KEY, viewerUserId],
+    queryFn: () => invoke<MriFaultRectification[]>("get_pending_mri_fault_rectifications", { viewerUserId }),
+    enabled: !!viewerUserId,
   });
 }
 

@@ -1,6 +1,6 @@
 import { useHeaderFieldCatalog, useTemplateHeaderFields } from "./hooks/useTemplateHeaderFields";
 import { useTemplateChecklistItems } from "./hooks/useTemplateChecklistItems";
-import { useChecklistItems } from "../administration/hooks/useChecklistDatabank";
+import { useChecklistItems } from "../administration/hooks/useChecklistDataBank";
 import { useChecklistSections } from "../administration/hooks/useChecklistSections";
 import { useMidFieldCatalog, useTemplateMidFields } from "./hooks/useTemplateMidFields";
 import { useFooterFieldCatalog, useTemplateFooterFields } from "./hooks/useTemplateFooterFields";
@@ -36,9 +36,6 @@ function TemplatePreview({ templateId, templateName }: TemplatePreviewProps) {
   }
   function checklistInfo(checklistItemId: number) {
     return databank.find((d) => d.id === checklistItemId);
-  }
-  function sectionName(sectionId: number | null) {
-    return sections.find((s) => s.id === sectionId)?.name ?? "Unassigned";
   }
 
   const checklistGroups = (() => {

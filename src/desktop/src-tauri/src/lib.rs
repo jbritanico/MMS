@@ -231,6 +231,23 @@ fn get_connection() -> Result<Connection, String> {
     )
     .map_err(|e| e.to_string())?;
 
+    // Per-user country scoping. Zero rows for a user = unrestricted (sees every country) --
+    // this is deliberate so shipping this feature never locks anyone out until an admin
+    // actually assigns countries to them. Operator/Job Supervisor are limited to exactly one
+    // row by set_user_country_access; Maintenance Supervisor/Maintenance Manager-FSM may have
+    // several; Administrator is always unrestricted regardless of any rows here.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS user_country_access (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            country TEXT NOT NULL,
+            UNIQUE(user_id, country),
+            FOREIGN KEY (user_id) REFERENCES app_users(id)
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
     seed_permissions(&conn)?;
 
     // One-time rename migration: existing installs still have app_users/role_permissions
@@ -2697,6 +2714,12 @@ fn endorse_mri_report(report_id: i64, endorsed_by: String) -> Result<String, Str
 
     let now = chrono_now();
     let escalated_count = items.len();
+    if escalated_count == 0 {
+        return Err(
+            "This report has no Moderate/Critical faults to escalate -- use Close & Approve Report instead."
+                .to_string(),
+        );
+    }
     for (template_checklist_item_id, severity) in &items {
         let existing_decision: Option<String> = conn
             .query_row(
@@ -2742,6 +2765,56 @@ fn endorse_mri_report(report_id: i64, endorsed_by: String) -> Result<String, Str
     } else {
         Ok("Report endorsed — no faults required escalation. It still needs to be explicitly closed.".to_string())
     }
+}
+
+// One-click path for a Submitted report with no Moderate/Critical faults: the Supervisor
+// reviews it (and may unlock/close any pending Minor checklist items in the UI first),
+// then this closes and approves it directly -- no separate Endorsed status needed. If the
+// report actually has escalatable faults, this errors and tells the caller to use Endorse
+// Report instead, since escalation must go through the Pending Approvals workflow.
+#[tauri::command]
+fn review_and_close_mri_report(report_id: i64, closed_by: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    let closed_by = closed_by.trim();
+    if closed_by.is_empty() {
+        return Err("Closed-by name is required".to_string());
+    }
+
+    let status: String = conn
+        .query_row(
+            "SELECT status FROM mri_reports WHERE id = ?1",
+            [report_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if status != "Submitted" {
+        return Err(format!(
+            "Report must be Submitted before it can be reviewed and closed (current status: {})",
+            status
+        ));
+    }
+
+    let escalation_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM mri_report_checklist_results WHERE report_id = ?1 AND status = 'Fail' AND severity IN ('Moderate', 'Critical')",
+            [report_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if escalation_count > 0 {
+        return Err(format!(
+            "This report has {} Moderate/Critical fault(s) -- use Endorse Report to escalate them instead.",
+            escalation_count
+        ));
+    }
+
+    let now = chrono_now();
+    conn.execute(
+        "UPDATE mri_reports SET status = 'Approved', approved_by = ?1, approved_date = ?2 WHERE id = ?3",
+        rusqlite::params![closed_by, now, report_id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok("Report reviewed and closed".to_string())
 }
 
 // Explicit closure step — deliberately separate from endorse_mri_report so nothing
@@ -2799,6 +2872,30 @@ fn close_mri_report(report_id: i64, closed_by: String) -> Result<String, String>
     Ok("Report closed".to_string())
 }
 
+// None = unrestricted (Administrator, or the user has zero country rows assigned).
+// Some(list) = restricted to exactly those countries.
+fn user_country_restriction(conn: &Connection, user_id: i64) -> Result<Option<Vec<String>>, String> {
+    let role: String = conn
+        .query_row("SELECT role FROM app_users WHERE id = ?1", [user_id], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    if role == "Administrator" {
+        return Ok(None);
+    }
+    let mut stmt = conn
+        .prepare("SELECT country FROM user_country_access WHERE user_id = ?1")
+        .map_err(|e| e.to_string())?;
+    let countries: Vec<String> = stmt
+        .query_map([user_id], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    if countries.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(countries))
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct ReportNeedingActionRow {
     id: i64,
@@ -2813,11 +2910,12 @@ struct ReportNeedingActionRow {
 // have all been resolved (ready to close). Still-open Escalated reports are deliberately
 // excluded -- they're tracked in the Pending Approvals / Rectification queues instead.
 #[tauri::command]
-fn get_reports_needing_supervisor_action() -> Result<Vec<ReportNeedingActionRow>, String> {
+fn get_reports_needing_supervisor_action(viewer_user_id: i64) -> Result<Vec<ReportNeedingActionRow>, String> {
     let conn = get_connection()?;
+    let restriction = user_country_restriction(&conn, viewer_user_id)?;
     let mut stmt = conn
         .prepare(
-            "SELECT r.id, r.status, a.asset_code, r.submitted_by, r.submitted_date
+            "SELECT r.id, r.status, a.asset_code, r.submitted_by, r.submitted_date, a.country
              FROM mri_reports r
              JOIN assets a ON a.id = r.asset_id
              WHERE r.status = 'Submitted'
@@ -2833,6 +2931,49 @@ fn get_reports_needing_supervisor_action() -> Result<Vec<ReportNeedingActionRow>
         .map_err(|e| e.to_string())?;
     let rows: Vec<ReportNeedingActionRow> = stmt
         .query_map([], |row| {
+            let country: Option<String> = row.get(5)?;
+            Ok((
+                ReportNeedingActionRow {
+                    id: row.get(0)?,
+                    status: row.get(1)?,
+                    asset_code: row.get(2)?,
+                    submitted_by: row.get(3)?,
+                    submitted_date: row.get(4)?,
+                },
+                country,
+            ))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .filter(|(_, country)| match &restriction {
+            None => true,
+            Some(allowed) => country.as_deref().map_or(false, |c| allowed.iter().any(|a| a == c)),
+        })
+        .map(|(row, _)| row)
+        .collect();
+    Ok(rows)
+}
+
+// An Operator's (or anyone's) own submitted reports that aren't finished yet -- lets them
+// track "did my report get reviewed/escalated/closed" without needing any review permission
+// themselves. No country filtering here: whatever they were able to submit is already
+// theirs to see the status of.
+#[tauri::command]
+fn get_my_open_mri_reports(submitted_by: String) -> Result<Vec<ReportNeedingActionRow>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT r.id, r.status, a.asset_code, r.submitted_by, r.submitted_date
+             FROM mri_reports r
+             JOIN assets a ON a.id = r.asset_id
+             WHERE r.submitted_by = ?1 AND r.status != 'Approved'
+             ORDER BY r.submitted_date DESC",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows: Vec<ReportNeedingActionRow> = stmt
+        .query_map([submitted_by], |row| {
             Ok(ReportNeedingActionRow {
                 id: row.get(0)?,
                 status: row.get(1)?,
@@ -2861,11 +3002,12 @@ struct PendingFaultApprovalRow {
 }
 
 #[tauri::command]
-fn get_pending_mri_fault_approvals() -> Result<Vec<PendingFaultApprovalRow>, String> {
+fn get_pending_mri_fault_approvals(viewer_user_id: i64) -> Result<Vec<PendingFaultApprovalRow>, String> {
     let conn = get_connection()?;
+    let restriction = user_country_restriction(&conn, viewer_user_id)?;
     let mut stmt = conn.prepare(
         "SELECT fa.id, fa.report_id, fa.template_checklist_item_id, fa.original_severity, fa.created_date,
-                a.asset_code, cd.description, r.issue_details, r.action_taken
+                a.asset_code, cd.description, r.issue_details, r.action_taken, a.country
          FROM mri_fault_approvals fa
          JOIN mri_reports rep ON fa.report_id = rep.id
          LEFT JOIN assets a ON rep.asset_id = a.id
@@ -2877,21 +3019,32 @@ fn get_pending_mri_fault_approvals() -> Result<Vec<PendingFaultApprovalRow>, Str
     ).map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map([], |row| {
-            Ok(PendingFaultApprovalRow {
-                id: row.get(0)?,
-                report_id: row.get(1)?,
-                template_checklist_item_id: row.get(2)?,
-                original_severity: row.get(3)?,
-                created_date: row.get(4)?,
-                asset_code: row.get(5)?,
-                checklist_description: row.get(6)?,
-                issue_details: row.get(7)?,
-                action_taken: row.get(8)?,
-            })
+            let country: Option<String> = row.get(9)?;
+            Ok((
+                PendingFaultApprovalRow {
+                    id: row.get(0)?,
+                    report_id: row.get(1)?,
+                    template_checklist_item_id: row.get(2)?,
+                    original_severity: row.get(3)?,
+                    created_date: row.get(4)?,
+                    asset_code: row.get(5)?,
+                    checklist_description: row.get(6)?,
+                    issue_details: row.get(7)?,
+                    action_taken: row.get(8)?,
+                },
+                country,
+            ))
         })
         .map_err(|e| e.to_string())?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .filter(|(_, country): &(PendingFaultApprovalRow, Option<String>)| match &restriction {
+            None => true,
+            Some(allowed) => country.as_deref().map_or(false, |c| allowed.iter().any(|a| a == c)),
+        })
+        .map(|(row, _)| row)
+        .collect();
     Ok(rows)
 }
 
@@ -2957,12 +3110,13 @@ struct ProvisionalFaultApprovalRow {
 // that status regardless of what the decision ended up being (Approved/Reclassified/
 // Rejected/Carryforward), since confirmation is about the paper trail, not the outcome.
 #[tauri::command]
-fn get_provisional_mri_fault_approvals() -> Result<Vec<ProvisionalFaultApprovalRow>, String> {
+fn get_provisional_mri_fault_approvals(viewer_user_id: i64) -> Result<Vec<ProvisionalFaultApprovalRow>, String> {
     let conn = get_connection()?;
+    let restriction = user_country_restriction(&conn, viewer_user_id)?;
     let mut stmt = conn.prepare(
         "SELECT fa.id, fa.report_id, fa.template_checklist_item_id, fa.original_severity, fa.decision, fa.new_severity,
                 fa.reviewer, fa.review_method, fa.recorded_by, fa.created_date,
-                a.asset_code, cd.description
+                a.asset_code, cd.description, a.country
          FROM mri_fault_approvals fa
          JOIN mri_reports rep ON fa.report_id = rep.id
          LEFT JOIN assets a ON rep.asset_id = a.id
@@ -2973,24 +3127,35 @@ fn get_provisional_mri_fault_approvals() -> Result<Vec<ProvisionalFaultApprovalR
     ).map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map([], |row| {
-            Ok(ProvisionalFaultApprovalRow {
-                id: row.get(0)?,
-                report_id: row.get(1)?,
-                template_checklist_item_id: row.get(2)?,
-                original_severity: row.get(3)?,
-                decision: row.get(4)?,
-                new_severity: row.get(5)?,
-                reviewer: row.get(6)?,
-                review_method: row.get(7)?,
-                recorded_by: row.get(8)?,
-                created_date: row.get(9)?,
-                asset_code: row.get(10)?,
-                checklist_description: row.get(11)?,
-            })
+            let country: Option<String> = row.get(12)?;
+            Ok((
+                ProvisionalFaultApprovalRow {
+                    id: row.get(0)?,
+                    report_id: row.get(1)?,
+                    template_checklist_item_id: row.get(2)?,
+                    original_severity: row.get(3)?,
+                    decision: row.get(4)?,
+                    new_severity: row.get(5)?,
+                    reviewer: row.get(6)?,
+                    review_method: row.get(7)?,
+                    recorded_by: row.get(8)?,
+                    created_date: row.get(9)?,
+                    asset_code: row.get(10)?,
+                    checklist_description: row.get(11)?,
+                },
+                country,
+            ))
         })
         .map_err(|e| e.to_string())?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .filter(|(_, country): &(ProvisionalFaultApprovalRow, Option<String>)| match &restriction {
+            None => true,
+            Some(allowed) => country.as_deref().map_or(false, |c| allowed.iter().any(|a| a == c)),
+        })
+        .map(|(row, _)| row)
+        .collect();
     Ok(rows)
 }
 
@@ -3294,20 +3459,40 @@ fn get_mri_fault_rectifications(report_id: i64) -> Result<Vec<MriFaultRectificat
 }
 
 // Cross-report queue of faults still Red-Tagged and awaiting rectification, for the
-// Rectification Queue screen (Diagram A's repair loop).
+// Rectification Queue screen (Diagram A's repair loop). Country-scoped: uses its own query
+// (rather than MRI_FAULT_RECTIFICATION_SELECT) so it can pull in the asset's country without
+// changing the shared per-report query or struct.
 #[tauri::command]
-fn get_pending_mri_fault_rectifications() -> Result<Vec<MriFaultRectification>, String> {
+fn get_pending_mri_fault_rectifications(viewer_user_id: i64) -> Result<Vec<MriFaultRectification>, String> {
     let conn = get_connection()?;
-    let sql = format!(
-        "{} WHERE fr.tag_status = 'Red' ORDER BY fr.created_date DESC",
-        MRI_FAULT_RECTIFICATION_SELECT
-    );
-    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let restriction = user_country_restriction(&conn, viewer_user_id)?;
+    let sql = "SELECT fr.id, fr.fault_approval_id, fa.report_id, fa.template_checklist_item_id,
+                a.asset_code, cd.description,
+                fr.assigned_technician, fr.parts_status, fr.repair_date,
+                fr.verified_by, fr.verified_date, fr.tag_status, fr.created_date, fr.updated_date, a.country
+         FROM mri_fault_rectifications fr
+         JOIN mri_fault_approvals fa ON fr.fault_approval_id = fa.id
+         JOIN mri_reports rep ON fa.report_id = rep.id
+         LEFT JOIN assets a ON rep.asset_id = a.id
+         LEFT JOIN template_checklist_items tci ON fa.template_checklist_item_id = tci.id
+         LEFT JOIN checklist_databank cd ON tci.checklist_item_id = cd.id
+         WHERE fr.tag_status = 'Red' ORDER BY fr.created_date DESC";
+    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map([], map_mri_fault_rectification_row)
+        .query_map([], |row| {
+            let country: Option<String> = row.get(14)?;
+            Ok((map_mri_fault_rectification_row(row)?, country))
+        })
         .map_err(|e| e.to_string())?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .filter(|(_, country): &(MriFaultRectification, Option<String>)| match &restriction {
+            None => true,
+            Some(allowed) => country.as_deref().map_or(false, |c| allowed.iter().any(|a| a == c)),
+        })
+        .map(|(row, _)| row)
+        .collect();
     Ok(rows)
 }
 
@@ -4820,6 +5005,53 @@ fn set_user_override(
     Ok("User override updated".to_string())
 }
 
+// Countries this user is restricted to. An empty result means unrestricted (sees every
+// country) -- callers should treat "no rows" and "role is Administrator" identically.
+#[tauri::command]
+fn get_user_country_access(user_id: i64) -> Result<Vec<String>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare("SELECT country FROM user_country_access WHERE user_id = ?1 ORDER BY country")
+        .map_err(|e| e.to_string())?;
+    let countries = stmt
+        .query_map([user_id], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<String>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(countries)
+}
+
+// Replaces the full set of countries a user is restricted to. Administrator can't be scoped
+// at all (always unrestricted); Operator and Job Supervisor may have at most one country at
+// a time; Maintenance Supervisor and Maintenance Manager / FSM may have any number.
+#[tauri::command]
+fn set_user_country_access(user_id: i64, countries: Vec<String>) -> Result<String, String> {
+    let conn = get_connection()?;
+    let role: String = conn
+        .query_row(
+            "SELECT role FROM app_users WHERE id = ?1",
+            [user_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if role == "Administrator" {
+        return Err("Administrator is always unrestricted and cannot be scoped by country".to_string());
+    }
+    if (role == "Operator" || role == "Job Supervisor") && countries.len() > 1 {
+        return Err(format!("{} can only be assigned a single country at a time", role));
+    }
+    conn.execute("DELETE FROM user_country_access WHERE user_id = ?1", [user_id])
+        .map_err(|e| e.to_string())?;
+    for country in &countries {
+        conn.execute(
+            "INSERT INTO user_country_access (user_id, country) VALUES (?1, ?2)",
+            rusqlite::params![user_id, country],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok("Country access updated".to_string())
+}
+
 #[tauri::command]
 fn get_effective_permissions(user_id: i64) -> Result<Vec<String>, String> {
     let conn = get_connection()?;
@@ -5094,12 +5326,16 @@ pub fn run() {
             set_role_permission,
             get_user_overrides,
             set_user_override,
+            get_user_country_access,
+            set_user_country_access,
             get_effective_permissions,
             get_mri_fault_approvals,
             ensure_mri_fault_approval,
             endorse_mri_report,
             close_mri_report,
+            review_and_close_mri_report,
             get_reports_needing_supervisor_action,
+            get_my_open_mri_reports,
             set_mri_fault_approval_decision,
             get_pending_mri_fault_approvals,
             confirm_provisional_approval,

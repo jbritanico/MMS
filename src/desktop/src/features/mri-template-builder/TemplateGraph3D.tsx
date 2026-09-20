@@ -6,7 +6,7 @@ import { useTemplateHeaderFields, useHeaderFieldCatalog } from "./hooks/useTempl
 import { useTemplateChecklistItems } from "./hooks/useTemplateChecklistItems";
 import { useTemplateMidFields, useMidFieldCatalog } from "./hooks/useTemplateMidFields";
 import { useTemplateFooterFields, useFooterFieldCatalog } from "./hooks/useTemplateFooterFields";
-import { useChecklistItems } from "../administration/hooks/useChecklistDatabank";
+import { useChecklistItems } from "../administration/hooks/useChecklistDataBank";
 import { useChecklistSections } from "../administration/hooks/useChecklistSections";
 
 interface TreeNode {

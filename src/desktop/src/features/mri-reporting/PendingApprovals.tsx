@@ -42,8 +42,8 @@ type DecisionKind = "Approved" | "Reclassified" | "Rejected" | "Carryforward";
 function PendingApprovals() {
     const { user } = useCurrentUser();
     const { data: permissions = [] } = useEffectivePermissions(user?.id ?? 0);
-    const { data: rows = [], isLoading } = usePendingMriFaultApprovals();
-    const { data: provisionalRows = [] } = useProvisionalMriFaultApprovals();
+    const { data: rows = [], isLoading } = usePendingMriFaultApprovals(user?.id ?? 0);
+    const { data: provisionalRows = [] } = useProvisionalMriFaultApprovals(user?.id ?? 0);
     const canConfirm = permissions.includes("mri.confirm_provisional");
     const qc = useQueryClient();
 

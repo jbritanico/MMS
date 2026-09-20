@@ -83,6 +83,23 @@ export function useEndorseMriReport() {
   });
 }
 
+// One-click path for a Submitted report with no Moderate/Critical faults -- reviews and
+// closes/approves it directly, skipping the Endorsed status entirely. If the report
+// actually has escalatable faults, the backend rejects this and the caller should use
+// useEndorseMriReport instead.
+export function useReviewAndCloseMriReport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (item: { reportId: number; closedBy: string }) =>
+      invoke<string>("review_and_close_mri_report", item),
+    onSuccess: (_data, item) => {
+      qc.invalidateQueries({ queryKey: KEY });
+      qc.invalidateQueries({ queryKey: ["mri-report", item.reportId] });
+      qc.invalidateQueries({ queryKey: REPORTS_NEEDING_ACTION_KEY });
+    },
+  });
+}
+
 // The explicit closing step -- valid once a report is Endorsed, or Escalated with every
 // fault resolved. Deliberately never happens automatically.
 export function useCloseMriReport() {
@@ -98,20 +115,34 @@ export function useCloseMriReport() {
   });
 }
 
+export interface ReportNeedingActionRow {
+  id: number;
+  status: string;
+  asset_code: string | null;
+  submitted_by: string | null;
+  submitted_date: string | null;
+}
+
 // Everything currently needing a Supervisor's attention across all assets -- Submitted
 // (awaiting endorsement), Endorsed (awaiting close), and Escalated-but-fully-resolved
 // (also awaiting close). Powers the "Reports to Review" queue and its badge count.
-export function useReportsNeedingSupervisorAction() {
+// Country-scoped server-side: a Job Supervisor/Maintenance Supervisor/Manager-FSM with
+// countries assigned only sees reports on assets in those countries.
+export function useReportsNeedingSupervisorAction(viewerUserId: number) {
   return useQuery({
-    queryKey: REPORTS_NEEDING_ACTION_KEY,
-    queryFn: () =>
-      invoke<{
-        id: number;
-        status: string;
-        asset_code: string | null;
-        submitted_by: string | null;
-        submitted_date: string | null;
-      }[]>("get_reports_needing_supervisor_action"),
+    queryKey: [...REPORTS_NEEDING_ACTION_KEY, viewerUserId],
+    queryFn: () => invoke<ReportNeedingActionRow[]>("get_reports_needing_supervisor_action", { viewerUserId }),
+    enabled: !!viewerUserId,
+  });
+}
+
+// An Operator's (or anyone's) own submitted reports that aren't Approved yet -- lets them
+// track review/escalation/closure status without needing any review permission themselves.
+export function useMyOpenMriReports(submittedBy: string | undefined) {
+  return useQuery({
+    queryKey: ["my-open-mri-reports", submittedBy],
+    queryFn: () => invoke<ReportNeedingActionRow[]>("get_my_open_mri_reports", { submittedBy }),
+    enabled: !!submittedBy,
   });
 }
 

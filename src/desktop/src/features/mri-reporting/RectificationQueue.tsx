@@ -13,7 +13,7 @@ const PARTS_STATUSES = ["Awaiting", "Ordered", "Available"] as const;
 function RectificationQueue() {
     const { user } = useCurrentUser();
     const { data: permissions = [] } = useEffectivePermissions(user?.id ?? 0);
-    const { data: rows = [], isLoading } = usePendingMriFaultRectifications();
+    const { data: rows = [], isLoading } = usePendingMriFaultRectifications(user?.id ?? 0);
 
     const canRectify = permissions.includes("mri.rectify");
 

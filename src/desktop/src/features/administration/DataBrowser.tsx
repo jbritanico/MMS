@@ -9,8 +9,6 @@ import {
   useDeleteTableRow,
 } from "./hooks/useDataBrowser";
 
-const PAGE_SIZE = 20;
-
 function DataBrowser() {
   const { data: tables = [] } = useBrowsableTables();
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
@@ -21,7 +19,7 @@ function DataBrowser() {
 
   const [search, setSearch] = useState("");
   const [groupBy, setGroupBy] = useState("");
-  const [page, setPage] = useState(1);
+  const [, setPage] = useState(1);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editValues, setEditValues] = useState<Record<string, any>>({});
   const [pendingDelete, setPendingDelete] = useState<Record<string, any> | null>(null);
@@ -60,8 +58,6 @@ function DataBrowser() {
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([key, rows]) => ({ key, rows }));
   }, [filteredRows, groupBy]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
 
   function startEdit(row: Record<string, any>) {
     setEditingId(row.id);

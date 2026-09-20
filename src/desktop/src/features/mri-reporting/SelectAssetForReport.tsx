@@ -3,6 +3,8 @@ import { useAssets } from "../asset-registry/hooks/useAssets";
 import { useAssetTypes } from "../administration/hooks/useAssetTypes";
 import { useMriTemplates } from "../administration/hooks/useMriTemplates";
 import { useCreateMriReport, useMriReports, useAssetsWithPendingIssues } from "./hooks/useMriReports";
+import { useCurrentUser } from "../../lib/currentUser";
+import { useUserCountryAccess } from "../administration/hooks/useUserAdmin";
 
 interface SelectAssetForReportProps {
   onReportCreated: (reportId: number) => void;
@@ -15,6 +17,9 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
   const { data: existingReports = [] } = useMriReports();
   const { data: pendingIssueAssetIds = [] } = useAssetsWithPendingIssues();
   const createReport = useCreateMriReport();
+  const { user: currentUser } = useCurrentUser();
+  // Empty array = unrestricted (sees every country) -- the same convention the backend uses.
+  const { data: myCountries = [] } = useUserCountryAccess(currentUser?.id ?? 0);
 
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
@@ -35,8 +40,17 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
   }
 
   const filtered = assets.filter(
-    (a) => a.active && `${a.asset_code} ${a.asset_description}`.toLowerCase().includes(query.toLowerCase())
+    (a) =>
+      a.active &&
+      `${a.asset_code} ${a.asset_description}`.toLowerCase().includes(query.toLowerCase()) &&
+      (myCountries.length === 0 || myCountries.includes(a.country))
   );
+
+  function blockingReportFor(assetId: number) {
+    // Mirrors the backend's create_mri_report guard: any report on this asset that isn't
+    // Draft (still being filled out) or Approved (finished) blocks a new one from starting.
+    return existingReports.find((r) => r.asset_id === assetId && r.status !== "Draft" && r.status !== "Approved");
+  }
 
   async function handleSelect(assetId: number, assetTypeId: number | null) {
     const template = findActiveTemplate(assetTypeId);
@@ -50,6 +64,15 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
     );
     if (existingDraft) {
       onReportCreated(existingDraft.id);
+      return;
+    }
+
+    const blocking = blockingReportFor(assetId);
+    if (blocking) {
+      flash(
+        `Report #${blocking.id} for this asset is still ${blocking.status} — it must be closed before a new MR-I report can be started.`,
+        "err"
+      );
       return;
     }
 
@@ -87,7 +110,11 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
         <div className="asset-select-grid">
           {filtered.map((a) => {
             const template = findActiveTemplate(a.asset_type_id);
-            const disabled = !template || creatingFor === a.id;
+            const hasDraftForTemplate =
+              a.id !== null && !!template &&
+              existingReports.some((r) => r.asset_id === a.id && r.template_id === template.id && r.status === "Draft");
+            const blockingReport = a.id !== null ? blockingReportFor(a.id) : undefined;
+            const disabled = !template || creatingFor === a.id || (!!blockingReport && !hasDraftForTemplate);
             return (
               <div
                 key={a.id}
@@ -121,6 +148,11 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
                     <div className="asset-select-meta">
                       <span className="pill neutral">{assetTypeName(a.asset_type_id)}</span>
                       {!template && <span className="pill inactive">No template</span>}
+                      {blockingReport && !hasDraftForTemplate && (
+                        <span className="pill inactive" title={`Report #${blockingReport.id} is ${blockingReport.status}`}>
+                          {blockingReport.status} — pending closure
+                        </span>
+                      )}
                       {creatingFor === a.id && <span className="pill neutral">Starting...</span>}
                     </div>
                   </div>

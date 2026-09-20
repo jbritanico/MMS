@@ -5,9 +5,11 @@ import {
   useUpdateAppUser,
   useDeleteAppUser,
   ROLES,
+  COUNTRY_SCOPED_ROLES,
   type AppUser,
 } from "./hooks/useUserAdmin";
 import UserPermissions from "./UserPermissions";
+import UserCountryAccess from "./UserCountryAccess";
 
 function Users() {
   const { data: users = [], isLoading } = useAppUsers();
@@ -23,6 +25,7 @@ function Users() {
   const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<AppUser | null>(null);
   const [managingPermsFor, setManagingPermsFor] = useState<AppUser | null>(null);
+  const [managingCountriesFor, setManagingCountriesFor] = useState<AppUser | null>(null);
 
   function flash(msg: string, kind: "ok" | "err") {
     setStatus({ msg, kind });
@@ -87,6 +90,10 @@ function Users() {
 
   if (managingPermsFor) {
     return <UserPermissions user={managingPermsFor} onBack={() => setManagingPermsFor(null)} />;
+  }
+
+  if (managingCountriesFor) {
+    return <UserCountryAccess user={managingCountriesFor} onBack={() => setManagingCountriesFor(null)} />;
   }
 
   return (
@@ -162,6 +169,11 @@ function Users() {
                     <button className="ghost" onClick={() => setManagingPermsFor(u)} style={{ padding: "6px 10px", fontSize: 12 }}>
                       Permissions
                     </button>
+                    {COUNTRY_SCOPED_ROLES.includes(u.role) && (
+                      <button className="ghost" onClick={() => setManagingCountriesFor(u)} style={{ padding: "6px 10px", fontSize: 12 }}>
+                        Countries
+                      </button>
+                    )}
                     <button className="icon-btn" aria-label={u.active ? "Deactivate" : "Activate"} onClick={() => toggleActive(u)}>
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         {u.active ? (

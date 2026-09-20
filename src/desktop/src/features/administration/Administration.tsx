@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import type { JSX } from "react";
 import ChecklistDatabank from "./ChecklistDatabank";
 import AssetTypes from "./AssetTypes";

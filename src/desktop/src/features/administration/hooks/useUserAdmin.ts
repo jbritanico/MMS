@@ -110,3 +110,31 @@ export function useEffectivePermissions(userId: number) {
     enabled: !!userId,
   });
 }
+
+// Roles that can be scoped to specific countries at all. Administrator is deliberately
+// excluded -- it's always unrestricted and the backend rejects any attempt to scope it.
+export const COUNTRY_SCOPED_ROLES = ["Operator", "Job Supervisor", "Maintenance Supervisor", "Maintenance Manager / FSM"];
+
+// Operator and Job Supervisor may only ever have one country at a time; the other scoped
+// roles may have several. Mirrors the same rule enforced server-side in set_user_country_access.
+export function isSingleCountryRole(role: string) {
+  return role === "Operator" || role === "Job Supervisor";
+}
+
+// Empty array = unrestricted (sees every country) -- this is the default until an admin
+// explicitly assigns countries to a user.
+export function useUserCountryAccess(userId: number) {
+  return useQuery({
+    queryKey: ["user-country-access", userId],
+    queryFn: () => invoke<string[]>("get_user_country_access", { userId }),
+    enabled: !!userId,
+  });
+}
+
+export function useSetUserCountryAccess(userId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (countries: string[]) => invoke<string>("set_user_country_access", { userId, countries }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["user-country-access", userId] }),
+  });
+}
