@@ -52,13 +52,13 @@ export function useDeleteMriReport() {
 export function useSubmitMriReport() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => invoke("submit_mri_report", { id }),
-    onSuccess: (_data, id) => {
+    mutationFn: (vars: { id: number; submittedBy: string }) => invoke("submit_mri_report", vars),
+    onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: KEY });
       // The wizard reads the single report via its own ["mri-report", id] key --
       // without this, it keeps showing the stale "Draft" status after submit and
       // never locks/shows confirmation.
-      qc.invalidateQueries({ queryKey: ["mri-report", id] });
+      qc.invalidateQueries({ queryKey: ["mri-report", vars.id] });
     },
   });
 }
@@ -119,8 +119,10 @@ export interface ReportNeedingActionRow {
   id: number;
   status: string;
   asset_code: string | null;
+  asset_description: string | null;
   submitted_by: string | null;
   submitted_date: string | null;
+  issue_count: number;
 }
 
 // Everything currently needing a Supervisor's attention across all assets -- Submitted

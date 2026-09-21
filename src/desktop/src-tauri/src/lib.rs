@@ -2396,12 +2396,12 @@ fn delete_mri_report(id: i64) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn submit_mri_report(id: i64) -> Result<String, String> {
+fn submit_mri_report(id: i64, submitted_by: String) -> Result<String, String> {
     let conn = get_connection()?;
     let now = chrono_now();
     conn.execute(
-        "UPDATE mri_reports SET status = 'Submitted', submitted_by = 'local user', submitted_date = ?1 WHERE id = ?2",
-        rusqlite::params![now, id],
+        "UPDATE mri_reports SET status = 'Submitted', submitted_by = ?1, submitted_date = ?2 WHERE id = ?3",
+        rusqlite::params![submitted_by, now, id],
     ).map_err(|e| e.to_string())?;
     Ok("Report submitted".to_string())
 }
@@ -2901,8 +2901,10 @@ struct ReportNeedingActionRow {
     id: i64,
     status: String,
     asset_code: Option<String>,
+    asset_description: Option<String>,
     submitted_by: Option<String>,
     submitted_date: Option<String>,
+    issue_count: i64,
 }
 
 // Everything currently needing a Supervisor's attention: Submitted (awaiting endorsement),
@@ -2915,7 +2917,9 @@ fn get_reports_needing_supervisor_action(viewer_user_id: i64) -> Result<Vec<Repo
     let restriction = user_country_restriction(&conn, viewer_user_id)?;
     let mut stmt = conn
         .prepare(
-            "SELECT r.id, r.status, a.asset_code, r.submitted_by, r.submitted_date, a.country
+            "SELECT r.id, r.status, a.asset_code, a.asset_description, r.submitted_by, r.submitted_date,
+                    (SELECT COUNT(*) FROM mri_report_checklist_results WHERE report_id = r.id AND status = 'Fail') AS issue_count,
+                    a.country
              FROM mri_reports r
              JOIN assets a ON a.id = r.asset_id
              WHERE r.status = 'Submitted'
@@ -2931,14 +2935,16 @@ fn get_reports_needing_supervisor_action(viewer_user_id: i64) -> Result<Vec<Repo
         .map_err(|e| e.to_string())?;
     let rows: Vec<ReportNeedingActionRow> = stmt
         .query_map([], |row| {
-            let country: Option<String> = row.get(5)?;
+            let country: Option<String> = row.get(7)?;
             Ok((
                 ReportNeedingActionRow {
                     id: row.get(0)?,
                     status: row.get(1)?,
                     asset_code: row.get(2)?,
-                    submitted_by: row.get(3)?,
-                    submitted_date: row.get(4)?,
+                    asset_description: row.get(3)?,
+                    submitted_by: row.get(4)?,
+                    submitted_date: row.get(5)?,
+                    issue_count: row.get(6)?,
                 },
                 country,
             ))
@@ -2965,7 +2971,8 @@ fn get_my_open_mri_reports(submitted_by: String) -> Result<Vec<ReportNeedingActi
     let conn = get_connection()?;
     let mut stmt = conn
         .prepare(
-            "SELECT r.id, r.status, a.asset_code, r.submitted_by, r.submitted_date
+            "SELECT r.id, r.status, a.asset_code, a.asset_description, r.submitted_by, r.submitted_date,
+                    (SELECT COUNT(*) FROM mri_report_checklist_results WHERE report_id = r.id AND status = 'Fail') AS issue_count
              FROM mri_reports r
              JOIN assets a ON a.id = r.asset_id
              WHERE r.submitted_by = ?1 AND r.status != 'Approved'
@@ -2978,8 +2985,10 @@ fn get_my_open_mri_reports(submitted_by: String) -> Result<Vec<ReportNeedingActi
                 id: row.get(0)?,
                 status: row.get(1)?,
                 asset_code: row.get(2)?,
-                submitted_by: row.get(3)?,
-                submitted_date: row.get(4)?,
+                asset_description: row.get(3)?,
+                submitted_by: row.get(4)?,
+                submitted_date: row.get(5)?,
+                issue_count: row.get(6)?,
             })
         })
         .map_err(|e| e.to_string())?

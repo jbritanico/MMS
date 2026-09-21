@@ -96,7 +96,7 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
             return;
         }
         try {
-            await submitReport.mutateAsync(reportId);
+            await submitReport.mutateAsync({ id: reportId, submittedBy: currentUser?.name ?? "Unknown" });
             setShowSubmittedDialog(true);
         } catch (err) {
             flash(String(err), "err");

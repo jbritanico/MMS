@@ -3,13 +3,33 @@ import { createPortal } from "react-dom";
 import { THEMES, type Theme } from "../../lib/theme";
 import fieldOpsImage from "../../assets/FieldMaintenance.png";
 import { useCurrentUser } from "../../lib/currentUser";
-import { isMapFeatureEnabled, setMapFeatureEnabled } from "../../lib/mapFeatureFlag";
+import { tierAccent } from "../../lib/UserPickerGate";
+import {
+  isMapFeatureEnabled,
+  setMapFeatureEnabled,
+} from "../../lib/mapFeatureFlag";
 import { useEffectivePermissions } from "../administration/hooks/useUserAdmin";
-import { usePendingMriFaultApprovals, useProvisionalMriFaultApprovals } from "../mri-reporting/hooks/useMriFaultApprovals";
+import {
+  usePendingMriFaultApprovals,
+  useProvisionalMriFaultApprovals,
+} from "../mri-reporting/hooks/useMriFaultApprovals";
 import { usePendingMriFaultRectifications } from "../mri-reporting/hooks/useMriFaultRectifications";
-import { useReportsNeedingSupervisorAction, useMyOpenMriReports } from "../mri-reporting/hooks/useMriReports";
+import {
+  useReportsNeedingSupervisorAction,
+  useMyOpenMriReports,
+} from "../mri-reporting/hooks/useMriReports";
 
-type Screen = "assets" | "reports" | "dashboard" | "admin" | "uilab" | "distance-map-test" | "pending-approvals" | "rectification-queue" | "report-review-queue" | "my-reports-queue";
+type Screen =
+  | "assets"
+  | "reports"
+  | "dashboard"
+  | "admin"
+  | "uilab"
+  | "distance-map-test"
+  | "pending-approvals"
+  | "rectification-queue"
+  | "report-review-queue"
+  | "my-reports-queue";
 type MrLevel = "MR-I" | "MR-II" | "MR-III";
 
 interface MainMenuProps {
@@ -18,16 +38,44 @@ interface MainMenuProps {
   onThemeChange: (theme: Theme) => void;
 }
 
-const OPTIONS: { id: Screen; label: string; desc: string; icon: ReactElement }[] = [
+const OPTIONS: {
+  id: Screen;
+  label: string;
+  desc: string;
+  icon: ReactElement;
+}[] = [
   {
     id: "assets",
     label: "Asset Registry",
     desc: "Manage equipment and fixed asset records",
     icon: (
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="3" y="4" width="18" height="4" rx="1.2" stroke="currentColor" strokeWidth="1.6" />
-        <path d="M4 8V18a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V8" stroke="currentColor" strokeWidth="1.6" />
-        <path d="M10 12h4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <svg
+        width="26"
+        height="26"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <rect
+          x="3"
+          y="4"
+          width="18"
+          height="4"
+          rx="1.2"
+          stroke="currentColor"
+          strokeWidth="1.6"
+        />
+        <path
+          d="M4 8V18a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V8"
+          stroke="currentColor"
+          strokeWidth="1.6"
+        />
+        <path
+          d="M10 12h4"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
       </svg>
     ),
   },
@@ -36,10 +84,26 @@ const OPTIONS: { id: Screen; label: string; desc: string; icon: ReactElement }[]
     label: "Maintenance Report",
     desc: "MR-I, MR-II, MR-III report entry",
     icon: (
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M14.7 6.3a3 3 0 0 1-4 4L6 15l3 3 4.7-4.7a3 3 0 0 1 4-4l-2.3 2.3-1.7-1.7 2.3-2.3z"
-          stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-        <path d="M5 19l-1 2 2-1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <svg
+        width="26"
+        height="26"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M14.7 6.3a3 3 0 0 1-4 4L6 15l3 3 4.7-4.7a3 3 0 0 1 4-4l-2.3 2.3-1.7-1.7 2.3-2.3z"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M5 19l-1 2 2-1"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     ),
   },
@@ -48,10 +112,40 @@ const OPTIONS: { id: Screen; label: string; desc: string; icon: ReactElement }[]
     label: "Dashboard",
     desc: "Fleet-wide compliance and status",
     icon: (
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="4" y="12" width="4" height="8" rx="1" stroke="currentColor" strokeWidth="1.6" />
-        <rect x="10" y="7" width="4" height="13" rx="1" stroke="currentColor" strokeWidth="1.6" />
-        <rect x="16" y="4" width="4" height="16" rx="1" stroke="currentColor" strokeWidth="1.6" />
+      <svg
+        width="26"
+        height="26"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <rect
+          x="4"
+          y="12"
+          width="4"
+          height="8"
+          rx="1"
+          stroke="currentColor"
+          strokeWidth="1.6"
+        />
+        <rect
+          x="10"
+          y="7"
+          width="4"
+          height="13"
+          rx="1"
+          stroke="currentColor"
+          strokeWidth="1.6"
+        />
+        <rect
+          x="16"
+          y="4"
+          width="4"
+          height="16"
+          rx="1"
+          stroke="currentColor"
+          strokeWidth="1.6"
+        />
       </svg>
     ),
   },
@@ -60,10 +154,20 @@ const OPTIONS: { id: Screen; label: string; desc: string; icon: ReactElement }[]
     label: "Administration",
     desc: "Users, MR-code definitions, settings",
     icon: (
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg
+        width="26"
+        height="26"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
         <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.6" />
-        <path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"
-          stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        <path
+          d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
       </svg>
     ),
   },
@@ -76,8 +180,22 @@ const MR_LEVELS: { id: MrLevel; short: string; desc: string }[] = [
 ];
 
 const KPI_DATA = [
-  { key: "availability", label: "Fleet Availability", value: "91.4", unit: "%", delta: "+0.8", good: true },
-  { key: "defects", label: "Open Defects", value: "47", unit: "", delta: "-3", good: true },
+  {
+    key: "availability",
+    label: "Fleet Availability",
+    value: "91.4",
+    unit: "%",
+    delta: "+0.8",
+    good: true,
+  },
+  {
+    key: "defects",
+    label: "Open Defects",
+    value: "47",
+    unit: "",
+    delta: "-3",
+    good: true,
+  },
 ];
 
 function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
@@ -94,27 +212,47 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
   }
 
   const { user: currentUser, clearCurrentUser } = useCurrentUser();
-  const { data: effectivePermissions = [] } = useEffectivePermissions(currentUser?.id ?? 0);
-  const canReviewApprovals = effectivePermissions.includes("mri.close_defect") || effectivePermissions.includes("mri.approve");
-  const { data: pendingApprovals = [] } = usePendingMriFaultApprovals(currentUser?.id ?? 0);
+  const { data: effectivePermissions = [] } = useEffectivePermissions(
+    currentUser?.id ?? 0,
+  );
+  const canReviewApprovals =
+    effectivePermissions.includes("mri.close_defect") ||
+    effectivePermissions.includes("mri.approve");
+  const { data: pendingApprovals = [] } = usePendingMriFaultApprovals(
+    currentUser?.id ?? 0,
+  );
   const pendingApprovalsCount = pendingApprovals.length;
   const canRectify = effectivePermissions.includes("mri.rectify");
-  const { data: pendingRectifications = [] } = usePendingMriFaultRectifications(currentUser?.id ?? 0);
+  const { data: pendingRectifications = [] } = usePendingMriFaultRectifications(
+    currentUser?.id ?? 0,
+  );
   const pendingRectificationsCount = pendingRectifications.length;
-  const canConfirmProvisional = effectivePermissions.includes("mri.confirm_provisional");
-  const { data: provisionalApprovals = [] } = useProvisionalMriFaultApprovals(currentUser?.id ?? 0);
+  const canConfirmProvisional = effectivePermissions.includes(
+    "mri.confirm_provisional",
+  );
+  const { data: provisionalApprovals = [] } = useProvisionalMriFaultApprovals(
+    currentUser?.id ?? 0,
+  );
   const provisionalCount = provisionalApprovals.length;
   const canReviewReports = effectivePermissions.includes("mri.endorse_report");
-  const { data: reportsNeedingAction = [] } = useReportsNeedingSupervisorAction(currentUser?.id ?? 0);
+  const { data: reportsNeedingAction = [] } = useReportsNeedingSupervisorAction(
+    currentUser?.id ?? 0,
+  );
   const reportsNeedingActionCount = reportsNeedingAction.length;
   const { data: myOpenReports = [] } = useMyOpenMriReports(currentUser?.name);
   const myOpenReportsCount = myOpenReports.length;
-  const canOpenFaultReview = canReviewApprovals || canRectify || canConfirmProvisional || canReviewReports || myOpenReportsCount > 0;
+  const canOpenFaultReview =
+    canReviewApprovals ||
+    canRectify ||
+    canConfirmProvisional ||
+    canReviewReports ||
+    myOpenReportsCount > 0;
+  const isAdministrator = currentUser?.role === "Administrator";
   const faultReviewTotal =
-    (canReviewApprovals ? pendingApprovalsCount : 0) +
-    (canConfirmProvisional ? provisionalCount : 0) +
-    (canRectify ? pendingRectificationsCount : 0) +
-    (canReviewReports ? reportsNeedingActionCount : 0) +
+    (!isAdministrator && canReviewApprovals ? pendingApprovalsCount : 0) +
+    (!isAdministrator && canConfirmProvisional ? provisionalCount : 0) +
+    (!isAdministrator && canRectify ? pendingRectificationsCount : 0) +
+    (!isAdministrator && canReviewReports ? reportsNeedingActionCount : 0) +
     myOpenReportsCount;
   function handleSwitchUser() {
     setDrawerOpen(false);
@@ -136,12 +274,20 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
 
   return (
     <>
-      <div style={{ position: "relative", height: "100vh", overflow: "hidden" }}>
+      <div
+        style={{ position: "relative", height: "100vh", overflow: "hidden" }}
+      >
         <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
           <img
             src={fieldOpsImage}
             alt=""
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: 0.5 }}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              display: "block",
+              opacity: 0.5,
+            }}
           />
           <div
             style={{
@@ -152,20 +298,33 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
             }}
           />
         </div>
-        <div className="menu-screen" style={{ position: "relative", zIndex: 1 }} onClick={() => setReportsExpanded(false)}>
+        <div
+          className="menu-screen"
+          style={{ position: "relative", zIndex: 1 }}
+          onClick={() => setReportsExpanded(false)}
+        >
           <div className="menu-grid">
             {OPTIONS.map((opt) => (
               <div
                 key={opt.id}
                 className="menu-card"
-                onClick={(e) => { e.stopPropagation(); handleCardClick(opt.id); }}
-                style={{ background: "rgba(255,255,255,0.5)", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCardClick(opt.id);
+                }}
+                style={{
+                  background: "rgba(255,255,255,0.5)",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+                }}
               >
                 <div className="menu-icon-wrap">{opt.icon}</div>
                 <h3>{opt.label}</h3>
                 <p>{opt.desc}</p>
                 {opt.id === "reports" && reportsExpanded && (
-                  <div className="mr-level-row" onClick={(e) => e.stopPropagation()}>
+                  <div
+                    className="mr-level-row"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {MR_LEVELS.map((lvl) => (
                       <button
                         key={lvl.id}
@@ -198,9 +357,18 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
               <div
                 key={k.key}
                 onClick={() => onNavigate("dashboard")}
-                style={{ background: "none", boxShadow: "none", border: "none", padding: 0, cursor: "pointer" }}
+                style={{
+                  background: "none",
+                  boxShadow: "none",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                }}
               >
-                <span className="kpi-footer-label" style={{ textShadow: "0 1px 4px rgba(255,255,255,0.85)" }}>
+                <span
+                  className="kpi-footer-label"
+                  style={{ textShadow: "0 1px 4px rgba(255,255,255,0.85)" }}
+                >
                   {k.label}
                 </span>
                 <div className="kpi-footer-row">
@@ -211,7 +379,11 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
                     {k.value}
                     <span className="kpi-footer-unit">{k.unit}</span>
                   </span>
-                  <span className={`kpi-footer-delta ${k.good ? "good" : "bad"}`}>{k.delta}</span>
+                  <span
+                    className={`kpi-footer-delta ${k.good ? "good" : "bad"}`}
+                  >
+                    {k.delta}
+                  </span>
                 </div>
                 {k.key === "availability" && (
                   <div
@@ -224,7 +396,10 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
                     }}
                   >
                     <div className="kpi-gauge-track">
-                      <div className="kpi-gauge-mask" style={{ width: `${100 - parseFloat(k.value)}%` }} />
+                      <div
+                        className="kpi-gauge-mask"
+                        style={{ width: `${100 - parseFloat(k.value)}%` }}
+                      />
                     </div>
                   </div>
                 )}
@@ -234,229 +409,436 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
         </div>
       </div>
 
-      <button className="side-drawer-handle" aria-label="Open menu" onClick={() => setDrawerOpen((v) => !v)}>
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8" />
-          <path d="M4.5 20c0-3.6 3.4-6.5 7.5-6.5s7.5 2.9 7.5 6.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
+      <button
+        className="side-drawer-handle side-drawer-handle-avatar"
+        aria-label="Open menu"
+        onClick={() => setDrawerOpen((v) => !v)}
+      >
+        <div
+          className="drawer-handle-avatar-circle"
+
+          style={{ background: tierAccent(currentUser?.role ?? "") }}
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7" />
+          </svg>
+        </div>
+        <div className="drawer-handle-avatar-info">
+          <span className="side-drawer-handle-name">
+            {currentUser?.name ?? "Unknown user"}
+          </span>
+          <span className="side-drawer-handle-role">
+            {currentUser?.role ?? "No role"}
+          </span>
+        </div>
       </button>
 
-      {canOpenFaultReview && (
+      {canOpenFaultReview && faultReviewTotal > 0 && (
         <button
-          className="side-drawer-handle"
+          className="side-drawer-handle side-drawer-handle-avatar"
           aria-label="Open Fault Review"
-          style={{ top: "calc(50% - 112px)" }}
+          style={{ top: "calc(50% - 70px)" }}
           onClick={() => setFaultDrawerOpen((v) => !v)}
         >
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 3l9 16H3L12 3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-            <path d="M12 10v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            <circle cx="12" cy="17" r="0.9" fill="currentColor" />
-          </svg>
-          {faultReviewTotal > 0 && (
-            <span
-              style={{
-                position: "absolute", top: -6, right: -6, fontSize: 10, fontWeight: 700,
-                minWidth: 16, height: 16, padding: "0 4px", borderRadius: 10,
-                background: "var(--danger)", color: "#fff", display: "flex",
-                alignItems: "center", justifyContent: "center",
-              }}
-            >
-              {faultReviewTotal}
-            </span>
-          )}
+          <div className="drawer-handle-avatar-circle drawer-handle-avatar-circle-alert" style={{ background: "var(--danger)" }}>
+            <span className="drawer-handle-avatar-count">{faultReviewTotal}</span>
+          </div>
+          <div className="drawer-handle-avatar-info">
+            <span className="side-drawer-handle-name">Attention Required</span>
+          </div>
         </button>
       )}
 
-      {faultDrawerOpen && createPortal(
-        <div className="side-drawer-overlay" onClick={() => setFaultDrawerOpen(false)}>
-          <div className="side-drawer side-drawer-wide" onClick={(e) => e.stopPropagation()}>
-            <div className="drawer-user-card">
-              <div className="drawer-user-name">{currentUser?.name ?? "Unknown user"}</div>
-              <div className="drawer-user-role">{currentUser?.role ?? "No role"}</div>
-            </div>
-
-            <div className="drawer-section-label">Fault Review</div>
-
-            {canReviewApprovals && (
-              <div className="drawer-user-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                <div>
-                  <div className="drawer-user-name">Pending Approvals</div>
-                  <div className="drawer-user-role">Moderate/Critical faults awaiting review</div>
+      {faultDrawerOpen &&
+        createPortal(
+          <div
+            className="side-drawer-overlay"
+            onClick={() => setFaultDrawerOpen(false)}
+          >
+            <div
+              className="side-drawer side-drawer-wide"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="drawer-user-card">
+                <div className="drawer-user-name">
+                  {currentUser?.name ?? "Unknown user"}
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-                  <span style={{ fontSize: 20, fontWeight: 700, color: "var(--text)" }}>{pendingApprovalsCount}</span>
-                  <button
-                    className="primary"
-                    style={{ padding: "5px 10px", fontSize: 12 }}
-                    onClick={() => { setFaultDrawerOpen(false); onNavigate("pending-approvals"); }}
-                  >
-                    Review
-                  </button>
+                <div className="drawer-user-role">
+                  {currentUser?.role ?? "No role"}
                 </div>
               </div>
-            )}
 
-            {myOpenReportsCount > 0 && (
-              <div className="drawer-user-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                <div>
-                  <div className="drawer-user-name">My Reports</div>
-                  <div className="drawer-user-role">MR-I reports you submitted that aren't closed yet</div>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-                  <span style={{ fontSize: 20, fontWeight: 700, color: "var(--text)" }}>{myOpenReportsCount}</span>
-                  <button
-                    className="primary"
-                    style={{ padding: "5px 10px", fontSize: 12 }}
-                    onClick={() => { setFaultDrawerOpen(false); onNavigate("my-reports-queue"); }}
-                  >
-                    View
-                  </button>
-                </div>
-              </div>
-            )}
+              <div className="drawer-section-label">Fault Review</div>
 
-            {canReviewReports && (
-              <div className="drawer-user-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                <div>
-                  <div className="drawer-user-name">Reports to Review</div>
-                  <div className="drawer-user-role">MR-I reports awaiting endorsement or closure</div>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-                  <span style={{ fontSize: 20, fontWeight: 700, color: "var(--text)" }}>{reportsNeedingActionCount}</span>
-                  <button
-                    className="primary"
-                    style={{ padding: "5px 10px", fontSize: 12 }}
-                    onClick={() => { setFaultDrawerOpen(false); onNavigate("report-review-queue"); }}
-                  >
-                    Review
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {canConfirmProvisional && (
-              <div className="drawer-user-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                <div>
-                  <div className="drawer-user-name">Awaiting Confirmation</div>
-                  <div className="drawer-user-role">Phoned-in decisions needing sign-off</div>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-                  <span style={{ fontSize: 20, fontWeight: 700, color: "var(--text)" }}>{provisionalCount}</span>
-                  <button
-                    className="primary"
-                    style={{ padding: "5px 10px", fontSize: 12 }}
-                    onClick={() => { setFaultDrawerOpen(false); onNavigate("pending-approvals"); }}
-                  >
-                    Review
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {canRectify && (
-              <div className="drawer-user-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                <div>
-                  <div className="drawer-user-name">Rectification Queue</div>
-                  <div className="drawer-user-role">Critical faults still Red-Tagged</div>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-                  <span style={{ fontSize: 20, fontWeight: 700, color: "var(--text)" }}>{pendingRectificationsCount}</span>
-                  <button
-                    className="primary"
-                    style={{ padding: "5px 10px", fontSize: 12 }}
-                    onClick={() => { setFaultDrawerOpen(false); onNavigate("rectification-queue"); }}
-                  >
-                    Review
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {drawerOpen && createPortal(
-        <div className="side-drawer-overlay" onClick={() => setDrawerOpen(false)}>
-          <div className="side-drawer" onClick={(e) => e.stopPropagation()}>
-            <div className="drawer-user-card">
-              <div className="drawer-user-name">{currentUser?.name ?? "Unknown user"}</div>
-              <div className="drawer-user-role">{currentUser?.role ?? "No role"}</div>
-              <button
-                className="ghost"
-                style={{ marginTop: 8, padding: "6px 12px", fontSize: 12, width: "100%" }}
-                onClick={handleSwitchUser}
-              >
-                Switch User
-              </button>
-            </div>
-
-            <div>
-              <div className="drawer-section-label">Theme</div>
-              {THEMES.map((t) => (
-                <button
-                  key={t.id}
-                  className={`theme-option ${currentTheme === t.id ? "active" : ""}`}
-                  onClick={() => handleThemeSelect(t.id)}
+              {canReviewApprovals && (
+                <div
+                  className="drawer-user-card"
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 12,
+                  }}
                 >
-                  <span className="theme-swatch" style={{ background: t.swatch }} />
-                  <span>{t.label}</span>
-                </button>
-              ))}
-            </div>
+                  <div>
+                    <div className="drawer-user-name">Pending Approvals</div>
+                    <div className="drawer-user-role">
+                      Moderate/Critical faults awaiting review
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-end",
+                      gap: 6,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 20,
+                        fontWeight: 700,
+                        color: "var(--text)",
+                      }}
+                    >
+                      {pendingApprovalsCount}
+                    </span>
+                    <button
+                      className="primary"
+                      style={{ padding: "5px 10px", fontSize: 12 }}
+                      onClick={() => {
+                        setFaultDrawerOpen(false);
+                        onNavigate("pending-approvals");
+                      }}
+                    >
+                      Review
+                    </button>
+                  </div>
+                </div>
+              )}
 
-            <div>
-              <div className="drawer-section-label">More</div>
-              <button
-                className="drawer-nav-btn"
-                onClick={() => { setDrawerOpen(false); onNavigate("uilab"); }}
-              >
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.6" />
-                  <path d="M8 12c0-2 1.5-3.5 4-3.5S16 10 16 12s-1.5 3.5-4 3.5S8 14 8 12z" stroke="currentColor" strokeWidth="1.6" />
-                </svg>
-                UI Lab
-              </button>
-              <button
-                className="drawer-nav-btn"
-                onClick={() => { setDrawerOpen(false); onNavigate("distance-map-test"); }}
-              >
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M9 4l-5 2v14l5-2 6 2 5-2V4l-5 2-6-2z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-                  <path d="M9 4v14M15 6v14" stroke="currentColor" strokeWidth="1.6" />
-                </svg>
-                Distance Map (Test)
-              </button>
-
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "10px 12px",
-                  gap: 12,
-                }}
-              >
-                <span style={{ fontSize: 13, color: "var(--text-soft)" }}>
-                  Enable Map &amp; Routing (MR-I)
-                </span>
-                <button
-                  className="neu-toggle"
-                  data-on={mapFeatureOn}
-                  onClick={handleMapFeatureToggle}
-                  aria-label="Toggle map and routing feature"
+              {myOpenReportsCount > 0 && (
+                <div
+                  className="drawer-user-card"
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 12,
+                  }}
                 >
-                  <span className="neu-toggle-knob" />
+                  <div>
+                    <div className="drawer-user-name">My Reports</div>
+                    <div className="drawer-user-role">
+                      MR-I reports you submitted that aren't closed yet
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-end",
+                      gap: 6,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 20,
+                        fontWeight: 700,
+                        color: "var(--text)",
+                      }}
+                    >
+                      {myOpenReportsCount}
+                    </span>
+                    <button
+                      className="primary"
+                      style={{ padding: "5px 10px", fontSize: 12 }}
+                      onClick={() => {
+                        setFaultDrawerOpen(false);
+                        onNavigate("my-reports-queue");
+                      }}
+                    >
+                      View
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {canReviewReports && (
+                <div
+                  className="drawer-user-card"
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 12,
+                  }}
+                >
+                  <div>
+                    <div className="drawer-user-name">Reports to Review</div>
+                    <div className="drawer-user-role">
+                      MR-I reports awaiting endorsement or closure
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-end",
+                      gap: 6,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 20,
+                        fontWeight: 700,
+                        color: "var(--text)",
+                      }}
+                    >
+                      {reportsNeedingActionCount}
+                    </span>
+                    <button
+                      className="primary"
+                      style={{ padding: "5px 10px", fontSize: 12 }}
+                      onClick={() => {
+                        setFaultDrawerOpen(false);
+                        onNavigate("report-review-queue");
+                      }}
+                    >
+                      Review
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {canConfirmProvisional && (
+                <div
+                  className="drawer-user-card"
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 12,
+                  }}
+                >
+                  <div>
+                    <div className="drawer-user-name">
+                      Awaiting Confirmation
+                    </div>
+                    <div className="drawer-user-role">
+                      Phoned-in decisions needing sign-off
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-end",
+                      gap: 6,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 20,
+                        fontWeight: 700,
+                        color: "var(--text)",
+                      }}
+                    >
+                      {provisionalCount}
+                    </span>
+                    <button
+                      className="primary"
+                      style={{ padding: "5px 10px", fontSize: 12 }}
+                      onClick={() => {
+                        setFaultDrawerOpen(false);
+                        onNavigate("pending-approvals");
+                      }}
+                    >
+                      Review
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {canRectify && (
+                <div
+                  className="drawer-user-card"
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 12,
+                  }}
+                >
+                  <div>
+                    <div className="drawer-user-name">Rectification Queue</div>
+                    <div className="drawer-user-role">
+                      Critical faults still Red-Tagged
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-end",
+                      gap: 6,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 20,
+                        fontWeight: 700,
+                        color: "var(--text)",
+                      }}
+                    >
+                      {pendingRectificationsCount}
+                    </span>
+                    <button
+                      className="primary"
+                      style={{ padding: "5px 10px", fontSize: 12 }}
+                      onClick={() => {
+                        setFaultDrawerOpen(false);
+                        onNavigate("rectification-queue");
+                      }}
+                    >
+                      Review
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {drawerOpen &&
+        createPortal(
+          <div
+            className="side-drawer-overlay"
+            onClick={() => setDrawerOpen(false)}
+          >
+            <div className="side-drawer" onClick={(e) => e.stopPropagation()}>
+              <div className="drawer-user-card">
+                <div className="drawer-user-name">
+                  {currentUser?.name ?? "Unknown user"}
+                </div>
+                <div className="drawer-user-role">
+                  {currentUser?.role ?? "No role"}
+                </div>
+                <button
+                  className="ghost"
+                  style={{
+                    marginTop: 8,
+                    padding: "6px 12px",
+                    fontSize: 12,
+                    width: "100%",
+                  }}
+                  onClick={handleSwitchUser}
+                >
+                  Switch User
                 </button>
               </div>
+
+              <div>
+                <div className="drawer-section-label">Theme</div>
+                {THEMES.map((t) => (
+                  <button
+                    key={t.id}
+                    className={`theme-option ${currentTheme === t.id ? "active" : ""}`}
+                    onClick={() => handleThemeSelect(t.id)}
+                  >
+                    <span
+                      className="theme-swatch"
+                      style={{ background: t.swatch }}
+                    />
+                    <span>{t.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div>
+                <div className="drawer-section-label">More</div>
+                <button
+                  className="drawer-nav-btn"
+                  onClick={() => {
+                    setDrawerOpen(false);
+                    onNavigate("uilab");
+                  }}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="8"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                    />
+                    <path
+                      d="M8 12c0-2 1.5-3.5 4-3.5S16 10 16 12s-1.5 3.5-4 3.5S8 14 8 12z"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                    />
+                  </svg>
+                  UI Lab
+                </button>
+                <button
+                  className="drawer-nav-btn"
+                  onClick={() => {
+                    setDrawerOpen(false);
+                    onNavigate("distance-map-test");
+                  }}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M9 4l-5 2v14l5-2 6 2 5-2V4l-5 2-6-2z"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M9 4v14M15 6v14"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                    />
+                  </svg>
+                  Distance Map (Test)
+                </button>
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "10px 12px",
+                    gap: 12,
+                  }}
+                >
+                  <span style={{ fontSize: 13, color: "var(--text-soft)" }}>
+                    Enable Map &amp; Routing (MR-I)
+                  </span>
+                  <button
+                    className="neu-toggle"
+                    data-on={mapFeatureOn}
+                    onClick={handleMapFeatureToggle}
+                    aria-label="Toggle map and routing feature"
+                  >
+                    <span className="neu-toggle-knob" />
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

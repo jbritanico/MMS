@@ -543,6 +543,93 @@ function App() {
           .side-drawer-handle:hover { color: var(--accent-blue); width: 51px; }
           .side-drawer-handle svg { width: 24px; height: 24px; }
 
+          .side-drawer-handle-wide { width: 190px; }
+          .side-drawer-handle-wide:hover { width: 190px; }
+
+          .side-drawer-handle-avatar {
+            width: 190px;
+            height: auto;
+            border-radius: 0;
+            background: transparent;
+            box-shadow: none;
+            padding: 0;
+            align-items: center;
+            justify-content: flex-start;
+          }
+          .side-drawer-handle-avatar:hover { width: 190px; }
+          .drawer-handle-avatar-circle {
+            position: relative;
+            z-index: 2;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            box-shadow: 4px 4px 10px var(--neu-shadow-dark), -2px -2px 6px var(--neu-shadow-light);
+            flex-shrink: 0;
+          }
+          .drawer-handle-avatar-circle svg { width: 26px; height: 26px; }
+          .drawer-handle-avatar-count {
+            font-size: 22px;
+            font-weight: 700;
+            color: #ffffff;
+            line-height: 1;
+          }
+          @keyframes handle-alert-throb {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+          }
+          @keyframes handle-alert-ring {
+            0% { opacity: 0.95; transform: scale(0.8); }
+            80% { opacity: 0; transform: scale(2.2); }
+            100% { opacity: 0; transform: scale(2.2); }
+          }
+          .drawer-handle-avatar-circle-alert {
+            animation: handle-alert-throb 1.3s ease-in-out infinite;
+          }
+          .drawer-handle-avatar-circle-alert::after {
+            content: "";
+            position: absolute;
+            inset: -18px;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--danger) 0%, color-mix(in srgb, var(--danger) 70%, transparent) 55%, transparent 85%);
+            animation: handle-alert-ring 1.3s ease-out infinite;
+            pointer-events: none;
+          }
+          .drawer-handle-avatar-info {
+            position: relative;
+            z-index: 1;
+            margin-left: -18px;
+            padding: 10px 14px 10px 30px;
+            border-radius: 0 14px 14px 0;
+            background: var(--neu-bg);
+            box-shadow: -5px 5px 10px var(--neu-shadow-dark), -5px -5px 10px var(--neu-shadow-light);
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            width: 152px;
+            flex: 0 0 auto;
+          }
+          .side-drawer-handle-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+          }
+          .side-drawer-handle-role {
+            font-size: 10.5px;
+            color: var(--text-soft);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+          }
+
           .side-drawer-overlay {
             position: fixed;
             inset: 0;
@@ -802,6 +889,52 @@ function App() {
             flex-wrap: wrap;
             margin-top: 10px;
           }        
+
+          .review-card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 14px;
+          }
+          .review-card {
+            background: var(--neu-bg);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 6px 6px 12px var(--neu-shadow-dark), -6px -6px 12px var(--neu-shadow-light);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+          }
+          .review-card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+          }
+          .review-card-code {
+            font-family: var(--mono);
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text);
+          }
+          .review-card-desc {
+            font-size: 12.5px;
+            color: var(--text-soft);
+            min-height: 16px;
+          }
+          .review-card-meta-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: var(--text-soft);
+            gap: 8px;
+          }
+          .review-card-issue-count {
+            font-family: var(--mono);
+            font-weight: 700;
+            color: var(--text);
+            white-space: nowrap;
+          }
 
           .checks { display: flex; flex-wrap: wrap; gap: 14px; margin: 14px 0; }
 

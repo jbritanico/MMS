@@ -72,12 +72,12 @@ const TIER_REFERENCE: TierReference[] = [
   },
 ];
 
-function tierAccent(role: string): string {
+export function tierAccent(role: string): string {
   const match = TIER_REFERENCE.find((t) => t.name === role);
   return match ? match.accent : roleBadge(role).color;
 }
 
-function roleBadge(role: string): { label: string; color: string } {
+export function roleBadge(role: string): { label: string; color: string } {
   const r = role.toLowerCase();
   if (r.includes("admin")) return { label: role, color: "#2f6fed" };
   if (r.includes("tier 1") || r.includes("operator")) return { label: role, color: "#d97706" };
