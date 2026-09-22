@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type ReactElement } from "react";
 import {
   useAssets, useCreateAsset, useUpdateAsset, useDeleteAsset,
   useExportAssetsBackup, useImportAssetsBackup,
 } from "./hooks/useAssets";
+import { useAssetTriggers } from "./hooks/useTriggers";
 import { emptyAsset, MR_ACTIONS, type Asset } from "./types";
 import { useAssetTypes } from "../administration/hooks/useAssetTypes";
 import { useMriTemplates } from "../administration/hooks/useMriTemplates";
@@ -10,6 +11,144 @@ import { useLookups } from "../administration/hooks/useLookups";
 import AssetTypeCombobox from "../administration/AssetTypeCombobox";
 import { useCurrentUser } from "../../lib/currentUser";
 import { useEffectivePermissions } from "../administration/hooks/useUserAdmin";
+
+// Same mapping/icons/colors used on the MR-I "Select Asset" cards.
+const TRIGGER_TYPE_LABELS: Record<string, string> = {
+  OH: "Operating hours",
+  CA: "Calendar days",
+  KM: "Distance (KM)",
+  RIF: "Running-in-foot",
+  EH: "Engine hours",
+};
+
+const TRIGGER_TYPE_COLORS: Record<string, string> = {
+  OH: "var(--accent-blue)",
+  CA: "var(--warn)",
+  KM: "var(--success)",
+  RIF: "var(--accent)",
+  EH: "var(--danger)",
+};
+
+const TRIGGER_TYPE_ICONS: Record<string, ReactElement> = {
+  OH: (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M12 7v5l3 2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  CA: (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M4 9h16M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  ),
+  KM: (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 21s7-7.5 7-12a7 7 0 1 0-14 0c0 4.5 7 12 7 12z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      <circle cx="12" cy="9" r="2.3" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  ),
+  RIF: (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="3" y="9" width="18" height="6" rx="1.2" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M7 9v3M11 9v3M15 9v3M19 9v3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  ),
+  EH: (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 15a8 8 0 1 1 16 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M12 15l4-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <circle cx="12" cy="15" r="1.2" fill="currentColor" />
+    </svg>
+  ),
+};
+
+const DEFAULT_TRIGGER_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="12" cy="12" r="4" fill="currentColor" />
+  </svg>
+);
+
+interface AssetRegistryCardProps {
+  asset: Asset;
+  assetTypeLabel: string | null;
+  canEdit: boolean;
+  canDelete: boolean;
+  onRowClick: (asset: Asset) => void;
+  onEdit: (e: React.MouseEvent, asset: Asset) => void;
+  onDelete: (e: React.MouseEvent, asset: Asset) => void;
+}
+
+// A separate component (not inline in the map below) because it needs to call
+// useAssetTriggers for its own asset -- hooks can't be called conditionally
+// inside a .map() in the parent component.
+function AssetRegistryCard({ asset: a, assetTypeLabel, canEdit, canDelete, onRowClick, onEdit, onDelete }: AssetRegistryCardProps) {
+  const { data: triggers = [] } = useAssetTriggers(a.id);
+  const activeTriggers = triggers.filter((t) => t.enabled);
+
+  return (
+    <div className="card" onClick={() => onRowClick(a)}>
+      <div className="card-main">
+        <div className="code">{a.asset_code}</div>
+        <div className="desc">{a.asset_description || "—"}</div>
+        <div className="meta">
+          {a.tag_status && (
+            <span
+              className="pill"
+              style={{
+                background: a.tag_status === "Red" ? "var(--danger)" : "var(--success)",
+                color: "#fff",
+              }}
+            >
+              {a.tag_status} Tag
+            </span>
+          )}
+          <span className={`pill ${a.active ? "active" : "inactive"}`}>
+            {a.active ? "Active" : "Inactive"}
+          </span>
+          {a.country && <span className="pill neutral">{a.country}</span>}
+          {a.vehicle && <span className="pill neutral">Vehicle</span>}
+          {assetTypeLabel && <span className="pill neutral">{assetTypeLabel}</span>}
+        </div>
+        {activeTriggers.length > 0 && (
+          <div className="meta">
+            {activeTriggers.map((t) => (
+              <span
+                key={t.id}
+                className="trigger-icon-chip"
+                title={TRIGGER_TYPE_LABELS[t.trigger_type] ?? t.trigger_type}
+              >
+                <span
+                  style={{
+                    color: TRIGGER_TYPE_COLORS[t.trigger_type] ?? "var(--text-soft)",
+                    display: "inline-flex",
+                  }}
+                >
+                  {TRIGGER_TYPE_ICONS[t.trigger_type] ?? DEFAULT_TRIGGER_ICON}
+                </span>
+                <span>{t.running_value}/{t.interval_value}</span>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="card-actions">
+        <button className="icon-btn" aria-label="Edit" onClick={(e) => onEdit(e, a)} disabled={!canEdit} title={!canEdit ? "Your role doesn't have permission to edit assets" : "Edit"}>
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"
+              stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+          </svg>
+        </button>
+        <button className="icon-btn icon-danger" aria-label="Delete" onClick={(e) => onDelete(e, a)} disabled={!canDelete} title={!canDelete ? "Your role doesn't have permission to delete assets" : "Delete"}>
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
 
 type Mode = "create" | "edit" | "view";
 
@@ -338,49 +477,16 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
           ) : (
             <div className="cards">
               {filtered.map((a) => (
-                <div className="card" key={a.id} onClick={() => handleRowClick(a)}>
-                  <div className="card-main">
-                    <div className="code">{a.asset_code}</div>
-                    <div className="desc">{a.asset_description || "—"}</div>
-                    <div className="meta">
-                      {a.tag_status && (
-                        <span
-                          className="pill"
-                          style={{
-                            background: a.tag_status === "Red" ? "var(--danger)" : "var(--success)",
-                            color: "#fff",
-                          }}
-                        >
-                          {a.tag_status} Tag
-                        </span>
-                      )}
-                      <span className={`pill ${a.active ? "active" : "inactive"}`}>
-                        {a.active ? "Active" : "Inactive"}
-                      </span>
-                      {a.country && <span className="pill neutral">{a.country}</span>}
-                      {a.vehicle && <span className="pill neutral">Vehicle</span>}
-                      {a.asset_type_id && (
-                        <span className="pill neutral">
-                          {assetTypes.find((t) => t.id === a.asset_type_id)?.description ?? "Type"}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="card-actions">
-                    <button className="icon-btn" aria-label="Edit" onClick={(e) => handleEdit(e, a)} disabled={!canEdit} title={!canEdit ? "Your role doesn't have permission to edit assets" : "Edit"}>
-                      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"
-                          stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
-                      </svg>
-                    </button>
-                    <button className="icon-btn icon-danger" aria-label="Delete" onClick={(e) => requestDelete(e, a)} disabled={!canDelete} title={!canDelete ? "Your role doesn't have permission to delete assets" : "Delete"}>
-                      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
+                <AssetRegistryCard
+                  key={a.id}
+                  asset={a}
+                  assetTypeLabel={a.asset_type_id ? assetTypes.find((t) => t.id === a.asset_type_id)?.description ?? "Type" : null}
+                  canEdit={canEdit}
+                  canDelete={canDelete}
+                  onRowClick={handleRowClick}
+                  onEdit={handleEdit}
+                  onDelete={requestDelete}
+                />
               ))}
             </div>
           )}

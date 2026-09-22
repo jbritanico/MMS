@@ -6,6 +6,7 @@ import {
   usePurgeLookups,
   usePreviewMriReportPurge,
   usePurgeMriReports,
+  useResetTriggerRunningValues,
   type MriReportPurgeFilter,
 } from "./hooks/usePurging";
 import { useLookupCriteria, useLookups } from "./hooks/useLookups";
@@ -32,12 +33,14 @@ function DataPurging() {
 
   const previewPurge = usePreviewMriReportPurge();
   const runPurge = usePurgeMriReports();
+  const resetTriggerRunningValues = useResetTriggerRunningValues();
 
   const [filterAsset, setFilterAsset] = useState("");
   const [filterCountry, setFilterCountry] = useState("");
   const [filterServiceLine, setFilterServiceLine] = useState("");
   const [filterAssetType, setFilterAssetType] = useState("");
   const [previewCount, setPreviewCount] = useState<number | null>(null);
+  const [resetTriggerAsset, setResetTriggerAsset] = useState("");
 
   const [pendingPurge, setPendingPurge] = useState<PendingPurge | null>(null);
   const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
@@ -261,6 +264,37 @@ function DataPurging() {
           }
         >
           Purge ALL Reports (no filter)
+        </button>
+      </div>
+
+      <div className="mri-preview-section-label" style={{ marginTop: 24 }}>Maintenance Trigger Running Totals</div>
+      <p style={{ fontSize: 12.5, color: "var(--text-soft)", marginBottom: 14 }}>
+        Zeroes out the running total (e.g. Engine Hours, Distance Travelled) on maintenance triggers, for one asset or all of them. Thresholds and the enabled toggle are left untouched — only the running count resets.
+      </p>
+
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 14, flexWrap: "wrap" }}>
+        <div className="field" style={{ marginBottom: 0, minWidth: 220 }}>
+          <label>Asset</label>
+          <select className="neu-select" value={resetTriggerAsset} onChange={(e) => setResetTriggerAsset(e.target.value)}>
+            <option value="">— All assets —</option>
+            {assets.map((a) => <option key={a.id} value={a.id ?? ""}>{a.asset_code}</option>)}
+          </select>
+        </div>
+        <button
+          className="danger"
+          onClick={() => {
+            const assetId = resetTriggerAsset ? Number(resetTriggerAsset) : null;
+            const assetLabel = assetId
+              ? assets.find((a) => a.id === assetId)?.asset_code ?? `asset #${assetId}`
+              : "every asset";
+            setPendingPurge({
+              label: "Trigger Running Totals",
+              description: `This will reset the running total on every enabled maintenance trigger for ${assetLabel} back to zero. This cannot be undone.`,
+              run: () => resetTriggerRunningValues.mutateAsync(assetId),
+            });
+          }}
+        >
+          Reset Running Totals to Zero
         </button>
       </div>
 

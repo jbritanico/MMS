@@ -1,5 +1,6 @@
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
+use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const BROWSABLE_TABLES: [&str; 24] = [
@@ -89,7 +90,11 @@ const TRIGGER_TYPES: [&str; 5] = ["OH", "CA", "KM", "RIF", "EH"];
 // moved to OS-level secure storage (Windows Credential Manager) instead of source code.
 const DB_ENCRYPTION_KEY: &str = "sprint-mms-dev-key-change-before-production-834792F1=3#";
 
-fn get_connection() -> Result<Connection, String> {
+// Renamed from the original get_connection() -- opens a brand-new SQLite connection,
+// derives the SQLCipher encryption key (deliberately slow, by design), and runs the
+// full schema migration below. This now only runs ONCE per app run; see the cached
+// get_connection() wrapper right after this function's closing brace.
+fn open_and_migrate_connection() -> Result<Connection, String> {
     let conn = Connection::open("assets.db").map_err(|e| e.to_string())?;
     conn.pragma_update(None, "key", DB_ENCRYPTION_KEY)
         .map_err(|e| e.to_string())?;
@@ -706,6 +711,37 @@ fn get_connection() -> Result<Connection, String> {
     Ok(conn)
 }
 
+// Every command handler calls get_connection() -- previously that meant opening a brand
+// new SQLite connection, re-deriving the SQLCipher key (a deliberately slow operation),
+// and re-running the entire schema migration above on EVERY single call. That overhead
+// piling up across several commands firing at once (e.g. the Footer step's four queries
+// on mount) was almost certainly what caused reported app hangs. Now the connection is
+// opened and migrated once, cached here, and reused (behind a Mutex, since rusqlite's
+// Connection isn't safely shared across threads without one) for the rest of the app's
+// run. Every existing `let conn = get_connection()?;` call site keeps working unchanged,
+// since MutexGuard<Connection> transparently derefs to Connection.
+//
+// IMPORTANT: because std::sync::Mutex is not reentrant, no function holding a `conn` from
+// this may call another function that itself calls get_connection() again -- that would
+// deadlock. Always pass the existing `&conn` down to helpers instead (as the codebase
+// already does almost everywhere -- see the delete_mri_template fix that removed the one
+// exception to this).
+static DB_CONNECTION: OnceLock<Mutex<Connection>> = OnceLock::new();
+
+fn get_connection() -> Result<MutexGuard<'static, Connection>, String> {
+    if DB_CONNECTION.get().is_none() {
+        let conn = open_and_migrate_connection()?;
+        // If another thread's call raced us here and won, just drop our extra connection --
+        // whichever one gets stored is the one every future call will share.
+        let _ = DB_CONNECTION.set(Mutex::new(conn));
+    }
+    DB_CONNECTION
+        .get()
+        .expect("DB connection was just initialized above")
+        .lock()
+        .map_err(|_| "Database connection lock was poisoned by an earlier error".to_string())
+}
+
 fn seed_permissions(conn: &Connection) -> Result<(), String> {
     let perms: [(&str, &str, &str); 24] = [
         ("assets.view", "View assets", "Asset Registry"),
@@ -1136,6 +1172,27 @@ fn update_trigger(update: TriggerUpdate) -> Result<String, String> {
         rusqlite::params![update.enabled as i32, update.interval_value, update.warning_value, update.running_value, update.id],
     ).map_err(|e| e.to_string())?;
     Ok("Trigger updated".to_string())
+}
+
+// Zeroes out the running total on maintenance triggers -- the counters that the asset
+// cards read (e.g. Engine Hours, Distance Travelled) -- either for one asset or across
+// every asset. Deliberately only touches running_value: interval/warning thresholds and
+// the enabled flag are configuration, not accumulated totals, so a reset shouldn't disturb
+// them. Used from the Data Purge screen when starting fresh data collection.
+#[tauri::command]
+fn reset_trigger_running_values(asset_id: Option<i64>) -> Result<String, String> {
+    let conn = get_connection()?;
+    let count = if let Some(id) = asset_id {
+        conn.execute(
+            "UPDATE maintenance_triggers SET running_value = 0 WHERE asset_id = ?1",
+            [id],
+        )
+        .map_err(|e| e.to_string())?
+    } else {
+        conn.execute("UPDATE maintenance_triggers SET running_value = 0", [])
+            .map_err(|e| e.to_string())?
+    };
+    Ok(format!("{} trigger running total(s) reset to zero", count))
 }
 
 #[derive(Serialize, Deserialize)]
@@ -1780,7 +1837,35 @@ fn delete_mri_template(id: i64) -> Result<String, String> {
     )
     .map_err(|e| e.to_string())?;
 
-    delete_template_drawing(id)?;
+    // Inlined from delete_template_drawing() rather than calling it directly -- that
+    // function opens its own connection via get_connection(), which would try to
+    // re-lock the shared connection this function is already holding and deadlock.
+    let mut drawing_stmt = conn
+        .prepare("SELECT id FROM template_drawing_hotspots WHERE template_id = ?1")
+        .map_err(|e| e.to_string())?;
+    let hotspot_ids: Vec<i64> = drawing_stmt
+        .query_map([id], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    drop(drawing_stmt);
+    for hid in hotspot_ids {
+        conn.execute(
+            "DELETE FROM template_drawing_hotspot_items WHERE hotspot_id = ?1",
+            [hid],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    conn.execute(
+        "DELETE FROM template_drawing_hotspots WHERE template_id = ?1",
+        [id],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM template_drawings WHERE template_id = ?1",
+        [id],
+    )
+    .map_err(|e| e.to_string())?;
 
     let report_count: i64 = conn
         .query_row(
@@ -2767,6 +2852,92 @@ fn endorse_mri_report(report_id: i64, endorsed_by: String) -> Result<String, Str
     }
 }
 
+// When an MR-I report closes, copy its "Distance Travelled Post-Job (KM)" mid-field
+// value (if the template includes that field and it was filled in) into the asset's
+// KM maintenance triggers, so the running distance shown on the asset-select screen
+// stays current. Both the MR-II and MR-III KM triggers are updated -- it's the same
+// physical odometer reading regardless of maintenance level. This never blocks report
+// closure: any missing field, unfilled value, or unparsable number is silently skipped.
+// Looks up one mid-field's value on a report by its catalog label. Returns None if the
+// template doesn't include that field, or the field was never filled in (row missing, or
+// present but null/blank) -- callers use this to fall through to another field.
+fn get_mid_field_value(conn: &Connection, report_id: i64, label: &str) -> Option<String> {
+    let result: Result<Option<String>, rusqlite::Error> = conn.query_row(
+        "SELECT v.value
+         FROM mri_reports r
+         JOIN template_mid_fields tmf ON tmf.template_id = r.template_id
+         JOIN mid_field_catalog mfc ON mfc.id = tmf.mid_field_id
+         JOIN mri_report_mid_values v ON v.report_id = r.id AND v.template_mid_field_id = tmf.id
+         WHERE r.id = ?1 AND mfc.label = ?2",
+        rusqlite::params![report_id, label],
+        |row| row.get(0),
+    );
+    match result {
+        Ok(Some(v)) if !v.trim().is_empty() => Some(v),
+        _ => None,
+    }
+}
+
+fn sync_km_trigger_from_report(conn: &Connection, report_id: i64) {
+    let asset_id: Option<i64> = conn
+        .query_row(
+            "SELECT asset_id FROM mri_reports WHERE id = ?1",
+            [report_id],
+            |row| row.get(0),
+        )
+        .ok();
+    let Some(asset_id) = asset_id else { return };
+
+    // Prefer Post-Job (the final odometer reading for the job); fall back to Pre-Job so a
+    // dedicated Pre-Job-only report (no Post-Job leg recorded yet) still updates the
+    // trigger instead of silently doing nothing.
+    let raw_value = get_mid_field_value(conn, report_id, "Distance Travelled Post-Job (KM)")
+        .or_else(|| get_mid_field_value(conn, report_id, "Distance Travelled Pre-Job (KM)"));
+    let Some(raw_value) = raw_value else { return };
+
+    let km: i64 = match raw_value.trim().parse::<f64>() {
+        Ok(n) if n.is_finite() => n.round() as i64,
+        _ => return,
+    };
+
+    let _ = conn.execute(
+        "UPDATE maintenance_triggers SET running_value = ?1 WHERE asset_id = ?2 AND trigger_type = 'KM'",
+        rusqlite::params![km, asset_id],
+    );
+}
+
+// Same idea as sync_km_trigger_from_report, but for triggers sourced from a HEADER field
+// (Operating Hours, Engine Hours) instead of a mid field -- Job Operating Hours -> the OH
+// trigger, Engine Hours (This Report) -> the EH trigger. Also updates both MR-II and
+// MR-III trigger rows for the asset, and is likewise non-blocking on any lookup/parse miss.
+fn sync_header_trigger_from_report(conn: &Connection, report_id: i64, header_label: &str, trigger_type: &str) {
+    let row: Result<(i64, String), rusqlite::Error> = conn.query_row(
+        "SELECT r.asset_id, v.value
+         FROM mri_reports r
+         JOIN template_header_fields thf ON thf.template_id = r.template_id
+         JOIN header_field_catalog hfc ON hfc.id = thf.header_field_id
+         JOIN mri_report_header_values v ON v.report_id = r.id AND v.template_header_field_id = thf.id
+         WHERE r.id = ?1 AND hfc.label = ?2",
+        rusqlite::params![report_id, header_label],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    );
+
+    let (asset_id, raw_value) = match row {
+        Ok(v) => v,
+        Err(_) => return,
+    };
+
+    let reading: i64 = match raw_value.trim().parse::<f64>() {
+        Ok(n) if n.is_finite() => n.round() as i64,
+        _ => return,
+    };
+
+    let _ = conn.execute(
+        "UPDATE maintenance_triggers SET running_value = ?1 WHERE asset_id = ?2 AND trigger_type = ?3",
+        rusqlite::params![reading, asset_id, trigger_type],
+    );
+}
+
 // One-click path for a Submitted report with no Moderate/Critical faults: the Supervisor
 // reviews it (and may unlock/close any pending Minor checklist items in the UI first),
 // then this closes and approves it directly -- no separate Endorsed status needed. If the
@@ -2814,6 +2985,9 @@ fn review_and_close_mri_report(report_id: i64, closed_by: String) -> Result<Stri
         rusqlite::params![closed_by, now, report_id],
     )
     .map_err(|e| e.to_string())?;
+    sync_km_trigger_from_report(&conn, report_id);
+    sync_header_trigger_from_report(&conn, report_id, "Job Operating Hours", "OH");
+    sync_header_trigger_from_report(&conn, report_id, "Engine Hours (This Report)", "EH");
     Ok("Report reviewed and closed".to_string())
 }
 
@@ -2868,6 +3042,9 @@ fn close_mri_report(report_id: i64, closed_by: String) -> Result<String, String>
         rusqlite::params![closed_by, now, report_id],
     )
     .map_err(|e| e.to_string())?;
+    sync_km_trigger_from_report(&conn, report_id);
+    sync_header_trigger_from_report(&conn, report_id, "Job Operating Hours", "OH");
+    sync_header_trigger_from_report(&conn, report_id, "Engine Hours (This Report)", "EH");
 
     Ok("Report closed".to_string())
 }
@@ -4717,7 +4894,7 @@ fn get_open_prior_issues(
          JOIN mri_reports rep ON r.report_id = rep.id
          JOIN template_checklist_items tci ON r.template_checklist_item_id = tci.id
          LEFT JOIN checklist_databank cd ON tci.checklist_item_id = cd.id
-         WHERE rep.asset_id = ?1 AND rep.id != ?2 AND r.closure_status = 'Pending'
+         WHERE rep.asset_id = ?1 AND rep.id != ?2 AND r.status = 'Fail' AND r.closure_status = 'Pending'
          ORDER BY r.date_observed DESC",
         )
         .map_err(|e| e.to_string())?;
@@ -5232,6 +5409,7 @@ pub fn run() {
             delete_asset,
             get_asset_triggers,
             update_trigger,
+            reset_trigger_running_values,
             get_checklist_items,
             create_checklist_item,
             update_checklist_item,

@@ -819,6 +819,7 @@ function App() {
             gap: 12px;
           }
           .asset-select-icon {
+            position: relative;
             flex: 0 0 35%;
             aspect-ratio: 1 / 1;
             border-radius: 12px;
@@ -871,10 +872,20 @@ function App() {
             box-shadow: 6px 6px 12px var(--neu-shadow-dark), -6px -6px 12px var(--neu-shadow-light);
           }
           .asset-select-code {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            text-align: center;
             font-family: var(--mono);
-            font-size: 16px;
+            font-size: 12px;
             font-weight: 700;
-            color: var(--text);
+            color: #ffffff;
+            background: rgba(0,0,0,0.55);
+            padding: 3px 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
           }
           .asset-select-desc {
             font-size: 13px;
@@ -1183,6 +1194,19 @@ function App() {
           .pill.active { background: var(--accent-soft); color: var(--accent); }
           .pill.inactive { background: var(--danger-soft); color: var(--danger); }
           .pill.neutral { background: var(--warn-soft); color: var(--warn); }
+          .pill.trigger-counter { background: transparent; color: var(--text-soft); }
+          .trigger-icon-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            color: var(--text-soft);
+            font-size: 11px;
+            font-weight: 600;
+            flex-shrink: 0;
+          }
+          .trigger-icon-chip svg { width: 14px; height: 14px; flex-shrink: 0; }
           .card {
             cursor: pointer;
             transition: background 0.12s;

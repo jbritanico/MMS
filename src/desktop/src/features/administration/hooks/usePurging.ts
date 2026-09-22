@@ -65,3 +65,18 @@ export function usePurgeMriReports() {
     },
   });
 }
+
+// Zeroes out maintenance trigger running totals (e.g. Engine Hours, Distance Travelled)
+// -- assetId null resets every asset's triggers, a specific id resets just that asset's.
+export function useResetTriggerRunningValues() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (assetId: number | null) => invoke<string>("reset_trigger_running_values", { assetId }),
+    onSuccess: (_data, assetId) => {
+      // Matches the query key shape useAssetTriggers uses (["triggers", assetId]) --
+      // invalidate broadly since a null assetId here means "every asset changed".
+      qc.invalidateQueries({ queryKey: ["triggers"] });
+      void assetId;
+    },
+  });
+}

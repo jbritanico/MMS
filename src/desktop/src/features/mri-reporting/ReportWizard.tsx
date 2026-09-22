@@ -139,7 +139,11 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
 
     const asset = assets.find((a) => a.id === report.asset_id);
     const template = templates.find((t) => t.id === report.template_id);
-    const isLocked = report.status !== "Draft";
+    const alreadySubmitted = report.status !== "Draft";
+    // Once submitted, only the reviewing Supervisor (canEndorse) may keep editing -- and
+    // only until the report is actually closed (Approved). Everyone else, and the
+    // Supervisor too once it's Approved, sees it fully read-only.
+    const fieldsLocked = report.status === "Approved" || (alreadySubmitted && !canEndorse);
 
     return (
         <div>
@@ -187,12 +191,17 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
                 </div>
             )}
 
-            {isLocked && (
+            {fieldsLocked && (
                 <div className="toast err" style={{ maxWidth: 500, marginBottom: 16 }}>
                     This report is {report.status.toLowerCase()} and can no longer be edited.
                 </div>
             )}
 
+            {alreadySubmitted && !fieldsLocked && (
+                <div className="toast ok" style={{ maxWidth: 500, marginBottom: 16 }}>
+                    This report is {report.status.toLowerCase()}. As the reviewing Supervisor you can still edit it until it's closed.
+                </div>
+            )}
             {report.status === "Submitted" && canEndorse && hasEscalatableFault && (
                 <div className="panel" style={{ maxWidth: 500, marginBottom: 16, padding: 14 }}>
                     <p style={{ fontSize: 13, marginBottom: 10 }}>
@@ -237,18 +246,18 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
 
             <div className="panel" style={{ minHeight: 320 }}>
                 {step === "header" && (
-                    <HeaderEntryStep templateId={report.template_id} reportId={reportId} locked={isLocked} asset={asset} />
+                    <HeaderEntryStep templateId={report.template_id} reportId={reportId} locked={fieldsLocked} asset={asset} />
                 )}
                 {step === "checklist" && (
-                    <ChecklistEntryStep templateId={report.template_id} reportId={reportId} locked={isLocked} assetId={report.asset_id} canReviewClosure={canReviewClosure} />
+                    <ChecklistEntryStep templateId={report.template_id} reportId={reportId} locked={fieldsLocked} assetId={report.asset_id} canReviewClosure={canReviewClosure} />
                 )}
-                {step === "mid" && <MidEntryStep templateId={report.template_id} reportId={reportId} locked={isLocked} />}
-                {step === "footer" && <FooterEntryStep templateId={report.template_id} reportId={reportId} locked={isLocked} />}
+                {step === "mid" && <MidEntryStep templateId={report.template_id} reportId={reportId} locked={fieldsLocked} />}
+                {step === "footer" && <FooterEntryStep templateId={report.template_id} reportId={reportId} locked={fieldsLocked} />}
                 {step === "review" && (
                     <ReviewStep
                         templateId={report.template_id}
                         reportId={reportId}
-                        locked={isLocked}
+                        locked={fieldsLocked}
                         onValidate={setReviewIssues}
                     />
                 )}
@@ -262,10 +271,10 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
                     <button
                         className="primary"
                         onClick={handleSubmit}
-                        disabled={isLocked || reviewIssues.length > 0}
+                        disabled={alreadySubmitted || reviewIssues.length > 0}
                         title={reviewIssues.length > 0 ? "Resolve the issues listed above first" : undefined}
                     >
-                        {isLocked ? "Already submitted" : `Submit Report${reviewIssues.length > 0 ? ` (${reviewIssues.length} issue${reviewIssues.length === 1 ? "" : "s"})` : ""}`}
+                        {alreadySubmitted ? "Already submitted" : `Submit Report${reviewIssues.length > 0 ? ` (${reviewIssues.length} issue${reviewIssues.length === 1 ? "" : "s"})` : ""}`}
                     </button>
                 )}
             </div>
