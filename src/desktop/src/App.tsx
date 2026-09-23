@@ -1207,6 +1207,131 @@ function App() {
             flex-shrink: 0;
           }
           .trigger-icon-chip svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+          .dashboard-bg-wrap { position: relative; }
+          .dashboard-bg-layer { position: absolute; inset: -24px -24px -24px -24px; z-index: 0; overflow: hidden; border-radius: 12px; }
+          .dashboard-bg-layer img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0.16; }
+          .dashboard-bg-layer .dashboard-bg-veil {
+            position: absolute; inset: 0;
+            background: linear-gradient(160deg, var(--surface) 0%, var(--surface) 55%, transparent 100%);
+          }
+          .dashboard-bg-content { position: relative; z-index: 1; }
+
+          .dashboard-hub-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px; margin-top: 18px;
+          }
+          .dashboard-tile {
+            display: flex; flex-direction: column; gap: 10px; align-items: flex-start;
+            padding: 20px; border-radius: 14px; border: none; text-align: left;
+            background: var(--surface); box-shadow: 6px 6px 14px var(--neu-shadow-dark), -6px -6px 14px var(--neu-shadow-light);
+            cursor: pointer; transition: transform 0.12s, box-shadow 0.12s;
+          }
+          .dashboard-tile:hover { transform: translateY(-2px); }
+          .dashboard-tile-icon {
+            width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+            background: var(--accent-soft); color: var(--accent); flex-shrink: 0;
+          }
+          .dashboard-tile-icon svg { width: 22px; height: 22px; }
+          .dashboard-tile-title { font-size: 15px; font-weight: 600; }
+          .dashboard-tile-desc { font-size: 12.5px; color: var(--text-soft); line-height: 1.4; }
+          .dashboard-tile.disabled {
+            cursor: default; opacity: 0.5; box-shadow: none; border: 1px dashed var(--neu-shadow-dark);
+          }
+          .dashboard-tile.disabled .dashboard-tile-icon { background: transparent; color: var(--text-soft); }
+          .dashboard-tile-badge {
+            font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+            color: var(--text-soft); background: var(--neu-shadow-light); padding: 2px 8px; border-radius: 20px;
+          }
+
+          /* Asset MR-I History screen (asset grid) and its per-asset report timeline
+             subscreen -- neumorphic raised cards throughout, scoped so the app's other
+             generic list/card styles elsewhere are untouched. */
+          .mri-history-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 22px; margin-top: 22px;
+          }
+          .mri-history-card {
+            display: flex; flex-direction: column; gap: 12px;
+            background: var(--neu-bg); border: none; border-radius: 18px;
+            padding: 24px 26px; cursor: pointer;
+            box-shadow: 6px 6px 14px var(--neu-shadow-dark), -6px -6px 14px var(--neu-shadow-light);
+            transition: transform 0.15s;
+          }
+          .mri-history-card:hover { transform: translateY(-2px); }
+          .mri-history-card .code { font-size: 17px; }
+          .mri-history-card .desc { font-size: 13.5px; line-height: 1.6; }
+          .mri-history-card .meta { gap: 10px; }
+
+          .mri-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-top: 20px; }
+          .mri-stat-card {
+            display: flex; align-items: center; gap: 16px;
+            background: color-mix(in srgb, var(--neu-bg) 55%, transparent);
+            backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+            border-radius: 18px; padding: 18px 22px;
+            box-shadow: 6px 6px 14px var(--neu-shadow-dark), -6px -6px 14px var(--neu-shadow-light);
+          }
+          .mri-stat-icon {
+            width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+          }
+          .mri-stat-icon svg { width: 22px; height: 22px; }
+          .mri-stat-body { flex: 1; min-width: 0; }
+          .mri-stat-label { font-size: 12.5px; color: var(--text-soft); font-weight: 600; margin-bottom: 2px; }
+          .mri-stat-value { font-size: 22px; font-weight: 700; margin-bottom: 10px; }
+          .mri-stat-bar-track { height: 8px; border-radius: 20px; background: var(--neu-shadow-dark); overflow: hidden; }
+          .mri-stat-bar-fill { height: 100%; border-radius: 20px; transition: width 0.3s; }
+
+          .mri-report-timeline { position: relative; margin-top: 28px; padding-left: 34px; }
+          .mri-report-timeline::before {
+            content: ""; position: absolute; left: 10px; top: 10px; bottom: 10px; width: 2px;
+            background: var(--neu-shadow-dark);
+          }
+          .mri-report-item { position: relative; margin-bottom: 18px; }
+          .mri-report-item:last-child { margin-bottom: 0; }
+          .mri-report-dot {
+            position: absolute; left: -34px; top: 34px; width: 14px; height: 14px; border-radius: 50%;
+            box-shadow: 0 0 0 4px var(--neu-bg); z-index: 1;
+          }
+          .mri-report-card {
+            position: relative;
+            display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+            background: color-mix(in srgb, var(--neu-bg) 55%, transparent);
+            backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+            border-radius: 20px; padding: 34px 24px 20px;
+            box-shadow: 6px 6px 14px var(--neu-shadow-dark), -6px -6px 14px var(--neu-shadow-light);
+          }
+          .mri-report-icon {
+            width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+          }
+          .mri-report-icon svg { width: 22px; height: 22px; }
+          .mri-report-info { display: flex; flex-direction: column; gap: 3px; min-width: 160px; }
+          .mri-report-title { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+          .mri-report-meta-line { font-size: 12.5px; color: var(--text-soft); }
+          .mri-report-issues-block { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 180px; }
+          .mri-report-issues { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--text-soft); margin-top: 2px; }
+          .mri-report-issues svg { width: 13px; height: 13px; }
+          .mri-report-view-btn {
+            flex: 0 0 auto; margin-left: auto; text-align: center; padding: 8px 14px; border-radius: 10px; border: none;
+            background: var(--neu-bg); color: var(--text-soft); font-weight: 600; font-size: 12px;
+            box-shadow: 3px 3px 8px var(--neu-shadow-dark), -3px -3px 8px var(--neu-shadow-light);
+            cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+            transition: color 0.15s, box-shadow 0.15s;
+          }
+          .mri-report-view-btn svg { width: 14px; height: 14px; }
+          .mri-report-view-btn:hover { color: var(--accent); box-shadow: 2px 2px 6px var(--neu-shadow-dark), -2px -2px 6px var(--neu-shadow-light); }
+          .mri-report-readings { position: absolute; top: 12px; right: 20px; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+          .mri-report-issue-badge {
+            display: inline-flex; align-items: center; font-size: 10.5px; font-weight: 700;
+            background: var(--danger-soft); color: var(--danger); padding: 1px 8px; border-radius: 20px; margin-left: 6px;
+          }
+          .mri-report-fields { display: grid; grid-template-columns: auto auto; column-gap: 16px; row-gap: 3px; margin-top: 4px; }
+          .mri-report-field-label { font-size: 12.5px; color: var(--text-soft); }
+          .mri-report-field-date { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--text-soft); white-space: nowrap; }
+          .mri-report-field-date svg { width: 12px; height: 12px; flex-shrink: 0; }
+          .mri-report-key-issue { display: flex; align-items: flex-start; gap: 5px; font-size: 11px; color: var(--danger); margin-top: 4px; }
+          .mri-report-key-issue svg { width: 12px; height: 12px; flex-shrink: 0; margin-top: 1px; }
           .card {
             cursor: pointer;
             transition: background 0.12s;
@@ -1890,7 +2015,7 @@ function App() {
             {screen === "report-wizard" && selectedReportId !== null && (
               <ReportWizard reportId={selectedReportId} onBack={() => setScreen("reports")} />
             )}
-            {screen === "dashboard" && <Dashboard />}
+            {screen === "dashboard" && <Dashboard onOpenReport={handleReportCreated} />}
             {screen === "admin" && (
               <Administration
                 onOpenTemplate={handleOpenTemplate}

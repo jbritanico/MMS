@@ -2878,6 +2878,75 @@ fn get_mid_field_value(conn: &Connection, report_id: i64, label: &str) -> Option
     }
 }
 
+// Same lookup as get_mid_field_value, but for a HEADER field (e.g. "Job Operating Hours",
+// "Engine Hours (This Report)") instead of a mid field.
+fn get_header_field_value(conn: &Connection, report_id: i64, label: &str) -> Option<String> {
+    let result: Result<Option<String>, rusqlite::Error> = conn.query_row(
+        "SELECT v.value
+         FROM mri_reports r
+         JOIN template_header_fields thf ON thf.template_id = r.template_id
+         JOIN header_field_catalog hfc ON hfc.id = thf.header_field_id
+         JOIN mri_report_header_values v ON v.report_id = r.id AND v.template_header_field_id = thf.id
+         WHERE r.id = ?1 AND hfc.label = ?2",
+        rusqlite::params![report_id, label],
+        |row| row.get(0),
+    );
+    match result {
+        Ok(Some(v)) if !v.trim().is_empty() => Some(v),
+        _ => None,
+    }
+}
+
+// Parses a raw stored field value into a finite f64 reading, or None if missing/unparsable --
+// used to feed the MR-I history trend chart without blocking on bad/blank data.
+fn parse_numeric_reading(raw: Option<String>) -> Option<f64> {
+    raw.and_then(|v| v.trim().parse::<f64>().ok()).filter(|n| n.is_finite())
+}
+
+// Case-insensitive header-field lookup used only for "Compliance Stage" -- the frontend
+// (ReportWizard) matches this field by trimmed/lowercased label rather than an exact string,
+// since its catalog casing isn't guaranteed, so this mirrors that instead of reusing the
+// exact-match get_header_field_value.
+fn get_compliance_stage(conn: &Connection, report_id: i64) -> Option<String> {
+    let result: Result<Option<String>, rusqlite::Error> = conn.query_row(
+        "SELECT v.value
+         FROM mri_reports r
+         JOIN template_header_fields thf ON thf.template_id = r.template_id
+         JOIN header_field_catalog hfc ON hfc.id = thf.header_field_id
+         JOIN mri_report_header_values v ON v.report_id = r.id AND v.template_header_field_id = thf.id
+         WHERE r.id = ?1 AND LOWER(TRIM(hfc.label)) = 'compliance stage'",
+        [report_id],
+        |row| row.get(0),
+    );
+    match result {
+        Ok(Some(v)) if !v.trim().is_empty() => Some(v),
+        _ => None,
+    }
+}
+
+// The human-readable checklist item descriptions for every FAILED item on one report --
+// same join used by get_open_prior_issues, but scoped to a single report rather than every
+// still-open issue across an asset's history. Returns an empty list (never an error) on any
+// lookup problem, since this only feeds a "key issues" readout on the MR-I history timeline.
+fn get_key_issues_for_report(conn: &Connection, report_id: i64) -> Vec<String> {
+    let mut stmt = match conn.prepare(
+        "SELECT cd.description
+         FROM mri_report_checklist_results r
+         JOIN template_checklist_items tci ON r.template_checklist_item_id = tci.id
+         LEFT JOIN checklist_databank cd ON tci.checklist_item_id = cd.id
+         WHERE r.report_id = ?1 AND r.status = 'Fail'
+         ORDER BY r.severity DESC",
+    ) {
+        Ok(s) => s,
+        Err(_) => return Vec::new(),
+    };
+    let result = stmt.query_map([report_id], |row| row.get::<_, Option<String>>(0));
+    match result {
+        Ok(iter) => iter.filter_map(|r| r.ok().flatten()).collect(),
+        Err(_) => Vec::new(),
+    }
+}
+
 fn sync_km_trigger_from_report(conn: &Connection, report_id: i64) {
     let asset_id: Option<i64> = conn
         .query_row(
@@ -4968,6 +5037,125 @@ fn get_assets_with_pending_issues() -> Result<Vec<i64>, String> {
     Ok(ids)
 }
 
+// Powers the Dashboard's MR-I equipment history view: one card per asset with how many
+// MR-I reports it has and its most recent report's status/date, regardless of status --
+// unlike get_reports_needing_supervisor_action this deliberately includes every asset,
+// even ones with zero reports, so users can see what's never been inspected too.
+#[derive(Serialize, Deserialize)]
+struct AssetMriHistorySummaryRow {
+    asset_id: i64,
+    asset_code: String,
+    asset_description: Option<String>,
+    report_count: i64,
+    latest_status: Option<String>,
+    latest_report_id: Option<i64>,
+    latest_date: Option<String>,
+}
+
+#[tauri::command]
+fn get_assets_with_mri_history_summary() -> Result<Vec<AssetMriHistorySummaryRow>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT a.id, a.asset_code, a.asset_description,
+                (SELECT COUNT(*) FROM mri_reports r WHERE r.asset_id = a.id) AS report_count,
+                lr.status, lr.id, lr.created_date
+         FROM assets a
+         LEFT JOIN mri_reports lr ON lr.id = (
+             SELECT id FROM mri_reports WHERE asset_id = a.id ORDER BY id DESC LIMIT 1
+         )
+         ORDER BY a.asset_code",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(AssetMriHistorySummaryRow {
+                asset_id: row.get(0)?,
+                asset_code: row.get(1)?,
+                asset_description: row.get(2)?,
+                report_count: row.get(3)?,
+                latest_status: row.get(4)?,
+                latest_report_id: row.get(5)?,
+                latest_date: row.get(6)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
+}
+
+// The full MR-I report history for one asset, across every status (Draft through
+// Approved) -- unlike the Reports to Review / My Reports queues, which only surface
+// reports still needing action. Newest first.
+#[derive(Serialize, Deserialize)]
+struct MriHistoryRow {
+    id: i64,
+    status: String,
+    submitted_by: Option<String>,
+    submitted_date: Option<String>,
+    approved_by: Option<String>,
+    approved_date: Option<String>,
+    created_date: String,
+    issue_count: i64,
+    km_reading: Option<f64>,
+    oh_reading: Option<f64>,
+    eh_reading: Option<f64>,
+    key_issues: Vec<String>,
+    compliance_stage: Option<String>,
+}
+
+#[tauri::command]
+fn get_asset_mri_history(asset_id: i64) -> Result<Vec<MriHistoryRow>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT r.id, r.status, r.submitted_by, r.submitted_date, r.approved_by, r.approved_date, r.created_date,
+                (SELECT COUNT(*) FROM mri_report_checklist_results WHERE report_id = r.id AND status = 'Fail') AS issue_count
+         FROM mri_reports r
+         WHERE r.asset_id = ?1
+         ORDER BY r.id DESC",
+        )
+        .map_err(|e| e.to_string())?;
+    let mut rows = stmt
+        .query_map([asset_id], |row| {
+            Ok(MriHistoryRow {
+                id: row.get(0)?,
+                status: row.get(1)?,
+                submitted_by: row.get(2)?,
+                submitted_date: row.get(3)?,
+                approved_by: row.get(4)?,
+                approved_date: row.get(5)?,
+                created_date: row.get(6)?,
+                issue_count: row.get(7)?,
+                km_reading: None,
+                oh_reading: None,
+                eh_reading: None,
+                key_issues: Vec::new(),
+                compliance_stage: None,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    drop(stmt);
+
+    // Non-blocking: fill in whichever readings each report actually recorded, same
+    // Post-Job-preferred/Pre-Job-fallback rule used for the KM trigger sync.
+    for row in rows.iter_mut() {
+        row.km_reading = parse_numeric_reading(
+            get_mid_field_value(&conn, row.id, "Distance Travelled Post-Job (KM)")
+                .or_else(|| get_mid_field_value(&conn, row.id, "Distance Travelled Pre-Job (KM)")),
+        );
+        row.oh_reading = parse_numeric_reading(get_header_field_value(&conn, row.id, "Job Operating Hours"));
+        row.eh_reading = parse_numeric_reading(get_header_field_value(&conn, row.id, "Engine Hours (This Report)"));
+        row.key_issues = get_key_issues_for_report(&conn, row.id);
+        row.compliance_stage = get_compliance_stage(&conn, row.id);
+    }
+
+    Ok(rows)
+}
+
 #[derive(Serialize, Deserialize)]
 struct AppUser {
     id: i64,
@@ -5504,6 +5692,8 @@ pub fn run() {
             search_icons,
             fetch_icon_svg,
             get_assets_with_pending_issues,
+            get_assets_with_mri_history_summary,
+            get_asset_mri_history,
             get_app_users,
             create_app_user,
             update_app_user,

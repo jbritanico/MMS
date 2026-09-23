@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-20T09:30:23.453Z",
+  "generatedAt": "2026-09-23T11:34:18.362Z",
   "rootPath": "c:\\Users\\IS\\Documents\\GitHub\\MMS",
   "summary": {
-    "totalFiles": 66,
-    "totalEdges": 157,
-    "totalLines": 15162,
+    "totalFiles": 67,
+    "totalEdges": 164,
+    "totalLines": 16018,
     "languages": [
       "js"
     ],
@@ -13,7 +13,7 @@
       "start": 7,
       "main": 29,
       "core": 7,
-      "helpers": 23
+      "helpers": 24
     }
   },
   "files": [
@@ -23,8 +23,8 @@
       "stage": "start",
       "lang": "js",
       "ext": ".tsx",
-      "lines": 1781,
-      "size": 68809,
+      "lines": 2059,
+      "size": 82439,
       "collaboration": {
         "status": "collaborative",
         "impact": "bridge",
@@ -36,7 +36,7 @@
       "isDeadCode": false,
       "isOrphan": false,
       "isCircular": false,
-      "hotspotScore": 46,
+      "hotspotScore": 47,
       "hotspotLevel": "high",
       "summary": "Entry or startup logic. Functions: App, handleOpenTemplate, handleReportCreated, handleThemeChange",
       "functions": [
@@ -342,8 +342,8 @@
       "stage": "main",
       "lang": "js",
       "ext": ".tsx",
-      "lines": 289,
-      "size": 12366,
+      "lines": 323,
+      "size": 14225,
       "collaboration": {
         "status": "collaborative",
         "impact": "bridge",
@@ -718,8 +718,8 @@
       "stage": "helpers",
       "lang": "js",
       "ext": ".ts",
-      "lines": 67,
-      "size": 2431,
+      "lines": 82,
+      "size": 3131,
       "collaboration": {
         "status": "connected",
         "impact": "leaf",
@@ -740,7 +740,8 @@
         "usePurgeChecklistDatabank",
         "usePurgeLookups",
         "usePreviewMriReportPurge",
-        "usePurgeMriReports"
+        "usePurgeMriReports",
+        "useResetTriggerRunningValues"
       ],
       "classes": [],
       "exports": [
@@ -749,7 +750,8 @@
         "usePurgeChecklistDatabank",
         "usePurgeLookups",
         "usePreviewMriReportPurge",
-        "usePurgeMriReports"
+        "usePurgeMriReports",
+        "useResetTriggerRunningValues"
       ],
       "imports": [
         "src/desktop/src/lib/ipc.ts"
@@ -1210,23 +1212,24 @@
       "stage": "main",
       "lang": "js",
       "ext": ".tsx",
-      "lines": 416,
-      "size": 18727,
+      "lines": 522,
+      "size": 22442,
       "collaboration": {
         "status": "collaborative",
         "impact": "bridge",
         "summary": "Connects multiple parts of the code flow.",
-        "score": 23
+        "score": 26
       },
-      "crossStageLinks": 7,
-      "impactScore": 23,
+      "crossStageLinks": 8,
+      "impactScore": 26,
       "isDeadCode": false,
       "isOrphan": false,
       "isCircular": false,
-      "hotspotScore": 25,
+      "hotspotScore": 27,
       "hotspotLevel": "medium",
-      "summary": "Main orchestration code. Functions: AssetRegistry, updateField, resetForm, handleSave",
+      "summary": "Main orchestration code. Functions: AssetRegistryCard, AssetRegistry, updateField, resetForm",
       "functions": [
+        "AssetRegistryCard",
         "AssetRegistry",
         "updateField",
         "resetForm",
@@ -1241,6 +1244,7 @@
       "exports": [],
       "imports": [
         "src/desktop/src/features/asset-registry/hooks/useAssets.ts",
+        "src/desktop/src/features/asset-registry/hooks/useTriggers.ts",
         "src/desktop/src/features/asset-registry/types.ts",
         "src/desktop/src/features/administration/hooks/useAssetTypes.ts",
         "src/desktop/src/features/administration/hooks/useMriTemplates.ts",
@@ -1315,14 +1319,14 @@
         "status": "collaborative",
         "impact": "bridge",
         "summary": "Connects multiple parts of the code flow.",
-        "score": 9
+        "score": 18
       },
-      "crossStageLinks": 3,
-      "impactScore": 9,
+      "crossStageLinks": 6,
+      "impactScore": 18,
       "isDeadCode": false,
       "isOrphan": false,
       "isCircular": false,
-      "hotspotScore": 12,
+      "hotspotScore": 21,
       "hotspotLevel": "medium",
       "summary": "Support or shared utility code. Functions: useAssetTriggers, useUpdateTrigger",
       "functions": [
@@ -1338,8 +1342,11 @@
         "src/desktop/src/lib/ipc.ts"
       ],
       "usedBy": [
+        "src/desktop/src/features/asset-registry/AssetRegistry.tsx",
         "src/desktop/src/features/asset-registry/MaintenanceTriggers.tsx",
-        "src/desktop/src/features/mri-reporting/ReportWizard.tsx"
+        "src/desktop/src/features/dashboard/Dashboard.tsx",
+        "src/desktop/src/features/mri-reporting/ReportWizard.tsx",
+        "src/desktop/src/features/mri-reporting/SelectAssetForReport.tsx"
       ]
     },
     {
@@ -1392,15 +1399,15 @@
         "status": "connected",
         "impact": "leaf",
         "summary": "Part of the local code flow with a focused role.",
-        "score": 3
+        "score": 5
       },
-      "crossStageLinks": 1,
-      "impactScore": 3,
+      "crossStageLinks": 2,
+      "impactScore": 5,
       "isDeadCode": false,
       "isOrphan": false,
       "isCircular": false,
-      "hotspotScore": 10,
-      "hotspotLevel": "low",
+      "hotspotScore": 13,
+      "hotspotLevel": "medium",
       "summary": "Support or shared utility code. Type: module",
       "functions": [],
       "classes": [],
@@ -1411,7 +1418,8 @@
       "imports": [],
       "usedBy": [
         "src/desktop/src/features/asset-registry/AssetRegistry.tsx",
-        "src/desktop/src/features/asset-registry/hooks/useAssets.ts"
+        "src/desktop/src/features/asset-registry/hooks/useAssets.ts",
+        "src/desktop/src/features/mri-reporting/SelectAssetForReport.tsx"
       ]
     },
     {
@@ -1420,46 +1428,78 @@
       "stage": "main",
       "lang": "js",
       "ext": ".tsx",
-      "lines": 701,
-      "size": 37416,
+      "lines": 559,
+      "size": 23431,
+      "collaboration": {
+        "status": "collaborative",
+        "impact": "bridge",
+        "summary": "Connects multiple parts of the code flow.",
+        "score": 9
+      },
+      "crossStageLinks": 3,
+      "impactScore": 9,
+      "isDeadCode": false,
+      "isOrphan": false,
+      "isCircular": false,
+      "hotspotScore": 13,
+      "hotspotLevel": "medium",
+      "summary": "Main orchestration code. Functions: formatDate, reportIconFor, reportIconStyle, DashboardBackdrop",
+      "functions": [
+        "formatDate",
+        "reportIconFor",
+        "reportIconStyle",
+        "DashboardBackdrop",
+        "DashboardAssetCard",
+        "StatCard",
+        "AssetHistoryPanel",
+        "Dashboard"
+      ],
+      "classes": [],
+      "exports": [],
+      "imports": [
+        "src/desktop/src/features/dashboard/hooks/useMriHistory.ts",
+        "src/desktop/src/features/asset-registry/hooks/useTriggers.ts"
+      ],
+      "usedBy": [
+        "src/desktop/src/App.tsx"
+      ]
+    },
+    {
+      "path": "src/desktop/src/features/dashboard/hooks/useMriHistory.ts",
+      "fileType": "module",
+      "stage": "helpers",
+      "lang": "js",
+      "ext": ".ts",
+      "lines": 43,
+      "size": 1238,
       "collaboration": {
         "status": "connected",
         "impact": "leaf",
         "summary": "Part of the local code flow with a focused role.",
-        "score": 2
+        "score": 4
       },
-      "crossStageLinks": 1,
-      "impactScore": 2,
+      "crossStageLinks": 2,
+      "impactScore": 4,
       "isDeadCode": false,
       "isOrphan": false,
       "isCircular": false,
-      "hotspotScore": 10,
+      "hotspotScore": 9,
       "hotspotLevel": "low",
-      "summary": "Main orchestration code. Functions: mulberry32, buildDataset, Panel, CustomTooltip",
+      "summary": "Support or shared utility code. Functions: useAssetsWithMriHistorySummary, useAssetMriHistory",
       "functions": [
-        "mulberry32",
-        "buildDataset",
-        "Panel",
-        "CustomTooltip",
-        "Sparkline",
-        "KPICard",
-        "ChipButton",
-        "TabButton",
-        "Gauge",
-        "downloadCSV",
-        "exportPdf",
-        "Dashboard",
-        "jitter",
-        "toggleLine",
-        "slice",
-        "doRefresh",
-        "fmtDelta"
+        "useAssetsWithMriHistorySummary",
+        "useAssetMriHistory"
       ],
       "classes": [],
-      "exports": [],
-      "imports": [],
+      "exports": [
+        "useAssetsWithMriHistorySummary",
+        "useAssetMriHistory"
+      ],
+      "imports": [
+        "src/desktop/src/lib/ipc.ts"
+      ],
       "usedBy": [
-        "src/desktop/src/App.tsx"
+        "src/desktop/src/features/dashboard/Dashboard.tsx"
       ]
     },
     {
@@ -1509,20 +1549,20 @@
       "stage": "start",
       "lang": "js",
       "ext": ".tsx",
-      "lines": 464,
-      "size": 21091,
+      "lines": 847,
+      "size": 27676,
       "collaboration": {
         "status": "collaborative",
         "impact": "bridge",
         "summary": "Connects multiple parts of the code flow.",
-        "score": 20
+        "score": 23
       },
-      "crossStageLinks": 6,
-      "impactScore": 20,
+      "crossStageLinks": 7,
+      "impactScore": 23,
       "isDeadCode": false,
       "isOrphan": false,
       "isCircular": false,
-      "hotspotScore": 23,
+      "hotspotScore": 26,
       "hotspotLevel": "medium",
       "summary": "Entry or startup logic. Functions: MainMenu, handleMapFeatureToggle, handleSwitchUser, handleCardClick",
       "functions": [
@@ -1537,6 +1577,7 @@
       "imports": [
         "src/desktop/src/lib/theme.ts",
         "src/desktop/src/lib/currentUser.tsx",
+        "src/desktop/src/lib/UserPickerGate.tsx",
         "src/desktop/src/lib/mapFeatureFlag.ts",
         "src/desktop/src/features/administration/hooks/useUserAdmin.ts",
         "src/desktop/src/features/mri-reporting/hooks/useMriFaultApprovals.ts",
@@ -1720,8 +1761,8 @@
       "stage": "helpers",
       "lang": "js",
       "ext": ".ts",
-      "lines": 179,
-      "size": 6864,
+      "lines": 181,
+      "size": 6961,
       "collaboration": {
         "status": "collaborative",
         "impact": "bridge",
@@ -1961,8 +2002,8 @@
       "stage": "core",
       "lang": "js",
       "ext": ".tsx",
-      "lines": 68,
-      "size": 3522,
+      "lines": 82,
+      "size": 4040,
       "collaboration": {
         "status": "collaborative",
         "impact": "bridge",
@@ -1976,8 +2017,9 @@
       "isCircular": false,
       "hotspotScore": 11,
       "hotspotLevel": "medium",
-      "summary": "Core business logic. Functions: ReportReviewQueue",
+      "summary": "Core business logic. Functions: formatSubmittedDate, ReportReviewQueue",
       "functions": [
+        "formatSubmittedDate",
         "ReportReviewQueue"
       ],
       "classes": [],
@@ -1996,8 +2038,8 @@
       "stage": "core",
       "lang": "js",
       "ext": ".tsx",
-      "lines": 2511,
-      "size": 131639,
+      "lines": 2520,
+      "size": 132393,
       "collaboration": {
         "status": "collaborative",
         "impact": "bridge",
@@ -2070,23 +2112,24 @@
       "stage": "core",
       "lang": "js",
       "ext": ".tsx",
-      "lines": 169,
-      "size": 7258,
+      "lines": 283,
+      "size": 11419,
       "collaboration": {
         "status": "collaborative",
         "impact": "bridge",
         "summary": "Connects multiple parts of the code flow.",
-        "score": 21
+        "score": 27
       },
-      "crossStageLinks": 7,
-      "impactScore": 21,
+      "crossStageLinks": 9,
+      "impactScore": 27,
       "isDeadCode": false,
       "isOrphan": false,
       "isCircular": false,
-      "hotspotScore": 20,
+      "hotspotScore": 25,
       "hotspotLevel": "medium",
-      "summary": "Core business logic. Functions: SelectAssetForReport, flash, findActiveTemplate, assetTypeName",
+      "summary": "Core business logic. Functions: AssetSelectCard, SelectAssetForReport, flash, findActiveTemplate",
       "functions": [
+        "AssetSelectCard",
         "SelectAssetForReport",
         "flash",
         "findActiveTemplate",
@@ -2100,6 +2143,8 @@
         "src/desktop/src/features/asset-registry/hooks/useAssets.ts",
         "src/desktop/src/features/administration/hooks/useAssetTypes.ts",
         "src/desktop/src/features/administration/hooks/useMriTemplates.ts",
+        "src/desktop/src/features/asset-registry/hooks/useTriggers.ts",
+        "src/desktop/src/features/asset-registry/types.ts",
         "src/desktop/src/features/mri-reporting/hooks/useMriReports.ts",
         "src/desktop/src/lib/currentUser.tsx",
         "src/desktop/src/features/administration/hooks/useUserAdmin.ts"
@@ -2669,14 +2714,14 @@
         "status": "collaborative",
         "impact": "bridge",
         "summary": "Connects multiple parts of the code flow.",
-        "score": 63
+        "score": 66
       },
-      "crossStageLinks": 21,
-      "impactScore": 63,
+      "crossStageLinks": 22,
+      "impactScore": 66,
       "isDeadCode": false,
       "isOrphan": false,
       "isCircular": false,
-      "hotspotScore": 65,
+      "hotspotScore": 68,
       "hotspotLevel": "critical",
       "summary": "Main orchestration code. Type: module",
       "functions": [],
@@ -2695,6 +2740,7 @@
         "src/desktop/src/features/administration/hooks/useUserAdmin.ts",
         "src/desktop/src/features/asset-registry/hooks/useAssets.ts",
         "src/desktop/src/features/asset-registry/hooks/useTriggers.ts",
+        "src/desktop/src/features/dashboard/hooks/useMriHistory.ts",
         "src/desktop/src/features/mri-reporting/hooks/useMriFaultApprovals.ts",
         "src/desktop/src/features/mri-reporting/hooks/useMriFaultRectifications.ts",
         "src/desktop/src/features/mri-reporting/hooks/useMriReports.ts",
@@ -2822,19 +2868,19 @@
       "lang": "js",
       "ext": ".tsx",
       "lines": 450,
-      "size": 17605,
+      "size": 17619,
       "collaboration": {
         "status": "connected",
         "impact": "leaf",
         "summary": "Part of the local code flow with a focused role.",
-        "score": 3
+        "score": 5
       },
-      "crossStageLinks": 1,
-      "impactScore": 3,
+      "crossStageLinks": 2,
+      "impactScore": 5,
       "isDeadCode": false,
       "isOrphan": false,
       "isCircular": false,
-      "hotspotScore": 11,
+      "hotspotScore": 14,
       "hotspotLevel": "medium",
       "summary": "Main orchestration code. Functions: tierAccent, roleBadge, useLiveClock, StatusPill",
       "functions": [
@@ -2848,12 +2894,16 @@
         "prevUser"
       ],
       "classes": [],
-      "exports": [],
+      "exports": [
+        "tierAccent",
+        "roleBadge"
+      ],
       "imports": [
         "src/desktop/src/lib/currentUser.tsx"
       ],
       "usedBy": [
-        "src/desktop/src/App.tsx"
+        "src/desktop/src/App.tsx",
+        "src/desktop/src/features/main-menu/MainMenu.tsx"
       ]
     },
     {
