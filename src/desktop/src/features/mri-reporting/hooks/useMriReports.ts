@@ -165,6 +165,32 @@ export function usePreviousEngineHours(assetId: number, currentReportId: number)
   });
 }
 
+export function usePreviousComplianceStage(assetId: number, currentReportId: number) {
+  return useQuery({
+    queryKey: ["previous-compliance-stage", assetId, currentReportId],
+    queryFn: () => invoke<string | null>("get_previous_compliance_stage", { assetId, currentReportId }),
+    enabled: !!assetId && !!currentReportId,
+  });
+}
+
+// Admin-only: deletes the MOST RECENT MR-I report for an asset (the backend rejects
+// anything else) and reverts its KM/OH/EH trigger contribution if it was Approved. Used
+// from the Dashboard's Asset MR-I History screen, not the general report-editing flow --
+// deliberately a distinct hook from useDeleteMriReport, which only removes the bare
+// mri_reports row and would orphan child data if reused here.
+export function useDeleteLastMriReport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (reportId: number) => invoke<string>("delete_last_mri_report", { reportId }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: KEY });
+      qc.invalidateQueries({ queryKey: ["assets-mri-history-summary"] });
+      qc.invalidateQueries({ queryKey: ["asset-mri-history"] });
+      qc.invalidateQueries({ queryKey: ["triggers"] });
+    },
+  });
+}
+
 export function usePendingChecklistItemIds(assetId: number, currentReportId: number) {
   return useQuery({
     queryKey: ["pending-checklist-items", assetId, currentReportId],

@@ -172,11 +172,44 @@ fn open_and_migrate_connection() -> Result<Connection, String> {
             warning_value INTEGER NOT NULL DEFAULT 0,
             running_value INTEGER NOT NULL DEFAULT 0,
             tally_value INTEGER NOT NULL DEFAULT 0,
+            last_reset_date TEXT,
             FOREIGN KEY (asset_id) REFERENCES assets(id)
         )",
         [],
     )
     .map_err(|e| e.to_string())?;
+
+    // Migration: add last_reset_date to maintenance_triggers for databases created before
+    // the CA (Calendar days) trigger existed. Unlike the other trigger types, CA accrues
+    // from elapsed real time rather than from report deltas, so it needs a reference date
+    // to measure "days since" against -- this is that reference. Backfilled to today for
+    // existing rows/databases since there's no historical reset date to recover; every
+    // asset's CA clock effectively (re)starts counting from the moment of this upgrade.
+    // Mirrors the mri_fault_approvals migration pattern above (PRAGMA table_info check +
+    // ALTER TABLE), and is kept current via sync_ca_triggers / reset_trigger_running_values.
+    {
+        let mut stmt = conn
+            .prepare("PRAGMA table_info(maintenance_triggers)")
+            .map_err(|e| e.to_string())?;
+        let cols = stmt
+            .query_map([], |row| row.get::<_, String>(1))
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+
+        if !cols.iter().any(|c| c == "last_reset_date") {
+            conn.execute(
+                "ALTER TABLE maintenance_triggers ADD COLUMN last_reset_date TEXT",
+                [],
+            )
+            .map_err(|e| e.to_string())?;
+            conn.execute(
+                "UPDATE maintenance_triggers SET last_reset_date = date('now') WHERE last_reset_date IS NULL",
+                [],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+    }
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS checklist_sections (
@@ -1032,8 +1065,11 @@ fn seed_field_catalogs(conn: &Connection) -> Result<(), String> {
 fn seed_triggers(conn: &Connection, asset_id: i64) -> Result<(), String> {
     for level in MR_LEVELS.iter() {
         for ttype in TRIGGER_TYPES.iter() {
+            // last_reset_date seeds to today so a newly seeded CA trigger starts its
+            // elapsed-days clock from creation time rather than from NULL (which
+            // sync_ca_triggers treats as "never started" and skips).
             conn.execute(
-                "INSERT INTO maintenance_triggers (asset_id, mr_level, trigger_type) VALUES (?1, ?2, ?3)",
+                "INSERT INTO maintenance_triggers (asset_id, mr_level, trigger_type, last_reset_date) VALUES (?1, ?2, ?3, date('now'))",
                 rusqlite::params![asset_id, level, ttype],
             ).map_err(|e| e.to_string())?;
         }
@@ -1130,6 +1166,10 @@ fn delete_asset(id: i64) -> Result<String, String> {
 #[tauri::command]
 fn get_asset_triggers(asset_id: i64) -> Result<Vec<Trigger>, String> {
     let conn = get_connection()?;
+    // Refresh CA's elapsed-days count before reading -- it accrues from real time, not
+    // from report events, so it can't rely on being synced anywhere else. Cheap no-op for
+    // assets with no enabled CA trigger.
+    sync_ca_triggers(&conn, asset_id);
     let mut stmt = conn.prepare(
         "SELECT id, asset_id, mr_level, trigger_type, enabled, interval_value, warning_value, running_value, tally_value
          FROM maintenance_triggers WHERE asset_id = ?1 ORDER BY mr_level, trigger_type"
@@ -1192,6 +1232,20 @@ fn reset_trigger_running_values(asset_id: Option<i64>) -> Result<String, String>
         conn.execute("UPDATE maintenance_triggers SET running_value = 0", [])
             .map_err(|e| e.to_string())?
     };
+    // CA doesn't just reset to 0 like the others -- it's recomputed from last_reset_date on
+    // every read (see sync_ca_triggers), so without also moving last_reset_date to today it
+    // would snap right back to the old elapsed-day count on the next get_asset_triggers call.
+    if let Some(id) = asset_id {
+        let _ = conn.execute(
+            "UPDATE maintenance_triggers SET last_reset_date = date('now') WHERE asset_id = ?1 AND trigger_type = 'CA'",
+            [id],
+        );
+    } else {
+        let _ = conn.execute(
+            "UPDATE maintenance_triggers SET last_reset_date = date('now') WHERE trigger_type = 'CA'",
+            [],
+        );
+    }
     Ok(format!("{} trigger running total(s) reset to zero", count))
 }
 
@@ -2969,8 +3023,14 @@ fn sync_km_trigger_from_report(conn: &Connection, report_id: i64) {
         _ => return,
     };
 
+    // Cumulative since the last MR-II/MR-III service (or since Reset Running Totals),
+    // per the Manual's trigger model (e.g. "250 operating hours") -- each newly approved
+    // report ADDS its own leg's distance rather than replacing the running total. A bare
+    // SET here was the bug: it made running_value snap to whichever single report was
+    // most recently approved instead of accumulating, so totals never added up correctly.
+    // Gated on enabled=1 so a disabled trigger's running_value never silently drifts.
     let _ = conn.execute(
-        "UPDATE maintenance_triggers SET running_value = ?1 WHERE asset_id = ?2 AND trigger_type = 'KM'",
+        "UPDATE maintenance_triggers SET running_value = running_value + ?1 WHERE asset_id = ?2 AND trigger_type = 'KM' AND enabled = 1",
         rusqlite::params![km, asset_id],
     );
 }
@@ -3001,10 +3061,186 @@ fn sync_header_trigger_from_report(conn: &Connection, report_id: i64, header_lab
         _ => return,
     };
 
+    // Same accumulate-not-overwrite fix as sync_km_trigger_from_report -- Job Operating
+    // Hours and Engine Hours (This Report) are both per-job deltas (the latter is
+    // literally computed as Current - Previous in the frontend), so they must ADD to the
+    // running cumulative total, not replace it. Gated on enabled=1 for the same reason.
     let _ = conn.execute(
-        "UPDATE maintenance_triggers SET running_value = ?1 WHERE asset_id = ?2 AND trigger_type = ?3",
+        "UPDATE maintenance_triggers SET running_value = running_value + ?1 WHERE asset_id = ?2 AND trigger_type = ?3 AND enabled = 1",
         rusqlite::params![reading, asset_id, trigger_type],
     );
+}
+
+// RIF (Running-in-foot) has no frontend-computed "delta" field the way Engine Hours does --
+// the catalog only has plain "Previous RIF" / "Current RIF" header fields (see
+// ReportWizard.tsx: zero RIF-specific logic exists there). So this reads both header values
+// for the report directly and computes the delta itself before accumulating, mirroring the
+// same accumulate-not-overwrite, enabled=1-gated pattern as the KM/OH/EH syncs above. A
+// non-finite or non-positive delta (missing field, bad data, or a report where RIF didn't
+// change) is skipped rather than corrupting the running total.
+fn sync_rif_trigger_from_report(conn: &Connection, report_id: i64) {
+    let get_header_value = |label: &str| -> Option<(i64, String)> {
+        conn.query_row(
+            "SELECT r.asset_id, v.value
+             FROM mri_reports r
+             JOIN template_header_fields thf ON thf.template_id = r.template_id
+             JOIN header_field_catalog hfc ON hfc.id = thf.header_field_id
+             JOIN mri_report_header_values v ON v.report_id = r.id AND v.template_header_field_id = thf.id
+             WHERE r.id = ?1 AND hfc.label = ?2",
+            rusqlite::params![report_id, label],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .ok()
+    };
+
+    let Some((asset_id, current_raw)) = get_header_value("Current RIF") else { return };
+    let Some((_, previous_raw)) = get_header_value("Previous RIF") else { return };
+
+    let current: f64 = match current_raw.trim().parse() {
+        Ok(n) => n,
+        _ => return,
+    };
+    let previous: f64 = match previous_raw.trim().parse() {
+        Ok(n) => n,
+        _ => return,
+    };
+
+    let delta = current - previous;
+    if !delta.is_finite() || delta <= 0.0 {
+        return;
+    }
+    let rif: i64 = delta.round() as i64;
+
+    let _ = conn.execute(
+        "UPDATE maintenance_triggers SET running_value = running_value + ?1 WHERE asset_id = ?2 AND trigger_type = 'RIF' AND enabled = 1",
+        rusqlite::params![rif, asset_id],
+    );
+}
+
+// CA (Calendar days) is structurally different from every other trigger type -- it accrues
+// from elapsed real time, not from a report's data, so it isn't synced at report-approval
+// time at all. Instead this recomputes running_value as whole days elapsed since
+// last_reset_date, using SQLite's julianday() directly in the UPDATE so the "now" and the
+// write happen atomically. Rows with last_reset_date IS NULL (shouldn't normally happen
+// post-migration/seed, but defensively) are left alone rather than producing garbage.
+// Gated on enabled=1 for the same reason as the other trigger syncs. Call this whenever CA
+// freshness matters -- currently: every get_asset_triggers read.
+fn sync_ca_triggers(conn: &Connection, asset_id: i64) {
+    let _ = conn.execute(
+        "UPDATE maintenance_triggers
+         SET running_value = CAST(julianday('now') - julianday(last_reset_date) AS INTEGER)
+         WHERE asset_id = ?1 AND trigger_type = 'CA' AND enabled = 1 AND last_reset_date IS NOT NULL",
+        [asset_id],
+    );
+}
+
+// KM/OH/EH/RIF running_value is now a cumulative SUM across every Approved report (see
+// sync_km_trigger_from_report / sync_header_trigger_from_report / sync_rif_trigger_from_report
+// above), not a snapshot of the latest one -- so after a report is deleted, the only correct
+// way to keep the total right is to reset it to zero and replay every remaining Approved
+// report for the asset, oldest first, through the same sync_* functions used at approval
+// time. Re-syncing only the latest remaining report (the old approach) would silently drop
+// every earlier report's contribution.
+fn recompute_triggers_after_delete(conn: &Connection, asset_id: i64) {
+    let _ = conn.execute(
+        "UPDATE maintenance_triggers SET running_value = 0 WHERE asset_id = ?1 AND trigger_type IN ('KM', 'OH', 'EH', 'RIF')",
+        [asset_id],
+    );
+
+    let mut stmt = match conn.prepare(
+        "SELECT id FROM mri_reports WHERE asset_id = ?1 AND status = 'Approved' ORDER BY id ASC",
+    ) {
+        Ok(s) => s,
+        Err(_) => return,
+    };
+    let ids: Vec<i64> = match stmt.query_map([asset_id], |row| row.get(0)) {
+        Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
+        Err(_) => return,
+    };
+
+    for id in ids {
+        sync_km_trigger_from_report(conn, id);
+        sync_header_trigger_from_report(conn, id, "Job Operating Hours", "OH");
+        sync_header_trigger_from_report(conn, id, "Engine Hours (This Report)", "EH");
+        sync_rif_trigger_from_report(conn, id);
+    }
+}
+
+// Admin-only deletion of the MOST RECENT MR-I report for an asset, from the Dashboard's
+// Asset MR-I History screen. Deliberately distinct from the older, unused delete_mri_report
+// (which only deletes the mri_reports row and would orphan child data -- the exact bug the
+// purge_mri_reports cleanup above exists to mop up). This mirrors purge_mri_reports' full
+// cascading delete for a single report, then recomputes triggers so an Approved report's
+// KM/OH/EH contribution is correctly reverted. Restricted server-side to the latest report
+// for the asset (mirroring the UI, which only ever shows the button on that entry) so
+// deleting an arbitrary historical report -- which would leave a gap in the middle of the
+// timeline -- is never possible even if the frontend check were bypassed.
+#[tauri::command]
+fn delete_last_mri_report(report_id: i64) -> Result<String, String> {
+    let conn = get_connection()?;
+
+    let asset_id: i64 = conn
+        .query_row(
+            "SELECT asset_id FROM mri_reports WHERE id = ?1",
+            [report_id],
+            |row| row.get(0),
+        )
+        .map_err(|_| "Report not found".to_string())?;
+
+    let latest_id: i64 = conn
+        .query_row(
+            "SELECT MAX(id) FROM mri_reports WHERE asset_id = ?1",
+            [asset_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if latest_id != report_id {
+        return Err("Only the most recent report for this asset can be deleted.".to_string());
+    }
+
+    conn.execute(
+        "UPDATE mri_fault_approvals SET carried_to_report_id = NULL WHERE carried_to_report_id = ?1",
+        [report_id],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM mri_fault_rectifications WHERE fault_approval_id IN (SELECT id FROM mri_fault_approvals WHERE report_id = ?1)",
+        [report_id],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM mri_fault_approvals WHERE report_id = ?1", [report_id])
+        .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM mri_report_header_values WHERE report_id = ?1",
+        [report_id],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM mri_report_checklist_results WHERE report_id = ?1",
+        [report_id],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM mri_report_mid_values WHERE report_id = ?1",
+        [report_id],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM mri_report_footer_values WHERE report_id = ?1",
+        [report_id],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM mri_report_attachments WHERE report_id = ?1",
+        [report_id],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM mri_reports WHERE id = ?1", [report_id])
+        .map_err(|e| e.to_string())?;
+
+    recompute_triggers_after_delete(&conn, asset_id);
+
+    Ok("Report deleted".to_string())
 }
 
 // One-click path for a Submitted report with no Moderate/Critical faults: the Supervisor
@@ -3057,6 +3293,7 @@ fn review_and_close_mri_report(report_id: i64, closed_by: String) -> Result<Stri
     sync_km_trigger_from_report(&conn, report_id);
     sync_header_trigger_from_report(&conn, report_id, "Job Operating Hours", "OH");
     sync_header_trigger_from_report(&conn, report_id, "Engine Hours (This Report)", "EH");
+    sync_rif_trigger_from_report(&conn, report_id);
     Ok("Report reviewed and closed".to_string())
 }
 
@@ -3114,6 +3351,7 @@ fn close_mri_report(report_id: i64, closed_by: String) -> Result<String, String>
     sync_km_trigger_from_report(&conn, report_id);
     sync_header_trigger_from_report(&conn, report_id, "Job Operating Hours", "OH");
     sync_header_trigger_from_report(&conn, report_id, "Engine Hours (This Report)", "EH");
+    sync_rif_trigger_from_report(&conn, report_id);
 
     Ok("Report closed".to_string())
 }
@@ -4237,6 +4475,28 @@ fn get_previous_engine_hours(
 }
 
 #[tauri::command]
+fn get_previous_compliance_stage(
+    asset_id: i64,
+    current_report_id: i64,
+) -> Result<Option<String>, String> {
+    let conn = get_connection()?;
+
+    let prev_report_id: Option<i64> = conn
+        .query_row(
+            "SELECT id FROM mri_reports WHERE asset_id = ?1 AND id != ?2 ORDER BY id DESC LIMIT 1",
+            rusqlite::params![asset_id, current_report_id],
+            |row| row.get(0),
+        )
+        .ok();
+
+    let Some(prev_id) = prev_report_id else {
+        return Ok(None);
+    };
+
+    Ok(get_compliance_stage(&conn, prev_id))
+}
+
+#[tauri::command]
 fn export_mri_templates_backup() -> Result<String, String> {
     let conn = get_connection()?;
 
@@ -4933,12 +5193,14 @@ fn get_pending_checklist_item_ids(
     Ok(ids)
 }
 
-// Read-only history: any checklist item still closure_status = 'Pending' on an EARLIER
-// report for this asset, regardless of severity (Minor included) or whether it ever went
-// through the mri_fault_approvals escalation table. This is intentionally query-derived
-// rather than a stored link column -- it's always correct off of closure_status directly,
-// with no separate state to keep in sync or go stale (see the purge/orphaned-drawer-data
-// bug from a few days ago for why a stored pointer would be the wrong call here).
+// Read-only history: any Fail checklist item on an EARLIER report for this asset that
+// hasn't been BOTH closed AND signed off -- i.e. it keeps surfacing here unless
+// closure_status = 'Closed' AND the source report itself has reached 'Approved'. A
+// closed item on a report still in Draft/Submitted/Escalated is not final yet, so it
+// still forwards. This is intentionally query-derived rather than a stored link column
+// -- it's always correct off of closure_status/report status directly, with no separate
+// state to keep in sync or go stale (see the purge/orphaned-drawer-data bug from a few
+// days ago for why a stored pointer would be the wrong call here).
 #[derive(Serialize, Deserialize)]
 struct OpenPriorIssueRow {
     id: i64,
@@ -4963,7 +5225,8 @@ fn get_open_prior_issues(
          JOIN mri_reports rep ON r.report_id = rep.id
          JOIN template_checklist_items tci ON r.template_checklist_item_id = tci.id
          LEFT JOIN checklist_databank cd ON tci.checklist_item_id = cd.id
-         WHERE rep.asset_id = ?1 AND rep.id != ?2 AND r.status = 'Fail' AND r.closure_status = 'Pending'
+         WHERE rep.asset_id = ?1 AND rep.id != ?2 AND r.status = 'Fail'
+           AND NOT (r.closure_status = 'Closed' AND rep.status = 'Approved')
          ORDER BY r.date_observed DESC",
         )
         .map_err(|e| e.to_string())?;
@@ -5677,6 +5940,8 @@ pub fn run() {
             rename_lookup_criteria,
             delete_lookup_criteria,
             get_previous_engine_hours,
+            get_previous_compliance_stage,
+            delete_last_mri_report,
             export_assets_backup,
             import_assets_backup,
             export_mri_templates_backup,

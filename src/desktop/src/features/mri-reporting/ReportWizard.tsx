@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { useMriReport, useSubmitMriReport, useEndorseMriReport, useCloseMriReport, useReviewAndCloseMriReport, usePreviousEngineHours, usePendingChecklistItemIds } from "./hooks/useMriReports";
+import { useMriReport, useSubmitMriReport, useEndorseMriReport, useCloseMriReport, useReviewAndCloseMriReport, usePreviousEngineHours, usePreviousComplianceStage, usePendingChecklistItemIds } from "./hooks/useMriReports";
 import { useAssets } from "../asset-registry/hooks/useAssets";
 import { useMriTemplates } from "../administration/hooks/useMriTemplates";
 import { useTemplateHeaderFields, useHeaderFieldCatalog } from "../mri-template-builder/hooks/useTemplateHeaderFields";
@@ -251,7 +251,7 @@ function ReportWizard({ reportId, onBack }: ReportWizardProps) {
                 {step === "checklist" && (
                     <ChecklistEntryStep templateId={report.template_id} reportId={reportId} locked={fieldsLocked} assetId={report.asset_id} canReviewClosure={canReviewClosure} />
                 )}
-                {step === "mid" && <MidEntryStep templateId={report.template_id} reportId={reportId} locked={fieldsLocked} />}
+                {step === "mid" && <MidEntryStep templateId={report.template_id} reportId={reportId} locked={fieldsLocked} assetId={report.asset_id} />}
                 {step === "footer" && <FooterEntryStep templateId={report.template_id} reportId={reportId} locked={fieldsLocked} />}
                 {step === "review" && (
                     <ReviewStep
@@ -637,11 +637,12 @@ function HeaderEntryStep({ templateId, reportId, locked, asset }: { templateId: 
 const DISTANCE_PRE_JOB_LABEL = "Distance Travelled Pre-Job (KM)";
 const DISTANCE_POST_JOB_LABEL = "Distance Travelled Post-Job (KM)";
 
-function MidEntryStep({ templateId, reportId, locked }: { templateId: number; reportId: number; locked: boolean }) {
+function MidEntryStep({ templateId, reportId, locked, assetId }: { templateId: number; reportId: number; locked: boolean; assetId: number }) {
     const { data: templateFields = [] } = useTemplateMidFields(templateId);
     const { data: catalog = [] } = useMidFieldCatalog();
     const { data: savedValues = [] } = useMriReportMidValues(reportId);
     const setValue = useSetMriReportMidValue(reportId);
+    const { data: previousComplianceStage } = usePreviousComplianceStage(assetId, reportId);
 
     const { data: headerTemplateFields = [] } = useTemplateHeaderFields(templateId);
     const { data: headerCatalog = [] } = useHeaderFieldCatalog();
@@ -692,15 +693,25 @@ function MidEntryStep({ templateId, reportId, locked }: { templateId: number; re
         ? headerValues.find((v) => v.template_header_field_id === complianceStageField.id)?.value ?? ""
         : "";
     const stage = complianceStageValue.trim().toUpperCase();
+    const previousStage = (previousComplianceStage ?? "").trim().toUpperCase();
+    const isYardFollowingPostJob = stage === "YARD INSPECTION" && previousStage === "POST JOB";
 
-    const targetLabel = stage === "PRE-JOB" ? DISTANCE_PRE_JOB_LABEL : stage === "POST JOB" ? DISTANCE_POST_JOB_LABEL : null;
+    const targetLabel =
+        stage === "PRE-JOB"
+            ? DISTANCE_PRE_JOB_LABEL
+            : stage === "POST JOB"
+            ? DISTANCE_POST_JOB_LABEL
+            : isYardFollowingPostJob
+            ? DISTANCE_POST_JOB_LABEL
+            : null;
 
     if (!targetLabel) {
         return (
             <div>
                 <h2>Distance Travelled</h2>
                 <div className="empty">
-                    Distance Travelled is recorded once Compliance Stage is set to Pre-Job or Post Job in the Header section.
+                    Distance Travelled is recorded once Compliance Stage is set to Pre-Job or Post Job in the Header
+                    section — or Yard Inspection, when the previous entry for this asset was Post Job.
                 </div>
             </div>
         );
@@ -734,7 +745,13 @@ function MidEntryStep({ templateId, reportId, locked }: { templateId: number; re
             <h2>
                 Distance Travelled
                 <span style={{ color: "var(--text-soft)", fontWeight: 400, fontSize: 14 }}>
-                    {" "}({stage === "PRE-JOB" ? "Pre-Job" : "Post-Job"})
+                    {" "}(
+                    {stage === "PRE-JOB"
+                        ? "Pre-Job"
+                        : isYardFollowingPostJob
+                        ? "Post-Job — Yard Inspection"
+                        : "Post-Job"}
+                    )
                 </span>
             </h2>
 
