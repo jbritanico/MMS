@@ -542,6 +542,42 @@ fn open_and_migrate_connection() -> Result<Connection, String> {
     )
     .map_err(|e| e.to_string())?;
 
+    // Migration: add reported_by/reported_at to mri_report_checklist_results for databases
+    // created before this existed. These capture WHO first flagged an issue and WHEN --
+    // separate from date_observed (a plain text field the operator types in) and separate
+    // from mri_fault_approvals' reviewer/created_date (that's the supervisor's review
+    // action, not the original entry). Stamped once, the first time an item is saved as
+    // Fail, and never overwritten by a later edit to action_taken/closure_status -- see
+    // set_mri_report_checklist_result. This is what lets the PDF show a recurring finding's
+    // full history (one stamped entry per MR-I cycle it reappeared on) instead of only the
+    // current report's text. Mirrors the mri_fault_approvals migration pattern above
+    // (PRAGMA table_info check + ALTER TABLE).
+    {
+        let mut stmt = conn
+            .prepare("PRAGMA table_info(mri_report_checklist_results)")
+            .map_err(|e| e.to_string())?;
+        let cols = stmt
+            .query_map([], |row| row.get::<_, String>(1))
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+
+        if !cols.iter().any(|c| c == "reported_by") {
+            conn.execute(
+                "ALTER TABLE mri_report_checklist_results ADD COLUMN reported_by TEXT",
+                [],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        if !cols.iter().any(|c| c == "reported_at") {
+            conn.execute(
+                "ALTER TABLE mri_report_checklist_results ADD COLUMN reported_at TEXT",
+                [],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+    }
+
     conn.execute(
         "CREATE TABLE IF NOT EXISTS mri_report_mid_values (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2633,6 +2669,12 @@ struct MriReportChecklistResult {
     action_taken: Option<String>,
     date_observed: Option<String>,
     closure_status: String,
+    // Who/when this item was first saved as Fail -- see the migration comment above and
+    // set_mri_report_checklist_result below. reported_by is sent by the frontend on every
+    // save (the current user's name) but only actually stamped server-side the first time;
+    // reported_at is a server-side timestamp, never client-supplied.
+    reported_by: Option<String>,
+    reported_at: Option<String>,
 }
 
 #[tauri::command]
@@ -2641,7 +2683,7 @@ fn get_mri_report_checklist_results(
 ) -> Result<Vec<MriReportChecklistResult>, String> {
     let conn = get_connection()?;
     let mut stmt = conn.prepare(
-        "SELECT id, report_id, template_checklist_item_id, status, severity, issue_details, action_taken, date_observed, closure_status
+        "SELECT id, report_id, template_checklist_item_id, status, severity, issue_details, action_taken, date_observed, closure_status, reported_by, reported_at
          FROM mri_report_checklist_results WHERE report_id = ?1"
     ).map_err(|e| e.to_string())?;
     let results = stmt
@@ -2656,6 +2698,8 @@ fn get_mri_report_checklist_results(
                 action_taken: row.get(6)?,
                 date_observed: row.get(7)?,
                 closure_status: row.get(8)?,
+                reported_by: row.get(9)?,
+                reported_at: row.get(10)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -2693,21 +2737,80 @@ fn set_mri_report_checklist_result(result: MriReportChecklistResult) -> Result<S
     }
 
     conn.execute(
-        "INSERT INTO mri_report_checklist_results (report_id, template_checklist_item_id, status, severity, issue_details, action_taken, date_observed, closure_status)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+        "INSERT INTO mri_report_checklist_results (report_id, template_checklist_item_id, status, severity, issue_details, action_taken, date_observed, closure_status, reported_by, reported_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8,
+            CASE WHEN ?3 = 'Fail' THEN ?9 ELSE NULL END,
+            CASE WHEN ?3 = 'Fail' THEN datetime('now', 'localtime') ELSE NULL END)
          ON CONFLICT(report_id, template_checklist_item_id) DO UPDATE SET
             status = excluded.status,
             severity = excluded.severity,
             issue_details = excluded.issue_details,
             action_taken = excluded.action_taken,
             date_observed = excluded.date_observed,
-            closure_status = excluded.closure_status",
+            closure_status = excluded.closure_status,
+            reported_by = CASE WHEN reported_by IS NULL AND excluded.status = 'Fail' THEN excluded.reported_by ELSE reported_by END,
+            reported_at = CASE WHEN reported_at IS NULL AND excluded.status = 'Fail' THEN excluded.reported_at ELSE reported_at END",
         rusqlite::params![
             result.report_id, result.template_checklist_item_id, result.status, result.severity,
-            result.issue_details, result.action_taken, result.date_observed, result.closure_status
+            result.issue_details, result.action_taken, result.date_observed, result.closure_status,
+            result.reported_by
         ],
     ).map_err(|e| e.to_string())?;
     Ok("Checklist result saved".to_string())
+}
+
+// Cross-report history of Fail entries for a checklist item on one asset, used by the
+// MR-I report PDF's page 2 to show a "recurring finding" thread: every past occurrence of
+// the same checklist_databank item (matched via template_checklist_items.checklist_item_id,
+// which stays stable even if different templates/report cycles use different
+// template_checklist_item_id rows) across every previous report on the asset, each stamped
+// with who reported it and when. exclude_report_id is normally the report currently being
+// reviewed, so its own (not-yet-historical) entry isn't double-counted.
+#[derive(Serialize, Deserialize)]
+struct MriChecklistHistoryEntry {
+    report_id: i64,
+    checklist_item_id: i64,
+    report_date: String,
+    issue_details: Option<String>,
+    action_taken: Option<String>,
+    severity: Option<String>,
+    closure_status: String,
+    reported_by: Option<String>,
+    reported_at: Option<String>,
+}
+
+#[tauri::command]
+fn get_mri_checklist_history(
+    asset_id: i64,
+    exclude_report_id: i64,
+) -> Result<Vec<MriChecklistHistoryEntry>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT res.report_id, tci.checklist_item_id, r.created_date, res.issue_details, res.action_taken, res.severity, res.closure_status, res.reported_by, res.reported_at
+         FROM mri_report_checklist_results res
+         JOIN mri_reports r ON r.id = res.report_id
+         JOIN template_checklist_items tci ON tci.id = res.template_checklist_item_id
+         WHERE r.asset_id = ?1 AND res.status = 'Fail' AND res.report_id != ?2
+         ORDER BY r.created_date ASC, r.id ASC"
+    ).map_err(|e| e.to_string())?;
+    let entries = stmt
+        .query_map(rusqlite::params![asset_id, exclude_report_id], |row| {
+            Ok(MriChecklistHistoryEntry {
+                report_id: row.get(0)?,
+                checklist_item_id: row.get(1)?,
+                report_date: row.get(2)?,
+                issue_details: row.get(3)?,
+                action_taken: row.get(4)?,
+                severity: row.get(5)?,
+                closure_status: row.get(6)?,
+                reported_by: row.get(7)?,
+                reported_at: row.get(8)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(entries)
 }
 
 fn valid_approval_decision(s: &str) -> bool {
@@ -4439,7 +4542,7 @@ fn get_previous_engine_hours(
 
     let prev_report_id: Option<i64> = conn
         .query_row(
-            "SELECT id FROM mri_reports WHERE asset_id = ?1 AND id != ?2 ORDER BY id DESC LIMIT 1",
+            "SELECT id FROM mri_reports WHERE asset_id = ?1 AND id < ?2 AND status = 'Approved' ORDER BY id DESC LIMIT 1",
             rusqlite::params![asset_id, current_report_id],
             |row| row.get(0),
         )
@@ -4483,7 +4586,7 @@ fn get_previous_compliance_stage(
 
     let prev_report_id: Option<i64> = conn
         .query_row(
-            "SELECT id FROM mri_reports WHERE asset_id = ?1 AND id != ?2 ORDER BY id DESC LIMIT 1",
+            "SELECT id FROM mri_reports WHERE asset_id = ?1 AND id < ?2 AND status = 'Approved' ORDER BY id DESC LIMIT 1",
             rusqlite::params![asset_id, current_report_id],
             |row| row.get(0),
         )
@@ -5924,6 +6027,7 @@ pub fn run() {
             set_mri_report_header_value,
             get_mri_report_checklist_results,
             set_mri_report_checklist_result,
+            get_mri_checklist_history,
             get_mri_report_mid_values,
             set_mri_report_mid_value,
             get_mri_report_footer_values,

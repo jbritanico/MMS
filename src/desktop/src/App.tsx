@@ -39,9 +39,11 @@ function App() {
   }
 
   const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
+  const [viewOnlyReport, setViewOnlyReport] = useState(false);
 
-  function handleReportCreated(reportId: number) {
+  function handleReportCreated(reportId: number, viewOnly: boolean = false) {
     setSelectedReportId(reportId);
+    setViewOnlyReport(viewOnly);
     setScreen("report-wizard");
   }
 
@@ -1974,6 +1976,10 @@ function App() {
             50% { box-shadow: inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light); }
           }
 
+          @page {
+            size: A4;
+            margin: 0;
+          }
           @media print {
             .no-print, .ui-nav, .wizard-steps, .actions,
             .side-drawer-handle, .theme-fab, .uilab-fab, .current-user-banner {
@@ -1990,6 +1996,22 @@ function App() {
             .panel { box-shadow: none; background: #fff; padding: 0; }
             .mri-preview-section-label { break-after: avoid; }
             .mri-preview-table-row, .mri-checklist-row { break-inside: avoid; }
+            /* MR-I report PDF: each .mri-report-page is a full A4 sheet -- force a hard
+               page break after every one except the last so the browser's print-to-PDF
+               (window.print(), no jsPDF/html2canvas involved) lays out page 1 (dashboard)
+               and page 2 (checklist) as separate PDF pages instead of flowing together. */
+            .mri-report-page {
+              width: 210mm !important;
+              min-height: 297mm !important;
+              max-width: 210mm !important;
+              page-break-after: always;
+              break-after: page;
+              overflow: hidden;
+            }
+            .mri-report-page:last-child {
+              page-break-after: auto;
+              break-after: auto;
+            }
           }
         `}</style>
 
@@ -2013,9 +2035,9 @@ function App() {
             )}
             {screen === "reports" && mrLevel !== "MR-I" && <MaintenanceReport />}
             {screen === "report-wizard" && selectedReportId !== null && (
-              <ReportWizard reportId={selectedReportId} onBack={() => setScreen("reports")} />
+              <ReportWizard reportId={selectedReportId} onBack={() => setScreen("reports")} viewOnly={viewOnlyReport} />
             )}
-            {screen === "dashboard" && <Dashboard onOpenReport={handleReportCreated} />}
+            {screen === "dashboard" && <Dashboard onOpenReport={(id) => handleReportCreated(id, true)} />}
             {screen === "admin" && (
               <Administration
                 onOpenTemplate={handleOpenTemplate}

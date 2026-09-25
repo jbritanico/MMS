@@ -18,6 +18,12 @@ export interface MriReportChecklistResult {
   action_taken: string | null;
   date_observed: string | null;
   closure_status: "Pending" | "Closed";
+  // Who first flagged this item as Fail, and when -- stamped once by the backend (never
+  // overwritten by a later edit). reported_at is server-generated; reported_by is sent by
+  // the client as the current user's name but only actually stored on a Fail save where
+  // it isn't already set. See set_mri_report_checklist_result in lib.rs.
+  reported_by: string | null;
+  reported_at: string | null;
 }
 
 export interface MriReportMidValue {
@@ -74,6 +80,29 @@ export function useSetMriReportChecklistResult(reportId: number) {
     mutationFn: (result: MriReportChecklistResult) =>
       invoke("set_mri_report_checklist_result", { result }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["mri-report-checklist-results", reportId] }),
+  });
+}
+
+// Every past Fail entry for the same checklist item (same checklist_databank id, via
+// template_checklist_items.checklist_item_id) across every earlier MR-I report on the same
+// asset -- excluding the report currently being viewed/reviewed. Used to render the
+// "recurring finding" history thread on page 2 of the report PDF.
+export interface MriChecklistHistoryEntry {
+  report_id: number;
+  checklist_item_id: number;
+  report_date: string;
+  issue_details: string | null;
+  action_taken: string | null;
+  severity: "Minor" | "Moderate" | "Critical" | null;
+  closure_status: "Pending" | "Closed";
+  reported_by: string | null;
+  reported_at: string | null;
+}
+export function useMriChecklistHistory(assetId: number, excludeReportId: number) {
+  return useQuery({
+    queryKey: ["mri-checklist-history", assetId, excludeReportId],
+    queryFn: () => invoke<MriChecklistHistoryEntry[]>("get_mri_checklist_history", { assetId, excludeReportId }),
+    enabled: !!assetId,
   });
 }
 
