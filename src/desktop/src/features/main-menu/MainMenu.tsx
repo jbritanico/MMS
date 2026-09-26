@@ -1,7 +1,9 @@
 import { useState, type ReactElement } from "react";
 import { createPortal } from "react-dom";
+import IdleScreensaver from "../idle/IdleScreenSaver";
 import { THEMES, type Theme } from "../../lib/theme";
 import fieldOpsImage from "../../assets/FieldMaintenance.png";
+import fieldOpsImageDark from "../../assets/FieldDark.png";
 import { useCurrentUser } from "../../lib/currentUser";
 import { tierAccent } from "../../lib/UserPickerGate";
 import {
@@ -201,6 +203,7 @@ const KPI_DATA = [
 function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [faultDrawerOpen, setFaultDrawerOpen] = useState(false);
+  const [idleOpen, setIdleOpen] = useState(false);
 
   const [reportsExpanded, setReportsExpanded] = useState(false);
   const [mapFeatureOn, setMapFeatureOn] = useState(() => isMapFeatureEnabled());
@@ -279,7 +282,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
       >
         <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
           <img
-            src={fieldOpsImage}
+            src={currentTheme === "dark" ? fieldOpsImageDark : fieldOpsImage}
             alt=""
             style={{
               width: "100%",
@@ -289,14 +292,16 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
               opacity: 0.5,
             }}
           />
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background:
-                "linear-gradient(100deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.82) 30%, rgba(255,255,255,0.45) 65%, rgba(255,255,255,0.15) 100%)",
-            }}
-          />
+          {currentTheme !== "dark" && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background:
+                  "linear-gradient(100deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.82) 30%, rgba(255,255,255,0.45) 65%, rgba(255,255,255,0.15) 100%)",
+              }}
+            />
+          )}
         </div>
         <div
           className="menu-screen"
@@ -812,6 +817,36 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
                   </svg>
                   Distance Map (Test)
                 </button>
+                <button
+                  className="drawer-nav-btn"
+                  onClick={() => {
+                    setDrawerOpen(false);
+                    setIdleOpen(true);
+                  }}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="3.2"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                    />
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="8.5"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeDasharray="2.5 3.5"
+                    />
+                  </svg>
+                  Idle
+                </button>
 
                 <div
                   style={{
@@ -839,6 +874,8 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
           </div>,
           document.body,
         )}
+
+      {idleOpen && <IdleScreensaver onClose={() => setIdleOpen(false)} />}
     </>
   );
 }

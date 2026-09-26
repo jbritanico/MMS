@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useCurrentUser } from "./currentUser";
 import fieldOpsImage from "../assets/FieldMaintenance.png";
+import fieldOpsImageDark from "../assets/FieldDark.png";
+import type { Theme } from "./theme";
 
 interface TierReference {
   name: string;
@@ -175,7 +177,13 @@ function Microsoft365Mockup() {
   );
 }
 
-function UserPickerGate({ children }: { children: ReactNode }) {
+function UserPickerGate({
+  children,
+  theme,
+}: {
+  children: ReactNode;
+  theme: Theme;
+}) {
   const { user, users, isLoading, setCurrentUserId } = useCurrentUser();
   const now = useLiveClock();
   const [authMode, setAuthMode] = useState<AuthMode>("local");
@@ -236,18 +244,20 @@ function UserPickerGate({ children }: { children: ReactNode }) {
       {/* Full-bleed photo backdrop, top of the page only */}
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 560, overflow: "hidden" }}>
         <img
-          src={fieldOpsImage}
+          src={theme === "dark" ? fieldOpsImageDark : fieldOpsImage}
           alt="Field maintenance operations"
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "linear-gradient(100deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.82) 30%, rgba(255,255,255,0.45) 65%, rgba(255,255,255,0.15) 100%)",
-          }}
-        />
+        {theme !== "dark" && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "linear-gradient(100deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.82) 30%, rgba(255,255,255,0.45) 65%, rgba(255,255,255,0.15) 100%)",
+            }}
+          />
+        )}
         <div
           style={{
             position: "absolute",

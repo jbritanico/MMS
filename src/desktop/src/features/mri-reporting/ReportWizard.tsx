@@ -2114,39 +2114,46 @@ function ChecklistEntryStep({
                       placeholder={isFail ? "Required" : "—"}
                     />
 
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                       {isFail &&
                         historyForItem(ti.checklist_item_id).map((h) => (
-                          <div
+                          <span
                             key={h.report_id}
-                            style={{ display: "flex", flexDirection: "column", fontSize: 12.5 }}
+                            style={{ fontSize: 12.5, color: "var(--text-soft)" }}
                           >
-                            <span
-                              style={{
-                                fontSize: 11,
-                                fontWeight: 600,
-                                color: "var(--text-soft)",
-                              }}
-                            >
-                              {h.report_date}
-                              {h.reported_by ? ` · ${h.reported_by}` : ""}
-                            </span>
-                            <span style={{ color: "var(--text-soft)" }}>
-                              {h.action_taken || "—"}
-                            </span>
-                          </div>
+                            {h.reported_at ?? h.report_date}
+                            {h.reported_by ? ` by ${h.reported_by}` : ""}
+                            {`: ${h.action_taken || "—"}`}
+                          </span>
                         ))}
-                      <input
-                        type="text"
-                        className="trigger-input"
-                        value={result.action_taken ?? ""}
-                        onChange={(e) =>
-                          updateLocal(ti, { action_taken: e.target.value })
-                        }
-                        onBlur={() => autoSave(ti, {})}
-                        disabled={locked || !isFail}
-                        placeholder={isFail ? "Required" : "—"}
-                      />
+                      {isFail && result.action_taken ? (
+                        <span style={{ fontSize: 12.5 }}>
+                          {result.reported_at ?? ""}
+                          {result.reported_by ? ` by ${result.reported_by}` : ""}
+                          {`: ${result.action_taken}`}
+                        </span>
+                      ) : (
+                        <input
+                          type="text"
+                          className="trigger-input"
+                          value={result.action_taken ?? ""}
+                          onChange={(e) =>
+                            updateLocal(ti, { action_taken: e.target.value })
+                          }
+                          onBlur={() => autoSave(ti, {})}
+                          disabled={locked || !isFail}
+                          placeholder={isFail ? "Required" : "—"}
+                        />
+                      )}
+                      {isFail && closingNoteFor(ti.checklist_item_id) && (
+                        <span style={{ fontSize: 12.5, color: "var(--text-soft)" }}>
+                          {closingNoteFor(ti.checklist_item_id)!.recorded_at}
+                          {closingNoteFor(ti.checklist_item_id)!.recorded_by
+                            ? ` by ${closingNoteFor(ti.checklist_item_id)!.recorded_by}`
+                            : ""}
+                          {`: ${closingNoteFor(ti.checklist_item_id)!.action_text}`}
+                        </span>
+                      )}
                     </div>
 
                     <input
@@ -2183,28 +2190,47 @@ function ChecklistEntryStep({
                           Closed
                         </span>
                         {closingNoteFor(ti.checklist_item_id) && (
-                          <span style={{ fontSize: 11, color: "var(--text-soft)" }}>
+                          <span style={{ fontSize: 12, color: "var(--text-soft)" }}>
                             {closingNoteFor(ti.checklist_item_id)!.recorded_at}
                             {closingNoteFor(ti.checklist_item_id)!.recorded_by
-                              ? ` · ${closingNoteFor(ti.checklist_item_id)!.recorded_by}`
+                              ? ` by ${closingNoteFor(ti.checklist_item_id)!.recorded_by}`
                               : ""}
-                          </span>
-                        )}
-                        {closingNoteFor(ti.checklist_item_id) && (
-                          <span style={{ fontSize: 12 }}>
-                            {closingNoteFor(ti.checklist_item_id)!.action_text}
+                            {`: ${closingNoteFor(ti.checklist_item_id)!.action_text}`}
                           </span>
                         )}
                       </div>
                     ) : !locked || canReviewClosure ? (
                       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        <span style={{ fontSize: 11, color: "var(--text-soft)" }}>
-                          Pending
-                        </span>
+                        <select
+                          className="neu-select"
+                          value={result.closure_status ?? "Pending"}
+                          onChange={(e) => {
+                            const val = e.target.value as "Pending" | "Closed";
+                            if (val === "Closed") {
+                              if (!(closingDrafts[ti.id] ?? "").trim()) {
+                                flash(
+                                  "Add an action taken note before closing this item",
+                                  "err",
+                                );
+                                return;
+                              }
+                              closeIssue(ti);
+                              return;
+                            }
+                            updateLocal(ti, { closure_status: val });
+                            autoSave(ti, { closure_status: val });
+                          }}
+                        >
+                          {CLOSURE_STATUSES.map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                        </select>
                         <input
                           type="text"
                           className="trigger-input"
-                          placeholder="Required to close"
+                          placeholder="Action taken (required to close)"
                           value={closingDrafts[ti.id] ?? ""}
                           onChange={(e) =>
                             setClosingDrafts((prev) => ({
@@ -2213,14 +2239,6 @@ function ChecklistEntryStep({
                             }))
                           }
                         />
-                        <button
-                          className="ghost"
-                          style={{ padding: "6px 10px", fontSize: 12 }}
-                          disabled={!(closingDrafts[ti.id] ?? "").trim()}
-                          onClick={() => closeIssue(ti)}
-                        >
-                          Close
-                        </button>
                       </div>
                     ) : (
                       <span style={{ color: "var(--text-soft)" }}>Pending</span>
@@ -4086,7 +4104,7 @@ function ReviewStep({
                             style={{
                               display: "flex",
                               flexDirection: "column",
-                              gap: 4,
+                              gap: 3,
                             }}
                           >
                             {thread.map((h, i) => (
@@ -4095,53 +4113,34 @@ function ReviewStep({
                                 style={{
                                   display: "flex",
                                   flexDirection: "column",
+                                  gap: 1,
                                 }}
                               >
-                                <span
-                                  style={{
-                                    fontSize: 7.5,
-                                    fontWeight: 700,
-                                    color: "#9aa2a8",
-                                    textTransform: "uppercase",
-                                    letterSpacing: "0.02em",
-                                  }}
-                                >
-                                  {fmtDate(h.report_date)}
-                                </span>
                                 <span
                                   style={{
                                     fontSize: 9.5,
                                     color: h.action_taken
                                       ? "#4b5560"
                                       : "#c3c8cc",
-                                    marginTop: 1,
                                   }}
                                 >
-                                  {h.action_taken ||
+                                  {fmtDate(h.report_date)}
+                                  {h.reported_by ? ` by ${h.reported_by}` : ""}
+                                  {`: ${
+                                    h.action_taken ||
                                     (h.closure_status === "Closed"
                                       ? "—"
-                                      : "— (pending)")}
+                                      : "— (pending)")
+                                  }`}
                                 </span>
                                 {h.actions.map((entry) => (
                                   <span
                                     key={entry.id}
-                                    style={{ display: "flex", flexDirection: "column", marginTop: 3 }}
+                                    style={{ fontSize: 9.5, color: "#4b5560" }}
                                   >
-                                    <span
-                                      style={{
-                                        fontSize: 7,
-                                        fontWeight: 700,
-                                        color: "#8a6512",
-                                        textTransform: "uppercase",
-                                        letterSpacing: "0.02em",
-                                      }}
-                                    >
-                                      {entry.recorded_at}
-                                      {entry.recorded_by ? ` · ${entry.recorded_by}` : ""}
-                                    </span>
-                                    <span style={{ fontSize: 9.5, color: "#4b5560" }}>
-                                      {entry.action_text}
-                                    </span>
+                                    {entry.recorded_at}
+                                    {entry.recorded_by ? ` by ${entry.recorded_by}` : ""}
+                                    {`: ${entry.action_text}`}
                                   </span>
                                 ))}
                               </span>
@@ -4752,36 +4751,48 @@ function DrawingChecklistView({
                     <label>Action Taken</label>
                     {isFail &&
                       historyForItem(ti.checklist_item_id).map((h) => (
-                        <div
+                        <span
                           key={h.report_id}
-                          style={{ display: "flex", flexDirection: "column", fontSize: 12.5, marginBottom: 4 }}
+                          style={{
+                            display: "block",
+                            fontSize: 12.5,
+                            color: "var(--text-soft)",
+                            marginBottom: 4,
+                          }}
                         >
-                          <span
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 600,
-                              color: "var(--text-soft)",
-                            }}
-                          >
-                            {h.report_date}
-                            {h.reported_by ? ` · ${h.reported_by}` : ""}
-                          </span>
-                          <span style={{ color: "var(--text-soft)" }}>
-                            {h.action_taken || "—"}
-                          </span>
-                        </div>
+                          {h.reported_at ?? h.report_date}
+                          {h.reported_by ? ` by ${h.reported_by}` : ""}
+                          {`: ${h.action_taken || "—"}`}
+                        </span>
                       ))}
-                    <input
-                      type="text"
-                      className="trigger-input"
-                      value={result.action_taken ?? ""}
-                      onChange={(e) =>
-                        updateLocal(ti, { action_taken: e.target.value })
-                      }
-                      onBlur={() => autoSave(ti, {})}
-                      disabled={locked || !isFail}
-                      placeholder={isFail ? "Required" : "—"}
-                    />
+                    {isFail && result.action_taken ? (
+                      <span style={{ display: "block", fontSize: 12.5, marginBottom: 4 }}>
+                        {result.reported_at ?? ""}
+                        {result.reported_by ? ` by ${result.reported_by}` : ""}
+                        {`: ${result.action_taken}`}
+                      </span>
+                    ) : (
+                      <input
+                        type="text"
+                        className="trigger-input"
+                        value={result.action_taken ?? ""}
+                        onChange={(e) =>
+                          updateLocal(ti, { action_taken: e.target.value })
+                        }
+                        onBlur={() => autoSave(ti, {})}
+                        disabled={locked || !isFail}
+                        placeholder={isFail ? "Required" : "—"}
+                      />
+                    )}
+                    {isFail && closingNoteFor(ti.checklist_item_id) && (
+                      <span style={{ display: "block", fontSize: 12.5, color: "var(--text-soft)" }}>
+                        {closingNoteFor(ti.checklist_item_id)!.recorded_at}
+                        {closingNoteFor(ti.checklist_item_id)!.recorded_by
+                          ? ` by ${closingNoteFor(ti.checklist_item_id)!.recorded_by}`
+                          : ""}
+                        {`: ${closingNoteFor(ti.checklist_item_id)!.action_text}`}
+                      </span>
+                    )}
                   </div>
 
                   <div
@@ -4832,25 +4843,44 @@ function DrawingChecklistView({
                             <span style={{ fontSize: 11, color: "var(--text-soft)" }}>
                               {closingNoteFor(ti.checklist_item_id)!.recorded_at}
                               {closingNoteFor(ti.checklist_item_id)!.recorded_by
-                                ? ` · ${closingNoteFor(ti.checklist_item_id)!.recorded_by}`
+                                ? ` by ${closingNoteFor(ti.checklist_item_id)!.recorded_by}`
                                 : ""}
-                            </span>
-                          )}
-                          {closingNoteFor(ti.checklist_item_id) && (
-                            <span style={{ fontSize: 12 }}>
-                              {closingNoteFor(ti.checklist_item_id)!.action_text}
+                              {`: ${closingNoteFor(ti.checklist_item_id)!.action_text}`}
                             </span>
                           )}
                         </div>
                       ) : !locked || canReviewClosure ? (
                         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                          <span style={{ fontSize: 11, color: "var(--text-soft)" }}>
-                            Pending
-                          </span>
+                          <select
+                            className="neu-select"
+                            value={result.closure_status ?? "Pending"}
+                            onChange={(e) => {
+                              const val = e.target.value as "Pending" | "Closed";
+                              if (val === "Closed") {
+                                if (!(closingDrafts[ti.id] ?? "").trim()) {
+                                  flash(
+                                    "Add an action taken note before closing this item",
+                                    "err",
+                                  );
+                                  return;
+                                }
+                                closeIssue(ti);
+                                return;
+                              }
+                              updateLocal(ti, { closure_status: val });
+                              autoSave(ti, { closure_status: val });
+                            }}
+                          >
+                            {CLOSURE_STATUSES.map((s) => (
+                              <option key={s} value={s}>
+                                {s}
+                              </option>
+                            ))}
+                          </select>
                           <input
                             type="text"
                             className="trigger-input"
-                            placeholder="Required to close"
+                            placeholder="Action taken (required to close)"
                             value={closingDrafts[ti.id] ?? ""}
                             onChange={(e) =>
                               setClosingDrafts((prev) => ({
@@ -4859,14 +4889,6 @@ function DrawingChecklistView({
                               }))
                             }
                           />
-                          <button
-                            className="ghost"
-                            style={{ padding: "6px 10px", fontSize: 12 }}
-                            disabled={!(closingDrafts[ti.id] ?? "").trim()}
-                            onClick={() => closeIssue(ti)}
-                          >
-                            Close
-                          </button>
                         </div>
                       ) : (
                         <span style={{ color: "var(--text-soft)" }}>Pending</span>

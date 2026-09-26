@@ -8,6 +8,8 @@ import { useDeleteLastMriReport } from "../mri-reporting/hooks/useMriReports";
 import { useAssetTriggers } from "../asset-registry/hooks/useTriggers";
 import { useCurrentUser } from "../../lib/currentUser";
 import dashboardBgImage from "../../assets/FieldMaintenance.png";
+import dashboardBgImageDark from "../../assets/FieldDark.png";
+import type { Theme } from "../../lib/theme";
 
 const STATUS_COLOR: Record<string, string> = {
   Draft: "#6b7280",
@@ -215,11 +217,17 @@ function reportIconStyle(status: string): { background: string; color: string } 
 
 // Washed-out background photo layer, the same treatment used on the Main Menu screen,
 // applied behind every Dashboard sub-screen for a consistent look across the app.
-function DashboardBackdrop({ children }: { children: ReactNode }) {
+function DashboardBackdrop({
+  children,
+  theme,
+}: {
+  children: ReactNode;
+  theme: Theme;
+}) {
   return (
     <div className="dashboard-bg-wrap">
       <div className="dashboard-bg-layer">
-        <img src={dashboardBgImage} alt="" />
+        <img src={theme === "dark" ? dashboardBgImageDark : dashboardBgImage} alt="" />
         <div className="dashboard-bg-veil" />
       </div>
       <div className="dashboard-bg-content">{children}</div>
@@ -522,16 +530,17 @@ type DashboardView = "hub" | "mri-history";
 
 interface DashboardProps {
   onOpenReport?: (reportId: number) => void;
+  theme: Theme;
 }
 
-function Dashboard({ onOpenReport }: DashboardProps) {
+function Dashboard({ onOpenReport, theme }: DashboardProps) {
   const [view, setView] = useState<DashboardView>("hub");
   const [selectedAsset, setSelectedAsset] = useState<{ id: number; code: string; description: string | null } | null>(null);
   const { data: assets = [], isLoading } = useAssetsWithMriHistorySummary();
 
   if (view === "mri-history" && selectedAsset) {
     return (
-      <DashboardBackdrop>
+      <DashboardBackdrop theme={theme}>
         <AssetHistoryPanel
           assetId={selectedAsset.id}
           assetCode={selectedAsset.code}
@@ -545,7 +554,7 @@ function Dashboard({ onOpenReport }: DashboardProps) {
 
   if (view === "mri-history") {
     return (
-      <DashboardBackdrop>
+      <DashboardBackdrop theme={theme}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
             <button className="ghost" onClick={() => setView("hub")} style={{ padding: "6px 12px", fontSize: 12 }}>
@@ -579,7 +588,7 @@ function Dashboard({ onOpenReport }: DashboardProps) {
   }
 
   return (
-    <DashboardBackdrop>
+    <DashboardBackdrop theme={theme}>
       <div>
         <div className="header">
           <h1>Dashboard</h1>

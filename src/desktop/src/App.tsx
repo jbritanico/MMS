@@ -2039,7 +2039,7 @@ function App() {
           }
         `}</style>
 
-          <UserPickerGate>
+          <UserPickerGate theme={theme}>
             {screen !== "menu" && (
               <div className="ui-nav">
                 <button
@@ -2083,6 +2083,7 @@ function App() {
                 {screen === "dashboard" && (
                   <Dashboard
                     onOpenReport={(id) => handleReportCreated(id, true)}
+                    theme={theme}
                   />
                 )}
                 {screen === "admin" && (
