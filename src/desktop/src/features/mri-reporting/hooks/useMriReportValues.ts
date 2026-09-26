@@ -106,6 +106,59 @@ export function useMriChecklistHistory(assetId: number, excludeReportId: number)
   });
 }
 
+// Append-only follow-up actions on a checklist item -- layered on top of (and never
+// overwriting) the original issue_details/action_taken/reported_by/reported_at above.
+// Each entry is permanent once added: who wrote it and exactly when. See
+// mri_checklist_action_log in lib.rs.
+export interface MriChecklistActionEntry {
+  id: number;
+  report_id: number;
+  checklist_item_id: number;
+  report_date: string;
+  action_text: string;
+  recorded_by: string | null;
+  recorded_at: string;
+}
+
+// Every action-log entry recorded so far on this whole report, across every checklist
+// item -- fetched once per report and grouped by checklist_item_id on the frontend
+// (same pattern as useMriChecklistHistory), not once per item.
+export function useMriChecklistActions(reportId: number) {
+  return useQuery({
+    queryKey: ["mri-checklist-actions", reportId],
+    queryFn: () => invoke<MriChecklistActionEntry[]>("get_mri_checklist_actions", { reportId }),
+    enabled: !!reportId,
+  });
+}
+
+export function useAddMriChecklistAction(reportId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (item: { templateChecklistItemId: number; actionText: string; recordedBy: string | null }) =>
+      invoke<number>("add_mri_checklist_action", {
+        reportId,
+        templateChecklistItemId: item.templateChecklistItemId,
+        actionText: item.actionText,
+        recordedBy: item.recordedBy,
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["mri-checklist-actions", reportId] }),
+  });
+}
+
+// Every action-log entry across every prior report on the asset, for the PDF's
+// recurring-finding thread.
+export function useMriChecklistActionHistory(assetId: number, excludeReportId: number) {
+  return useQuery({
+    queryKey: ["mri-checklist-action-history", assetId, excludeReportId],
+    queryFn: () =>
+      invoke<MriChecklistActionEntry[]>("get_mri_checklist_action_history", {
+        assetId,
+        excludeReportId,
+      }),
+    enabled: !!assetId,
+  });
+}
+
 // Mid
 export function useMriReportMidValues(reportId: number) {
   return useQuery({

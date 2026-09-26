@@ -4,7 +4,10 @@ import MainMenu from "./features/main-menu/MainMenu";
 import AssetRegistry from "./features/asset-registry/AssetRegistry";
 import MaintenanceReport from "./features/maintenance-report/MaintenanceReport";
 import Dashboard from "./features/dashboard/Dashboard";
-import Administration, { type AdminSection, type GroupId } from "./features/administration/Administration";
+import Administration, {
+  type AdminSection,
+  type GroupId,
+} from "./features/administration/Administration";
 import MaintenanceTriggers from "./features/asset-registry/MaintenanceTriggers";
 import TemplateBuilder from "./features/mri-template-builder/TemplateBuilder";
 import SelectAssetForReport from "./features/mri-reporting/SelectAssetForReport";
@@ -19,7 +22,22 @@ import type { Theme } from "./lib/theme";
 import { CurrentUserProvider } from "./lib/currentUser";
 import UserPickerGate from "./lib/UserPickerGate";
 
-type Screen = "menu" | "assets" | "reports" | "dashboard" | "admin" | "triggers" | "uilab" | "distance-map-test" | "template-builder" | "select-asset-report" | "report-wizard" | "pending-approvals" | "rectification-queue" | "report-review-queue" | "my-reports-queue";
+type Screen =
+  | "menu"
+  | "assets"
+  | "reports"
+  | "dashboard"
+  | "admin"
+  | "triggers"
+  | "uilab"
+  | "distance-map-test"
+  | "template-builder"
+  | "select-asset-report"
+  | "report-wizard"
+  | "pending-approvals"
+  | "rectification-queue"
+  | "report-review-queue"
+  | "my-reports-queue";
 type MrLevel = "MR-I" | "MR-II" | "MR-III";
 
 const queryClient = new QueryClient();
@@ -27,9 +45,15 @@ const queryClient = new QueryClient();
 function App() {
   const [screen, setScreen] = useState<Screen>("menu");
   const [mrLevel, setMrLevel] = useState<MrLevel | null>(null);
-  const [selectedAsset, setSelectedAsset] = useState<{ id: number; code: string } | null>(null);
+  const [selectedAsset, setSelectedAsset] = useState<{
+    id: number;
+    code: string;
+  } | null>(null);
 
-  const [selectedTemplate, setSelectedTemplate] = useState<{ id: number; name: string } | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<{
+    id: number;
+    name: string;
+  } | null>(null);
   const [adminActive, setAdminActive] = useState<AdminSection>("users");
   const [adminOpenGroup, setAdminOpenGroup] = useState<GroupId>("users");
 
@@ -67,7 +91,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <CurrentUserProvider>
         <div className="app" data-theme={theme}>
-        <style>{`
+          <style>{`
           :root, [data-theme="light"] {
             --bg: #f3f4f5;
             --neu-bg: #e7eaf0;
@@ -549,7 +573,7 @@ function App() {
           .side-drawer-handle-wide:hover { width: 190px; }
 
           .side-drawer-handle-avatar {
-            width: 190px;
+            width: 285px;
             height: auto;
             border-radius: 0;
             background: transparent;
@@ -558,21 +582,21 @@ function App() {
             align-items: center;
             justify-content: flex-start;
           }
-          .side-drawer-handle-avatar:hover { width: 190px; }
-          .drawer-handle-avatar-circle {
-            position: relative;
-            z-index: 2;
-            width: 56px;
-            height: 56px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #ffffff;
-            box-shadow: 4px 4px 10px var(--neu-shadow-dark), -2px -2px 6px var(--neu-shadow-light);
-            flex-shrink: 0;
-          }
-          .drawer-handle-avatar-circle svg { width: 26px; height: 26px; }
+          .side-drawer-handle-avatar:hover { width: 285px; }
+        .drawer-handle-avatar-circle {
+          position: relative;
+          z-index: 2;
+          width: 71px;
+          height: 71px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #ffffff;
+          box-shadow: 4px 4px 10px var(--neu-shadow-dark), -2px -2px 6px var(--neu-shadow-light);
+          flex-shrink: 0;
+        }
+        .drawer-handle-avatar-circle svg { width: 33px; height: 33px; }
           .drawer-handle-avatar-count {
             font-size: 22px;
             font-weight: 700;
@@ -603,34 +627,34 @@ function App() {
           .drawer-handle-avatar-info {
             position: relative;
             z-index: 1;
-            margin-left: -18px;
-            padding: 10px 14px 10px 30px;
+            margin-left: -27px;
+            padding: 15px 21px 15px 45px;
             border-radius: 0 14px 14px 0;
             background: var(--neu-bg);
             box-shadow: -5px 5px 10px var(--neu-shadow-dark), -5px -5px 10px var(--neu-shadow-light);
             display: flex;
             flex-direction: column;
             gap: 2px;
-            width: 152px;
+            width: 228px;
             flex: 0 0 auto;
           }
-          .side-drawer-handle-name {
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 100%;
-          }
-          .side-drawer-handle-role {
-            font-size: 10.5px;
-            color: var(--text-soft);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 100%;
-          }
+        .side-drawer-handle-name {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--text);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 100%;
+        }
+        .side-drawer-handle-role {
+          font-size: 10.5px;
+          color: var(--text-soft);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 100%;
+        }
 
           .side-drawer-overlay {
             position: fixed;
@@ -2015,67 +2039,94 @@ function App() {
           }
         `}</style>
 
-        <UserPickerGate>
-        {screen !== "menu" && (
-          <div className="ui-nav">
-            <button className="ghost" onClick={() => setScreen("menu")} style={{ padding: "6px 12px", fontSize: 12 }}>
-              ← Back to main menu
-            </button>
-          </div>
-        )}
+          <UserPickerGate>
+            {screen !== "menu" && (
+              <div className="ui-nav">
+                <button
+                  className="ghost"
+                  onClick={() => setScreen("menu")}
+                  style={{ padding: "6px 12px", fontSize: 12 }}
+                >
+                  ← Back to main menu
+                </button>
+              </div>
+            )}
 
-        <div className="content">
-          <div key={screen} className={`screen-fade ${screen === "menu" ? "fixed-height" : ""}`}>
-            {screen === "menu" && (
-              <MainMenu onNavigate={handleNavigate} currentTheme={theme} onThemeChange={handleThemeChange} />
-            )}
-            {screen === "assets" && <AssetRegistry onViewTriggers={handleViewTriggers} />}
-            {screen === "reports" && mrLevel === "MR-I" && (
-              <SelectAssetForReport onReportCreated={handleReportCreated} />
-            )}
-            {screen === "reports" && mrLevel !== "MR-I" && <MaintenanceReport />}
-            {screen === "report-wizard" && selectedReportId !== null && (
-              <ReportWizard reportId={selectedReportId} onBack={() => setScreen("reports")} viewOnly={viewOnlyReport} />
-            )}
-            {screen === "dashboard" && <Dashboard onOpenReport={(id) => handleReportCreated(id, true)} />}
-            {screen === "admin" && (
-              <Administration
-                onOpenTemplate={handleOpenTemplate}
-                active={adminActive}
-                setActive={setAdminActive}
-                openGroup={adminOpenGroup}
-                setOpenGroup={setAdminOpenGroup}
-                selectedTemplateId={selectedTemplate?.id ?? null}
-              />
-            )}
-            {screen === "triggers" && selectedAsset && (
-              <MaintenanceTriggers
-                assetId={selectedAsset.id}
-                assetCode={selectedAsset.code}
-                onBack={() => setScreen("assets")}
-              />
-            )}
-            {screen === "uilab" && <LiquidGlassTest />}
-            {screen === "distance-map-test" && <DistanceMapTest />}
-            {screen === "pending-approvals" && <PendingApprovals />}
-            {screen === "rectification-queue" && <RectificationQueue />}
-            {screen === "report-review-queue" && <ReportReviewQueue onOpenReport={handleReportCreated} />}
-            {screen === "my-reports-queue" && <MyReportsQueue onOpenReport={handleReportCreated} />}
-            {screen === "template-builder" && selectedTemplate && (
-              <TemplateBuilder
-                templateId={selectedTemplate.id}
-                templateName={selectedTemplate.name}
-                onBack={() => {
-                  setAdminActive("mri-template");
-                  setAdminOpenGroup("mr-templates");
-                  setScreen("admin");
-                }}
-              />
-            )}
-          </div>
+            <div className="content">
+              <div
+                key={screen}
+                className={`screen-fade ${screen === "menu" ? "fixed-height" : ""}`}
+              >
+                {screen === "menu" && (
+                  <MainMenu
+                    onNavigate={handleNavigate}
+                    currentTheme={theme}
+                    onThemeChange={handleThemeChange}
+                  />
+                )}
+                {screen === "assets" && (
+                  <AssetRegistry onViewTriggers={handleViewTriggers} />
+                )}
+                {screen === "reports" && mrLevel === "MR-I" && (
+                  <SelectAssetForReport onReportCreated={handleReportCreated} />
+                )}
+                {screen === "reports" && mrLevel !== "MR-I" && (
+                  <MaintenanceReport />
+                )}
+                {screen === "report-wizard" && selectedReportId !== null && (
+                  <ReportWizard
+                    reportId={selectedReportId}
+                    onBack={() => setScreen("reports")}
+                    viewOnly={viewOnlyReport}
+                  />
+                )}
+                {screen === "dashboard" && (
+                  <Dashboard
+                    onOpenReport={(id) => handleReportCreated(id, true)}
+                  />
+                )}
+                {screen === "admin" && (
+                  <Administration
+                    onOpenTemplate={handleOpenTemplate}
+                    active={adminActive}
+                    setActive={setAdminActive}
+                    openGroup={adminOpenGroup}
+                    setOpenGroup={setAdminOpenGroup}
+                    selectedTemplateId={selectedTemplate?.id ?? null}
+                  />
+                )}
+                {screen === "triggers" && selectedAsset && (
+                  <MaintenanceTriggers
+                    assetId={selectedAsset.id}
+                    assetCode={selectedAsset.code}
+                    onBack={() => setScreen("assets")}
+                  />
+                )}
+                {screen === "uilab" && <LiquidGlassTest />}
+                {screen === "distance-map-test" && <DistanceMapTest />}
+                {screen === "pending-approvals" && <PendingApprovals />}
+                {screen === "rectification-queue" && <RectificationQueue />}
+                {screen === "report-review-queue" && (
+                  <ReportReviewQueue onOpenReport={handleReportCreated} />
+                )}
+                {screen === "my-reports-queue" && (
+                  <MyReportsQueue onOpenReport={handleReportCreated} />
+                )}
+                {screen === "template-builder" && selectedTemplate && (
+                  <TemplateBuilder
+                    templateId={selectedTemplate.id}
+                    templateName={selectedTemplate.name}
+                    onBack={() => {
+                      setAdminActive("mri-template");
+                      setAdminOpenGroup("mr-templates");
+                      setScreen("admin");
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          </UserPickerGate>
         </div>
-        </UserPickerGate>
-          </div>
       </CurrentUserProvider>
     </QueryClientProvider>
   );

@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-23T11:34:18.362Z",
+  "generatedAt": "2026-09-26T03:25:10.616Z",
   "rootPath": "c:\\Users\\IS\\Documents\\GitHub\\MMS",
   "summary": {
     "totalFiles": 67,
-    "totalEdges": 164,
-    "totalLines": 16018,
+    "totalEdges": 166,
+    "totalLines": 18856,
     "languages": [
       "js"
     ],
@@ -23,8 +23,8 @@
       "stage": "start",
       "lang": "js",
       "ext": ".tsx",
-      "lines": 2059,
-      "size": 82439,
+      "lines": 2085,
+      "size": 83724,
       "collaboration": {
         "status": "collaborative",
         "impact": "bridge",
@@ -1428,20 +1428,20 @@
       "stage": "main",
       "lang": "js",
       "ext": ".tsx",
-      "lines": 559,
-      "size": 23431,
+      "lines": 622,
+      "size": 26418,
       "collaboration": {
         "status": "collaborative",
         "impact": "bridge",
         "summary": "Connects multiple parts of the code flow.",
-        "score": 9
+        "score": 13
       },
-      "crossStageLinks": 3,
-      "impactScore": 9,
+      "crossStageLinks": 4,
+      "impactScore": 13,
       "isDeadCode": false,
       "isOrphan": false,
       "isCircular": false,
-      "hotspotScore": 13,
+      "hotspotScore": 17,
       "hotspotLevel": "medium",
       "summary": "Main orchestration code. Functions: formatDate, reportIconFor, reportIconStyle, DashboardBackdrop",
       "functions": [
@@ -1452,13 +1452,16 @@
         "DashboardAssetCard",
         "StatCard",
         "AssetHistoryPanel",
+        "confirmDeleteReport",
         "Dashboard"
       ],
       "classes": [],
       "exports": [],
       "imports": [
         "src/desktop/src/features/dashboard/hooks/useMriHistory.ts",
-        "src/desktop/src/features/asset-registry/hooks/useTriggers.ts"
+        "src/desktop/src/features/mri-reporting/hooks/useMriReports.ts",
+        "src/desktop/src/features/asset-registry/hooks/useTriggers.ts",
+        "src/desktop/src/lib/currentUser.tsx"
       ],
       "usedBy": [
         "src/desktop/src/App.tsx"
@@ -1761,20 +1764,20 @@
       "stage": "helpers",
       "lang": "js",
       "ext": ".ts",
-      "lines": 181,
-      "size": 6961,
+      "lines": 207,
+      "size": 8208,
       "collaboration": {
         "status": "collaborative",
         "impact": "bridge",
         "summary": "Connects multiple parts of the code flow.",
-        "score": 18
+        "score": 21
       },
-      "crossStageLinks": 6,
-      "impactScore": 18,
+      "crossStageLinks": 7,
+      "impactScore": 21,
       "isDeadCode": false,
       "isOrphan": false,
       "isCircular": false,
-      "hotspotScore": 22,
+      "hotspotScore": 25,
       "hotspotLevel": "medium",
       "summary": "Support or shared utility code. Functions: useMriReports, useMriReport, useCreateMriReport, useDeleteMriReport",
       "functions": [
@@ -1790,6 +1793,8 @@
         "useMyOpenMriReports",
         "useSetMriReportStatus",
         "usePreviousEngineHours",
+        "usePreviousComplianceStage",
+        "useDeleteLastMriReport",
         "usePendingChecklistItemIds",
         "useAssetsWithPendingIssues"
       ],
@@ -1807,6 +1812,8 @@
         "useMyOpenMriReports",
         "useSetMriReportStatus",
         "usePreviousEngineHours",
+        "usePreviousComplianceStage",
+        "useDeleteLastMriReport",
         "usePendingChecklistItemIds",
         "useAssetsWithPendingIssues"
       ],
@@ -1814,6 +1821,7 @@
         "src/desktop/src/lib/ipc.ts"
       ],
       "usedBy": [
+        "src/desktop/src/features/dashboard/Dashboard.tsx",
         "src/desktop/src/features/main-menu/MainMenu.tsx",
         "src/desktop/src/features/mri-reporting/MyReportsQueue.tsx",
         "src/desktop/src/features/mri-reporting/ReportReviewQueue.tsx",
@@ -1827,8 +1835,8 @@
       "stage": "helpers",
       "lang": "js",
       "ext": ".ts",
-      "lines": 140,
-      "size": 4873,
+      "lines": 169,
+      "size": 6288,
       "collaboration": {
         "status": "connected",
         "impact": "leaf",
@@ -1841,13 +1849,14 @@
       "isOrphan": false,
       "isCircular": false,
       "hotspotScore": 10,
-      "hotspotLevel": "low",
+      "hotspotLevel": "medium",
       "summary": "Support or shared utility code. Functions: useMriReportHeaderValues, useSetMriReportHeaderValue, useMriReportChecklistResults, useSetMriReportChecklistResult",
       "functions": [
         "useMriReportHeaderValues",
         "useSetMriReportHeaderValue",
         "useMriReportChecklistResults",
         "useSetMriReportChecklistResult",
+        "useMriChecklistHistory",
         "useMriReportMidValues",
         "useSetMriReportMidValue",
         "useMriReportFooterValues",
@@ -1862,6 +1871,7 @@
         "useSetMriReportHeaderValue",
         "useMriReportChecklistResults",
         "useSetMriReportChecklistResult",
+        "useMriChecklistHistory",
         "useMriReportMidValues",
         "useSetMriReportMidValue",
         "useMriReportFooterValues",
@@ -2038,8 +2048,8 @@
       "stage": "core",
       "lang": "js",
       "ext": ".tsx",
-      "lines": 2520,
-      "size": 132393,
+      "lines": 5214,
+      "size": 179571,
       "collaboration": {
         "status": "collaborative",
         "impact": "bridge",
@@ -2051,7 +2061,7 @@
       "isDeadCode": false,
       "isOrphan": false,
       "isCircular": false,
-      "hotspotScore": 45,
+      "hotspotScore": 46,
       "hotspotLevel": "high",
       "summary": "Core business logic. Functions: ReportWizard, flash, goNext, goBack",
       "functions": [
@@ -2664,14 +2674,14 @@
         "status": "collaborative",
         "impact": "bridge",
         "summary": "Connects multiple parts of the code flow.",
-        "score": 30
+        "score": 31
       },
       "crossStageLinks": 9,
-      "impactScore": 30,
+      "impactScore": 31,
       "isDeadCode": false,
       "isOrphan": false,
       "isCircular": false,
-      "hotspotScore": 39,
+      "hotspotScore": 42,
       "hotspotLevel": "high",
       "summary": "Main orchestration code. Functions: CurrentUserProvider, setCurrentUserId, clearCurrentUser, useCurrentUser",
       "functions": [
@@ -2691,6 +2701,7 @@
       "usedBy": [
         "src/desktop/src/App.tsx",
         "src/desktop/src/features/asset-registry/AssetRegistry.tsx",
+        "src/desktop/src/features/dashboard/Dashboard.tsx",
         "src/desktop/src/features/main-menu/MainMenu.tsx",
         "src/desktop/src/features/mri-reporting/MyReportsQueue.tsx",
         "src/desktop/src/features/mri-reporting/PendingApprovals.tsx",

@@ -45,9 +45,13 @@ import {
   useAddMriReportAttachment,
   useDeleteMriReportAttachment,
   useMriChecklistHistory,
+  useMriChecklistActions,
+  useAddMriChecklistAction,
+  useMriChecklistActionHistory,
   type MriReportChecklistResult,
   type MriReportAttachment,
   type MriChecklistHistoryEntry,
+  type MriChecklistActionEntry,
 } from "./hooks/useMriReportValues";
 import {
   useCarriedForwardFaults,
@@ -1607,11 +1611,55 @@ function ChecklistEntryStep({
   const addAttachment = useAddMriReportAttachment(reportId);
   const deleteAttachment = useDeleteMriReportAttachment(reportId);
   const { user: currentUser } = useCurrentUser();
+  // Every past Fail entry (one Action Taken value per report, at most) for the same
+  // checklist item on an earlier report for this asset -- read-only context so whoever
+  // is filling out THIS report's single Action Taken entry can see what was done
+  // before, without needing to open the older reports.
+  const { data: checklistHistory = [] } = useMriChecklistHistory(assetId, reportId);
 
   function attachmentsFor(templateChecklistItemId: number) {
     return attachments.filter(
       (a) => a.template_checklist_item_id === templateChecklistItemId,
     );
+  }
+
+  // Prior reports' Action Taken entries for this checklist item, oldest first -- one
+  // per report, since only one Action Taken entry is ever allowed per report.
+  function historyForItem(checklistItemId: number) {
+    return checklistHistory
+      .filter((h) => h.checklist_item_id === checklistItemId)
+      .sort((a, b) => a.report_date.localeCompare(b.report_date));
+  }
+
+  // The mandatory, one-shot closing note for a Fail item on THIS report. Closing an
+  // item (Pending -> Closed) always requires typing one of these first -- it's the
+  // supervisor's (or operator's) proof of what was done to resolve it. Once saved it
+  // is permanent: it can never be edited, and a Closed item can never be reopened in
+  // this report. If the issue isn't actually resolved, it stays Pending and carries
+  // forward to a new MR-I report as usual.
+  const { data: checklistActions = [] } = useMriChecklistActions(reportId);
+  const addClosingAction = useAddMriChecklistAction(reportId);
+  const [closingDrafts, setClosingDrafts] = useState<Record<number, string>>({});
+
+  function closingNoteFor(checklistItemId: number) {
+    return checklistActions.find((a) => a.checklist_item_id === checklistItemId) ?? null;
+  }
+
+  async function closeIssue(ti: (typeof templateItems)[number]) {
+    const text = (closingDrafts[ti.id] ?? "").trim();
+    if (!text) return;
+    try {
+      await addClosingAction.mutateAsync({
+        templateChecklistItemId: ti.id,
+        actionText: text,
+        recordedBy: currentUser?.name ?? "Unknown",
+      });
+      updateLocal(ti, { closure_status: "Closed" });
+      autoSave(ti, { closure_status: "Closed" });
+      setClosingDrafts((prev) => ({ ...prev, [ti.id]: "" }));
+    } catch (err) {
+      flash(String(err), "err");
+    }
   }
 
   const [status, setStatus] = useState<{
@@ -1949,6 +1997,11 @@ function ChecklistEntryStep({
             addAttachment.mutate({ templateChecklistItemId, ...file })
           }
           onDeleteAttachment={(id) => deleteAttachment.mutate(id)}
+          historyForItem={historyForItem}
+          closingNoteFor={closingNoteFor}
+          closingDrafts={closingDrafts}
+          setClosingDrafts={setClosingDrafts}
+          closeIssue={closeIssue}
         />
       )}
 
@@ -1998,7 +2051,7 @@ function ChecklistEntryStep({
                       display: "grid",
                       gridTemplateColumns: COLS,
                       gap: 10,
-                      alignItems: "center",
+                      alignItems: isFail ? "flex-start" : "center",
                       padding: "10px 4px",
                       borderTop: "1px solid var(--border)",
                       fontSize: 13,
@@ -2061,17 +2114,40 @@ function ChecklistEntryStep({
                       placeholder={isFail ? "Required" : "—"}
                     />
 
-                    <input
-                      type="text"
-                      className="trigger-input"
-                      value={result.action_taken ?? ""}
-                      onChange={(e) =>
-                        updateLocal(ti, { action_taken: e.target.value })
-                      }
-                      onBlur={() => autoSave(ti, {})}
-                      disabled={locked || !isFail}
-                      placeholder={isFail ? "Required" : "—"}
-                    />
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {isFail &&
+                        historyForItem(ti.checklist_item_id).map((h) => (
+                          <div
+                            key={h.report_id}
+                            style={{ display: "flex", flexDirection: "column", fontSize: 12.5 }}
+                          >
+                            <span
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 600,
+                                color: "var(--text-soft)",
+                              }}
+                            >
+                              {h.report_date}
+                              {h.reported_by ? ` · ${h.reported_by}` : ""}
+                            </span>
+                            <span style={{ color: "var(--text-soft)" }}>
+                              {h.action_taken || "—"}
+                            </span>
+                          </div>
+                        ))}
+                      <input
+                        type="text"
+                        className="trigger-input"
+                        value={result.action_taken ?? ""}
+                        onChange={(e) =>
+                          updateLocal(ti, { action_taken: e.target.value })
+                        }
+                        onBlur={() => autoSave(ti, {})}
+                        disabled={locked || !isFail}
+                        placeholder={isFail ? "Required" : "—"}
+                      />
+                    </div>
 
                     <input
                       type="date"
@@ -2084,22 +2160,71 @@ function ChecklistEntryStep({
                       disabled={locked}
                     />
 
-                    <select
-                      className="neu-select"
-                      value={result.closure_status ?? "Pending"}
-                      onChange={(e) => {
-                        const val = e.target.value as "Pending" | "Closed";
-                        updateLocal(ti, { closure_status: val });
-                        autoSave(ti, { closure_status: val });
-                      }}
-                      disabled={locked && !canReviewClosure}
-                    >
-                      {CLOSURE_STATUSES.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
+                    {!isFail ? (
+                      <select
+                        className="neu-select"
+                        value={result.closure_status ?? "Pending"}
+                        onChange={(e) => {
+                          const val = e.target.value as "Pending" | "Closed";
+                          updateLocal(ti, { closure_status: val });
+                          autoSave(ti, { closure_status: val });
+                        }}
+                        disabled={locked && !canReviewClosure}
+                      >
+                        {CLOSURE_STATUSES.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                    ) : result.closure_status === "Closed" ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        <span style={{ fontWeight: 700, color: "var(--accent)" }}>
+                          Closed
+                        </span>
+                        {closingNoteFor(ti.checklist_item_id) && (
+                          <span style={{ fontSize: 11, color: "var(--text-soft)" }}>
+                            {closingNoteFor(ti.checklist_item_id)!.recorded_at}
+                            {closingNoteFor(ti.checklist_item_id)!.recorded_by
+                              ? ` · ${closingNoteFor(ti.checklist_item_id)!.recorded_by}`
+                              : ""}
+                          </span>
+                        )}
+                        {closingNoteFor(ti.checklist_item_id) && (
+                          <span style={{ fontSize: 12 }}>
+                            {closingNoteFor(ti.checklist_item_id)!.action_text}
+                          </span>
+                        )}
+                      </div>
+                    ) : !locked || canReviewClosure ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <span style={{ fontSize: 11, color: "var(--text-soft)" }}>
+                          Pending
+                        </span>
+                        <input
+                          type="text"
+                          className="trigger-input"
+                          placeholder="Required to close"
+                          value={closingDrafts[ti.id] ?? ""}
+                          onChange={(e) =>
+                            setClosingDrafts((prev) => ({
+                              ...prev,
+                              [ti.id]: e.target.value,
+                            }))
+                          }
+                        />
+                        <button
+                          className="ghost"
+                          style={{ padding: "6px 10px", fontSize: 12 }}
+                          disabled={!(closingDrafts[ti.id] ?? "").trim()}
+                          onClick={() => closeIssue(ti)}
+                        >
+                          Close
+                        </button>
+                      </div>
+                    ) : (
+                      <span style={{ color: "var(--text-soft)" }}>Pending</span>
+                    )}
 
                     <div
                       style={{
@@ -2334,6 +2459,12 @@ function ReviewStep({
   const { data: drawing } = useTemplateDrawing(templateId);
   const { data: hotspots = [] } = useTemplateDrawingHotspots(templateId);
   const { data: checklistHistory = [] } = useMriChecklistHistory(
+    report.asset_id,
+    reportId,
+  );
+  const { data: checklistActionsCurrent = [] } =
+    useMriChecklistActions(reportId);
+  const { data: checklistActionHistory = [] } = useMriChecklistActionHistory(
     report.asset_id,
     reportId,
   );
@@ -2658,15 +2789,31 @@ function ReviewStep({
 
   // Full stamped history thread for one Fail item: every prior occurrence (from
   // get_mri_checklist_history, keyed by the stable checklist_databank id) plus this
-  // report's own entry, oldest first.
+  // report's own entry, oldest first -- each occurrence also carries its own
+  // append-only action-log entries (mri_checklist_action_log), so the PDF can show
+  // the complete chain of follow-up actions for an issue that carried through several
+  // MR-I cycles, without anyone needing to open the older reports.
+  type HistoryThreadEntry = MriChecklistHistoryEntry & {
+    actions: MriChecklistActionEntry[];
+  };
   function historyThreadFor(
     ti: any,
     result: MriReportChecklistResult | null,
-  ): MriChecklistHistoryEntry[] {
-    const past = checklistHistory
+  ): HistoryThreadEntry[] {
+    const actionsForReport = (reportIdForOccurrence: number) =>
+      [...checklistActionHistory, ...checklistActionsCurrent]
+        .filter(
+          (a) =>
+            a.report_id === reportIdForOccurrence &&
+            a.checklist_item_id === ti.checklist_item_id,
+        )
+        .sort((a, b) => a.id - b.id);
+
+    const past: HistoryThreadEntry[] = checklistHistory
       .filter((h) => h.checklist_item_id === ti.checklist_item_id)
-      .sort((a, b) => a.report_date.localeCompare(b.report_date));
-    const current: MriChecklistHistoryEntry[] =
+      .sort((a, b) => a.report_date.localeCompare(b.report_date))
+      .map((h) => ({ ...h, actions: actionsForReport(h.report_id) }));
+    const current: HistoryThreadEntry[] =
       result?.status === "Fail"
         ? [
             {
@@ -2679,6 +2826,7 @@ function ReviewStep({
               closure_status: result.closure_status,
               reported_by: result.reported_by,
               reported_at: result.reported_at,
+              actions: actionsForReport(reportId),
             },
           ]
         : [];
@@ -3886,7 +4034,7 @@ function ReviewStep({
                         >
                           {isFail ? "✕" : "✓"}
                         </span>
-                        {isFail && occurrence > 1 ? (
+                        {isFail ? (
                           <span
                             style={{
                               display: "flex",
@@ -3933,7 +4081,7 @@ function ReviewStep({
                             {isFail ? result?.issue_details || "—" : "—"}
                           </span>
                         )}
-                        {isFail && occurrence > 1 ? (
+                        {isFail ? (
                           <span
                             style={{
                               display: "flex",
@@ -3974,6 +4122,28 @@ function ReviewStep({
                                       ? "—"
                                       : "— (pending)")}
                                 </span>
+                                {h.actions.map((entry) => (
+                                  <span
+                                    key={entry.id}
+                                    style={{ display: "flex", flexDirection: "column", marginTop: 3 }}
+                                  >
+                                    <span
+                                      style={{
+                                        fontSize: 7,
+                                        fontWeight: 700,
+                                        color: "#8a6512",
+                                        textTransform: "uppercase",
+                                        letterSpacing: "0.02em",
+                                      }}
+                                    >
+                                      {entry.recorded_at}
+                                      {entry.recorded_by ? ` · ${entry.recorded_by}` : ""}
+                                    </span>
+                                    <span style={{ fontSize: 9.5, color: "#4b5560" }}>
+                                      {entry.action_text}
+                                    </span>
+                                  </span>
+                                ))}
                               </span>
                             ))}
                           </span>
@@ -4118,6 +4288,11 @@ interface DrawingChecklistViewProps {
     file: { fileName: string; fileType: string; data: string },
   ) => void;
   onDeleteAttachment: (id: number) => void;
+  historyForItem: (checklistItemId: number) => MriChecklistHistoryEntry[];
+  closingNoteFor: (checklistItemId: number) => MriChecklistActionEntry | null;
+  closingDrafts: Record<number, string>;
+  setClosingDrafts: React.Dispatch<React.SetStateAction<Record<number, string>>>;
+  closeIssue: (ti: any) => void;
 }
 
 function DrawingChecklistView({
@@ -4138,6 +4313,11 @@ function DrawingChecklistView({
   attachmentsFor,
   onAddAttachment,
   onDeleteAttachment,
+  historyForItem,
+  closingNoteFor,
+  closingDrafts,
+  setClosingDrafts,
+  closeIssue,
 }: DrawingChecklistViewProps) {
   const { data: sections = [] } = useChecklistSections();
   const [zoom, setZoom] = useState(1);
@@ -4568,8 +4748,29 @@ function DrawingChecklistView({
                     />
                   </div>
 
-                  <div className="field">
+                   <div className="field">
                     <label>Action Taken</label>
+                    {isFail &&
+                      historyForItem(ti.checklist_item_id).map((h) => (
+                        <div
+                          key={h.report_id}
+                          style={{ display: "flex", flexDirection: "column", fontSize: 12.5, marginBottom: 4 }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 600,
+                              color: "var(--text-soft)",
+                            }}
+                          >
+                            {h.report_date}
+                            {h.reported_by ? ` · ${h.reported_by}` : ""}
+                          </span>
+                          <span style={{ color: "var(--text-soft)" }}>
+                            {h.action_taken || "—"}
+                          </span>
+                        </div>
+                      ))}
                     <input
                       type="text"
                       className="trigger-input"
@@ -4605,22 +4806,71 @@ function DrawingChecklistView({
                     </div>
                     <div className="field">
                       <label>Closure Status</label>
-                      <select
-                        className="neu-select"
-                        value={result.closure_status ?? "Pending"}
-                        onChange={(e) => {
-                          const val = e.target.value as "Pending" | "Closed";
-                          updateLocal(ti, { closure_status: val });
-                          autoSave(ti, { closure_status: val });
-                        }}
-                        disabled={locked && !canReviewClosure}
-                      >
-                        {CLOSURE_STATUSES.map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </select>
+                      {!isFail ? (
+                        <select
+                          className="neu-select"
+                          value={result.closure_status ?? "Pending"}
+                          onChange={(e) => {
+                            const val = e.target.value as "Pending" | "Closed";
+                            updateLocal(ti, { closure_status: val });
+                            autoSave(ti, { closure_status: val });
+                          }}
+                          disabled={locked && !canReviewClosure}
+                        >
+                          {CLOSURE_STATUSES.map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                        </select>
+                      ) : result.closure_status === "Closed" ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                          <span style={{ fontWeight: 700, color: "var(--accent)" }}>
+                            Closed
+                          </span>
+                          {closingNoteFor(ti.checklist_item_id) && (
+                            <span style={{ fontSize: 11, color: "var(--text-soft)" }}>
+                              {closingNoteFor(ti.checklist_item_id)!.recorded_at}
+                              {closingNoteFor(ti.checklist_item_id)!.recorded_by
+                                ? ` · ${closingNoteFor(ti.checklist_item_id)!.recorded_by}`
+                                : ""}
+                            </span>
+                          )}
+                          {closingNoteFor(ti.checklist_item_id) && (
+                            <span style={{ fontSize: 12 }}>
+                              {closingNoteFor(ti.checklist_item_id)!.action_text}
+                            </span>
+                          )}
+                        </div>
+                      ) : !locked || canReviewClosure ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          <span style={{ fontSize: 11, color: "var(--text-soft)" }}>
+                            Pending
+                          </span>
+                          <input
+                            type="text"
+                            className="trigger-input"
+                            placeholder="Required to close"
+                            value={closingDrafts[ti.id] ?? ""}
+                            onChange={(e) =>
+                              setClosingDrafts((prev) => ({
+                                ...prev,
+                                [ti.id]: e.target.value,
+                              }))
+                            }
+                          />
+                          <button
+                            className="ghost"
+                            style={{ padding: "6px 10px", fontSize: 12 }}
+                            disabled={!(closingDrafts[ti.id] ?? "").trim()}
+                            onClick={() => closeIssue(ti)}
+                          >
+                            Close
+                          </button>
+                        </div>
+                      ) : (
+                        <span style={{ color: "var(--text-soft)" }}>Pending</span>
+                      )}
                     </div>
                   </div>
 
@@ -4696,7 +4946,6 @@ function DrawingChecklistView({
                         </span>
                       </div>
                     )}
-
                   <div className="field">
                     <label>Attachments</label>
                     <AttachmentGallery

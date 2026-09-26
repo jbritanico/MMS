@@ -578,6 +578,33 @@ fn open_and_migrate_connection() -> Result<Connection, String> {
         }
     }
 
+    // Append-only log of follow-up actions on a checklist item, layered on top of the
+    // original issue_details/action_taken/reported_by/reported_at captured in
+    // mri_report_checklist_results (which stays exactly as-is -- this table never
+    // touches it). Each row is a permanent, stamped entry: who wrote it and exactly
+    // when. Rows are never edited or deleted, only added -- e.g. a Job/Maintenance
+    // Supervisor closing a pending Minor item writes one entry here with their note;
+    // if the same issue reappears on a later report, that report gets its own rows.
+    // Combined with the cross-report matching in get_mri_checklist_history (via
+    // template_checklist_items.checklist_item_id), this lets the PDF's recurring-
+    // finding thread show the full chain of actions from when an issue was first
+    // raised to when it was finally closed, across every MR-I cycle it carried
+    // through, without anyone needing to open the older reports.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS mri_checklist_action_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            report_id INTEGER NOT NULL,
+            template_checklist_item_id INTEGER NOT NULL,
+            action_text TEXT NOT NULL,
+            recorded_by TEXT,
+            recorded_at TEXT NOT NULL,
+            FOREIGN KEY (report_id) REFERENCES mri_reports(id),
+            FOREIGN KEY (template_checklist_item_id) REFERENCES template_checklist_items(id)
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
     conn.execute(
         "CREATE TABLE IF NOT EXISTS mri_report_mid_values (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2813,6 +2840,112 @@ fn get_mri_checklist_history(
     Ok(entries)
 }
 
+// Append-only follow-up actions on a checklist item -- see the mri_checklist_action_log
+// migration comment above. Rows are only ever inserted, never updated or deleted, so the
+// full chain of who-did-what-and-when survives forever, independent of and in addition to
+// the original issue_details/action_taken/reported_by/reported_at on the checklist result
+// itself.
+#[derive(Serialize, Deserialize)]
+struct MriChecklistActionEntry {
+    id: i64,
+    report_id: i64,
+    checklist_item_id: i64,
+    report_date: String,
+    action_text: String,
+    recorded_by: Option<String>,
+    recorded_at: String,
+}
+
+#[tauri::command]
+fn add_mri_checklist_action(
+    report_id: i64,
+    template_checklist_item_id: i64,
+    action_text: String,
+    recorded_by: Option<String>,
+) -> Result<i64, String> {
+    if action_text.trim().is_empty() {
+        return Err("Action text cannot be empty".to_string());
+    }
+    let conn = get_connection()?;
+    conn.execute(
+        "INSERT INTO mri_checklist_action_log (report_id, template_checklist_item_id, action_text, recorded_by, recorded_at)
+         VALUES (?1, ?2, ?3, ?4, datetime('now', 'localtime'))",
+        rusqlite::params![report_id, template_checklist_item_id, action_text.trim(), recorded_by],
+    ).map_err(|e| e.to_string())?;
+    Ok(conn.last_insert_rowid())
+}
+
+// Every action-log entry recorded so far on this whole report, across every checklist
+// item -- used to render each item's live, read-only "already added" list plus its blank
+// box to append a new one. Fetched once per report (not once per item) and grouped by
+// checklist_item_id on the frontend, same pattern as get_mri_checklist_history.
+#[tauri::command]
+fn get_mri_checklist_actions(report_id: i64) -> Result<Vec<MriChecklistActionEntry>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT log.id, log.report_id, tci.checklist_item_id, r.created_date, log.action_text, log.recorded_by, log.recorded_at
+         FROM mri_checklist_action_log log
+         JOIN mri_reports r ON r.id = log.report_id
+         JOIN template_checklist_items tci ON tci.id = log.template_checklist_item_id
+         WHERE log.report_id = ?1
+         ORDER BY log.id ASC"
+    ).map_err(|e| e.to_string())?;
+    let entries = stmt
+        .query_map(rusqlite::params![report_id], |row| {
+            Ok(MriChecklistActionEntry {
+                id: row.get(0)?,
+                report_id: row.get(1)?,
+                checklist_item_id: row.get(2)?,
+                report_date: row.get(3)?,
+                action_text: row.get(4)?,
+                recorded_by: row.get(5)?,
+                recorded_at: row.get(6)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(entries)
+}
+
+// Every action-log entry across every PRIOR report on the asset, for the PDF's
+// recurring-finding thread -- mirrors get_mri_checklist_history's own join pattern
+// (matched via template_checklist_items.checklist_item_id, the stable id across cycles).
+// exclude_report_id is normally the report currently being reviewed, so its own
+// (not-yet-historical) entries -- already available via get_mri_checklist_actions --
+// aren't double-counted.
+#[tauri::command]
+fn get_mri_checklist_action_history(
+    asset_id: i64,
+    exclude_report_id: i64,
+) -> Result<Vec<MriChecklistActionEntry>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT log.id, log.report_id, tci.checklist_item_id, r.created_date, log.action_text, log.recorded_by, log.recorded_at
+         FROM mri_checklist_action_log log
+         JOIN mri_reports r ON r.id = log.report_id
+         JOIN template_checklist_items tci ON tci.id = log.template_checklist_item_id
+         WHERE r.asset_id = ?1 AND log.report_id != ?2
+         ORDER BY log.id ASC"
+    ).map_err(|e| e.to_string())?;
+    let entries = stmt
+        .query_map(rusqlite::params![asset_id, exclude_report_id], |row| {
+            Ok(MriChecklistActionEntry {
+                id: row.get(0)?,
+                report_id: row.get(1)?,
+                checklist_item_id: row.get(2)?,
+                report_date: row.get(3)?,
+                action_text: row.get(4)?,
+                recorded_by: row.get(5)?,
+                recorded_at: row.get(6)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(entries)
+}
+
 fn valid_approval_decision(s: &str) -> bool {
     matches!(
         s,
@@ -3320,6 +3453,11 @@ fn delete_last_mri_report(report_id: i64) -> Result<String, String> {
     .map_err(|e| e.to_string())?;
     conn.execute(
         "DELETE FROM mri_report_checklist_results WHERE report_id = ?1",
+        [report_id],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM mri_checklist_action_log WHERE report_id = ?1",
         [report_id],
     )
     .map_err(|e| e.to_string())?;
@@ -5247,6 +5385,11 @@ fn purge_mri_reports(filter: MriReportPurgeFilter) -> Result<String, String> {
         )
         .map_err(|e| e.to_string())?;
         conn.execute(
+            "DELETE FROM mri_checklist_action_log WHERE report_id = ?1",
+            [id],
+        )
+        .map_err(|e| e.to_string())?;
+        conn.execute(
             "DELETE FROM mri_report_mid_values WHERE report_id = ?1",
             [id],
         )
@@ -5283,7 +5426,7 @@ fn get_pending_checklist_item_ids(
          FROM mri_report_checklist_results r
          JOIN mri_reports rep ON r.report_id = rep.id
          JOIN template_checklist_items tci ON r.template_checklist_item_id = tci.id
-         WHERE rep.asset_id = ?1 AND rep.id != ?2 AND r.closure_status = 'Pending'",
+         WHERE rep.asset_id = ?1 AND rep.id != ?2 AND r.status = 'Fail' AND r.closure_status = 'Pending'",
         )
         .map_err(|e| e.to_string())?;
     let ids: Vec<i64> = stmt
@@ -6028,6 +6171,9 @@ pub fn run() {
             get_mri_report_checklist_results,
             set_mri_report_checklist_result,
             get_mri_checklist_history,
+            add_mri_checklist_action,
+            get_mri_checklist_actions,
+            get_mri_checklist_action_history,
             get_mri_report_mid_values,
             set_mri_report_mid_value,
             get_mri_report_footer_values,
