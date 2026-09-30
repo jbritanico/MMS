@@ -5420,13 +5420,28 @@ fn get_pending_checklist_item_ids(
     current_report_id: i64,
 ) -> Result<Vec<i64>, String> {
     let conn = get_connection()?;
+    // Only the MOST RECENT other report's result for a checklist item decides whether
+    // it carries forward -- an older Fail+Pending row must not "leak" through and
+    // re-carry an item that a later report already Closed (or Passed). Without the
+    // inner subquery pinning rep.id to that latest occurrence, this used to match ANY
+    // historical Fail+Pending row regardless of what happened to the item since.
     let mut stmt = conn
         .prepare(
             "SELECT DISTINCT tci.checklist_item_id
          FROM mri_report_checklist_results r
          JOIN mri_reports rep ON r.report_id = rep.id
          JOIN template_checklist_items tci ON r.template_checklist_item_id = tci.id
-         WHERE rep.asset_id = ?1 AND rep.id != ?2 AND r.status = 'Fail' AND r.closure_status = 'Pending'",
+         WHERE rep.asset_id = ?1 AND rep.id != ?2 AND r.status = 'Fail' AND r.closure_status = 'Pending'
+           AND rep.id = (
+               SELECT rep2.id
+               FROM mri_report_checklist_results r2
+               JOIN mri_reports rep2 ON r2.report_id = rep2.id
+               JOIN template_checklist_items tci2 ON r2.template_checklist_item_id = tci2.id
+               WHERE rep2.asset_id = ?1 AND rep2.id != ?2
+                 AND tci2.checklist_item_id = tci.checklist_item_id
+               ORDER BY rep2.created_date DESC, rep2.id DESC
+               LIMIT 1
+           )",
         )
         .map_err(|e| e.to_string())?;
     let ids: Vec<i64> = stmt
@@ -5439,14 +5454,18 @@ fn get_pending_checklist_item_ids(
     Ok(ids)
 }
 
-// Read-only history: any Fail checklist item on an EARLIER report for this asset that
-// hasn't been BOTH closed AND signed off -- i.e. it keeps surfacing here unless
-// closure_status = 'Closed' AND the source report itself has reached 'Approved'. A
-// closed item on a report still in Draft/Submitted/Escalated is not final yet, so it
-// still forwards. This is intentionally query-derived rather than a stored link column
-// -- it's always correct off of closure_status/report status directly, with no separate
-// state to keep in sync or go stale (see the purge/orphaned-drawer-data bug from a few
-// days ago for why a stored pointer would be the wrong call here).
+// Read-only history: the MOST RECENT other report's result for a checklist item, if
+// that latest occurrence is Fail and hasn't been BOTH closed AND signed off (i.e. it
+// keeps surfacing here unless closure_status = 'Closed' AND the source report itself
+// has reached 'Approved'). A closed item on a report still in Draft/Submitted/Escalated
+// is not final yet, so it still forwards. The inner subquery pins each checklist item
+// to its single latest occurrence -- without it, an old Fail+Pending row would keep
+// matching even after a later report Closed and Approved that same item, since it's a
+// separate row that the plain WHERE clause alone can't tell is stale. This is
+// intentionally query-derived rather than a stored link column -- it's always correct
+// off of closure_status/report status directly, with no separate state to keep in sync
+// or go stale (see the purge/orphaned-drawer-data bug from a few days ago for why a
+// stored pointer would be the wrong call here).
 #[derive(Serialize, Deserialize)]
 struct OpenPriorIssueRow {
     id: i64,
@@ -5473,6 +5492,16 @@ fn get_open_prior_issues(
          LEFT JOIN checklist_databank cd ON tci.checklist_item_id = cd.id
          WHERE rep.asset_id = ?1 AND rep.id != ?2 AND r.status = 'Fail'
            AND NOT (r.closure_status = 'Closed' AND rep.status = 'Approved')
+           AND rep.id = (
+               SELECT rep2.id
+               FROM mri_report_checklist_results r2
+               JOIN mri_reports rep2 ON r2.report_id = rep2.id
+               JOIN template_checklist_items tci2 ON r2.template_checklist_item_id = tci2.id
+               WHERE rep2.asset_id = ?1 AND rep2.id != ?2
+                 AND tci2.checklist_item_id = tci.checklist_item_id
+               ORDER BY rep2.created_date DESC, rep2.id DESC
+               LIMIT 1
+           )
          ORDER BY r.date_observed DESC",
         )
         .map_err(|e| e.to_string())?;

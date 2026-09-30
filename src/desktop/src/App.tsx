@@ -64,8 +64,14 @@ function App() {
 
   const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
   const [viewOnlyReport, setViewOnlyReport] = useState(false);
+  // Where the report wizard was opened FROM (Select Asset for Report, Asset MR-I
+  // History, Report Review Queue, My Reports Queue, ...) -- captured at open time so
+  // Back returns to that same screen instead of always landing on Select Asset for
+  // Report ("reports"), which is what it did before regardless of the true origin.
+  const [reportWizardOrigin, setReportWizardOrigin] = useState<Screen>("reports");
 
   function handleReportCreated(reportId: number, viewOnly: boolean = false) {
+    setReportWizardOrigin(screen);
     setSelectedReportId(reportId);
     setViewOnlyReport(viewOnly);
     setScreen("report-wizard");
@@ -2076,7 +2082,7 @@ function App() {
                 {screen === "report-wizard" && selectedReportId !== null && (
                   <ReportWizard
                     reportId={selectedReportId}
-                    onBack={() => setScreen("reports")}
+                    onBack={() => setScreen(reportWizardOrigin)}
                     viewOnly={viewOnlyReport}
                   />
                 )}

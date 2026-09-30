@@ -45,13 +45,9 @@ import {
   useAddMriReportAttachment,
   useDeleteMriReportAttachment,
   useMriChecklistHistory,
-  useMriChecklistActions,
-  useAddMriChecklistAction,
-  useMriChecklistActionHistory,
   type MriReportChecklistResult,
   type MriReportAttachment,
   type MriChecklistHistoryEntry,
-  type MriChecklistActionEntry,
 } from "./hooks/useMriReportValues";
 import {
   useCarriedForwardFaults,
@@ -1511,6 +1507,17 @@ function FooterEntryStep({
 const CLOSURE_STATUSES = ["Pending", "Closed"] as const;
 const SEVERITIES = ["Minor", "Moderate", "Critical"] as const;
 
+// Shared control height so the Date Observed picker, Closure Status dropdown,
+// and Severity dropdown all line up at the same height wherever they appear
+// together (list view row, drawing view fields).
+const FIELD_CONTROL_HEIGHT = 38;
+const uniformFieldStyle: React.CSSProperties = {
+  height: FIELD_CONTROL_HEIGHT,
+  boxSizing: "border-box",
+  padding: "0 12px",
+  fontSize: 13,
+};
+
 function SeverityDistributionSummary({
   counts,
   colors,
@@ -1601,10 +1608,8 @@ function ChecklistEntryStep({
   const { data: savedResults = [], isSuccess: savedResultsLoaded } =
     useMriReportChecklistResults(reportId);
   const setResult = useSetMriReportChecklistResult(reportId);
-  const { data: pendingItemIds = [] } = usePendingChecklistItemIds(
-    assetId,
-    reportId,
-  );
+  const { data: pendingItemIds = [], isSuccess: pendingItemIdsLoaded } =
+    usePendingChecklistItemIds(assetId, reportId);
   const { data: drawing } = useTemplateDrawing(templateId);
   const { data: hotspots = [] } = useTemplateDrawingHotspots(templateId);
   const { data: attachments = [] } = useMriReportAttachments(reportId);
@@ -1631,36 +1636,30 @@ function ChecklistEntryStep({
       .sort((a, b) => a.report_date.localeCompare(b.report_date));
   }
 
-  // The mandatory, one-shot closing note for a Fail item on THIS report. Closing an
-  // item (Pending -> Closed) always requires typing one of these first -- it's the
-  // supervisor's (or operator's) proof of what was done to resolve it. Once saved it
-  // is permanent: it can never be edited, and a Closed item can never be reopened in
-  // this report. If the issue isn't actually resolved, it stays Pending and carries
-  // forward to a new MR-I report as usual.
-  const { data: checklistActions = [] } = useMriChecklistActions(reportId);
-  const addClosingAction = useAddMriChecklistAction(reportId);
-  const [closingDrafts, setClosingDrafts] = useState<Record<number, string>>({});
-
-  function closingNoteFor(checklistItemId: number) {
-    return checklistActions.find((a) => a.checklist_item_id === checklistItemId) ?? null;
+  // Is this checklist item carried forward from an earlier report (still Pending
+  // there)? Drives both the Fail default and the read-only Issue Details text below.
+  function isCarriedForward(checklistItemId: number) {
+    return pendingItemIds.includes(checklistItemId);
   }
 
-  async function closeIssue(ti: (typeof templateItems)[number]) {
-    const text = (closingDrafts[ti.id] ?? "").trim();
-    if (!text) return;
-    try {
-      await addClosingAction.mutateAsync({
-        templateChecklistItemId: ti.id,
-        actionText: text,
-        recordedBy: currentUser?.name ?? "Unknown",
-      });
-      updateLocal(ti, { closure_status: "Closed" });
-      autoSave(ti, { closure_status: "Closed" });
-      setClosingDrafts((prev) => ({ ...prev, [ti.id]: "" }));
-    } catch (err) {
-      flash(String(err), "err");
-    }
+  // The original Issue Details text from the most recent still-open occurrence of this
+  // checklist item on an earlier report -- carried forward read-only so the description
+  // of the original problem never drifts; only Action Taken and Closure Status are
+  // editable per report going forward.
+  function carriedIssueDetailsFor(checklistItemId: number): string | null {
+    const openOccurrences = checklistHistory
+      .filter(
+        (h) =>
+          h.checklist_item_id === checklistItemId &&
+          h.closure_status === "Pending",
+      )
+      .sort((a, b) => b.report_date.localeCompare(a.report_date));
+    return openOccurrences[0]?.issue_details ?? null;
   }
+
+  // Closing an item (Pending -> Closed) requires the Action Taken field to already
+  // have something in it -- proof of what was done to resolve it -- validated inline
+  // wherever the Closure Status dropdown is rendered below.
 
   const [status, setStatus] = useState<{
     msg: string;
@@ -1696,12 +1695,19 @@ function ChecklistEntryStep({
       (r) => r.template_checklist_item_id === ti.id,
     );
     const edited = localEdits[ti.id];
+    // A carried-forward item's Issue Details default comes from the original open
+    // occurrence, not blank -- this is what actually gets auto-saved onto this
+    // report's own row the first time (see the auto-default effect below), so it's
+    // a real inherited value from here on, not just a display placeholder.
+    const carriedIssueDetails = isCarriedForward(ti.checklist_item_id)
+      ? carriedIssueDetailsFor(ti.checklist_item_id)
+      : null;
     return {
       status: defaultStatusFor(ti),
       // Default severity comes from the template's checklist item, but a saved or
       // in-progress edit on this report always wins — the user can override it per report.
       severity: ti.severity ?? null,
-      issue_details: "",
+      issue_details: carriedIssueDetails ?? "",
       action_taken: "",
       date_observed: todayIso(),
       closure_status: "Pending",
@@ -1787,7 +1793,19 @@ function ChecklistEntryStep({
   }, [sortedItems, localEdits, savedResults, pendingItemIds]);
 
   useEffect(() => {
-    if (locked || templateItems.length === 0 || !savedResultsLoaded) return;
+    // Wait for BOTH queries this default depends on -- savedResults (has this
+    // report already got a row for this item?) and pendingItemIds (is this item
+    // carried forward as an open Fail from an earlier report?). Firing before
+    // pendingItemIds resolves would auto-save "Pass" for a carried-forward item
+    // and, since autoDefaulted latches per item, that wrong default would never
+    // get corrected once the real pending list arrives.
+    if (
+      locked ||
+      templateItems.length === 0 ||
+      !savedResultsLoaded ||
+      !pendingItemIdsLoaded
+    )
+      return;
     templateItems.forEach((ti) => {
       if (autoDefaulted.has(ti.id)) return;
       const alreadySaved = savedResults.find(
@@ -1801,7 +1819,13 @@ function ChecklistEntryStep({
       autoSave(ti, { status: defaultStatusFor(ti) });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templateItems.length, pendingItemIds.length, locked, savedResultsLoaded]);
+  }, [
+    templateItems.length,
+    pendingItemIds.length,
+    locked,
+    savedResultsLoaded,
+    pendingItemIdsLoaded,
+  ]);
 
   const grouped = (() => {
     const groups = new Map<number | null, typeof sortedItems>();
@@ -1998,10 +2022,8 @@ function ChecklistEntryStep({
           }
           onDeleteAttachment={(id) => deleteAttachment.mutate(id)}
           historyForItem={historyForItem}
-          closingNoteFor={closingNoteFor}
-          closingDrafts={closingDrafts}
-          setClosingDrafts={setClosingDrafts}
-          closeIssue={closeIssue}
+          isCarriedForward={isCarriedForward}
+          flash={flash}
         />
       )}
 
@@ -2110,7 +2132,14 @@ function ChecklistEntryStep({
                         updateLocal(ti, { issue_details: e.target.value })
                       }
                       onBlur={() => autoSave(ti, {})}
-                      disabled={locked || !isFail}
+                      disabled={
+                        locked || !isFail || isCarriedForward(ti.checklist_item_id)
+                      }
+                      title={
+                        isCarriedForward(ti.checklist_item_id)
+                          ? "Carried forward from an earlier report — original description is read-only"
+                          : undefined
+                      }
                       placeholder={isFail ? "Required" : "—"}
                     />
 
@@ -2126,7 +2155,7 @@ function ChecklistEntryStep({
                             {`: ${h.action_taken || "—"}`}
                           </span>
                         ))}
-                      {isFail && result.action_taken ? (
+                      {isFail && locked && result.action_taken ? (
                         <span style={{ fontSize: 12.5 }}>
                           {result.reported_at ?? ""}
                           {result.reported_by ? ` by ${result.reported_by}` : ""}
@@ -2145,20 +2174,12 @@ function ChecklistEntryStep({
                           placeholder={isFail ? "Required" : "—"}
                         />
                       )}
-                      {isFail && closingNoteFor(ti.checklist_item_id) && (
-                        <span style={{ fontSize: 12.5, color: "var(--text-soft)" }}>
-                          {closingNoteFor(ti.checklist_item_id)!.recorded_at}
-                          {closingNoteFor(ti.checklist_item_id)!.recorded_by
-                            ? ` by ${closingNoteFor(ti.checklist_item_id)!.recorded_by}`
-                            : ""}
-                          {`: ${closingNoteFor(ti.checklist_item_id)!.action_text}`}
-                        </span>
-                      )}
                     </div>
 
                     <input
                       type="date"
                       className="trigger-input"
+                      style={uniformFieldStyle}
                       value={result.date_observed ?? todayIso()}
                       onChange={(e) => {
                         updateLocal(ti, { date_observed: e.target.value });
@@ -2170,6 +2191,7 @@ function ChecklistEntryStep({
                     {!isFail ? (
                       <select
                         className="neu-select"
+                        style={uniformFieldStyle}
                         value={result.closure_status ?? "Pending"}
                         onChange={(e) => {
                           const val = e.target.value as "Pending" | "Closed";
@@ -2185,61 +2207,33 @@ function ChecklistEntryStep({
                         ))}
                       </select>
                     ) : result.closure_status === "Closed" ? (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                        <span style={{ fontWeight: 700, color: "var(--accent)" }}>
-                          Closed
-                        </span>
-                        {closingNoteFor(ti.checklist_item_id) && (
-                          <span style={{ fontSize: 12, color: "var(--text-soft)" }}>
-                            {closingNoteFor(ti.checklist_item_id)!.recorded_at}
-                            {closingNoteFor(ti.checklist_item_id)!.recorded_by
-                              ? ` by ${closingNoteFor(ti.checklist_item_id)!.recorded_by}`
-                              : ""}
-                            {`: ${closingNoteFor(ti.checklist_item_id)!.action_text}`}
-                          </span>
-                        )}
-                      </div>
+                      <span style={{ fontWeight: 700, color: "var(--accent)" }}>
+                        Closed
+                      </span>
                     ) : !locked || canReviewClosure ? (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        <select
-                          className="neu-select"
-                          value={result.closure_status ?? "Pending"}
-                          onChange={(e) => {
-                            const val = e.target.value as "Pending" | "Closed";
-                            if (val === "Closed") {
-                              if (!(closingDrafts[ti.id] ?? "").trim()) {
-                                flash(
-                                  "Add an action taken note before closing this item",
-                                  "err",
-                                );
-                                return;
-                              }
-                              closeIssue(ti);
-                              return;
-                            }
-                            updateLocal(ti, { closure_status: val });
-                            autoSave(ti, { closure_status: val });
-                          }}
-                        >
-                          {CLOSURE_STATUSES.map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
-                          ))}
-                        </select>
-                        <input
-                          type="text"
-                          className="trigger-input"
-                          placeholder="Action taken (required to close)"
-                          value={closingDrafts[ti.id] ?? ""}
-                          onChange={(e) =>
-                            setClosingDrafts((prev) => ({
-                              ...prev,
-                              [ti.id]: e.target.value,
-                            }))
+                      <select
+                        className="neu-select"
+                        style={uniformFieldStyle}
+                        value={result.closure_status ?? "Pending"}
+                        onChange={(e) => {
+                          const val = e.target.value as "Pending" | "Closed";
+                          if (val === "Closed" && !(result.action_taken ?? "").trim()) {
+                            flash(
+                              "Add an action taken entry before closing this item",
+                              "err",
+                            );
+                            return;
                           }
-                        />
-                      </div>
+                          updateLocal(ti, { closure_status: val });
+                          autoSave(ti, { closure_status: val });
+                        }}
+                      >
+                        {CLOSURE_STATUSES.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
                     ) : (
                       <span style={{ color: "var(--text-soft)" }}>Pending</span>
                     )}
@@ -2266,7 +2260,7 @@ function ChecklistEntryStep({
                       )}
                       <select
                         className="neu-select"
-                        style={{ fontSize: 12, padding: "4px 6px" }}
+                        style={{ ...uniformFieldStyle, padding: "0 6px" }}
                         value={result.severity ?? ""}
                         onChange={(e) => {
                           const val = (e.target.value ||
@@ -2480,12 +2474,6 @@ function ReviewStep({
     report.asset_id,
     reportId,
   );
-  const { data: checklistActionsCurrent = [] } =
-    useMriChecklistActions(reportId);
-  const { data: checklistActionHistory = [] } = useMriChecklistActionHistory(
-    report.asset_id,
-    reportId,
-  );
 
   function itemInfo(checklistItemId: number) {
     return databank.find((d) => d.id === checklistItemId);
@@ -2606,10 +2594,6 @@ function ReviewStep({
         issues.push(
           `Checklist — "${name}" is marked Fail but has no issue details`,
         );
-      if (!result.action_taken?.trim())
-        issues.push(
-          `Checklist — "${name}" is marked Fail but has no action taken`,
-        );
       if (!result.severity)
         issues.push(`Checklist — "${name}" is marked Fail but has no severity`);
     }
@@ -2640,20 +2624,41 @@ function ReviewStep({
       (r) => r.label.trim().toLowerCase() === label.toLowerCase(),
     );
   }
+  // Fixed dd-mmm-yyyy (and dd-mmm-yyyy | hh:mm) formatting, built manually instead of
+  // via toLocaleDateString -- locale output ("26 Sept 2026" vs "26 Sep 2026", spaces vs
+  // dashes) isn't guaranteed stable across environments, and the PDF needs one exact,
+  // readable, print-safe format everywhere a date or timestamp appears.
+  const MONTH_ABBR = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  ];
+  function formatDdMmmYyyy(d: Date): string {
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${day}-${MONTH_ABBR[d.getMonth()]}-${d.getFullYear()}`;
+  }
   function fmtDate(raw: string): string {
     if (!raw) return "—";
     const d = new Date(
       raw.includes("T") || raw.includes(" ") ? raw : `${raw}T00:00:00`,
     );
     if (isNaN(d.getTime())) return raw;
-    return d.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    return formatDdMmmYyyy(d);
   }
   function fmtDateTime(d: Date): string {
-    return `${d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}, ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    return `${formatDdMmmYyyy(d)} | ${hh}:${mm}`;
+  }
+  // Action Taken entries carry a precise reported_at timestamp (date + time of the
+  // save), separate from report_date (the report's own date, no time). Prefer it so
+  // the PDF shows exactly when the action was recorded, falling back to the date-only
+  // report_date for older data that predates the timestamp being captured.
+  function fmtStamp(reportedAt: string | null | undefined, fallbackDate: string): string {
+    if (reportedAt) {
+      const d = new Date(reportedAt);
+      if (!isNaN(d.getTime())) return fmtDateTime(d);
+    }
+    return fmtDate(fallbackDate);
   }
 
   const reportDateIso: string = report.submitted_date ?? report.created_date;
@@ -2776,9 +2781,6 @@ function ReviewStep({
     },
   ];
 
-  const faultRows = checklistRows.filter(
-    ({ result }) => result?.status === "Fail",
-  );
   const preJobRow = findMidRow("Distance Travelled Pre-Job (KM)");
   const postJobRow = findMidRow("Distance Travelled Post-Job (KM)");
   const operatorName = findFooterValue("Operator");
@@ -2811,26 +2813,14 @@ function ReviewStep({
   // append-only action-log entries (mri_checklist_action_log), so the PDF can show
   // the complete chain of follow-up actions for an issue that carried through several
   // MR-I cycles, without anyone needing to open the older reports.
-  type HistoryThreadEntry = MriChecklistHistoryEntry & {
-    actions: MriChecklistActionEntry[];
-  };
+  type HistoryThreadEntry = MriChecklistHistoryEntry;
   function historyThreadFor(
     ti: any,
     result: MriReportChecklistResult | null,
   ): HistoryThreadEntry[] {
-    const actionsForReport = (reportIdForOccurrence: number) =>
-      [...checklistActionHistory, ...checklistActionsCurrent]
-        .filter(
-          (a) =>
-            a.report_id === reportIdForOccurrence &&
-            a.checklist_item_id === ti.checklist_item_id,
-        )
-        .sort((a, b) => a.id - b.id);
-
     const past: HistoryThreadEntry[] = checklistHistory
       .filter((h) => h.checklist_item_id === ti.checklist_item_id)
-      .sort((a, b) => a.report_date.localeCompare(b.report_date))
-      .map((h) => ({ ...h, actions: actionsForReport(h.report_id) }));
+      .sort((a, b) => a.report_date.localeCompare(b.report_date));
     const current: HistoryThreadEntry[] =
       result?.status === "Fail"
         ? [
@@ -2844,7 +2834,6 @@ function ReviewStep({
               closure_status: result.closure_status,
               reported_by: result.reported_by,
               reported_at: result.reported_at,
-              actions: actionsForReport(reportId),
             },
           ]
         : [];
@@ -3388,108 +3377,151 @@ function ReviewStep({
                         display: "inline-block",
                       }}
                     />
-                    Faults recorded
+                    Findings by severity
                   </div>
+                  {/* Counts only -- the per-issue description, action taken, and
+                      closure status are already shown in full on page 2's checklist
+                      table, so page 1 stays a scannable dashboard instead of
+                      repeating that detail. */}
+                  {/* Single compact row, not a 2-column/3-row grid -- page 1 is a fixed
+                      297mm-tall sheet (see .mri-report-page / @media print in App.tsx),
+                      so this block must never grow taller than the old short summary
+                      line it replaced or it pushes the checklist onto a spilled extra
+                      printed page. */}
                   <div
                     style={{
                       display: "flex",
-                      flexDirection: "column",
-                      gap: 10,
+                      gap: 8,
                     }}
                   >
-                    {faultRows.length === 0 && (
-                      <div style={{ fontSize: 12, color: "#9aa2a8" }}>
-                        No faults recorded on this report
+                    <div
+                      style={{
+                        flex: 1,
+                        padding: "6px 8px",
+                        borderRadius: 8,
+                        background: "#fff",
+                        border: "1px solid #e2e5e8",
+                      }}
+                    >
+                      <div style={{ fontSize: 9, color: "#6b7680" }}>
+                        Checklist items
                       </div>
-                    )}
-                    {faultRows.map(({ ti, info, result }) => {
-                      const hotspotNumber = hotspotNumberForItem(ti.id);
-                      const isOpen = result?.closure_status !== "Closed";
-                      return (
-                        <div
-                          key={ti.id}
-                          style={{
-                            padding: "12px 14px",
-                            borderRadius: 10,
-                            background: isOpen ? "#fdf1d3" : "#fff",
-                            border: `1px solid ${isOpen ? "#f0c869" : "#e2e5e8"}`,
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 8,
-                            }}
-                          >
-                            <span
-                              style={{
-                                width: 20,
-                                height: 20,
-                                borderRadius: "50%",
-                                background: isOpen ? "#c9861a" : "#9aa2a8",
-                                color: "#fff",
-                                fontSize: 10.5,
-                                fontWeight: 800,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                              }}
-                            >
-                              {hotspotNumber ?? "—"}
-                            </span>
-                            <span style={{ fontWeight: 700, fontSize: 13 }}>
-                              {info?.description ?? `Item #${ti.id}`}
-                            </span>
-                          </div>
-                          <div
-                            style={{ marginTop: 8, display: "flex", gap: 6 }}
-                          >
-                            {result?.severity && (
-                              <span
-                                style={{
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  padding: "2px 9px",
-                                  borderRadius: 20,
-                                  fontSize: 10,
-                                  fontWeight: 700,
-                                  background: `${REVIEW_SEVERITY_COLOR[result.severity]}22`,
-                                  color: REVIEW_SEVERITY_COLOR[result.severity],
-                                }}
-                              >
-                                {result.severity}
-                              </span>
-                            )}
-                            <span
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                padding: "2px 9px",
-                                borderRadius: 20,
-                                fontSize: 10,
-                                fontWeight: 700,
-                                background: isOpen ? "#fdf6e6" : "#e2e5e8",
-                                color: isOpen ? "#8a6512" : "#5b6570",
-                                border: isOpen ? "1px solid #d9b354" : "none",
-                              }}
-                            >
-                              {result?.closure_status ?? "Pending"}
-                            </span>
-                          </div>
-                          <div
-                            style={{
-                              fontSize: 10.5,
-                              color: "#6b7680",
-                              marginTop: 6,
-                            }}
-                          >
-                            {sectionName(ti.section_id)} · Finding:{" "}
-                            {result?.issue_details || "—"}
-                          </div>
-                        </div>
-                      );
-                    })}
+                      <div
+                        style={{
+                          fontSize: 16,
+                          fontWeight: 800,
+                          color: "#12232b",
+                        }}
+                      >
+                        {checklistTotal}
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        flex: 1,
+                        padding: "6px 8px",
+                        borderRadius: 8,
+                        background: openCount > 0 ? "#fdf1d3" : "#fff",
+                        border: `1px solid ${openCount > 0 ? "#f0c869" : "#e2e5e8"}`,
+                      }}
+                    >
+                      <div style={{ fontSize: 9, color: "#6b7680" }}>
+                        Open
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 16,
+                          fontWeight: 800,
+                          color: "#12232b",
+                        }}
+                      >
+                        {openCount}
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        flex: 1,
+                        padding: "6px 8px",
+                        borderRadius: 8,
+                        background: `${REVIEW_SEVERITY_COLOR.Minor}14`,
+                        border: `1px solid ${REVIEW_SEVERITY_COLOR.Minor}44`,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 9,
+                          color: REVIEW_SEVERITY_COLOR.Minor,
+                          fontWeight: 700,
+                        }}
+                      >
+                        Minor
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 16,
+                          fontWeight: 800,
+                          color: REVIEW_SEVERITY_COLOR.Minor,
+                        }}
+                      >
+                        {faultSeverityCounts.Minor}
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        flex: 1,
+                        padding: "6px 8px",
+                        borderRadius: 8,
+                        background: `${REVIEW_SEVERITY_COLOR.Moderate}14`,
+                        border: `1px solid ${REVIEW_SEVERITY_COLOR.Moderate}44`,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 9,
+                          color: REVIEW_SEVERITY_COLOR.Moderate,
+                          fontWeight: 700,
+                        }}
+                      >
+                        Moderate
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 16,
+                          fontWeight: 800,
+                          color: REVIEW_SEVERITY_COLOR.Moderate,
+                        }}
+                      >
+                        {faultSeverityCounts.Moderate}
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        flex: 1,
+                        padding: "6px 8px",
+                        borderRadius: 8,
+                        background: `${REVIEW_SEVERITY_COLOR.Critical}14`,
+                        border: `1px solid ${REVIEW_SEVERITY_COLOR.Critical}44`,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 9,
+                          color: REVIEW_SEVERITY_COLOR.Critical,
+                          fontWeight: 700,
+                        }}
+                      >
+                        Critical
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 16,
+                          fontWeight: 800,
+                          color: REVIEW_SEVERITY_COLOR.Critical,
+                        }}
+                      >
+                        {faultSeverityCounts.Critical}
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <div style={{ flex: 1, minHeight: 0 }}>
@@ -4002,7 +4034,6 @@ function ReviewStep({
                           borderBottom: "1px solid #eef0f2",
                           fontSize: 9.5,
                           lineHeight: 1.25,
-                          background: isFail ? "#fdf8ea" : "transparent",
                           paddingTop: isFail ? 5 : 3,
                           paddingBottom: isFail ? 5 : 3,
                         }}
@@ -4124,7 +4155,7 @@ function ReviewStep({
                                       : "#c3c8cc",
                                   }}
                                 >
-                                  {fmtDate(h.report_date)}
+                                  {fmtStamp(h.reported_at, h.report_date)}
                                   {h.reported_by ? ` by ${h.reported_by}` : ""}
                                   {`: ${
                                     h.action_taken ||
@@ -4133,16 +4164,6 @@ function ReviewStep({
                                       : "— (pending)")
                                   }`}
                                 </span>
-                                {h.actions.map((entry) => (
-                                  <span
-                                    key={entry.id}
-                                    style={{ fontSize: 9.5, color: "#4b5560" }}
-                                  >
-                                    {entry.recorded_at}
-                                    {entry.recorded_by ? ` by ${entry.recorded_by}` : ""}
-                                    {`: ${entry.action_text}`}
-                                  </span>
-                                ))}
                               </span>
                             ))}
                           </span>
@@ -4288,10 +4309,8 @@ interface DrawingChecklistViewProps {
   ) => void;
   onDeleteAttachment: (id: number) => void;
   historyForItem: (checklistItemId: number) => MriChecklistHistoryEntry[];
-  closingNoteFor: (checklistItemId: number) => MriChecklistActionEntry | null;
-  closingDrafts: Record<number, string>;
-  setClosingDrafts: React.Dispatch<React.SetStateAction<Record<number, string>>>;
-  closeIssue: (ti: any) => void;
+  isCarriedForward: (checklistItemId: number) => boolean;
+  flash: (msg: string, kind: "ok" | "err") => void;
 }
 
 function DrawingChecklistView({
@@ -4313,10 +4332,8 @@ function DrawingChecklistView({
   onAddAttachment,
   onDeleteAttachment,
   historyForItem,
-  closingNoteFor,
-  closingDrafts,
-  setClosingDrafts,
-  closeIssue,
+  isCarriedForward,
+  flash,
 }: DrawingChecklistViewProps) {
   const { data: sections = [] } = useChecklistSections();
   const [zoom, setZoom] = useState(1);
@@ -4742,7 +4759,14 @@ function DrawingChecklistView({
                         updateLocal(ti, { issue_details: e.target.value })
                       }
                       onBlur={() => autoSave(ti, {})}
-                      disabled={locked || !isFail}
+                      disabled={
+                        locked || !isFail || isCarriedForward(ti.checklist_item_id)
+                      }
+                      title={
+                        isCarriedForward(ti.checklist_item_id)
+                          ? "Carried forward from an earlier report — original description is read-only"
+                          : undefined
+                      }
                       placeholder={isFail ? "Required" : "—"}
                     />
                   </div>
@@ -4765,7 +4789,7 @@ function DrawingChecklistView({
                           {`: ${h.action_taken || "—"}`}
                         </span>
                       ))}
-                    {isFail && result.action_taken ? (
+                    {isFail && locked && result.action_taken ? (
                       <span style={{ display: "block", fontSize: 12.5, marginBottom: 4 }}>
                         {result.reported_at ?? ""}
                         {result.reported_by ? ` by ${result.reported_by}` : ""}
@@ -4784,15 +4808,6 @@ function DrawingChecklistView({
                         placeholder={isFail ? "Required" : "—"}
                       />
                     )}
-                    {isFail && closingNoteFor(ti.checklist_item_id) && (
-                      <span style={{ display: "block", fontSize: 12.5, color: "var(--text-soft)" }}>
-                        {closingNoteFor(ti.checklist_item_id)!.recorded_at}
-                        {closingNoteFor(ti.checklist_item_id)!.recorded_by
-                          ? ` by ${closingNoteFor(ti.checklist_item_id)!.recorded_by}`
-                          : ""}
-                        {`: ${closingNoteFor(ti.checklist_item_id)!.action_text}`}
-                      </span>
-                    )}
                   </div>
 
                   <div
@@ -4807,6 +4822,7 @@ function DrawingChecklistView({
                       <input
                         type="date"
                         className="trigger-input"
+                        style={uniformFieldStyle}
                         value={result.date_observed ?? ""}
                         onChange={(e) => {
                           updateLocal(ti, { date_observed: e.target.value });
@@ -4820,6 +4836,7 @@ function DrawingChecklistView({
                       {!isFail ? (
                         <select
                           className="neu-select"
+                          style={uniformFieldStyle}
                           value={result.closure_status ?? "Pending"}
                           onChange={(e) => {
                             const val = e.target.value as "Pending" | "Closed";
@@ -4835,61 +4852,33 @@ function DrawingChecklistView({
                           ))}
                         </select>
                       ) : result.closure_status === "Closed" ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                          <span style={{ fontWeight: 700, color: "var(--accent)" }}>
-                            Closed
-                          </span>
-                          {closingNoteFor(ti.checklist_item_id) && (
-                            <span style={{ fontSize: 11, color: "var(--text-soft)" }}>
-                              {closingNoteFor(ti.checklist_item_id)!.recorded_at}
-                              {closingNoteFor(ti.checklist_item_id)!.recorded_by
-                                ? ` by ${closingNoteFor(ti.checklist_item_id)!.recorded_by}`
-                                : ""}
-                              {`: ${closingNoteFor(ti.checklist_item_id)!.action_text}`}
-                            </span>
-                          )}
-                        </div>
+                        <span style={{ fontWeight: 700, color: "var(--accent)" }}>
+                          Closed
+                        </span>
                       ) : !locked || canReviewClosure ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                          <select
-                            className="neu-select"
-                            value={result.closure_status ?? "Pending"}
-                            onChange={(e) => {
-                              const val = e.target.value as "Pending" | "Closed";
-                              if (val === "Closed") {
-                                if (!(closingDrafts[ti.id] ?? "").trim()) {
-                                  flash(
-                                    "Add an action taken note before closing this item",
-                                    "err",
-                                  );
-                                  return;
-                                }
-                                closeIssue(ti);
-                                return;
-                              }
-                              updateLocal(ti, { closure_status: val });
-                              autoSave(ti, { closure_status: val });
-                            }}
-                          >
-                            {CLOSURE_STATUSES.map((s) => (
-                              <option key={s} value={s}>
-                                {s}
-                              </option>
-                            ))}
-                          </select>
-                          <input
-                            type="text"
-                            className="trigger-input"
-                            placeholder="Action taken (required to close)"
-                            value={closingDrafts[ti.id] ?? ""}
-                            onChange={(e) =>
-                              setClosingDrafts((prev) => ({
-                                ...prev,
-                                [ti.id]: e.target.value,
-                              }))
+                        <select
+                          className="neu-select"
+                          style={uniformFieldStyle}
+                          value={result.closure_status ?? "Pending"}
+                          onChange={(e) => {
+                            const val = e.target.value as "Pending" | "Closed";
+                            if (val === "Closed" && !(result.action_taken ?? "").trim()) {
+                              flash(
+                                "Add an action taken entry before closing this item",
+                                "err",
+                              );
+                              return;
                             }
-                          />
-                        </div>
+                            updateLocal(ti, { closure_status: val });
+                            autoSave(ti, { closure_status: val });
+                          }}
+                        >
+                          {CLOSURE_STATUSES.map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                        </select>
                       ) : (
                         <span style={{ color: "var(--text-soft)" }}>Pending</span>
                       )}
@@ -4915,7 +4904,7 @@ function DrawingChecklistView({
                       )}
                       <select
                         className="neu-select"
-                        style={{ fontSize: 12, padding: "4px 6px" }}
+                        style={{ ...uniformFieldStyle, padding: "0 6px" }}
                         value={result.severity ?? ""}
                         onChange={(e) => {
                           const val = (e.target.value ||
