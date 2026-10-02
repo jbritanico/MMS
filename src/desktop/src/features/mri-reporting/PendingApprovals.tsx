@@ -6,8 +6,11 @@ import { useEffectivePermissions } from "../administration/hooks/useUserAdmin";
 import {
     usePendingMriFaultApprovals,
     useProvisionalMriFaultApprovals,
+    usePendingMriFaultAcknowledgments,
+    useAcknowledgeMriFaultDecision,
     type PendingFaultApprovalRow,
     type ProvisionalFaultApprovalRow,
+    type PendingFaultAcknowledgmentRow,
 } from "./hooks/useMriFaultApprovals";
 
 const SEVERITY_COLOR: Record<string, string> = {
@@ -44,8 +47,11 @@ function PendingApprovals() {
     const { data: permissions = [] } = useEffectivePermissions(user?.id ?? 0);
     const { data: rows = [], isLoading } = usePendingMriFaultApprovals(user?.id ?? 0);
     const { data: provisionalRows = [] } = useProvisionalMriFaultApprovals(user?.id ?? 0);
+    const { data: acknowledgmentRows = [] } = usePendingMriFaultAcknowledgments(user?.id ?? 0);
     const canConfirm = permissions.includes("mri.confirm_provisional");
+    const canAcknowledge = permissions.includes("mri.acknowledge_critical");
     const qc = useQueryClient();
+    const acknowledge = useAcknowledgeMriFaultDecision();
 
     const [reviewingId, setReviewingId] = useState<number | null>(null);
     const [reviewMethod, setReviewMethod] = useState<(typeof REVIEW_METHODS)[number]>("In-Person");
@@ -84,6 +90,16 @@ function PendingApprovals() {
         try {
             await confirm.mutateAsync({ id: row.id, confirmedBy: user.name });
             flash(`Confirmed — ${row.checklist_description ?? "item"} on ${row.asset_code ?? "asset"}`, "ok");
+        } catch (err) {
+            flash(String(err), "err");
+        }
+    }
+
+    async function acknowledgeEntry(row: PendingFaultAcknowledgmentRow) {
+        if (!user) return;
+        try {
+            await acknowledge.mutateAsync({ id: row.id, acknowledgedBy: user.name });
+            flash(`Acknowledged — ${row.checklist_description ?? "item"} on ${row.asset_code ?? "asset"}`, "ok");
         } catch (err) {
             flash(String(err), "err");
         }
@@ -287,6 +303,38 @@ function PendingApprovals() {
                                 </div>
                                 <div className="actions" style={{ marginTop: 12 }}>
                                     <button className="primary" onClick={() => confirmEntry(row)}>Confirm</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {canAcknowledge && acknowledgmentRows.length > 0 && (
+                <div style={{ marginTop: 32 }}>
+                    <div className="header">
+                        <h1>Needs Acknowledgment</h1>
+                        <span className="sub">Moderate faults reviewed by a Maintenance Supervisor — Maintenance Manager/FSM to be informed, per the severity doc</span>
+                    </div>
+                    <div className="cards">
+                        {acknowledgmentRows.map((row) => (
+                            <div key={row.id} className="panel" style={{ padding: 16, cursor: "default" }}>
+                                <div className="card-main">
+                                    <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 600 }}>
+                                        {row.checklist_description ?? "Checklist item"}
+                                    </div>
+                                    <div className="desc" style={{ whiteSpace: "normal" }}>
+                                        Asset: {row.asset_code ?? "Unknown"} · {row.decision}
+                                        {row.new_severity ? ` → ${row.new_severity}` : ""} by {row.reviewer ?? "Unknown"} on {row.updated_date}
+                                    </div>
+                                    {row.notes && (
+                                        <div style={{ fontSize: 12.5, color: "var(--text-soft)", marginTop: 6 }}>
+                                            <strong>Notes:</strong> {row.notes}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="actions" style={{ marginTop: 12 }}>
+                                    <button className="primary" onClick={() => acknowledgeEntry(row)}>Acknowledge</button>
                                 </div>
                             </div>
                         ))}

@@ -135,6 +135,44 @@ export interface CarriedForwardFaultRow {
   created_date: string;
 }
 
+export interface PendingFaultAcknowledgmentRow {
+  id: number;
+  report_id: number;
+  template_checklist_item_id: number;
+  original_severity: "Minor" | "Moderate" | "Critical";
+  decision: "Pending" | "Approved" | "Reclassified" | "Rejected" | "Carryforward";
+  new_severity: "Minor" | "Moderate" | "Critical" | null;
+  reviewer: string | null;
+  review_method: "In-Person" | "Phone" | null;
+  notes: string | null;
+  updated_date: string;
+  asset_code: string | null;
+  checklist_description: string | null;
+}
+
+const PENDING_ACKNOWLEDGMENTS_KEY = ["pending-mri-fault-acknowledgments"];
+
+// Reviewed Moderate decisions the respective Maintenance Manager/FSM hasn't yet
+// acknowledged, per the Faults Severity Classification doc's "shall be informed" line.
+// Country-scoped server-side, same as the other review queues.
+export function usePendingMriFaultAcknowledgments(viewerUserId: number) {
+  return useQuery({
+    queryKey: [...PENDING_ACKNOWLEDGMENTS_KEY, viewerUserId],
+    queryFn: () =>
+      invoke<PendingFaultAcknowledgmentRow[]>("get_mri_fault_decisions_pending_acknowledgment", { viewerUserId }),
+    enabled: !!viewerUserId,
+  });
+}
+
+export function useAcknowledgeMriFaultDecision() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (item: { id: number; acknowledgedBy: string }) =>
+      invoke<string>("acknowledge_mri_fault_decision", item),
+    onSuccess: () => qc.invalidateQueries({ queryKey: PENDING_ACKNOWLEDGMENTS_KEY }),
+  });
+}
+
 // Faults inherited INTO this report from an earlier cycle on the same asset — surfaced
 // as a banner so whoever is doing this inspection knows they're picking up an open issue.
 export function useCarriedForwardFaults(reportId: number) {

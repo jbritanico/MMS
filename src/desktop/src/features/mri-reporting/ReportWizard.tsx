@@ -432,6 +432,7 @@ function ReportWizard({
             templateId={report.template_id}
             reportId={reportId}
             locked={fieldsLocked}
+            hasEscalatableFault={hasEscalatableFault}
           />
         )}
         {step === "review" && (
@@ -1226,10 +1227,16 @@ function FooterEntryStep({
   templateId,
   reportId,
   locked,
+  hasEscalatableFault,
 }: {
   templateId: number;
   reportId: number;
   locked: boolean;
+  // Green Tagged / Job Ready are written automatically by the fault-approval workflow
+  // (see set_mri_fault_approval_decision / verify_mri_fault_rectification in lib.rs) once
+  // there's a Moderate/Critical fault on this report -- they're the review authority's
+  // sign-off, not the preparer's to hand-tick.
+  hasEscalatableFault?: boolean;
 }) {
   const { data: templateFields = [] } = useTemplateFooterFields(templateId);
   const { data: catalog = [] } = useFooterFieldCatalog();
@@ -1338,14 +1345,28 @@ function FooterEntryStep({
 
       {checkboxFields.length > 0 && (
         <div className="checks">
-          {checkboxFields.map((tf) => (
+          {checkboxFields.map((tf) => {
+            const checkboxLabel = fieldLabel(tf.footer_field_id).trim().toLowerCase();
+            // Disabled, not forced blank: a report with a Moderate fault still earns a
+            // true Green Tagged/Job Ready value the moment the review authority closes
+            // it (set_mri_fault_approval_decision writes it directly) -- this just stops
+            // the preparer from hand-ticking it before that review happens.
+            const isWorkflowControlled =
+              hasEscalatableFault &&
+              (checkboxLabel === "green tagged" || checkboxLabel === "job ready");
+            return (
             <label key={tf.id} className="neu-check">
               <input
                 type="checkbox"
                 className="neu-check-input"
                 checked={(localValues[tf.id] ?? "No") === "Yes"}
                 onChange={(e) => handleCheckboxChange(tf.id, e.target.checked)}
-                disabled={locked}
+                disabled={locked || isWorkflowControlled}
+                title={
+                  isWorkflowControlled
+                    ? "Set automatically once the Moderate/Critical fault on this report is reviewed — not hand-editable"
+                    : undefined
+                }
               />
               <span className="neu-check-box">
                 <svg
@@ -1364,7 +1385,8 @@ function FooterEntryStep({
               </span>
               <span>{fieldLabel(tf.footer_field_id)}</span>
             </label>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -1621,6 +1643,23 @@ function ChecklistEntryStep({
   // is filling out THIS report's single Action Taken entry can see what was done
   // before, without needing to open the older reports.
   const { data: checklistHistory = [] } = useMriChecklistHistory(assetId, reportId);
+  // Direct-authority check for CLOSING an individual checklist item, independent of the
+  // report-level "locked"/canReviewClosure gate above (which only governs whether fields
+  // can still be edited after submission). Per the severity table, a Minor fault needs no
+  // approval and may be closed by whoever is filling out the report; a Moderate fault
+  // needs mri.close_defect (or the broader mri.approve); a Critical fault needs mri.approve.
+  // Without this, the Closure Status dropdown had no severity check at all and an Operator
+  // could self-close their own Moderate/Critical fault straight out of Draft.
+  const { data: permissions = [] } = useEffectivePermissions(currentUser?.id ?? 0);
+  function canCloseDirectly(severity: string | null | undefined) {
+    if (severity === "Critical") return permissions.includes("mri.approve");
+    if (severity === "Moderate")
+      return (
+        permissions.includes("mri.close_defect") ||
+        permissions.includes("mri.approve")
+      );
+    return true; // Minor / no severity — no approval required
+  }
 
   function attachmentsFor(templateChecklistItemId: number) {
     return attachments.filter(
@@ -2022,6 +2061,7 @@ function ChecklistEntryStep({
           }
           onDeleteAttachment={(id) => deleteAttachment.mutate(id)}
           historyForItem={historyForItem}
+          canCloseDirectly={canCloseDirectly}
           isCarriedForward={isCarriedForward}
           flash={flash}
         />
@@ -2215,11 +2255,24 @@ function ChecklistEntryStep({
                         className="neu-select"
                         style={uniformFieldStyle}
                         value={result.closure_status ?? "Pending"}
+                        disabled={!canCloseDirectly(result.severity)}
+                        title={
+                          !canCloseDirectly(result.severity)
+                            ? `${result.severity} faults require Maintenance Supervisor (or higher) review authority to close`
+                            : undefined
+                        }
                         onChange={(e) => {
                           const val = e.target.value as "Pending" | "Closed";
                           if (val === "Closed" && !(result.action_taken ?? "").trim()) {
                             flash(
                               "Add an action taken entry before closing this item",
+                              "err",
+                            );
+                            return;
+                          }
+                          if (val === "Closed" && !canCloseDirectly(result.severity)) {
+                            flash(
+                              `${result.severity} faults require Maintenance Supervisor (or higher) review authority to close — submit and endorse this report to route it to Pending Approvals`,
                               "err",
                             );
                             return;
@@ -4309,6 +4362,7 @@ interface DrawingChecklistViewProps {
   ) => void;
   onDeleteAttachment: (id: number) => void;
   historyForItem: (checklistItemId: number) => MriChecklistHistoryEntry[];
+  canCloseDirectly: (severity: string | null | undefined) => boolean;
   isCarriedForward: (checklistItemId: number) => boolean;
   flash: (msg: string, kind: "ok" | "err") => void;
 }
@@ -4332,6 +4386,7 @@ function DrawingChecklistView({
   onAddAttachment,
   onDeleteAttachment,
   historyForItem,
+  canCloseDirectly,
   isCarriedForward,
   flash,
 }: DrawingChecklistViewProps) {
@@ -4823,7 +4878,7 @@ function DrawingChecklistView({
                         type="date"
                         className="trigger-input"
                         style={uniformFieldStyle}
-                        value={result.date_observed ?? ""}
+                        value={result.date_observed ?? todayIso()}
                         onChange={(e) => {
                           updateLocal(ti, { date_observed: e.target.value });
                           autoSave(ti, { date_observed: e.target.value });
@@ -4860,11 +4915,24 @@ function DrawingChecklistView({
                           className="neu-select"
                           style={uniformFieldStyle}
                           value={result.closure_status ?? "Pending"}
+                          disabled={!canCloseDirectly(result.severity)}
+                          title={
+                            !canCloseDirectly(result.severity)
+                              ? `${result.severity} faults require Maintenance Supervisor (or higher) review authority to close`
+                              : undefined
+                          }
                           onChange={(e) => {
                             const val = e.target.value as "Pending" | "Closed";
                             if (val === "Closed" && !(result.action_taken ?? "").trim()) {
                               flash(
                                 "Add an action taken entry before closing this item",
+                                "err",
+                              );
+                              return;
+                            }
+                            if (val === "Closed" && !canCloseDirectly(result.severity)) {
+                              flash(
+                                `${result.severity} faults require Maintenance Supervisor (or higher) review authority to close — submit and endorse this report to route it to Pending Approvals`,
                                 "err",
                               );
                               return;

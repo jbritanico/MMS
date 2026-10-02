@@ -757,6 +757,25 @@ fn open_and_migrate_connection() -> Result<Connection, String> {
             )
             .map_err(|e| e.to_string())?;
         }
+        // acknowledged_by / acknowledged_date: per the Faults Severity Classification doc,
+        // a Moderate fault's reviewed outcome (Approved/Reclassified/Rejected) requires the
+        // respective Maintenance Manager or FSM to be informed. These stay NULL until an
+        // mri.acknowledge_critical holder explicitly acknowledges it -- see
+        // get_mri_fault_decisions_pending_acknowledgment / acknowledge_mri_fault_decision.
+        if !cols.iter().any(|c| c == "acknowledged_by") {
+            conn.execute(
+                "ALTER TABLE mri_fault_approvals ADD COLUMN acknowledged_by TEXT",
+                [],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        if !cols.iter().any(|c| c == "acknowledged_date") {
+            conn.execute(
+                "ALTER TABLE mri_fault_approvals ADD COLUMN acknowledged_date TEXT",
+                [],
+            )
+            .map_err(|e| e.to_string())?;
+        }
     }
 
     // Tracks the repair/rectification loop for a fault that closed Red-Tagged (i.e. a
@@ -864,7 +883,7 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
         ),
         (
             "mri.acknowledge_critical",
-            "Acknowledge critical defects",
+            "Acknowledge Moderate fault reviews (FSM/Maintenance Manager informed, per the severity doc)",
             "MR-I Reporting",
         ),
         (
@@ -3893,6 +3912,101 @@ fn get_provisional_mri_fault_approvals(viewer_user_id: i64) -> Result<Vec<Provis
     Ok(rows)
 }
 
+#[derive(Serialize, Deserialize)]
+struct PendingFaultAcknowledgmentRow {
+    id: i64,
+    report_id: i64,
+    template_checklist_item_id: i64,
+    original_severity: String,
+    decision: String,
+    new_severity: Option<String>,
+    reviewer: Option<String>,
+    review_method: Option<String>,
+    notes: Option<String>,
+    updated_date: String,
+    asset_code: Option<String>,
+    checklist_description: Option<String>,
+}
+
+// Per the Faults Severity Classification doc's Moderate row: "the respective Maintenance
+// Manager or Field Service Manager (FSM) shall be informed" whenever a Moderate fault is
+// reviewed. Surfaces every reviewed-but-not-yet-acknowledged Moderate decision. Country-
+// scoped like the other review queues. Gated client-side on mri.acknowledge_critical
+// (Maintenance Manager/FSM + Administrator).
+#[tauri::command]
+fn get_mri_fault_decisions_pending_acknowledgment(viewer_user_id: i64) -> Result<Vec<PendingFaultAcknowledgmentRow>, String> {
+    let conn = get_connection()?;
+    let restriction = user_country_restriction(&conn, viewer_user_id)?;
+    let mut stmt = conn.prepare(
+        "SELECT fa.id, fa.report_id, fa.template_checklist_item_id, fa.original_severity, fa.decision, fa.new_severity,
+                fa.reviewer, fa.review_method, fa.notes, fa.updated_date,
+                a.asset_code, cd.description, a.country
+         FROM mri_fault_approvals fa
+         JOIN mri_reports rep ON fa.report_id = rep.id
+         LEFT JOIN assets a ON rep.asset_id = a.id
+         LEFT JOIN template_checklist_items tci ON fa.template_checklist_item_id = tci.id
+         LEFT JOIN checklist_databank cd ON tci.checklist_item_id = cd.id
+         WHERE fa.original_severity = 'Moderate'
+           AND fa.decision IN ('Approved', 'Reclassified', 'Rejected')
+           AND fa.acknowledged_by IS NULL
+         ORDER BY fa.updated_date DESC"
+    ).map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            let country: Option<String> = row.get(12)?;
+            Ok((
+                PendingFaultAcknowledgmentRow {
+                    id: row.get(0)?,
+                    report_id: row.get(1)?,
+                    template_checklist_item_id: row.get(2)?,
+                    original_severity: row.get(3)?,
+                    decision: row.get(4)?,
+                    new_severity: row.get(5)?,
+                    reviewer: row.get(6)?,
+                    review_method: row.get(7)?,
+                    notes: row.get(8)?,
+                    updated_date: row.get(9)?,
+                    asset_code: row.get(10)?,
+                    checklist_description: row.get(11)?,
+                },
+                country,
+            ))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .filter(|(_, country): &(PendingFaultAcknowledgmentRow, Option<String>)| match &restriction {
+            None => true,
+            Some(allowed) => country.as_deref().map_or(false, |c| allowed.iter().any(|a| a == c)),
+        })
+        .map(|(row, _)| row)
+        .collect();
+    Ok(rows)
+}
+
+// Marks a reviewed Moderate decision as informed. Deliberately separate from the decision
+// itself (set_mri_fault_approval_decision) so "who reviewed it" and "who was informed" are
+// always two distinct, independently-timestamped facts, same pattern as confirm_provisional.
+#[tauri::command]
+fn acknowledge_mri_fault_decision(id: i64, acknowledged_by: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    let acknowledged_by = acknowledged_by.trim();
+    if acknowledged_by.is_empty() {
+        return Err("Acknowledged-by name is required".to_string());
+    }
+    let now = chrono_now();
+    let rows_affected = conn.execute(
+        "UPDATE mri_fault_approvals SET acknowledged_by = ?1, acknowledged_date = ?2
+         WHERE id = ?3 AND original_severity = 'Moderate' AND decision IN ('Approved','Reclassified','Rejected') AND acknowledged_by IS NULL",
+        rusqlite::params![acknowledged_by, now, id],
+    ).map_err(|e| e.to_string())?;
+    if rows_affected == 0 {
+        return Err("Entry not found or already acknowledged".to_string());
+    }
+    Ok("Decision acknowledged".to_string())
+}
+
 #[tauri::command]
 fn set_mri_fault_approval_decision(
     id: i64,
@@ -6265,7 +6379,9 @@ pub fn run() {
             get_pending_mri_fault_rectifications,
             update_mri_fault_rectification,
             verify_mri_fault_rectification,
-            get_carried_forward_faults
+            get_carried_forward_faults,
+            get_mri_fault_decisions_pending_acknowledgment,
+            acknowledge_mri_fault_decision
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
