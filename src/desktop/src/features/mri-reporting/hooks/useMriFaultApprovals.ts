@@ -37,6 +37,7 @@ export interface PendingFaultApprovalRow {
   checklist_description: string | null;
   issue_details: string | null;
   action_taken: string | null;
+  country: string | null;
 }
 
 const PENDING_APPROVALS_KEY = ["pending-mri-fault-approvals"];
@@ -199,5 +200,21 @@ export function useOpenPriorIssues(assetId: number | null, currentReportId: numb
     queryKey: ["open-prior-issues", assetId, currentReportId],
     queryFn: () => invoke<OpenPriorIssueRow[]>("get_open_prior_issues", { assetId, currentReportId }),
     enabled: !!assetId && !!currentReportId,
+  });
+}
+
+export interface AssignableUserRow {
+  id: number;
+  name: string;
+  role: string;
+}
+
+// Roster of named recipients a picker can offer for an escalation -- anyone holding at
+// least one of the given permission codes, filtered to the given country when provided.
+// Used so a relayed/escalated decision names a real person instead of free text.
+export function useAssignableMriReviewers(permissionCodes: string[], country: string | null) {
+  return useQuery({
+    queryKey: ["assignable-mri-reviewers", permissionCodes.join(","), country],
+    queryFn: () => invoke<AssignableUserRow[]>("get_assignable_mri_reviewers", { permissionCodes, country }),
   });
 }

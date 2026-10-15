@@ -72,7 +72,7 @@ const REPORTS_NEEDING_ACTION_KEY = ["reports-needing-supervisor-action"];
 export function useEndorseMriReport() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (item: { reportId: number; endorsedBy: string }) =>
+    mutationFn: (item: { reportId: number; endorsedBy: string; assignedToUserId: number }) =>
       invoke<string>("endorse_mri_report", item),
     onSuccess: (_data, item) => {
       qc.invalidateQueries({ queryKey: KEY });

@@ -8,6 +8,7 @@ import {
     useProvisionalMriFaultApprovals,
     usePendingMriFaultAcknowledgments,
     useAcknowledgeMriFaultDecision,
+    useAssignableMriReviewers,
     type PendingFaultApprovalRow,
     type ProvisionalFaultApprovalRow,
     type PendingFaultAcknowledgmentRow,
@@ -54,6 +55,14 @@ function PendingApprovals() {
     const acknowledge = useAcknowledgeMriFaultDecision();
 
     const [reviewingId, setReviewingId] = useState<number | null>(null);
+    const reviewingRow = rows.find((r) => r.id === reviewingId) ?? null;
+    // Roster of real review authorities (Maintenance Supervisor / FSM) eligible to be
+    // named as who a relayed decision is actually for — scoped to the fault's own
+    // asset country so the picker only offers people who could legitimately review it.
+    const { data: assignableReviewers = [] } = useAssignableMriReviewers(
+        ["mri.close_defect", "mri.approve"],
+        reviewingRow?.country ?? null,
+    );
     const [reviewMethod, setReviewMethod] = useState<(typeof REVIEW_METHODS)[number]>("In-Person");
     const [newSeverity, setNewSeverity] = useState<(typeof SEVERITIES)[number]>("Minor");
     const [notes, setNotes] = useState("");
@@ -112,7 +121,7 @@ function PendingApprovals() {
 
     function startReview(row: PendingFaultApprovalRow, relay: boolean) {
         setReviewingId(row.id);
-        setReviewMethod(relay ? "Phone" : "In-Person");
+        setReviewMethod("Phone");
         setNewSeverity(row.original_severity === "Critical" ? "Moderate" : "Minor");
         setNotes("");
         setReviewerName(relay ? "" : (user?.name ?? ""));
@@ -130,6 +139,10 @@ function PendingApprovals() {
             flash("Enter the name of the authority you're recording this decision for.", "err");
             return;
         }
+        if (!notes.trim()) {
+            flash("Notes are required to record a decision.", "err");
+            return;
+        }
         try {
             await decide.mutateAsync({
                 id: row.id,
@@ -137,9 +150,9 @@ function PendingApprovals() {
                 newSeverity: decision === "Reclassified" ? newSeverity : null,
                 reviewer,
                 reviewMethod,
-                notes: notes.trim() || null,
+                notes: notes.trim(),
                 recordedBy: user.name,
-                isProvisional: reviewMethod === "Phone",
+                isProvisional: relay,
             });
             flash(`${decision} — ${row.checklist_description ?? "item"} on ${row.asset_code ?? "asset"}`, "ok");
             setReviewingId(null);
@@ -162,32 +175,16 @@ function PendingApprovals() {
             ) : rows.length === 0 ? (
                 <p style={{ color: "var(--text-soft)", fontSize: 13 }}>No faults are currently pending approval.</p>
             ) : (
-                <div className="cards">
+                <div className="review-card-grid">
                 {rows.map((row) => {
                         const direct = hasDirectAuthority(row, permissions);
                         const relayOnly = !direct && canRelay(permissions);
                         const allowed = direct || relayOnly;
-                        const isReviewing = reviewingId === row.id;
                         return (
-                            <div key={row.id} className="panel" style={{ padding: 16, cursor: "default" }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                                    <div className="card-main">
-                                        <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 600 }}>
-                                            {row.checklist_description ?? "Checklist item"}
-                                        </div>
-                                        <div className="desc" style={{ whiteSpace: "normal" }}>
-                                            Asset: {row.asset_code ?? "Unknown"} · Reported {row.created_date}
-                                        </div>
-                                        {row.issue_details && (
-                                            <div style={{ fontSize: 12.5, color: "var(--text-soft)", marginTop: 6 }}>
-                                                <strong>Issue:</strong> {row.issue_details}
-                                            </div>
-                                        )}
-                                        {row.action_taken && (
-                                            <div style={{ fontSize: 12.5, color: "var(--text-soft)", marginTop: 2 }}>
-                                                <strong>Action Taken:</strong> {row.action_taken}
-                                            </div>
-                                        )}
+                            <div key={row.id} className="review-card">
+                                <div className="review-card-top">
+                                    <div className="review-card-code">
+                                        {row.checklist_description ?? "Checklist item"}
                                     </div>
                                     <span
                                         style={{
@@ -199,83 +196,31 @@ function PendingApprovals() {
                                     </span>
                                 </div>
 
+                                <div className="review-card-desc">
+                                    Asset: {row.asset_code ?? "Unknown"} · Reported {row.created_date}
+                                </div>
+                                {row.issue_details && (
+                                    <div style={{ fontSize: 12.5, color: "var(--text-soft)" }}>
+                                        <strong>Issue:</strong> {row.issue_details}
+                                    </div>
+                                )}
+                                {row.action_taken && (
+                                    <div style={{ fontSize: 12.5, color: "var(--text-soft)" }}>
+                                        <strong>Action Taken:</strong> {row.action_taken}
+                                    </div>
+                                )}
+
                                 {!allowed && (
                                     <p style={{ fontSize: 11.5, color: "var(--text-soft)", marginTop: 10 }}>
                                         You don't have the required permission to review this item.
                                     </p>
                                 )}
 
-                                {allowed && !isReviewing && (
+                                {allowed && (
                                     <div className="actions" style={{ marginTop: 12 }}>
                                         <button className="primary" onClick={() => startReview(row, !direct)}>
                                             {direct ? "Review" : "Record (Phone Relay)"}
                                         </button>
-                                    </div>
-                                )}
-
-                                {allowed && isReviewing && (
-                                    <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
-                                        {relayOnly && (
-                                            <p style={{ fontSize: 11.5, color: "var(--text-soft)", marginBottom: 12 }}>
-                                                Recording this call on the authority's behalf — always logged as Phone / Provisional
-                                                and will need their confirmation later.
-                                            </p>
-                                        )}
-                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-                                            <div className="field">
-                                                <label>Review Method</label>
-                                                {relayOnly ? (
-                                                    <input type="text" className="trigger-input" value="Phone" disabled />
-                                                ) : (
-                                                    <select
-                                                        className="neu-select"
-                                                        value={reviewMethod}
-                                                        onChange={(e) => setReviewMethod(e.target.value as typeof reviewMethod)}
-                                                    >
-                                                        {REVIEW_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-                                                    </select>
-                                                )}
-                                            </div>
-                                            <div className="field">
-                                                <label>Reclassify To (if applicable)</label>
-                                                <select
-                                                    className="neu-select"
-                                                    value={newSeverity}
-                                                    onChange={(e) => setNewSeverity(e.target.value as typeof newSeverity)}
-                                                >
-                                                    {SEVERITIES.map((s) => <option key={s} value={s}>{s}</option>)}
-                                                </select>
-                                            </div>
-                                        </div>
-                                        {relayOnly && (
-                                            <div className="field">
-                                                <label>Authority's Name</label>
-                                                <input
-                                                    type="text"
-                                                    className="trigger-input"
-                                                    value={reviewerName}
-                                                    onChange={(e) => setReviewerName(e.target.value)}
-                                                    placeholder="Who made this decision?"
-                                                />
-                                            </div>
-                                        )}
-                                        <div className="field">
-                                            <label>Notes</label>
-                                            <input
-                                                type="text"
-                                                className="trigger-input"
-                                                value={notes}
-                                                onChange={(e) => setNotes(e.target.value)}
-                                                placeholder="Optional"
-                                            />
-                                        </div>
-                                        <div className="actions">
-                                            <button className="primary" onClick={() => submitDecision(row, "Approved", relayOnly)}>Approve</button>
-                                            <button className="ghost" onClick={() => submitDecision(row, "Reclassified", relayOnly)}>Reclassify</button>
-                                            <button className="danger" onClick={() => submitDecision(row, "Rejected", relayOnly)}>Reject</button>
-                                            <button className="ghost" onClick={() => submitDecision(row, "Carryforward", relayOnly)}>Carryforward</button>
-                                            <button className="ghost" onClick={() => setReviewingId(null)}>Cancel</button>
-                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -290,18 +235,16 @@ function PendingApprovals() {
                         <h1>Awaiting Confirmation</h1>
                         <span className="sub">Phoned-in decisions already in effect — confirming only completes the paper trail</span>
                     </div>
-                    <div className="cards">
+                    <div className="review-card-grid">
                         {provisionalRows.map((row) => (
-                            <div key={row.id} className="panel" style={{ padding: 16, cursor: "default" }}>
-                                <div className="card-main">
-                                    <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 600 }}>
-                                        {row.checklist_description ?? "Checklist item"}
-                                    </div>
-                                    <div className="desc" style={{ whiteSpace: "normal" }}>
-                                        Asset: {row.asset_code ?? "Unknown"} · {row.decision} by {row.reviewer ?? "Unknown"} · recorded by {row.recorded_by ?? "Unknown"} on {row.created_date}
-                                    </div>
+                            <div key={row.id} className="review-card">
+                                <div className="review-card-code">
+                                    {row.checklist_description ?? "Checklist item"}
                                 </div>
-                                <div className="actions" style={{ marginTop: 12 }}>
+                                <div className="review-card-desc">
+                                    Asset: {row.asset_code ?? "Unknown"} · {row.decision} by {row.reviewer ?? "Unknown"} · recorded by {row.recorded_by ?? "Unknown"} on {row.created_date}
+                                </div>
+                                <div className="actions">
                                     <button className="primary" onClick={() => confirmEntry(row)}>Confirm</button>
                                 </div>
                             </div>
@@ -310,30 +253,153 @@ function PendingApprovals() {
                 </div>
             )}
 
+            {reviewingId !== null && (() => {
+                const row = rows.find((r) => r.id === reviewingId);
+                if (!row) return null;
+                const direct = hasDirectAuthority(row, permissions);
+                const relayOnly = !direct && canRelay(permissions);
+                return (
+                    <div className="modal-overlay">
+                        <div
+                            className="modal"
+                            style={{
+                                width: "min(640px, 94vw)",
+                                minHeight: 420,
+                                textAlign: "left",
+                                borderTop: `6px solid ${SEVERITY_COLOR[row.original_severity]}`,
+                            }}
+                        >
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                                <h3 style={{ margin: 0 }}>{row.checklist_description ?? "Checklist item"}</h3>
+                                <span
+                                    style={{
+                                        fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20,
+                                        color: "#fff", background: SEVERITY_COLOR[row.original_severity], whiteSpace: "nowrap",
+                                    }}
+                                >
+                                    {row.original_severity}
+                                </span>
+                            </div>
+                            <p style={{ marginBottom: 4 }}>
+                                Asset: {row.asset_code ?? "Unknown"} · Reported {row.created_date}
+                            </p>
+                            {row.issue_details && (
+                                <p style={{ marginBottom: 4 }}><strong>Issue:</strong> {row.issue_details}</p>
+                            )}
+                            {row.action_taken && (
+                                <p style={{ marginBottom: 12 }}><strong>Action Taken:</strong> {row.action_taken}</p>
+                            )}
+                            {relayOnly && (
+                                <p style={{ fontSize: 11.5, color: "var(--text-soft)", marginBottom: 12 }}>
+                                    Recording this call on the authority's behalf — always logged as Phone / Provisional
+                                    and will need their confirmation later.
+                                </p>
+                            )}
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                                <div className="field">
+                                    <label>Review Method</label>
+                                    <input type="text" className="trigger-input" value="Phone" disabled />
+                                </div>
+                                <div className="field">
+                                    <label>Reclassify To (if applicable)</label>
+                                    <select
+                                        className="neu-select"
+                                        value={newSeverity}
+                                        onChange={(e) => setNewSeverity(e.target.value as typeof newSeverity)}
+                                    >
+                                        {SEVERITIES.map((s) => <option key={s} value={s}>{s === "Critical" ? "Major / Critical" : s}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            {relayOnly && (
+                                <div className="field">
+                                    <label>Escalate To (Maintenance Supervisor / FSM)</label>
+                                    <select
+                                        className="neu-select"
+                                        value={reviewerName}
+                                        onChange={(e) => setReviewerName(e.target.value)}
+                                    >
+                                        <option value="">Select who this decision is for…</option>
+                                        {assignableReviewers.map((u) => (
+                                            <option key={u.id} value={u.name}>
+                                                {u.name} ({u.role})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+                            <div className="field">
+                                <label>Notes (required)</label>
+                                <input
+                                    type="text"
+                                    className="trigger-input"
+                                    value={notes}
+                                    onChange={(e) => setNotes(e.target.value)}
+                                    placeholder="Describe the basis for this decision"
+                                />
+                            </div>
+                            <div className="modal-actions" style={{ justifyContent: "flex-start", flexWrap: "nowrap", gap: 10 }}>
+                                <button
+                                    className="primary"
+                                    disabled={!notes.trim()}
+                                    title={!notes.trim() ? "Enter notes before recording a decision" : undefined}
+                                    onClick={() => submitDecision(row, "Approved", relayOnly)}
+                                >
+                                    Approve
+                                </button>
+                                <button
+                                    className="ghost"
+                                    disabled={!notes.trim()}
+                                    title={!notes.trim() ? "Enter notes before recording a decision" : undefined}
+                                    onClick={() => submitDecision(row, "Reclassified", relayOnly)}
+                                >
+                                    Reclassify
+                                </button>
+                                <button
+                                    className="danger"
+                                    disabled={!notes.trim()}
+                                    title={!notes.trim() ? "Enter notes before recording a decision" : undefined}
+                                    onClick={() => submitDecision(row, "Rejected", relayOnly)}
+                                >
+                                    Reject
+                                </button>
+                                <button
+                                    className="ghost"
+                                    disabled={!notes.trim()}
+                                    title={!notes.trim() ? "Enter notes before recording a decision" : undefined}
+                                    onClick={() => submitDecision(row, "Carryforward", relayOnly)}
+                                >
+                                    Carryforward
+                                </button>
+                                <button className="ghost" onClick={() => setReviewingId(null)}>Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+
             {canAcknowledge && acknowledgmentRows.length > 0 && (
                 <div style={{ marginTop: 32 }}>
                     <div className="header">
                         <h1>Needs Acknowledgment</h1>
                         <span className="sub">Moderate faults reviewed by a Maintenance Supervisor — Maintenance Manager/FSM to be informed, per the severity doc</span>
                     </div>
-                    <div className="cards">
+                    <div className="review-card-grid">
                         {acknowledgmentRows.map((row) => (
-                            <div key={row.id} className="panel" style={{ padding: 16, cursor: "default" }}>
-                                <div className="card-main">
-                                    <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 600 }}>
-                                        {row.checklist_description ?? "Checklist item"}
-                                    </div>
-                                    <div className="desc" style={{ whiteSpace: "normal" }}>
-                                        Asset: {row.asset_code ?? "Unknown"} · {row.decision}
-                                        {row.new_severity ? ` → ${row.new_severity}` : ""} by {row.reviewer ?? "Unknown"} on {row.updated_date}
-                                    </div>
-                                    {row.notes && (
-                                        <div style={{ fontSize: 12.5, color: "var(--text-soft)", marginTop: 6 }}>
-                                            <strong>Notes:</strong> {row.notes}
-                                        </div>
-                                    )}
+                            <div key={row.id} className="review-card">
+                                <div className="review-card-code">
+                                    {row.checklist_description ?? "Checklist item"}
                                 </div>
-                                <div className="actions" style={{ marginTop: 12 }}>
+                                <div className="review-card-desc">
+                                    Asset: {row.asset_code ?? "Unknown"} · {row.decision}
+                                    {row.new_severity ? ` → ${row.new_severity}` : ""} by {row.reviewer ?? "Unknown"} on {row.updated_date}
+                                </div>
+                                {row.notes && (
+                                    <div style={{ fontSize: 12.5, color: "var(--text-soft)" }}>
+                                        <strong>Notes:</strong> {row.notes}
+                                    </div>
+                                )}
+                                <div className="actions">
                                     <button className="primary" onClick={() => acknowledgeEntry(row)}>Acknowledge</button>
                                 </div>
                             </div>

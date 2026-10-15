@@ -378,7 +378,7 @@ function ChecklistStep({ templateId }: { templateId: number }) {
                             <option value="">— Severity —</option>
                             <option value="Minor">Minor</option>
                             <option value="Moderate">Moderate</option>
-                            <option value="Critical">Critical</option>
+                            <option value="Critical">Major / Critical</option>
                           </select>
                           <label className="check checklist-required-check">
                             <input type="checkbox" checked={ti.required} onChange={() => toggleRequired(ti)} /> Required

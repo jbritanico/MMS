@@ -52,6 +52,7 @@ import {
 import {
   useCarriedForwardFaults,
   useOpenPriorIssues,
+  useAssignableMriReviewers,
 } from "./hooks/useMriFaultApprovals";
 import { useCurrentUser } from "../../lib/currentUser";
 import {
@@ -120,6 +121,14 @@ function ReportWizard({
   const canReviewClosure =
     report?.status === "Submitted" && canEndorse && !hasEscalatableFault;
 
+  // Computed ahead of the "!report" early return below, before the regular `asset` const,
+  // so the roster hook call stays unconditional regardless of load state.
+  const assetForEscalation = assets.find((a) => a.id === report?.asset_id);
+  const { data: assignableReviewers = [] } = useAssignableMriReviewers(
+    ["mri.close_defect", "mri.approve"],
+    assetForEscalation?.country ?? null,
+  );
+
   const [step, setStep] = useState<Step>("header");
   const [status, setStatus] = useState<{
     msg: string;
@@ -131,6 +140,8 @@ function ReportWizard({
     null,
   );
   const [showClosedDialog, setShowClosedDialog] = useState(false);
+  const [showEndorsePicker, setShowEndorsePicker] = useState(false);
+  const [assignedToUserId, setAssignedToUserId] = useState<number | "">("");
   const currentIndex = STEPS.findIndex((s) => s.id === step);
 
   // Opening a report from Asset MR-I History (or any other already-submitted report)
@@ -173,12 +184,19 @@ function ReportWizard({
 
   async function handleEndorse() {
     if (!currentUser) return;
+    if (!assignedToUserId) {
+      flash("Select which Maintenance Supervisor/FSM this is being escalated to", "err");
+      return;
+    }
     try {
       const message = await endorseReport.mutateAsync({
         reportId,
         endorsedBy: currentUser.name,
+        assignedToUserId: Number(assignedToUserId),
       });
       setShowEndorsedDialog(message);
+      setShowEndorsePicker(false);
+      setAssignedToUserId("");
     } catch (err) {
       flash(String(err), "err");
     }
@@ -338,11 +356,48 @@ function ReportWizard({
               the Pending Approvals queue. It still needs to be closed
               afterward, once every escalated fault is resolved.
             </p>
-            <button className="primary" onClick={handleEndorse}>
+            <button className="primary" onClick={() => setShowEndorsePicker(true)}>
               Endorse Report
             </button>
           </div>
         )}
+
+      {showEndorsePicker && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ width: "min(420px, 92vw)", textAlign: "left" }}>
+            <h3>Escalate to</h3>
+            <p>
+              Pick the Maintenance Supervisor or FSM this report's Moderate/Critical
+              fault(s) will be escalated to for review.
+            </p>
+            <div className="field">
+              <label>Maintenance Supervisor / FSM</label>
+              <select
+                className="neu-select"
+                value={assignedToUserId}
+                onChange={(e) =>
+                  setAssignedToUserId(e.target.value ? Number(e.target.value) : "")
+                }
+              >
+                <option value="">Select who this is for…</option>
+                {assignableReviewers.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} ({u.role})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="modal-actions">
+              <button className="ghost" onClick={() => setShowEndorsePicker(false)}>
+                Cancel
+              </button>
+              <button className="primary" onClick={handleEndorse}>
+                Confirm &amp; Endorse
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {!viewOnly &&
         report.status === "Submitted" &&
@@ -2242,7 +2297,7 @@ function ChecklistEntryStep({
                       >
                         {CLOSURE_STATUSES.map((s) => (
                           <option key={s} value={s}>
-                            {s}
+                            {s === "Critical" ? "Major / Critical" : s}
                           </option>
                         ))}
                       </select>
@@ -2283,7 +2338,7 @@ function ChecklistEntryStep({
                       >
                         {CLOSURE_STATUSES.map((s) => (
                           <option key={s} value={s}>
-                            {s}
+                            {s === "Critical" ? "Major / Critical" : s}
                           </option>
                         ))}
                       </select>
@@ -2326,7 +2381,7 @@ function ChecklistEntryStep({
                         <option value="">—</option>
                         {SEVERITIES.map((s) => (
                           <option key={s} value={s}>
-                            {s}
+                            {s === "Critical" ? "Major / Critical" : s}
                           </option>
                         ))}
                       </select>
@@ -4985,7 +5040,7 @@ function DrawingChecklistView({
                         <option value="">—</option>
                         {SEVERITIES.map((s) => (
                           <option key={s} value={s}>
-                            {s}
+                            {s === "Critical" ? "Major / Critical" : s}
                           </option>
                         ))}
                       </select>
