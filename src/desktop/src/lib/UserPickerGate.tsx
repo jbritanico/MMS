@@ -6,6 +6,7 @@ import type { Theme } from "./theme";
 
 interface TierReference {
   name: string;
+  tier: string; // Clarification 2 tier label
   description: string;
   responsibilities: string[];
   accent: string;
@@ -14,6 +15,7 @@ interface TierReference {
 const TIER_REFERENCE: TierReference[] = [
   {
     name: "Data Miner View",
+    tier: "View Only",
     description: "Read-only access for browsing dashboards and reports.",
     responsibilities: [
       "Read-only access to dashboards and reports",
@@ -24,6 +26,7 @@ const TIER_REFERENCE: TierReference[] = [
   },
   {
     name: "Operator",
+    tier: "Tier 1",
     description: "Field personnel who perform inspections and submit MR-I reports.",
     responsibilities: [
       "Performs inspections and field data capture",
@@ -34,6 +37,7 @@ const TIER_REFERENCE: TierReference[] = [
   },
   {
     name: "Job Supervisor",
+    tier: "Tier 2",
     description: "On-site lead and first point of contact for review.",
     responsibilities: [
       "Reviews inspections and gives initial evaluation",
@@ -43,7 +47,19 @@ const TIER_REFERENCE: TierReference[] = [
     accent: "#2f6fed",
   },
   {
+    name: "Operations Coordinator",
+    tier: "Tier 2",
+    description: "Operations supervisor: reviews Moderate faults and inserts the MR cost (Figure 3).",
+    responsibilities: [
+      "Inserts the cost to perform the MR on each report",
+      "Reviews and closes Moderate-severity faults",
+      "Monitors turnaround and report status",
+    ],
+    accent: "#9333ea",
+  },
+  {
     name: "Maintenance Supervisor",
+    tier: "Tier 2",
     description: "Reviews and closes Moderate-severity faults.",
     responsibilities: [
       "Reviews and closes Moderate-severity faults",
@@ -54,6 +70,7 @@ const TIER_REFERENCE: TierReference[] = [
   },
   {
     name: "Maintenance Manager / FSM",
+    tier: "Tier 3",
     description: "Reviews and closes Critical-severity faults.",
     responsibilities: [
       "Reviews and closes Critical-severity faults",
@@ -64,6 +81,7 @@ const TIER_REFERENCE: TierReference[] = [
   },
   {
     name: "Administrator",
+    tier: "Tier 3",
     description: "Full system access, unrestricted.",
     responsibilities: [
       "Full system access, user and role management",
@@ -83,6 +101,7 @@ export function roleBadge(role: string): { label: string; color: string } {
   const r = role.toLowerCase();
   if (r.includes("admin")) return { label: role, color: "#2f6fed" };
   if (r.includes("tier 1") || r.includes("operator")) return { label: role, color: "#d97706" };
+  if (r.includes("operations coordinator")) return { label: role, color: "#9333ea" };
   if (r.includes("job supervisor")) return { label: role, color: "#2f6fed" };
   if (r.includes("tier 2") || r.includes("maintenance supervisor") || r.includes("supervisor")) return { label: role, color: "#7c3aed" };
   if (r.includes("tier 3") || r.includes("manager") || r.includes("fsm")) return { label: role, color: "#0d9488" };
@@ -425,7 +444,8 @@ function UserPickerGate({
               className="menu-card"
               style={{ textAlign: "left", alignItems: "flex-start", borderLeft: `4px solid ${tier.accent}`, cursor: "default" }}
             >
-              <h3 style={{ margin: "0 0 8px" }}>{tier.name}</h3>
+              <h3 style={{ margin: "0 0 4px" }}>{tier.name}</h3>
+              <div style={{ fontSize: 11, fontWeight: 700, color: tier.accent, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>{tier.tier}</div>
               <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, color: "var(--text-soft)", lineHeight: 1.6 }}>
                 {tier.responsibilities.map((r) => (
                   <li key={r}>{r}</li>

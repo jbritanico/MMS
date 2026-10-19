@@ -688,7 +688,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
                   <div>
                     <div className="drawer-user-name">Rectification Queue</div>
                     <div className="drawer-user-role">
-                      Critical faults still Red-Tagged
+                      Faults awaiting rectification (Red-Tagged and Moderate follow-up)
                     </div>
                   </div>
                   <div

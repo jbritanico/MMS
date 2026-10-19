@@ -942,6 +942,25 @@ fn open_and_migrate_connection() -> Result<Connection, String> {
     )
     .map_err(|e| e.to_string())?;
 
+    // Figure 3: the operations supervisor inserts the cost to perform the MR on the report.
+    // Manual 8.2: every record keeps the name of the responsible user and a timestamp, so
+    // attachments and the header/mid/footer answers are stamped too. The error from an
+    // already-present column is deliberately ignored (same pattern as the migrations above).
+    for stmt in [
+        "ALTER TABLE mri_reports ADD COLUMN mr_cost REAL",
+        "ALTER TABLE mri_reports ADD COLUMN mr_cost_by TEXT",
+        "ALTER TABLE mri_reports ADD COLUMN mr_cost_date TEXT",
+        "ALTER TABLE mri_report_attachments ADD COLUMN uploaded_by TEXT",
+        "ALTER TABLE mri_report_header_values ADD COLUMN updated_by TEXT",
+        "ALTER TABLE mri_report_header_values ADD COLUMN updated_at TEXT",
+        "ALTER TABLE mri_report_mid_values ADD COLUMN updated_by TEXT",
+        "ALTER TABLE mri_report_mid_values ADD COLUMN updated_at TEXT",
+        "ALTER TABLE mri_report_footer_values ADD COLUMN updated_by TEXT",
+        "ALTER TABLE mri_report_footer_values ADD COLUMN updated_at TEXT",
+    ] {
+        let _ = conn.execute(stmt, []);
+    }
+
     Ok(conn)
 }
 
@@ -977,7 +996,7 @@ fn get_connection() -> Result<MutexGuard<'static, Connection>, String> {
 }
 
 fn seed_permissions(conn: &Connection) -> Result<(), String> {
-    let perms: [(&str, &str, &str); 24] = [
+    let perms: [(&str, &str, &str); 25] = [
         ("assets.view", "View assets", "Asset Registry"),
         ("assets.create", "Create assets", "Asset Registry"),
         ("assets.edit", "Edit assets", "Asset Registry"),
@@ -1021,6 +1040,11 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
             "MR-I Reporting",
         ),
         (
+            "mri.enter_cost",
+            "Enter the cost to perform the MR on a report (Figure 3, operations supervisor)",
+            "MR-I Reporting",
+        ),
+        (
             "mri_templates.view",
             "View MR-I templates",
             "Administration",
@@ -1059,6 +1083,17 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
             "Administration",
         ),
     ];
+    // Detect the very first run that adds the cost permission, so the new defaults below are
+    // granted to existing installs exactly once (and never re-granted after an admin turns
+    // them off).
+    let cost_perm_was_missing: bool = conn
+        .query_row(
+            "SELECT COUNT(*) FROM permissions WHERE code = 'mri.enter_cost'",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(|e| e.to_string())?
+        == 0;
     for (code, label, category) in perms.iter() {
         conn.execute(
             "INSERT OR IGNORE INTO permissions (code, label, category) VALUES (?1, ?2, ?3)",
@@ -1080,10 +1115,43 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
 
     if existing_role_perm_count > 0 {
+        if cost_perm_was_missing {
+            // Existing install picking up this release: (1) the Operations Coordinator role
+            // (Table 3 / Figure 1 review authority, alongside Maintenance Supervisor) starts
+            // with the same permissions as Maintenance Supervisor; (2) the cost permission
+            // goes to the supervising roles; (3) Job Supervisor gets edit-after-submit, which
+            // it already had in practice through the endorse right before that permission
+            // was wired to the report lock.
+            conn.execute(
+                "INSERT OR IGNORE INTO role_permissions (role, permission_code)
+                 SELECT 'Operations Coordinator', permission_code FROM role_permissions
+                 WHERE role = 'Maintenance Supervisor'",
+                [],
+            )
+            .map_err(|e| e.to_string())?;
+            for role in [
+                "Job Supervisor",
+                "Operations Coordinator",
+                "Maintenance Supervisor",
+                "Maintenance Manager / FSM",
+                "Administrator",
+            ] {
+                conn.execute(
+                    "INSERT OR IGNORE INTO role_permissions (role, permission_code) VALUES (?1, 'mri.enter_cost')",
+                    [role],
+                )
+                .map_err(|e| e.to_string())?;
+            }
+            conn.execute(
+                "INSERT OR IGNORE INTO role_permissions (role, permission_code) VALUES ('Job Supervisor', 'mri.edit_after_submit')",
+                [],
+            )
+            .map_err(|e| e.to_string())?;
+        }
         return Ok(());
     }
 
-    let role_defaults: [(&str, &[&str]); 6] = [
+    let role_defaults: [(&str, &[&str]); 7] = [
         (
             "Data Miner View",
             &["assets.view", "mri_templates.view", "data_browser.view"],
@@ -1102,8 +1170,25 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
             &[
                 "assets.view",
                 "mri.submit",
+                "mri.edit_after_submit",
                 "mri.record_provisional",
                 "mri.endorse_report",
+                "mri.enter_cost",
+                "mri_templates.view",
+                "data_browser.view",
+            ],
+        ),
+        (
+            "Operations Coordinator",
+            &[
+                "assets.view",
+                "mri.submit",
+                "mri.edit_after_submit",
+                "mri.close_defect",
+                "mri.confirm_provisional",
+                "mri.rectify",
+                "mri.endorse_report",
+                "mri.enter_cost",
                 "mri_templates.view",
                 "data_browser.view",
             ],
@@ -1118,6 +1203,7 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
                 "mri.confirm_provisional",
                 "mri.rectify",
                 "mri.endorse_report",
+                "mri.enter_cost",
                 "mri_templates.view",
                 "data_browser.view",
             ],
@@ -1137,6 +1223,7 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
                 "mri.acknowledge_critical",
                 "mri.confirm_provisional",
                 "mri.endorse_report",
+                "mri.enter_cost",
                 "mri_templates.view",
                 "mri_templates.edit",
                 "data_browser.view",
@@ -1159,6 +1246,7 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
                 "mri.confirm_provisional",
                 "mri.record_provisional",
                 "mri.endorse_report",
+                "mri.enter_cost",
                 "mri_templates.view",
                 "mri_templates.edit",
                 "mri_templates.delete",
@@ -2616,13 +2704,18 @@ struct MriReport {
     approved_by: Option<String>,
     approved_date: Option<String>,
     created_date: String,
+    // Figure 3: cost to perform the MR, entered by the operations supervisor.
+    mr_cost: Option<f64>,
+    mr_cost_by: Option<String>,
+    mr_cost_date: Option<String>,
 }
 
 #[tauri::command]
 fn get_mri_reports() -> Result<Vec<MriReport>, String> {
     let conn = get_connection()?;
     let mut stmt = conn.prepare(
-        "SELECT id, template_id, asset_id, status, submitted_by, submitted_date, approved_by, approved_date, created_date
+        "SELECT id, template_id, asset_id, status, submitted_by, submitted_date, approved_by, approved_date, created_date,
+                mr_cost, mr_cost_by, mr_cost_date
          FROM mri_reports ORDER BY created_date DESC"
     ).map_err(|e| e.to_string())?;
     let reports = stmt
@@ -2637,6 +2730,9 @@ fn get_mri_reports() -> Result<Vec<MriReport>, String> {
                 approved_by: row.get(6)?,
                 approved_date: row.get(7)?,
                 created_date: row.get(8)?,
+                mr_cost: row.get(9)?,
+                mr_cost_by: row.get(10)?,
+                mr_cost_date: row.get(11)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -2649,7 +2745,8 @@ fn get_mri_reports() -> Result<Vec<MriReport>, String> {
 fn get_mri_report(id: i64) -> Result<MriReport, String> {
     let conn = get_connection()?;
     conn.query_row(
-        "SELECT id, template_id, asset_id, status, submitted_by, submitted_date, approved_by, approved_date, created_date
+        "SELECT id, template_id, asset_id, status, submitted_by, submitted_date, approved_by, approved_date, created_date,
+                mr_cost, mr_cost_by, mr_cost_date
          FROM mri_reports WHERE id = ?1",
         [id],
         |row| Ok(MriReport {
@@ -2662,8 +2759,84 @@ fn get_mri_report(id: i64) -> Result<MriReport, String> {
             approved_by: row.get(6)?,
             approved_date: row.get(7)?,
             created_date: row.get(8)?,
+            mr_cost: row.get(9)?,
+            mr_cost_by: row.get(10)?,
+            mr_cost_date: row.get(11)?,
         }),
     ).map_err(|e| e.to_string())
+}
+
+// Figure 3: after the maintenance is done, the MR report is directed to the operations
+// supervisor to insert the cost to perform the MR. Allowed on any submitted report (also
+// after it is closed, since the cost often arrives later). Needs mri.enter_cost in the UI.
+#[tauri::command]
+fn set_mri_report_cost(report_id: i64, cost: f64, entered_by: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    let entered_by = entered_by.trim();
+    if entered_by.is_empty() {
+        return Err("Entered-by name is required".to_string());
+    }
+    if !cost.is_finite() || cost < 0.0 {
+        return Err("Cost must be zero or a positive number".to_string());
+    }
+    let status: String = conn
+        .query_row("SELECT status FROM mri_reports WHERE id = ?1", [report_id], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    if status == "Draft" {
+        return Err("The cost can be entered once the report has been submitted.".to_string());
+    }
+    conn.execute(
+        "UPDATE mri_reports SET mr_cost = ?1, mr_cost_by = ?2, mr_cost_date = ?3 WHERE id = ?4",
+        rusqlite::params![cost, entered_by, chrono_now(), report_id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok("Cost saved".to_string())
+}
+
+// Open reports (Submitted, Endorsed or Escalated) still waiting for their MR cost, for the
+// operations supervisor's list. Country-scoped like the other review queues.
+#[tauri::command]
+fn get_reports_awaiting_cost(viewer_user_id: i64) -> Result<Vec<ReportNeedingActionRow>, String> {
+    let conn = get_connection()?;
+    let restriction = user_country_restriction(&conn, viewer_user_id)?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT r.id, r.status, a.asset_code, a.asset_description, r.submitted_by, r.submitted_date,
+                    (SELECT COUNT(*) FROM mri_report_checklist_results WHERE report_id = r.id AND status = 'Fail') AS issue_count,
+                    a.country
+             FROM mri_reports r
+             JOIN assets a ON a.id = r.asset_id
+             WHERE r.status IN ('Submitted', 'Endorsed', 'Escalated') AND r.mr_cost IS NULL
+             ORDER BY r.submitted_date ASC",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows: Vec<ReportNeedingActionRow> = stmt
+        .query_map([], |row| {
+            let country: Option<String> = row.get(7)?;
+            Ok((
+                ReportNeedingActionRow {
+                    id: row.get(0)?,
+                    status: row.get(1)?,
+                    asset_code: row.get(2)?,
+                    asset_description: row.get(3)?,
+                    submitted_by: row.get(4)?,
+                    submitted_date: row.get(5)?,
+                    issue_count: row.get(6)?,
+                },
+                country,
+            ))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .filter(|(_, country)| match &restriction {
+            None => true,
+            Some(allowed) => country.as_deref().map_or(false, |c| allowed.iter().any(|a| a == c)),
+        })
+        .map(|(row, _)| row)
+        .collect();
+    Ok(rows)
 }
 
 #[derive(Serialize, Deserialize)]
@@ -3060,13 +3233,16 @@ fn set_mri_report_header_value(
     report_id: i64,
     template_header_field_id: i64,
     value: String,
+    updated_by: Option<String>,
 ) -> Result<String, String> {
     let conn = get_connection()?;
+    // Manual 8.2: records keep the name of the responsible user and a timestamp.
     conn.execute(
-        "INSERT INTO mri_report_header_values (report_id, template_header_field_id, value)
-         VALUES (?1, ?2, ?3)
-         ON CONFLICT(report_id, template_header_field_id) DO UPDATE SET value = excluded.value",
-        rusqlite::params![report_id, template_header_field_id, value],
+        "INSERT INTO mri_report_header_values (report_id, template_header_field_id, value, updated_by, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5)
+         ON CONFLICT(report_id, template_header_field_id) DO UPDATE SET
+            value = excluded.value, updated_by = excluded.updated_by, updated_at = excluded.updated_at",
+        rusqlite::params![report_id, template_header_field_id, value, updated_by, chrono_now()],
     )
     .map_err(|e| e.to_string())?;
     Ok("Header value saved".to_string())
@@ -4912,6 +5088,21 @@ fn set_mri_fault_approval_decision(
         .map_err(|e| e.to_string())?;
     }
 
+    // Table 3 / Figure 1: a fault that ends Moderate is closed and the unit is Green, but the
+    // Operations Coordinator / Maintenance Supervisor still plans the rectification and
+    // monitors the condition until it is repaired. That follow-up is a rectification row
+    // with tag_status 'Planned'. It never touches the unit tag (only 'Red' rows do) and never
+    // blocks report closure.
+    if final_severity == "Moderate" {
+        conn.execute(
+            "INSERT INTO mri_fault_rectifications (fault_approval_id, parts_status, tag_status, created_date, updated_date)
+             VALUES (?1, 'Awaiting', 'Planned', ?2, ?2)
+             ON CONFLICT(fault_approval_id) DO NOTHING",
+            rusqlite::params![id, now],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
     // Stage 4: the Moderate decision can name who must be informed of it.
     if original_severity == "Moderate" {
         conn.execute(
@@ -5347,7 +5538,8 @@ fn get_mri_fault_rectifications(report_id: i64) -> Result<Vec<MriFaultRectificat
     Ok(rows)
 }
 
-// Cross-report queue of faults still Red-Tagged and awaiting rectification, for the
+// Cross-report queue of faults awaiting rectification (Red-Tagged Critical faults, plus
+// Moderate faults still being planned and monitored), for the
 // Rectification Queue screen (Diagram A's repair loop). Country-scoped: uses its own query
 // (rather than MRI_FAULT_RECTIFICATION_SELECT) so it can pull in the asset's country without
 // changing the shared per-report query or struct.
@@ -5365,7 +5557,7 @@ fn get_pending_mri_fault_rectifications(viewer_user_id: i64) -> Result<Vec<MriFa
          LEFT JOIN assets a ON rep.asset_id = a.id
          LEFT JOIN template_checklist_items tci ON fa.template_checklist_item_id = tci.id
          LEFT JOIN checklist_databank cd ON tci.checklist_item_id = cd.id
-         WHERE fr.tag_status = 'Red' ORDER BY fr.created_date DESC";
+         WHERE fr.tag_status IN ('Red', 'Planned') ORDER BY fr.created_date DESC";
     let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map([], |row| {
@@ -5410,11 +5602,11 @@ fn update_mri_fault_rectification(update: MriFaultRectificationUpdate) -> Result
     }
     let now = chrono_now();
     let rows_affected = conn.execute(
-        "UPDATE mri_fault_rectifications SET assigned_technician = ?1, parts_status = ?2, repair_date = ?3, updated_date = ?4 WHERE id = ?5 AND tag_status = 'Red'",
+        "UPDATE mri_fault_rectifications SET assigned_technician = ?1, parts_status = ?2, repair_date = ?3, updated_date = ?4 WHERE id = ?5 AND tag_status IN ('Red', 'Planned')",
         rusqlite::params![update.assigned_technician, update.parts_status, update.repair_date, now, update.id],
     ).map_err(|e| e.to_string())?;
     if rows_affected == 0 {
-        return Err("Rectification not found or already Green-Tagged".to_string());
+        return Err("Rectification not found or already verified".to_string());
     }
     // Assigning (or removing) the technician moves the unit Red <-> Yellow (repair underway).
     let report_id: Option<i64> = conn
@@ -5449,19 +5641,22 @@ fn verify_mri_fault_rectification(id: i64, verified_by: String) -> Result<String
         return Err("Verified-by name is required".to_string());
     }
 
-    let report_id: Option<i64> = conn
+    let found: Option<(i64, String)> = conn
         .query_row(
-            "SELECT fa.report_id FROM mri_fault_rectifications fr
+            "SELECT fa.report_id, fr.tag_status FROM mri_fault_rectifications fr
              JOIN mri_fault_approvals fa ON fr.fault_approval_id = fa.id
-             WHERE fr.id = ?1 AND fr.tag_status = 'Red'",
+             WHERE fr.id = ?1 AND fr.tag_status IN ('Red', 'Planned')",
             [id],
-            |row| row.get(0),
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .ok();
-    let report_id = match report_id {
-        Some(rid) => rid,
-        None => return Err("Rectification not found or already Green-Tagged".to_string()),
+    let (report_id, was_status) = match found {
+        Some(f) => f,
+        None => return Err("Rectification not found or already verified".to_string()),
     };
+    // A Moderate follow-up ('Planned') was already Green-Tagged when it was reviewed, so
+    // verifying it must not touch the report's Green Tagged footer; only a Red repair does.
+    let was_red = was_status == "Red";
 
     let now = chrono_now();
     conn.execute(
@@ -5480,7 +5675,7 @@ fn verify_mri_fault_rectification(id: i64, verified_by: String) -> Result<String
             |row| row.get(0),
         )
         .ok();
-    if let Some(field_id) = green_tagged_field {
+    if let (Some(field_id), true) = (green_tagged_field, was_red) {
         conn.execute(
             "INSERT INTO mri_report_footer_values (report_id, template_footer_field_id, value)
              VALUES (?1, ?2, 'true')
@@ -5534,13 +5729,16 @@ fn set_mri_report_mid_value(
     template_mid_field_id: i64,
     value: String,
     route_points: Option<String>,
+    updated_by: Option<String>,
 ) -> Result<String, String> {
     let conn = get_connection()?;
     conn.execute(
-        "INSERT INTO mri_report_mid_values (report_id, template_mid_field_id, value, route_points)
-         VALUES (?1, ?2, ?3, ?4)
-         ON CONFLICT(report_id, template_mid_field_id) DO UPDATE SET value = excluded.value, route_points = excluded.route_points",
-        rusqlite::params![report_id, template_mid_field_id, value, route_points],
+        "INSERT INTO mri_report_mid_values (report_id, template_mid_field_id, value, route_points, updated_by, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+         ON CONFLICT(report_id, template_mid_field_id) DO UPDATE SET
+            value = excluded.value, route_points = excluded.route_points,
+            updated_by = excluded.updated_by, updated_at = excluded.updated_at",
+        rusqlite::params![report_id, template_mid_field_id, value, route_points, updated_by, chrono_now()],
     )
     .map_err(|e| e.to_string())?;
     Ok("Mid value saved".to_string())
@@ -5580,13 +5778,15 @@ fn set_mri_report_footer_value(
     report_id: i64,
     template_footer_field_id: i64,
     value: String,
+    updated_by: Option<String>,
 ) -> Result<String, String> {
     let conn = get_connection()?;
     conn.execute(
-        "INSERT INTO mri_report_footer_values (report_id, template_footer_field_id, value)
-         VALUES (?1, ?2, ?3)
-         ON CONFLICT(report_id, template_footer_field_id) DO UPDATE SET value = excluded.value",
-        rusqlite::params![report_id, template_footer_field_id, value],
+        "INSERT INTO mri_report_footer_values (report_id, template_footer_field_id, value, updated_by, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5)
+         ON CONFLICT(report_id, template_footer_field_id) DO UPDATE SET
+            value = excluded.value, updated_by = excluded.updated_by, updated_at = excluded.updated_at",
+        rusqlite::params![report_id, template_footer_field_id, value, updated_by, chrono_now()],
     )
     .map_err(|e| e.to_string())?;
     Ok("Footer value saved".to_string())
@@ -5603,6 +5803,7 @@ struct MriReportAttachment {
     file_type: String,
     data: String,
     uploaded_date: String,
+    uploaded_by: Option<String>,
 }
 
 #[tauri::command]
@@ -5610,7 +5811,7 @@ fn get_mri_report_attachments(report_id: i64) -> Result<Vec<MriReportAttachment>
     let conn = get_connection()?;
     let mut stmt = conn
         .prepare(
-            "SELECT id, report_id, template_checklist_item_id, file_name, file_type, data, uploaded_date
+            "SELECT id, report_id, template_checklist_item_id, file_name, file_type, data, uploaded_date, uploaded_by
              FROM mri_report_attachments WHERE report_id = ?1 ORDER BY uploaded_date",
         )
         .map_err(|e| e.to_string())?;
@@ -5624,6 +5825,7 @@ fn get_mri_report_attachments(report_id: i64) -> Result<Vec<MriReportAttachment>
                 file_type: row.get(4)?,
                 data: row.get(5)?,
                 uploaded_date: row.get(6)?,
+                uploaded_by: row.get(7)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -5639,6 +5841,7 @@ fn add_mri_report_attachment(
     file_name: String,
     file_type: String,
     data: String,
+    uploaded_by: Option<String>,
 ) -> Result<i64, String> {
     let conn = get_connection()?;
     if data.trim().is_empty() {
@@ -5646,9 +5849,9 @@ fn add_mri_report_attachment(
     }
     let now = chrono_now();
     conn.execute(
-        "INSERT INTO mri_report_attachments (report_id, template_checklist_item_id, file_name, file_type, data, uploaded_date)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        rusqlite::params![report_id, template_checklist_item_id, file_name, file_type, data, now],
+        "INSERT INTO mri_report_attachments (report_id, template_checklist_item_id, file_name, file_type, data, uploaded_date, uploaded_by)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        rusqlite::params![report_id, template_checklist_item_id, file_name, file_type, data, now, uploaded_by],
     )
     .map_err(|e| e.to_string())?;
     Ok(conn.last_insert_rowid())
@@ -7428,6 +7631,8 @@ pub fn run() {
             close_mri_report,
             review_and_close_mri_report,
             get_reports_needing_supervisor_action,
+            get_reports_awaiting_cost,
+            set_mri_report_cost,
             get_my_open_mri_reports,
             set_mri_fault_approval_decision,
             get_pending_mri_fault_approvals,

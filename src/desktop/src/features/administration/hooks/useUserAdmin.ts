@@ -23,7 +23,7 @@ export interface UserOverride {
   granted: boolean;
 }
 
-export const ROLES = ["Data Miner View", "Operator", "Job Supervisor", "Maintenance Supervisor", "Maintenance Manager / FSM", "Administrator"];
+export const ROLES = ["Data Miner View", "Operator", "Job Supervisor", "Operations Coordinator", "Maintenance Supervisor", "Maintenance Manager / FSM", "Administrator"];
 
 // Users
 export function useAppUsers() {
@@ -113,7 +113,7 @@ export function useEffectivePermissions(userId: number) {
 
 // Roles that can be scoped to specific countries at all. Administrator is deliberately
 // excluded -- it's always unrestricted and the backend rejects any attempt to scope it.
-export const COUNTRY_SCOPED_ROLES = ["Operator", "Job Supervisor", "Maintenance Supervisor", "Maintenance Manager / FSM"];
+export const COUNTRY_SCOPED_ROLES = ["Operator", "Job Supervisor", "Operations Coordinator", "Maintenance Supervisor", "Maintenance Manager / FSM"];
 
 // Operator and Job Supervisor may only ever have one country at a time; the other scoped
 // roles may have several. Mirrors the same rule enforced server-side in set_user_country_access.

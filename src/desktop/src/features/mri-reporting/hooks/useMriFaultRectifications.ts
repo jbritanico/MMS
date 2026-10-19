@@ -13,7 +13,8 @@ export interface MriFaultRectification {
   repair_date: string | null;
   verified_by: string | null;
   verified_date: string | null;
-  tag_status: "Red" | "Green";
+  // "Planned" = Moderate fault tracked for follow-up (no tag, equipment stays available).
+  tag_status: "Red" | "Green" | "Planned";
   created_date: string;
   updated_date: string;
 }

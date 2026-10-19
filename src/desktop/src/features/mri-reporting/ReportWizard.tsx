@@ -16,6 +16,7 @@ import {
   usePreviousEngineHours,
   usePreviousComplianceStage,
   usePendingChecklistItemIds,
+  useSetMriReportCost,
 } from "./hooks/useMriReports";
 import { useAssets } from "../asset-registry/hooks/useAssets";
 import { useMriTemplates } from "../administration/hooks/useMriTemplates";
@@ -107,6 +108,11 @@ function ReportWizard({
     currentUser?.id ?? 0,
   );
   const canEndorse = permissions.includes("mri.endorse_report");
+  // Editing after submission is its own permission (mri.edit_after_submit); the
+  // endorsing supervisor keeps it implicitly.
+  const canEditAfterSubmit =
+    canEndorse || permissions.includes("mri.edit_after_submit");
+  const canEnterCost = permissions.includes("mri.enter_cost");
   const { data: checklistResultsForReview = [] } =
     useMriReportChecklistResults(reportId);
   const hasEscalatableFault = checklistResultsForReview.some(
@@ -241,7 +247,7 @@ function ReportWizard({
   const fieldsLocked =
     viewOnly ||
     report.status === "Approved" ||
-    (alreadySubmitted && !canEndorse);
+    (alreadySubmitted && !canEditAfterSubmit);
 
   return (
     <div>
@@ -339,9 +345,19 @@ function ReportWizard({
 
       {alreadySubmitted && !fieldsLocked && (
         <div className="toast ok" style={{ maxWidth: 500, marginBottom: 16 }}>
-          This report is {report.status.toLowerCase()}. As the reviewing
-          Supervisor you can still edit it until it's closed.
+          This report is {report.status.toLowerCase()}. You have permission to
+          edit it after submission, until it's closed.
         </div>
+      )}
+      {!viewOnly && alreadySubmitted && (
+        <MrCostPanel
+          reportId={reportId}
+          cost={report.mr_cost ?? null}
+          costBy={report.mr_cost_by ?? null}
+          costDate={report.mr_cost_date ?? null}
+          canEnter={canEnterCost}
+          enteredBy={currentUser?.name ?? ""}
+        />
       )}
       {!viewOnly &&
         report.status === "Submitted" &&
@@ -5673,6 +5689,75 @@ function AttachmentGallery({
           attachment={expanded}
           onClose={() => setExpanded(null)}
         />
+      )}
+    </div>
+  );
+}
+
+// Figure 3: after the JSR job code is shown, the report is directed to the operations
+// supervisor to insert the cost to perform the MR. Optional; does not block closure.
+function MrCostPanel({
+  reportId, cost, costBy, costDate, canEnter, enteredBy,
+}: {
+  reportId: number;
+  cost: number | null;
+  costBy: string | null;
+  costDate: string | null;
+  canEnter: boolean;
+  enteredBy: string;
+}) {
+  const setCost = useSetMriReportCost();
+  const [value, setValue] = useState(cost !== null ? String(cost) : "");
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  async function save() {
+    const n = Number(value);
+    if (value.trim() === "" || !Number.isFinite(n) || n < 0) {
+      setMsg({ text: "Enter a valid cost (0 or more).", ok: false });
+      return;
+    }
+    try {
+      await setCost.mutateAsync({ reportId, cost: n, enteredBy });
+      setMsg({ text: "MR cost saved.", ok: true });
+    } catch (err) {
+      setMsg({ text: String(err), ok: false });
+    }
+  }
+
+  return (
+    <div className="panel" style={{ maxWidth: 500, marginBottom: 16, padding: 14 }}>
+      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>Cost to perform the MR</div>
+      {cost !== null && (
+        <div style={{ fontSize: 12.5, color: "var(--text-soft)", marginBottom: 8 }}>
+          Recorded: <strong>{cost.toLocaleString()}</strong>
+          {costBy && <> · by {costBy}</>}
+          {costDate && <> · {costDate}</>}
+        </div>
+      )}
+      {cost === null && !canEnter && (
+        <div style={{ fontSize: 12.5, color: "var(--text-soft)" }}>
+          Not yet entered. The operations supervisor inserts this cost.
+        </div>
+      )}
+      {canEnter && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            className="trigger-input"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="Cost"
+            style={{ maxWidth: 180 }}
+          />
+          <button className="primary" onClick={save} disabled={setCost.isPending}>
+            {cost === null ? "Save cost" : "Update cost"}
+          </button>
+        </div>
+      )}
+      {msg && (
+        <div className={`toast ${msg.ok ? "ok" : "err"}`} style={{ marginTop: 8 }}>{msg.text}</div>
       )}
     </div>
   );

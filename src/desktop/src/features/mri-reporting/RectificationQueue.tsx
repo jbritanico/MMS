@@ -65,7 +65,7 @@ function RectificationQueue() {
         if (!user) return;
         try {
             await verify.mutateAsync({ id: row.id, verifiedBy: user.name });
-            flash(`Verified — tag removed for ${row.checklist_description ?? "item"} on ${row.asset_code ?? "asset"}`, "ok");
+            flash(`${row.tag_status === "Planned" ? "Verified — follow-up closed for" : "Verified — tag removed for"} ${row.checklist_description ?? "item"} on ${row.asset_code ?? "asset"}`, "ok");
             setVerifyingId(null);
         } catch (err) {
             flash(String(err), "err");
@@ -76,7 +76,7 @@ function RectificationQueue() {
         <div>
             <div className="header">
                 <h1>Rectification Queue</h1>
-                <span className="sub">Critical faults still Red-Tagged, awaiting repair and verification</span>
+                <span className="sub">Critical faults still Red-Tagged, plus Moderate faults planned for follow-up, awaiting repair and verification</span>
             </div>
 
             {status && <div className={`toast ${status.kind}`} style={{ maxWidth: 600, marginBottom: 16 }}>{status.msg}</div>}
@@ -98,7 +98,7 @@ function RectificationQueue() {
                                             {row.checklist_description ?? "Checklist item"}
                                         </div>
                                         <div className="desc" style={{ whiteSpace: "normal" }}>
-                                            Asset: {row.asset_code ?? "Unknown"} · Red-Tagged {row.created_date}
+                                            Asset: {row.asset_code ?? "Unknown"} · {row.tag_status === "Planned" ? "Moderate — logged" : "Red-Tagged"} {row.created_date}
                                         </div>
                                         <div style={{ fontSize: 12.5, color: "var(--text-soft)", marginTop: 6 }}>
                                             <strong>Technician:</strong> {row.assigned_technician ?? "Unassigned"} ·{" "}
@@ -109,10 +109,14 @@ function RectificationQueue() {
                                     <span
                                         style={{
                                             fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20,
-                                            color: "#fff", background: row.assigned_technician ? "#d97706" : "#c0392b", whiteSpace: "nowrap",
+                                            color: "#fff",
+                                            background: row.tag_status === "Planned" ? "#2f6fed" : row.assigned_technician ? "#d97706" : "#c0392b",
+                                            whiteSpace: "nowrap",
                                         }}
                                     >
-                                        {row.assigned_technician ? "Yellow Tag — repair in progress" : "Red Tag"}
+                                        {row.tag_status === "Planned"
+                                            ? "Moderate — plan & monitor"
+                                            : row.assigned_technician ? "Yellow Tag — repair in progress" : "Red Tag"}
                                     </span>
                                 </div>
 
@@ -125,7 +129,7 @@ function RectificationQueue() {
                                 {canRectify && !isEditing && !isVerifying && (
                                     <div className="actions" style={{ marginTop: 12 }}>
                                         <button className="primary" onClick={() => startEdit(row)}>Update Plan</button>
-                                        <button className="ghost" onClick={() => startVerify(row)}>Verify &amp; Remove Tag</button>
+                                        <button className="ghost" onClick={() => startVerify(row)}>{row.tag_status === "Planned" ? "Verify & Close Follow-up" : "Verify & Remove Tag"}</button>
                                     </div>
                                 )}
 
@@ -172,14 +176,15 @@ function RectificationQueue() {
                                 {canRectify && isVerifying && (
                                     <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
                                         <p style={{ fontSize: 12.5, color: "var(--text-soft)" }}>
-                                            Confirm the repair has been inspected and the equipment is safe to return to
-                                            service. This removes the Red Tag and cannot be undone from here.
+                                            {row.tag_status === "Planned"
+                                                ? "Confirm the Moderate fault has been rectified and checked. This closes the follow-up and cannot be undone from here."
+                                                : "Confirm the repair has been inspected and the equipment is safe to return to service. This removes the Red Tag and cannot be undone from here."}
                                         </p>
                                         <p style={{ fontSize: 12.5, marginTop: 6 }}>
                                             Verified by: <strong>{user?.name ?? "Unknown"}</strong>
                                         </p>
                                         <div className="actions">
-                                            <button className="danger" onClick={() => confirmVerify(row)}>Confirm — Remove Tag</button>
+                                            <button className="danger" onClick={() => confirmVerify(row)}>{row.tag_status === "Planned" ? "Confirm — Close" : "Confirm — Remove Tag"}</button>
                                             <button className="ghost" onClick={() => setVerifyingId(null)}>Cancel</button>
                                         </div>
                                     </div>

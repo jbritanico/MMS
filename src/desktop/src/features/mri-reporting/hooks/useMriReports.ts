@@ -13,6 +13,10 @@ export interface MriReport {
   approved_by: string | null;
   approved_date: string | null;
   created_date: string;
+  // Figure 3: cost to perform the MR, inserted by the operations supervisor.
+  mr_cost?: number | null;
+  mr_cost_by?: string | null;
+  mr_cost_date?: string | null;
 }
 
 const KEY = ["mri-reports"];
@@ -161,6 +165,28 @@ export interface ReportNeedingActionRow {
 // (also awaiting close). Powers the "Reports to Review" queue and its badge count.
 // Country-scoped server-side: a Job Supervisor/Maintenance Supervisor/Manager-FSM with
 // countries assigned only sees reports on assets in those countries.
+// Figure 3: open reports still missing the MR cost (for holders of mri.enter_cost).
+export function useReportsAwaitingCost(viewerUserId: number) {
+  return useQuery({
+    queryKey: ["reports-awaiting-cost", viewerUserId],
+    queryFn: () => invoke<ReportNeedingActionRow[]>("get_reports_awaiting_cost", { viewerUserId }),
+    enabled: !!viewerUserId,
+  });
+}
+
+export function useSetMriReportCost() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { reportId: number; cost: number; enteredBy: string }) =>
+      invoke<string>("set_mri_report_cost", vars),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: KEY });
+      qc.invalidateQueries({ queryKey: ["mri-report", vars.reportId] });
+      qc.invalidateQueries({ queryKey: ["reports-awaiting-cost"] });
+    },
+  });
+}
+
 export function useReportsNeedingSupervisorAction(viewerUserId: number) {
   return useQuery({
     queryKey: [...REPORTS_NEEDING_ACTION_KEY, viewerUserId],

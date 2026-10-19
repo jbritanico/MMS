@@ -1,5 +1,6 @@
-import { useReportsNeedingSupervisorAction } from "./hooks/useMriReports";
+import { useReportsNeedingSupervisorAction, useReportsAwaitingCost } from "./hooks/useMriReports";
 import { useCurrentUser } from "../../lib/currentUser";
+import { useEffectivePermissions } from "../administration/hooks/useUserAdmin";
 
 const STATUS_LABEL: Record<string, { label: string; action: string; color: string }> = {
     Submitted: { label: "Awaiting endorsement", action: "Endorse", color: "#d97706" },
@@ -21,6 +22,9 @@ function formatSubmittedDate(value: string | null | undefined): string {
 function ReportReviewQueue({ onOpenReport }: ReportReviewQueueProps) {
     const { user: currentUser } = useCurrentUser();
     const { data: rows = [], isLoading } = useReportsNeedingSupervisorAction(currentUser?.id ?? 0);
+    const { data: permissions = [] } = useEffectivePermissions(currentUser?.id ?? 0);
+    const canEnterCost = permissions.includes("mri.enter_cost");
+    const { data: costRows = [] } = useReportsAwaitingCost(canEnterCost ? currentUser?.id ?? 0 : 0);
 
     return (
         <div>
@@ -73,6 +77,34 @@ function ReportReviewQueue({ onOpenReport }: ReportReviewQueueProps) {
                             </div>
                         );
                     })}
+                </div>
+            )}
+
+            {canEnterCost && costRows.length > 0 && (
+                <div style={{ marginTop: 28 }}>
+                    <h2 style={{ fontSize: 15, marginBottom: 4 }}>Awaiting MR cost</h2>
+                    <p style={{ color: "var(--text-soft)", fontSize: 12.5, marginBottom: 12 }}>
+                        Open reports where the cost to perform the MR has not been inserted yet.
+                    </p>
+                    <div className="review-card-grid">
+                        {costRows.map((row) => (
+                            <div key={row.id} className="review-card">
+                                <div className="review-card-top">
+                                    <div className="review-card-code">{row.asset_code ?? "Unknown asset"}</div>
+                                </div>
+                                <div className="review-card-desc">{row.asset_description ?? "No description"}</div>
+                                <div className="review-card-meta-row">
+                                    <span>Report #{row.id}</span>
+                                    <span>{row.submitted_by ?? "Unknown"}</span>
+                                </div>
+                                <div className="actions" style={{ marginTop: 4 }}>
+                                    <button className="primary" onClick={() => onOpenReport(row.id)} style={{ width: "100%" }}>
+                                        Enter cost
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
         </div>

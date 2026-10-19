@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { invoke } from "../../../lib/ipc";
+import { useCurrentUser } from "../../../lib/currentUser";
 
 export interface MriReportHeaderValue {
   id: number;
@@ -52,6 +53,7 @@ export interface MriReportAttachment {
   file_type: string;
   data: string;
   uploaded_date: string;
+  uploaded_by?: string | null;
 }
 
 // Header
@@ -63,9 +65,10 @@ export function useMriReportHeaderValues(reportId: number) {
 }
 export function useSetMriReportHeaderValue(reportId: number) {
   const qc = useQueryClient();
+  const { user } = useCurrentUser();
   return useMutation({
     mutationFn: (item: { templateHeaderFieldId: number; value: string }) =>
-      invoke("set_mri_report_header_value", { reportId, ...item }),
+      invoke("set_mri_report_header_value", { reportId, ...item, updatedBy: user?.name ?? null }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["mri-report-header-values", reportId] }),
   });
 }
@@ -172,6 +175,7 @@ export function useMriReportMidValues(reportId: number) {
 
 export function useSetMriReportMidValue(reportId: number) {
   const qc = useQueryClient();
+  const { user } = useCurrentUser();
   return useMutation({
     mutationFn: (item: { templateMidFieldId: number; value: string; routePoints?: string | null }) =>
       invoke("set_mri_report_mid_value", {
@@ -179,6 +183,7 @@ export function useSetMriReportMidValue(reportId: number) {
         templateMidFieldId: item.templateMidFieldId,
         value: item.value,
         routePoints: item.routePoints ?? null,
+        updatedBy: user?.name ?? null,
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["mri-report-mid-values", reportId] }),
   });
@@ -194,9 +199,10 @@ export function useMriReportFooterValues(reportId: number) {
 
 export function useSetMriReportFooterValue(reportId: number) {
   const qc = useQueryClient();
+  const { user } = useCurrentUser();
   return useMutation({
     mutationFn: (item: { templateFooterFieldId: number; value: string }) =>
-      invoke("set_mri_report_footer_value", { reportId, ...item }),
+      invoke("set_mri_report_footer_value", { reportId, ...item, updatedBy: user?.name ?? null }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["mri-report-footer-values", reportId] }),
   });
 }
@@ -210,9 +216,10 @@ export function useMriReportAttachments(reportId: number) {
 }
 export function useAddMriReportAttachment(reportId: number) {
   const qc = useQueryClient();
+  const { user } = useCurrentUser();
   return useMutation({
     mutationFn: (item: { templateChecklistItemId: number; fileName: string; fileType: string; data: string }) =>
-      invoke<number>("add_mri_report_attachment", { reportId, ...item }),
+      invoke<number>("add_mri_report_attachment", { reportId, ...item, uploadedBy: user?.name ?? null }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["mri-report-attachments", reportId] }),
   });
 }
