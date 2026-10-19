@@ -38,6 +38,11 @@ export interface PendingFaultApprovalRow {
   issue_details: string | null;
   action_taken: string | null;
   country: string | null;
+  assigned_to_user_id: number | null;
+  assigned_to_name: string | null;
+  can_act: boolean;
+  last_reminder_by: string | null;
+  last_reminder_at: string | null;
 }
 
 const PENDING_APPROVALS_KEY = ["pending-mri-fault-approvals"];
@@ -49,6 +54,16 @@ export function usePendingMriFaultApprovals(viewerUserId: number) {
     queryKey: [...PENDING_APPROVALS_KEY, viewerUserId],
     queryFn: () => invoke<PendingFaultApprovalRow[]>("get_pending_mri_fault_approvals", { viewerUserId }),
     enabled: !!viewerUserId,
+  });
+}
+
+// A manager/administrator nudges the reviewer a fault is waiting on.
+export function useSendFaultReminder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (item: { approvalId: number; sentByUserId: number }) =>
+      invoke<string>("send_fault_reminder", item),
+    onSuccess: () => qc.invalidateQueries({ queryKey: PENDING_APPROVALS_KEY }),
   });
 }
 
@@ -103,6 +118,8 @@ export function useSetMriFaultApprovalDecision(reportId: number) {
       notes: string | null;
       recordedBy: string;
       isProvisional: boolean;
+      nextReviewerUserId?: number | null;
+      acknowledgmentAssignedToUserId?: number | null;
     }) => invoke<string>("set_mri_fault_approval_decision", item),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["mri-fault-approvals", reportId] });

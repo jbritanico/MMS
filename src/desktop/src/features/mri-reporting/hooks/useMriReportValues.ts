@@ -24,6 +24,9 @@ export interface MriReportChecklistResult {
   // it isn't already set. See set_mri_report_checklist_result in lib.rs.
   reported_by: string | null;
   reported_at: string | null;
+  // Repaired by the field team and function-tested on site: closed without review and
+  // without a Red tag.
+  repaired_on_site?: boolean;
 }
 
 export interface MriReportMidValue {

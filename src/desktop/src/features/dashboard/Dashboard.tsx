@@ -174,6 +174,11 @@ const ARROW_ICON = (
   </svg>
 );
 
+// Icons kept for upcoming dashboard tiles; referenced here so noUnusedLocals does not
+// fail the build while they are unused.
+void PERSON_ICON;
+void ARROW_ICON;
+
 const PDF_ICON = (
   <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M7 3h7l4 4v14H7z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Email to Kamil - MR-I confirmation</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body style="margin:0;padding:16px;background:#f3f4f6;font-family:Calibri,Arial,sans-serif;">
+<div style="max-width:820px;margin:0 auto;">
+  <div style="margin-bottom:10px;">
+    <button id="copyBtn" type="button" style="font:600 14px Arial,sans-serif;padding:10px 18px;border:0;border-radius:6px;background:#2f6fed;color:#fff;cursor:pointer;">Copy email</button>
+    <span id="msg" style="font:13px Arial,sans-serif;color:#1f7a45;margin-left:10px;"></span>
+    <div style="font:12px Arial,sans-serif;color:#555;margin-top:6px;">Click Copy, then paste (Ctrl+V) into a new Outlook message. Subject line is below.</div>
+  </div>
+
+  <div style="background:#fff;border:1px solid #d1d5db;border-radius:6px;padding:12px 16px;margin-bottom:10px;font:14px Calibri,Arial,sans-serif;">
+    <b>Subject:</b> <span id="subject">Gap preventing MR-I coding: FSM / Maintenance Manager not in user tiers (Manual Rev. 02)</span>
+  </div>
+
+  <div id="mail" style="background:#fff;border:1px solid #d1d5db;border-radius:6px;padding:20px 24px;font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#000;line-height:1.4;">
+    <p style="margin:0 0 12px 0;">Dear Kamil,</p>
+
+    <p style="margin:0 0 12px 0;">Thank you for your clarification. The Yellow Tag and Operations acceptance are now coded.</p>
+
+    <p style="margin:0 0 12px 0;">We have found a gap in Manual Rev. 02 that <b>prevents us from completing the remaining MR-I coding</b>.</p>
+
+    <p style="margin:0 0 12px 0;"><b>The gap:</b> the FSM and the Maintenance Manager are named in the severity table (Table 3, page 12). They must be informed of Moderate faults, and they are the review authority for Major/Critical faults. However, they do not appear in the user tier table (Table 4, pages 27&ndash;28). Without a tier, we cannot define what these two roles are allowed to do in the system (approve, acknowledge, reclassify, confirm a phoned-in decision), so we cannot finish the approval coding.</p>
+
+    <p style="margin:0 0 6px 0;">Our reading of Table 4 is below. Could you please reply in writing, so we can keep it as our reference:</p>
+
+    <table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;border:1px solid #808080;font-family:Calibri,Arial,sans-serif;font-size:10pt;width:100%;margin:0 0 12px 0;">
+      <thead>
+        <tr style="background-color:#d9e2f3;">
+          <th align="left" style="border:1px solid #808080;padding:6px;width:11%;">Tier</th>
+          <th align="left" style="border:1px solid #808080;padding:6px;width:36%;">Who (Table 4)</th>
+          <th align="left" style="border:1px solid #808080;padding:6px;width:53%;">MR-I report rules we will apply</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td valign="top" style="border:1px solid #808080;padding:6px;"><b>View Only</b></td>
+          <td valign="top" style="border:1px solid #808080;padding:6px;">Trainees</td>
+          <td valign="top" style="border:1px solid #808080;padding:6px;">Read only</td>
+        </tr>
+        <tr>
+          <td valign="top" style="border:1px solid #808080;padding:6px;"><b>Tier 1</b></td>
+          <td valign="top" style="border:1px solid #808080;padding:6px;">Field Engineers, Service Technicians, Senior Operators</td>
+          <td valign="top" style="border:1px solid #808080;padding:6px;">Initiate and insert MR-I reports; no editing after submission</td>
+        </tr>
+        <tr>
+          <td valign="top" style="border:1px solid #808080;padding:6px;"><b>Tier 2</b></td>
+          <td valign="top" style="border:1px solid #808080;padding:6px;">Package In-Charge, Lead Operator, Maintenance Team</td>
+          <td valign="top" style="border:1px solid #808080;padding:6px;">Review and edit MR-I reports; close faults on MR-I reports; no approval of reports</td>
+        </tr>
+        <tr>
+          <td valign="top" style="border:1px solid #808080;padding:6px;"><b>Tier 3</b></td>
+          <td valign="top" style="border:1px solid #808080;padding:6px;">Operations Supervisor/Coordinator, Package Supervisor, Maintenance Supervisor, Maintenance Engineer, Lead Mechanic</td>
+          <td valign="top" style="border:1px solid #808080;padding:6px;">Directly close Pre-Job reports; approve Post-Job and Pre-Mobilization reports; review, acknowledge and forward Critical faults</td>
+        </tr>
+        <tr style="background-color:#fff2cc;">
+          <td valign="top" style="border:1px solid #808080;padding:6px;"><b>Not defined</b></td>
+          <td valign="top" style="border:1px solid #808080;padding:6px;">FSM / Maintenance Manager (named in Table 3, page 12, but not in Table 4)</td>
+          <td valign="top" style="border:1px solid #808080;padding:6px;"><b>Gap &ndash; please confirm</b> (see question 1)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p style="margin:0 0 8px 0;"><b>1. FSM / Maintenance Manager:</b> they need to be added to the user tiers in Table 4. Please confirm in writing which tier they belong to (for example, a new &ldquo;Tier 4 &ndash; Management&rdquo;) and the permissions that tier carries, such as approving Major/Critical faults and being informed of Moderate faults.</p>
+
+    <p style="margin:0 0 8px 0;"><b>2. Closing and approving reports:</b> please confirm the Tier 3 rules above. A Pre-Job report that still has Moderate or Critical faults follows the fault review in Table 3 before it is closed.</p>
+
+    <p style="margin:0 0 12px 0;"><b>3. Phone approval:</b> please confirm that a decision given by phone is recorded as provisional until the approver confirms it in the system.</p>
+
+    <p style="margin:0 0 12px 0;">A one-line answer to each is enough. Thank you for your support.</p>
+
+    <p style="margin:0;">Kind regards,<br>Sprint IT Team<br>Sprint OGS</p>
+  </div>
+</div>
+
+<script>
+document.getElementById('copyBtn').addEventListener('click', function () {
+  var node = document.getElementById('mail');
+  var msg = document.getElementById('msg');
+  var ok = false;
+  try {
+    var sel = window.getSelection();
+    var range = document.createRange();
+    range.selectNodeContents(node);
+    sel.removeAllRanges();
+    sel.addRange(range);
+    ok = document.execCommand('copy');
+    sel.removeAllRanges();
+  } catch (e) {}
+  msg.style.color = ok ? '#1f7a45' : '#b42318';
+  msg.textContent = ok ? 'Copied. Paste into Outlook.' : 'Copy blocked: select the email text with the mouse and press Ctrl+C.';
+});
+</script>
+</body>
+</html>

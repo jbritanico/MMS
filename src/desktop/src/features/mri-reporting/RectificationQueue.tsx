@@ -52,6 +52,7 @@ function RectificationQueue() {
                 assignedTechnician: assignedTechnician.trim() || null,
                 partsStatus,
                 repairDate: repairDate.trim() || null,
+                updatedBy: user?.name ?? null,
             });
             flash(`Repair plan updated — ${row.checklist_description ?? "item"} on ${row.asset_code ?? "asset"}`, "ok");
             setEditingId(null);
@@ -108,10 +109,10 @@ function RectificationQueue() {
                                     <span
                                         style={{
                                             fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20,
-                                            color: "#fff", background: "#c0392b", whiteSpace: "nowrap",
+                                            color: "#fff", background: row.assigned_technician ? "#d97706" : "#c0392b", whiteSpace: "nowrap",
                                         }}
                                     >
-                                        Red Tag
+                                        {row.assigned_technician ? "Yellow Tag — repair in progress" : "Red Tag"}
                                     </span>
                                 </div>
 

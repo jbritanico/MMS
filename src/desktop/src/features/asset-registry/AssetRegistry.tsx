@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, type ReactElement } from "react";
 import {
-  useAssets, useCreateAsset, useUpdateAsset, useDeleteAsset,
+  useAssets, useCreateAsset, useUpdateAsset, useDeleteAsset, useAssetTagHistory,
+  useMocExemptions, useCreateMocExemption, useRevokeMocExemption,
   useExportAssetsBackup, useImportAssetsBackup,
 } from "./hooks/useAssets";
 import { useAssetTriggers } from "./hooks/useTriggers";
@@ -82,6 +83,141 @@ interface AssetRegistryCardProps {
 // A separate component (not inline in the map below) because it needs to call
 // useAssetTriggers for its own asset -- hooks can't be called conditionally
 // inside a .map() in the parent component.
+// Shows why the unit carries its current tag and the full tag history (Manual 8.1, 8.2).
+function AssetTagHistory({ assetId, reason }: { assetId: number | null; reason: string | null }) {
+  const { data: history = [] } = useAssetTagHistory(assetId);
+  return (
+    <div style={{ fontSize: 12, marginTop: 6 }}>
+      {reason && (
+        <div>
+          <strong>Reason:</strong> {reason}
+        </div>
+      )}
+      {history.length > 0 && (
+        <details style={{ marginTop: 4 }}>
+          <summary style={{ cursor: "pointer" }}>Tag history ({history.length})</summary>
+          <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+            {history.map((h) => (
+              <li key={h.id}>
+                {h.changed_at}: {h.previous_tag_status ?? "Not tagged"} → <strong>{h.tag_status}</strong>
+                {h.reason ? ` — ${h.reason}` : ""}
+                {h.changed_by ? ` (by ${h.changed_by})` : ""}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
+  );
+}
+
+// Red-tag exemption through MOC (Manual 6.1.5). A Red-tagged unit shall not be deployed
+// without an approved exemption defining limitations, controls, validity and the
+// conditions for return to service.
+function AssetMocExemptions({
+  assetId, tagStatus, canManage, userLabel,
+}: { assetId: number | null; tagStatus: string | null; canManage: boolean; userLabel: string }) {
+  const { data: exemptions = [] } = useMocExemptions(assetId);
+  const createExemption = useCreateMocExemption();
+  const revokeExemption = useRevokeMocExemption();
+  const today = new Date().toISOString().slice(0, 10);
+  const blank = {
+    moc_reference: "", approved_by: "", limitations: "", required_controls: "",
+    return_conditions: "", valid_from: today, valid_until: today,
+  };
+  const [open, setOpen] = useState(false);
+  const [f, setF] = useState(blank);
+  const [error, setError] = useState<string | null>(null);
+
+  if (assetId == null) return null;
+  const notReady = tagStatus === "Red" || tagStatus === "Yellow";
+  if (!notReady && exemptions.length === 0) return null;
+
+  const valid = exemptions.find((x) => x.is_valid);
+
+  async function save() {
+    setError(null);
+    try {
+      await createExemption.mutateAsync({ exemption: { asset_id: assetId as number, ...f }, createdBy: userLabel });
+      setF(blank);
+      setOpen(false);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  async function revoke(id: number) {
+    const reason = window.prompt("Reason for revoking this exemption?");
+    if (!reason) return;
+    try {
+      await revokeExemption.mutateAsync({ id, revokedBy: userLabel, reason });
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  const setField = (k: keyof typeof blank) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setF((p) => ({ ...p, [k]: e.target.value }));
+
+  return (
+    <div className="field">
+      <label>Red-tag exemption (MOC)</label>
+      <div>
+        {valid ? (
+          <span className="pill" style={{ background: "var(--success)", color: "#fff" }}>
+            Exemption valid until {valid.valid_until}
+          </span>
+        ) : (
+          <span className="pill" style={{ background: "var(--danger)", color: "#fff" }}>
+            No valid exemption
+          </span>
+        )}
+      </div>
+      <span style={{ fontSize: 11, color: "var(--text-soft)" }}>
+        A Red-tagged unit shall not be deployed without an approved MOC exemption (Manual 6.1.5).
+      </span>
+      {exemptions.length > 0 && (
+        <ul style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: 12 }}>
+          {exemptions.map((x) => (
+            <li key={x.id} style={{ marginBottom: 4 }}>
+              <strong>{x.moc_reference}</strong> — {x.status}
+              {x.is_valid ? " (valid)" : ""}, {x.valid_from} to {x.valid_until}, approved by {x.approved_by}
+              <div>Limitations: {x.limitations}</div>
+              <div>Controls: {x.required_controls}</div>
+              <div>Return to service: {x.return_conditions}</div>
+              {x.status === "Revoked" && (
+                <div>Revoked by {x.revoked_by ?? "unknown"}: {x.revoke_reason}</div>
+              )}
+              {canManage && x.status === "Active" && (
+                <button type="button" onClick={() => revoke(x.id)}>Revoke</button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {canManage && notReady && !open && (
+        <button type="button" style={{ marginTop: 6 }} onClick={() => setOpen(true)}>Record exemption</button>
+      )}
+      {open && (
+        <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+          <input type="text" placeholder="MOC reference" value={f.moc_reference} onChange={setField("moc_reference")} />
+          <input type="text" placeholder="Approved by" value={f.approved_by} onChange={setField("approved_by")} />
+          <textarea placeholder="Equipment limitations" value={f.limitations} onChange={setField("limitations")} />
+          <textarea placeholder="Required controls" value={f.required_controls} onChange={setField("required_controls")} />
+          <textarea placeholder="Conditions for return to service" value={f.return_conditions} onChange={setField("return_conditions")} />
+          <label style={{ fontSize: 12 }}>Valid from <input type="date" value={f.valid_from} onChange={setField("valid_from")} /></label>
+          <label style={{ fontSize: 12 }}>Valid until <input type="date" value={f.valid_until} onChange={setField("valid_until")} /></label>
+          <div>
+            <button type="button" className="primary" onClick={save}>Save exemption</button>
+            <button type="button" onClick={() => { setOpen(false); setError(null); }}>Cancel</button>
+          </div>
+        </div>
+      )}
+      {error && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{error}</div>}
+    </div>
+  );
+}
+
 function AssetRegistryCard({ asset: a, assetTypeLabel, canEdit, canDelete, onRowClick, onEdit, onDelete }: AssetRegistryCardProps) {
   const { data: triggers = [] } = useAssetTriggers(a.id);
   const activeTriggers = triggers.filter((t) => t.enabled);
@@ -95,8 +231,9 @@ function AssetRegistryCard({ asset: a, assetTypeLabel, canEdit, canDelete, onRow
           {a.tag_status && (
             <span
               className="pill"
+              title={a.tag_reason ?? undefined}
               style={{
-                background: a.tag_status === "Red" ? "var(--danger)" : "var(--success)",
+                background: a.tag_status === "Red" ? "var(--danger)" : a.tag_status === "Yellow" ? "var(--warn)" : "var(--success)",
                 color: "#fff",
               }}
             >
@@ -174,6 +311,7 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
   const canCreate = permissions.includes("assets.create");
   const canEdit = permissions.includes("assets.edit");
   const canDelete = permissions.includes("assets.delete");
+  const canManageExemptions = permissions.includes("mri.approve");
 
   const activeTemplateAssetTypeIds = new Set(
     templates.filter((t) => t.status === "Active").map((t) => t.asset_type_id)
@@ -331,7 +469,7 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
                   <span
                     className="pill"
                     style={{
-                      background: form.tag_status === "Red" ? "var(--danger)" : "var(--success)",
+                      background: form.tag_status === "Red" ? "var(--danger)" : form.tag_status === "Yellow" ? "var(--warn)" : "var(--success)",
                       color: "#fff",
                     }}
                   >
@@ -344,7 +482,16 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
               <span style={{ fontSize: 11, color: "var(--text-soft)" }}>
                 Set automatically by the MR-I fault approval/rectification workflow — not editable here.
               </span>
+              <AssetTagHistory assetId={form.id} reason={form.tag_reason} />
             </div>
+          )}
+          {mode !== "create" && (
+            <AssetMocExemptions
+              assetId={form.id}
+              tagStatus={form.tag_status}
+              canManage={canManageExemptions}
+              userLabel={currentUserLabel}
+            />
           )}
           <div className="field">
             <label>Asset type</label>

@@ -15,6 +15,7 @@ import {
   usePendingMriFaultApprovals,
   useProvisionalMriFaultApprovals,
 } from "../mri-reporting/hooks/useMriFaultApprovals";
+import { useAssets } from "../asset-registry/hooks/useAssets";
 import { usePendingMriFaultRectifications } from "../mri-reporting/hooks/useMriFaultRectifications";
 import {
   useReportsNeedingSupervisorAction,
@@ -181,25 +182,6 @@ const MR_LEVELS: { id: MrLevel; short: string; desc: string }[] = [
   { id: "MR-III", short: "III", desc: "Major overhaul" },
 ];
 
-const KPI_DATA = [
-  {
-    key: "availability",
-    label: "Fleet Availability",
-    value: "91.4",
-    unit: "%",
-    delta: "+0.8",
-    good: true,
-  },
-  {
-    key: "defects",
-    label: "Open Defects",
-    value: "47",
-    unit: "",
-    delta: "-3",
-    good: true,
-  },
-];
-
 function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [faultDrawerOpen, setFaultDrawerOpen] = useState(false);
@@ -224,12 +206,39 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
   const { data: pendingApprovals = [] } = usePendingMriFaultApprovals(
     currentUser?.id ?? 0,
   );
-  const pendingApprovalsCount = pendingApprovals.length;
+  // Only faults this user can actually act on count toward the badge; read-only ones
+  // (waiting on someone else) are visible on the screen but not "on my plate".
+  const pendingApprovalsCount = pendingApprovals.filter((r) => r.can_act).length;
   const canRectify = effectivePermissions.includes("mri.rectify");
   const { data: pendingRectifications = [] } = usePendingMriFaultRectifications(
     currentUser?.id ?? 0,
   );
   const pendingRectificationsCount = pendingRectifications.length;
+  // Live MR-I numbers for the side KPIs: units not Red-Tagged, and faults still open.
+  const { data: allAssets = [] } = useAssets();
+  // Yellow (repair in progress) is still not ready for service, so it counts against availability.
+  const redUnits = allAssets.filter((a) => a.tag_status === "Red" || a.tag_status === "Yellow").length;
+  const availabilityPct =
+    allAssets.length === 0 ? 100 : ((allAssets.length - redUnits) / allAssets.length) * 100;
+  const openDefects = pendingApprovals.length + pendingRectifications.length;
+  const kpiData = [
+    {
+      key: "availability",
+      label: "Fleet Availability",
+      value: availabilityPct.toFixed(1),
+      unit: "%",
+      delta: redUnits > 0 ? `${redUnits} not ready` : "",
+      good: redUnits === 0,
+    },
+    {
+      key: "defects",
+      label: "Open Defects",
+      value: String(openDefects),
+      unit: "",
+      delta: "",
+      good: openDefects === 0,
+    },
+  ];
   const canConfirmProvisional = effectivePermissions.includes(
     "mri.confirm_provisional",
   );
@@ -358,7 +367,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
               width: 200,
             }}
           >
-            {KPI_DATA.map((k) => (
+            {kpiData.map((k) => (
               <div
                 key={k.key}
                 onClick={() => onNavigate("dashboard")}

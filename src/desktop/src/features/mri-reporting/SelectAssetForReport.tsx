@@ -4,7 +4,15 @@ import { useAssetTypes } from "../administration/hooks/useAssetTypes";
 import { useMriTemplates } from "../administration/hooks/useMriTemplates";
 import { useAssetTriggers } from "../asset-registry/hooks/useTriggers";
 import type { Asset } from "../asset-registry/types";
-import { useCreateMriReport, useMriReports, useAssetsWithPendingIssues } from "./hooks/useMriReports";
+import {
+  useCreateMriReport,
+  useCreateMriReportFromLastPostJob,
+  useMriReports,
+  useAssetsWithPendingIssues,
+  useStandbyPrejobReminders,
+  type LastPostJobInfo,
+} from "./hooks/useMriReports";
+import { invoke } from "../../lib/ipc";
 import { useCurrentUser } from "../../lib/currentUser";
 import { useUserCountryAccess } from "../administration/hooks/useUserAdmin";
 
@@ -76,6 +84,7 @@ interface AssetSelectCardProps {
   blockingReportId: number | null;
   blockingStatus: string | null;
   isCreating: boolean;
+  standbyDay: number | null;
   onSelect: () => void;
 }
 
@@ -92,6 +101,7 @@ function AssetSelectCard({
   blockingReportId,
   blockingStatus,
   isCreating,
+  standbyDay,
   onSelect,
 }: AssetSelectCardProps) {
   const { data: triggers = [] } = useAssetTriggers(asset.id);
@@ -140,6 +150,11 @@ function AssetSelectCard({
                 {blockingStatus} — pending closure
               </span>
             )}
+            {standbyDay !== null && (
+              <span className="pill inactive" title="Equipment kept on stand-by after its Post-Job report needs a new Pre-Job MR-I on day 8">
+                Pre-Job due — day {standbyDay}
+              </span>
+            )}
             {isCreating && <span className="pill neutral">Starting...</span>}
           </div>
         </div>
@@ -158,6 +173,15 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
   const { data: existingReports = [] } = useMriReports();
   const { data: pendingIssueAssetIds = [] } = useAssetsWithPendingIssues();
   const createReport = useCreateMriReport();
+  const createFromPostJob = useCreateMriReportFromLastPostJob();
+  const { data: standbyReminders = [] } = useStandbyPrejobReminders();
+  // Figure 2: shown when the last report on the chosen asset was a Post-Job one, so the
+  // user picks between duplicating it (<= 72 h) and starting a fresh Pre-Mob.
+  const [postJobChoice, setPostJobChoice] = useState<{
+    assetId: number;
+    templateId: number;
+    info: LastPostJobInfo;
+  } | null>(null);
   const { user: currentUser } = useCurrentUser();
   // Empty array = unrestricted (sees every country) -- the same convention the backend uses.
   const { data: myCountries = [] } = useUserCountryAccess(currentUser?.id ?? 0);
@@ -217,9 +241,38 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
       return;
     }
 
+    let info: LastPostJobInfo | null = null;
+    try {
+      info = await invoke<LastPostJobInfo | null>("get_last_post_job_info", { assetId });
+    } catch {
+      info = null;
+    }
+    if (info) {
+      setPostJobChoice({ assetId, templateId: template.id, info });
+      return;
+    }
+
+    await startBlank(assetId, template.id);
+  }
+
+  async function startBlank(assetId: number, templateId: number) {
+    setPostJobChoice(null);
     setCreatingFor(assetId);
     try {
-      const reportId = await createReport.mutateAsync({ template_id: template.id, asset_id: assetId });
+      const reportId = await createReport.mutateAsync({ template_id: templateId, asset_id: assetId });
+      onReportCreated(reportId);
+    } catch (err) {
+      flash(String(err), "err");
+    } finally {
+      setCreatingFor(null);
+    }
+  }
+
+  async function startFromPostJob(assetId: number, templateId: number) {
+    setPostJobChoice(null);
+    setCreatingFor(assetId);
+    try {
+      const reportId = await createFromPostJob.mutateAsync({ assetId, templateId });
       onReportCreated(reportId);
     } catch (err) {
       flash(String(err), "err");
@@ -245,6 +298,53 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
       />
 
       {status && <div className={`toast ${status.kind}`} style={{ maxWidth: 400, marginBottom: 12 }}>{status.msg}</div>}
+      {standbyReminders.length > 0 && (
+        <div className="toast err" style={{ maxWidth: 600, marginBottom: 16 }}>
+          <strong>Pre-Job MR-I due (stand-by equipment reached day 8):</strong>
+          <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+            {standbyReminders.map((r) => (
+              <li key={r.asset_id}>
+                {r.asset_code} — day {r.days_since} since its Post-Job report
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {postJobChoice && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ width: "min(520px, 94vw)", textAlign: "left" }}>
+            <h3 style={{ marginTop: 0 }}>Last report was a Post-Job report</h3>
+            {postJobChoice.info.within_72h ? (
+              <p>
+                It was submitted {postJobChoice.info.hours_since} hours ago (72 hours or less). You can
+                duplicate it as the new Pre-Mob report, so only minimal additional entries are needed.
+              </p>
+            ) : (
+              <p>
+                It was submitted {postJobChoice.info.hours_since} hours ago (more than 72 hours). No
+                duplication is permitted — a new Pre-Mob MR-I must be completed.
+              </p>
+            )}
+            <div className="modal-actions" style={{ justifyContent: "flex-start", gap: 10 }}>
+              {postJobChoice.info.within_72h && (
+                <button
+                  className="primary"
+                  onClick={() => startFromPostJob(postJobChoice.assetId, postJobChoice.templateId)}
+                >
+                  Copy last Post-Job report
+                </button>
+              )}
+              <button
+                className={postJobChoice.info.within_72h ? "ghost" : "primary"}
+                onClick={() => startBlank(postJobChoice.assetId, postJobChoice.templateId)}
+              >
+                Start a new report
+              </button>
+              <button className="ghost" onClick={() => setPostJobChoice(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
       {filtered.length === 0 ? (
         <div className="empty">No active assets match your search</div>
       ) : (
@@ -270,6 +370,7 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
                 blockingReportId={blockingReport && !hasDraftForTemplate ? blockingReport.id : null}
                 blockingStatus={blockingReport && !hasDraftForTemplate ? blockingReport.status : null}
                 isCreating={creatingFor === a.id}
+                standbyDay={standbyReminders.find((r) => r.asset_id === a.id)?.days_since ?? null}
                 onSelect={() => a.id !== null && handleSelect(a.id, a.asset_type_id)}
               />
             );

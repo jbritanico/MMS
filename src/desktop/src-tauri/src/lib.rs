@@ -67,6 +67,10 @@ struct Asset {
     client: String,
     #[serde(default)]
     tag_status: Option<String>,
+    // Why the unit currently carries its Red/Yellow/Green tag (Manual 8.1: the status and
+    // applicable reason shall be documented). Written only by set_asset_tag.
+    #[serde(default)]
+    tag_reason: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -159,7 +163,101 @@ fn open_and_migrate_connection() -> Result<Connection, String> {
             conn.execute("ALTER TABLE assets ADD COLUMN tag_status TEXT", [])
                 .map_err(|e| e.to_string())?;
         }
+        if !cols.iter().any(|c| c == "tag_reason") {
+            conn.execute("ALTER TABLE assets ADD COLUMN tag_reason TEXT", [])
+                .map_err(|e| e.to_string())?;
+        }
     }
+
+    // Approved exemptions that allow a Red-tagged unit to be deployed (Manual 6.1.5): the
+    // exemption goes through the MOC process and defines the equipment limitations, the
+    // required controls, the validity period and the conditions for return to service.
+    // Status: Active until revoked, or Closed automatically when the unit returns to Green.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS asset_moc_exemptions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            asset_id INTEGER NOT NULL,
+            moc_reference TEXT NOT NULL,
+            approved_by TEXT NOT NULL,
+            limitations TEXT NOT NULL,
+            required_controls TEXT NOT NULL,
+            valid_from TEXT NOT NULL,
+            valid_until TEXT NOT NULL,
+            return_conditions TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'Active',
+            created_by TEXT,
+            created_at TEXT NOT NULL,
+            revoked_by TEXT,
+            revoked_at TEXT,
+            revoke_reason TEXT
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // Figure 4: a fault the field team repairs on site and function-tests is closed by them
+    // without review. These columns are added to databases created before this existed
+    // (the error from an already-present column is deliberately ignored).
+    let _ = conn.execute(
+        "ALTER TABLE mri_report_checklist_results ADD COLUMN repaired_on_site INTEGER NOT NULL DEFAULT 0",
+        [],
+    );
+    // Figure 3: the Job Number is typed in offline and checked against the Job Service
+    // Report once the app is online.
+    let _ = conn.execute("ALTER TABLE mri_reports ADD COLUMN job_number_status TEXT", []);
+
+    // Reminders a manager sends to the reviewer a fault is waiting on.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS mri_fault_reminders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fault_approval_id INTEGER NOT NULL,
+            sent_by_user_id INTEGER NOT NULL,
+            sent_by_name TEXT NOT NULL,
+            sent_at TEXT NOT NULL
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // Append-only audit trail of every reviewer action on a fault.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS mri_fault_decision_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fault_approval_id INTEGER NOT NULL,
+            report_id INTEGER NOT NULL,
+            action TEXT NOT NULL,
+            from_severity TEXT NOT NULL,
+            to_severity TEXT,
+            reviewer TEXT NOT NULL,
+            review_method TEXT NOT NULL,
+            notes TEXT,
+            recorded_by TEXT NOT NULL,
+            is_provisional INTEGER NOT NULL DEFAULT 0,
+            next_user_id INTEGER,
+            logged_at TEXT NOT NULL
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // Every change of an asset's Red/Yellow/Green tag, with who, when, why and which report
+    // caused it (Manual 8.1 and 8.2: status and reason documented, records keep the user
+    // name and timestamp). Rows are only ever added, never edited.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS asset_tag_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            asset_id INTEGER NOT NULL,
+            tag_status TEXT NOT NULL,
+            previous_tag_status TEXT,
+            reason TEXT,
+            report_id INTEGER,
+            changed_by TEXT,
+            changed_at TEXT NOT NULL,
+            FOREIGN KEY (asset_id) REFERENCES assets(id)
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS maintenance_triggers (
@@ -1115,6 +1213,7 @@ fn seed_field_catalogs(conn: &Connection) -> Result<(), String> {
         "MR II Due Date",
         "MR Initization Date",
         "Compliance Stage",
+        "Job Number",
         "OEM Serial",
         "Max OD",
         "Top Connection",
@@ -1215,7 +1314,7 @@ fn create_asset(asset: Asset) -> Result<String, String> {
 #[tauri::command]
 fn get_assets() -> Result<Vec<Asset>, String> {
     let conn = get_connection()?;
-    let mut stmt = conn.prepare("SELECT id, asset_code, asset_description, country, service_line, active, service_asset, vehicle, mr_last_action, last_action_by, last_action_dt, asset_type_id, client, tag_status FROM assets")
+    let mut stmt = conn.prepare("SELECT id, asset_code, asset_description, country, service_line, active, service_asset, vehicle, mr_last_action, last_action_by, last_action_dt, asset_type_id, client, tag_status, tag_reason FROM assets")
         .map_err(|e| e.to_string())?;
     let assets = stmt
         .query_map([], |row| {
@@ -1234,6 +1333,7 @@ fn get_assets() -> Result<Vec<Asset>, String> {
                 asset_type_id: row.get(11)?,
                 client: row.get(12)?,
                 tag_status: row.get(13)?,
+                tag_reason: row.get(14)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -1260,6 +1360,10 @@ fn update_asset(asset: Asset) -> Result<String, String> {
 fn delete_asset(id: i64) -> Result<String, String> {
     let conn = get_connection()?;
     conn.execute("DELETE FROM maintenance_triggers WHERE asset_id=?1", [id])
+        .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM asset_tag_history WHERE asset_id=?1", [id])
+        .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM asset_moc_exemptions WHERE asset_id=?1", [id])
         .map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM assets WHERE id=?1", [id])
         .map_err(|e| e.to_string())?;
@@ -2629,6 +2733,163 @@ fn create_mri_report(report: NewMriReport) -> Result<i64, String> {
     Ok(report_id)
 }
 
+// Figure 2: the most recent non-draft report on an asset, when it was a Post-Job report.
+// Returns (report_id, hours since it was submitted).
+fn last_post_job_report(conn: &rusqlite::Connection, asset_id: i64) -> Option<(i64, i64)> {
+    let (id, submitted, created): (i64, Option<String>, String) = conn
+        .query_row(
+            "SELECT id, submitted_date, created_date FROM mri_reports
+             WHERE asset_id = ?1 AND status IN ('Submitted', 'Endorsed', 'Escalated', 'Approved')
+             ORDER BY id DESC LIMIT 1",
+            [asset_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .ok()?;
+    let stage = get_compliance_stage(conn, id)?.trim().to_uppercase();
+    if stage != "POST JOB" {
+        return None;
+    }
+    let ts: i64 = submitted.or(Some(created)).and_then(|s| s.trim().parse::<i64>().ok())?;
+    let now: i64 = chrono_now().parse().ok()?;
+    Some((id, ((now - ts).max(0)) / 3600))
+}
+
+#[derive(Serialize, Deserialize)]
+struct LastPostJobInfo {
+    report_id: i64,
+    hours_since: i64,
+    within_72h: bool,
+}
+
+#[tauri::command]
+fn get_last_post_job_info(asset_id: i64) -> Result<Option<LastPostJobInfo>, String> {
+    let conn = get_connection()?;
+    Ok(last_post_job_report(&conn, asset_id).map(|(report_id, hours)| LastPostJobInfo {
+        report_id,
+        hours_since: hours,
+        within_72h: hours <= 72,
+    }))
+}
+
+// Figure 2, time gap <= 72 hours: start the next Pre-Mob by duplicating the last Post-Job
+// report, so only minimal additional entries are needed. Per-job readings (engine hours,
+// RIF, job number, distance) and any open faults are NOT copied; faults still come across
+// through the normal carry-forward. Over 72 hours there is no duplication at all.
+#[tauri::command]
+fn create_mri_report_from_last_post_job(asset_id: i64, template_id: i64) -> Result<i64, String> {
+    let (source_id, hours) = {
+        let conn = get_connection()?;
+        last_post_job_report(&conn, asset_id)
+            .ok_or("There is no previous Post-Job report on this asset to copy.".to_string())?
+    };
+    if hours > 72 {
+        return Err(format!(
+            "The last Post-Job report is {} hours old. Over 72 hours no duplication is permitted — a new Pre-Mob MR-I must be completed.",
+            hours
+        ));
+    }
+
+    let report_id = create_mri_report(NewMriReport { template_id, asset_id })?;
+
+    let conn = get_connection()?;
+    let already_filled: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM mri_report_header_values WHERE report_id = ?1",
+            [report_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if already_filled > 0 {
+        return Ok(report_id);
+    }
+
+    conn.execute(
+        "INSERT OR IGNORE INTO mri_report_header_values (report_id, template_header_field_id, value)
+         SELECT ?1, nthf.id, v.value
+         FROM mri_report_header_values v
+         JOIN template_header_fields othf ON othf.id = v.template_header_field_id
+         JOIN header_field_catalog hfc ON hfc.id = othf.header_field_id
+         JOIN template_header_fields nthf ON nthf.template_id = ?2 AND nthf.header_field_id = hfc.id
+         WHERE v.report_id = ?3
+           AND LOWER(TRIM(hfc.label)) NOT IN (
+               'compliance stage', 'job number', 'mr initization date', 'job operating hours',
+               'previous engine hours', 'current engine hours', 'engine hours (this report)',
+               'previous rif', 'current rif')",
+        rusqlite::params![report_id, template_id, source_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "INSERT OR REPLACE INTO mri_report_header_values (report_id, template_header_field_id, value)
+         SELECT ?1, thf.id, 'PREMOB'
+         FROM template_header_fields thf
+         JOIN header_field_catalog hfc ON hfc.id = thf.header_field_id
+         WHERE thf.template_id = ?2 AND LOWER(TRIM(hfc.label)) = 'compliance stage'",
+        rusqlite::params![report_id, template_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // Only the items that passed come across; the new report is still checked by hand.
+    conn.execute(
+        "INSERT OR IGNORE INTO mri_report_checklist_results
+            (report_id, template_checklist_item_id, status, severity, issue_details, action_taken, date_observed, closure_status)
+         SELECT ?1, ntci.id, 'Pass', ntci.severity, NULL, NULL, date('now', 'localtime'), 'Pending'
+         FROM mri_report_checklist_results res
+         JOIN template_checklist_items otci ON otci.id = res.template_checklist_item_id
+         JOIN template_checklist_items ntci ON ntci.template_id = ?2 AND ntci.checklist_item_id = otci.checklist_item_id
+         WHERE res.report_id = ?3 AND res.status = 'Pass'",
+        rusqlite::params![report_id, template_id, source_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(report_id)
+}
+
+#[derive(Serialize, Deserialize)]
+struct StandbyReminderRow {
+    asset_id: i64,
+    asset_code: String,
+    report_id: i64,
+    days_since: i64,
+}
+
+// Figure 2: equipment kept on stand-by after a Post-Job report needs a new Pre-Job MR-I on
+// day 8. Lists active assets whose latest report is a Post-Job one that has reached day 8
+// (7 full days old) with no draft already started.
+#[tauri::command]
+fn get_standby_prejob_reminders() -> Result<Vec<StandbyReminderRow>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare("SELECT id, asset_code FROM assets WHERE active = 1")
+        .map_err(|e| e.to_string())?;
+    let assets: Vec<(i64, String)> = stmt
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    drop(stmt);
+
+    let mut out = Vec::new();
+    for (asset_id, asset_code) in assets {
+        let Some((report_id, hours)) = last_post_job_report(&conn, asset_id) else { continue };
+        if hours < 7 * 24 {
+            continue;
+        }
+        let has_draft: bool = conn
+            .query_row(
+                "SELECT 1 FROM mri_reports WHERE asset_id = ?1 AND status = 'Draft' LIMIT 1",
+                [asset_id],
+                |_| Ok(true),
+            )
+            .unwrap_or(false);
+        if has_draft {
+            continue;
+        }
+        out.push(StandbyReminderRow { asset_id, asset_code, report_id, days_since: hours / 24 + 1 });
+    }
+    Ok(out)
+}
+
 #[tauri::command]
 fn delete_mri_report(id: i64) -> Result<String, String> {
     let conn = get_connection()?;
@@ -2640,27 +2901,104 @@ fn delete_mri_report(id: i64) -> Result<String, String> {
 #[tauri::command]
 fn submit_mri_report(id: i64, submitted_by: String) -> Result<String, String> {
     let conn = get_connection()?;
+
+    // Manual 6.1.5: a Red-tagged unit shall not be deployed without an approved MOC
+    // exemption. A Pre-Mobilization or Pre-Job inspection is the deployment gate, so those
+    // two occasions cannot be submitted for a Red unit that has no valid exemption.
+    // Post-Job and Yard inspections stay allowed so the unit can still be inspected and
+    // repaired.
+    let stage = get_compliance_stage(&conn, id)
+        .map(|s| s.trim().to_uppercase())
+        .unwrap_or_default();
+
+    // Figure 3: a Pre-Job or Post-Job report must carry the Job Number from the Job
+    // Service Report (when the template has that field). Offline it is typed in by hand
+    // and flagged for checking against the JSR later.
+    let mut job_number_present = false;
+    if stage == "PRE-JOB" || stage == "POST JOB" {
+        let has_field: bool = conn
+            .query_row(
+                "SELECT 1 FROM mri_reports r
+                 JOIN template_header_fields thf ON thf.template_id = r.template_id
+                 JOIN header_field_catalog hfc ON hfc.id = thf.header_field_id
+                 WHERE r.id = ?1 AND LOWER(TRIM(hfc.label)) = 'job number'",
+                [id],
+                |_| Ok(true),
+            )
+            .unwrap_or(false);
+        if has_field {
+            let value = get_header_field_value(&conn, id, "Job Number");
+            if value.is_none() {
+                return Err("Job Number is required for a Pre-Job or Post-Job report (take it from the Job Service Report).".to_string());
+            }
+            job_number_present = true;
+        }
+    }
+
+    if stage == "PREMOB" || stage == "PRE-JOB" {
+        let asset: Option<(i64, Option<String>)> = conn
+            .query_row(
+                "SELECT a.id, a.tag_status FROM mri_reports r JOIN assets a ON a.id = r.asset_id WHERE r.id = ?1",
+                [id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .ok();
+        if let Some((asset_id, tag)) = asset {
+            if matches!(tag.as_deref(), Some("Red") | Some("Yellow")) {
+                let valid: i64 = conn
+                    .query_row(
+                        "SELECT COUNT(*) FROM asset_moc_exemptions
+                         WHERE asset_id = ?1 AND status = 'Active'
+                           AND date('now', 'localtime') BETWEEN valid_from AND valid_until",
+                        [asset_id],
+                        |row| row.get(0),
+                    )
+                    .map_err(|e| e.to_string())?;
+                if valid == 0 {
+                    return Err("This unit is Red/Yellow-tagged (not ready) and has no valid MOC exemption, so a Pre-Mob or Pre-Job inspection cannot be submitted (Manual 6.1.5). Record the approved exemption in the Asset Registry first.".to_string());
+                }
+            }
+        }
+    }
+
     let now = chrono_now();
     conn.execute(
         "UPDATE mri_reports SET status = 'Submitted', submitted_by = ?1, submitted_date = ?2 WHERE id = ?3",
         rusqlite::params![submitted_by, now, id],
     ).map_err(|e| e.to_string())?;
+    if job_number_present {
+        conn.execute(
+            "UPDATE mri_reports SET job_number_status = 'Pending verification' WHERE id = ?1",
+            [id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
 
     // Manual Rev 02: a Critical fault Red-tags the unit (stop-use) as soon as the
     // report is submitted, not only after the review decision.
     let critical_fails: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM mri_report_checklist_results
-             WHERE report_id = ?1 AND status = 'Fail' AND severity = 'Critical'",
+             WHERE report_id = ?1 AND status = 'Fail' AND severity = 'Critical' AND repaired_on_site = 0",
             [id],
             |row| row.get(0),
         )
         .map_err(|e| e.to_string())?;
     if critical_fails > 0 {
-        conn.execute(
-            "UPDATE assets SET tag_status = 'Red' WHERE id = (SELECT asset_id FROM mri_reports WHERE id = ?1)",
-            [id],
-        ).map_err(|e| e.to_string())?;
+        let asset_id: Option<i64> = conn
+            .query_row("SELECT asset_id FROM mri_reports WHERE id = ?1", [id], |row| row.get(0))
+            .ok()
+            .flatten();
+        if let Some(asset_id) = asset_id {
+            set_asset_tag(
+                &conn,
+                asset_id,
+                "Red",
+                &format!("Critical fault reported (report #{})", id),
+                Some(id),
+                &submitted_by,
+            )?;
+        }
     }
     Ok("Report submitted".to_string())
 }
@@ -2759,6 +3097,10 @@ struct MriReportChecklistResult {
     // reported_at is a server-side timestamp, never client-supplied.
     reported_by: Option<String>,
     reported_at: Option<String>,
+    // Figure 4: repaired by the field team and function-tested on site, so closed without
+    // reviewer escalation and without a Red tag.
+    #[serde(default)]
+    repaired_on_site: bool,
 }
 
 #[tauri::command]
@@ -2767,7 +3109,7 @@ fn get_mri_report_checklist_results(
 ) -> Result<Vec<MriReportChecklistResult>, String> {
     let conn = get_connection()?;
     let mut stmt = conn.prepare(
-        "SELECT id, report_id, template_checklist_item_id, status, severity, issue_details, action_taken, date_observed, closure_status, reported_by, reported_at
+        "SELECT id, report_id, template_checklist_item_id, status, severity, issue_details, action_taken, date_observed, closure_status, reported_by, reported_at, repaired_on_site
          FROM mri_report_checklist_results WHERE report_id = ?1"
     ).map_err(|e| e.to_string())?;
     let results = stmt
@@ -2784,6 +3126,7 @@ fn get_mri_report_checklist_results(
                 closure_status: row.get(8)?,
                 reported_by: row.get(9)?,
                 reported_at: row.get(10)?,
+                repaired_on_site: row.get::<_, i32>(11)? != 0,
             })
         })
         .map_err(|e| e.to_string())?
@@ -2820,11 +3163,25 @@ fn set_mri_report_checklist_result(result: MriReportChecklistResult) -> Result<S
         ));
     }
 
+    // Figure 4: only a Fail can be "repaired on site", it needs the action taken written
+    // down, and it is closed by the field team right away.
+    let mut result = result;
+    if result.repaired_on_site {
+        if result.status.as_deref() != Some("Fail") {
+            result.repaired_on_site = false;
+        } else if result.action_taken.as_deref().map_or(true, |a| a.trim().is_empty()) {
+            return Err("Describe the repair in Action Taken before marking this fault as repaired on site (function test performed).".to_string());
+        } else {
+            result.closure_status = "Closed".to_string();
+        }
+    }
+
     conn.execute(
-        "INSERT INTO mri_report_checklist_results (report_id, template_checklist_item_id, status, severity, issue_details, action_taken, date_observed, closure_status, reported_by, reported_at)
+        "INSERT INTO mri_report_checklist_results (report_id, template_checklist_item_id, status, severity, issue_details, action_taken, date_observed, closure_status, reported_by, reported_at, repaired_on_site)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8,
             CASE WHEN ?3 = 'Fail' THEN ?9 ELSE NULL END,
-            CASE WHEN ?3 = 'Fail' THEN datetime('now', 'localtime') ELSE NULL END)
+            CASE WHEN ?3 = 'Fail' THEN datetime('now', 'localtime') ELSE NULL END,
+            ?10)
          ON CONFLICT(report_id, template_checklist_item_id) DO UPDATE SET
             status = excluded.status,
             severity = excluded.severity,
@@ -2832,14 +3189,25 @@ fn set_mri_report_checklist_result(result: MriReportChecklistResult) -> Result<S
             action_taken = excluded.action_taken,
             date_observed = excluded.date_observed,
             closure_status = excluded.closure_status,
+            repaired_on_site = excluded.repaired_on_site,
             reported_by = CASE WHEN reported_by IS NULL AND excluded.status = 'Fail' THEN excluded.reported_by ELSE reported_by END,
             reported_at = CASE WHEN reported_at IS NULL AND excluded.status = 'Fail' THEN excluded.reported_at ELSE reported_at END",
         rusqlite::params![
             result.report_id, result.template_checklist_item_id, result.status, result.severity,
             result.issue_details, result.action_taken, result.date_observed, result.closure_status,
-            result.reported_by
+            result.reported_by, result.repaired_on_site as i32
         ],
     ).map_err(|e| e.to_string())?;
+    // A fault repaired on site never goes to a reviewer, so drop any review row that was
+    // opened for it before the field team marked it repaired.
+    if result.repaired_on_site {
+        conn.execute(
+            "DELETE FROM mri_fault_approvals
+             WHERE report_id = ?1 AND template_checklist_item_id = ?2 AND decision = 'Pending'",
+            rusqlite::params![result.report_id, result.template_checklist_item_id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
     Ok("Checklist result saved".to_string())
 }
 
@@ -3143,7 +3511,7 @@ fn endorse_mri_report(
     let mut stmt = conn
         .prepare(
             "SELECT template_checklist_item_id, severity FROM mri_report_checklist_results
-             WHERE report_id = ?1 AND status = 'Fail' AND severity IN ('Moderate', 'Critical')",
+             WHERE report_id = ?1 AND status = 'Fail' AND severity IN ('Moderate', 'Critical') AND repaired_on_site = 0",
         )
         .map_err(|e| e.to_string())?;
     let items: Vec<(i64, String)> = stmt
@@ -3579,7 +3947,7 @@ fn review_and_close_mri_report(report_id: i64, closed_by: String) -> Result<Stri
 
     let escalation_count: i64 = conn
         .query_row(
-            "SELECT COUNT(*) FROM mri_report_checklist_results WHERE report_id = ?1 AND status = 'Fail' AND severity IN ('Moderate', 'Critical')",
+            "SELECT COUNT(*) FROM mri_report_checklist_results WHERE report_id = ?1 AND status = 'Fail' AND severity IN ('Moderate', 'Critical') AND repaired_on_site = 0",
             [report_id],
             |row| row.get(0),
         )
@@ -3606,9 +3974,11 @@ fn review_and_close_mri_report(report_id: i64, closed_by: String) -> Result<Stri
 
 // Explicit closure step — deliberately separate from endorse_mri_report so nothing
 // closes automatically. Valid from 'Endorsed' (Minor-only, already reviewed) directly,
-// or from 'Escalated' once every fault on the report has been resolved: reviewed
-// (decision no longer 'Pending') and, for any that stayed Critical, rectified and
-// verified (tag_status no longer 'Red').
+// or from 'Escalated' once every fault on the report has been reviewed (decision no
+// longer 'Pending') and any phoned-in decision has been confirmed. Manual Figure 1: when a
+// Major/Critical fault stays Critical "the report shall be closed and the equipment shall be
+// Red-Tagged" -- so the report does NOT wait for the repair; the unit stays Red and the
+// repair continues in the Rectification Queue until it is verified.
 #[tauri::command]
 fn close_mri_report(report_id: i64, closed_by: String) -> Result<String, String> {
     let conn = get_connection()?;
@@ -3629,16 +3999,15 @@ fn close_mri_report(report_id: i64, closed_by: String) -> Result<String, String>
         let still_open: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM mri_fault_approvals fa
-                 LEFT JOIN mri_fault_rectifications rec ON rec.fault_approval_id = fa.id
                  WHERE fa.report_id = ?1
-                   AND (fa.decision = 'Pending' OR rec.tag_status = 'Red' OR fa.provisional_status = 'Provisional')",
+                   AND (fa.decision = 'Pending' OR fa.provisional_status = 'Provisional')",
                 [report_id],
                 |row| row.get(0),
             )
             .map_err(|e| e.to_string())?;
         if still_open > 0 {
             return Err(format!(
-                "{} escalated fault(s) on this report are still unresolved or awaiting confirmation — a phoned-in decision must be confirmed by the real authority (and, if Critical, rectified and verified) before the report can be closed.",
+                "{} escalated fault(s) on this report are still awaiting a review decision or confirmation — a phoned-in decision must be confirmed by the real authority before the report can be closed.",
                 still_open
             ));
         }
@@ -3717,9 +4086,8 @@ fn get_reports_needing_supervisor_action(viewer_user_id: i64) -> Result<Vec<Repo
                 OR r.status = 'Endorsed'
                 OR (r.status = 'Escalated' AND NOT EXISTS (
                     SELECT 1 FROM mri_fault_approvals fa
-                    LEFT JOIN mri_fault_rectifications rec ON rec.fault_approval_id = fa.id
                     WHERE fa.report_id = r.id
-                      AND (fa.decision = 'Pending' OR rec.tag_status = 'Red')
+                      AND fa.decision = 'Pending'
                 ))
              ORDER BY r.submitted_date ASC",
         )
@@ -3802,18 +4170,94 @@ struct PendingFaultApprovalRow {
     issue_details: Option<String>,
     action_taken: Option<String>,
     country: Option<String>,
+    // Named reviewer for this stage (None = open to everyone holding the role).
+    assigned_to_user_id: Option<i64>,
+    assigned_to_name: Option<String>,
+    // True when the viewer may record a decision on this fault; false = read-only view.
+    can_act: bool,
+    last_reminder_by: Option<String>,
+    last_reminder_at: Option<String>,
+}
+
+// Role permissions plus per-user overrides, for use where a connection is already held.
+fn user_has_permission(conn: &rusqlite::Connection, user_id: i64, code: &str) -> bool {
+    let role: Option<String> = conn
+        .query_row("SELECT role FROM app_users WHERE id = ?1", [user_id], |row| row.get(0))
+        .ok();
+    let Some(role) = role else { return false };
+    let override_granted: Option<bool> = conn
+        .query_row(
+            "SELECT granted FROM user_permission_overrides WHERE user_id = ?1 AND permission_code = ?2",
+            rusqlite::params![user_id, code],
+            |row| Ok(row.get::<_, i32>(0)? != 0),
+        )
+        .ok();
+    if let Some(g) = override_granted {
+        return g;
+    }
+    conn.query_row(
+        "SELECT 1 FROM role_permissions WHERE role = ?1 AND permission_code = ?2",
+        rusqlite::params![role, code],
+        |_| Ok(true),
+    )
+    .unwrap_or(false)
+}
+
+// Append-only audit trail of every reviewer action on a fault (Manual 8.2: records keep
+// the user name and timestamp).
+fn log_fault_decision(
+    conn: &rusqlite::Connection,
+    fault_approval_id: i64,
+    report_id: i64,
+    action: &str,
+    from_severity: &str,
+    to_severity: Option<&str>,
+    reviewer: &str,
+    review_method: &str,
+    notes: Option<&str>,
+    recorded_by: &str,
+    is_provisional: bool,
+    next_user_id: Option<i64>,
+) -> Result<(), String> {
+    conn.execute(
+        "INSERT INTO mri_fault_decision_log
+            (fault_approval_id, report_id, action, from_severity, to_severity, reviewer, review_method, notes, recorded_by, is_provisional, next_user_id, logged_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+        rusqlite::params![
+            fault_approval_id,
+            report_id,
+            action,
+            from_severity,
+            to_severity,
+            reviewer,
+            review_method,
+            notes,
+            recorded_by,
+            if is_provisional { 1 } else { 0 },
+            next_user_id,
+            chrono_now()
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]
 fn get_pending_mri_fault_approvals(viewer_user_id: i64) -> Result<Vec<PendingFaultApprovalRow>, String> {
     let conn = get_connection()?;
     let restriction = user_country_restriction(&conn, viewer_user_id)?;
+    let has_approve = user_has_permission(&conn, viewer_user_id, "mri.approve");
+    let has_provisional = user_has_permission(&conn, viewer_user_id, "mri.record_provisional");
     let mut stmt = conn.prepare(
         "SELECT fa.id, fa.report_id, fa.template_checklist_item_id, fa.original_severity, fa.created_date,
-                a.asset_code, cd.description, r.issue_details, r.action_taken, a.country
+                a.asset_code, cd.description, r.issue_details, r.action_taken, a.country,
+                fa.assigned_to_user_id, au.name,
+                (SELECT rem.sent_by_name FROM mri_fault_reminders rem WHERE rem.fault_approval_id = fa.id ORDER BY rem.id DESC LIMIT 1),
+                (SELECT rem.sent_at FROM mri_fault_reminders rem WHERE rem.fault_approval_id = fa.id ORDER BY rem.id DESC LIMIT 1)
          FROM mri_fault_approvals fa
          JOIN mri_reports rep ON fa.report_id = rep.id
          LEFT JOIN assets a ON rep.asset_id = a.id
+         LEFT JOIN app_users au ON au.id = fa.assigned_to_user_id
          LEFT JOIN template_checklist_items tci ON fa.template_checklist_item_id = tci.id
          LEFT JOIN checklist_databank cd ON tci.checklist_item_id = cd.id
          LEFT JOIN mri_report_checklist_results r ON r.report_id = fa.report_id AND r.template_checklist_item_id = fa.template_checklist_item_id
@@ -3835,20 +4279,112 @@ fn get_pending_mri_fault_approvals(viewer_user_id: i64) -> Result<Vec<PendingFau
                     issue_details: row.get(7)?,
                     action_taken: row.get(8)?,
                     country: country.clone(),
+                    assigned_to_user_id: row.get(10)?,
+                    assigned_to_name: row.get(11)?,
+                    can_act: false,
+                    last_reminder_by: row.get(12)?,
+                    last_reminder_at: row.get(13)?,
                 },
                 country,
             ))
         })
         .map_err(|e| e.to_string())?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?
-        .into_iter()
-        .filter(|(_, country): &(PendingFaultApprovalRow, Option<String>)| match &restriction {
+        .map_err(|e| e.to_string())?;
+
+    let mut out = Vec::new();
+    for (mut row, country) in rows {
+        let allowed = match &restriction {
             None => true,
-            Some(allowed) => country.as_deref().map_or(false, |c| allowed.iter().any(|a| a == c)),
+            Some(a) => country.as_deref().map_or(false, |c| a.iter().any(|x| x == c)),
+        };
+        if !allowed {
+            continue;
+        }
+        let unassigned = row.assigned_to_user_id.is_none();
+        let mine = row.assigned_to_user_id == Some(viewer_user_id);
+        // Managers/administrators (mri.approve) and the phone-relay recorder see every
+        // fault; everyone else only sees open faults and the ones named to them.
+        if !(has_approve || has_provisional || unassigned || mine) {
+            continue;
+        }
+        row.can_act = unassigned || mine || (has_provisional && !has_approve);
+        out.push(row);
+    }
+    Ok(out)
+}
+
+// A manager or administrator nudges the named reviewer about a fault still waiting.
+#[tauri::command]
+fn send_fault_reminder(approval_id: i64, sent_by_user_id: i64) -> Result<String, String> {
+    let conn = get_connection()?;
+    if !user_has_permission(&conn, sent_by_user_id, "mri.approve") {
+        return Err("Only a manager or administrator can send a reminder".to_string());
+    }
+    let sender_name: String = conn
+        .query_row("SELECT name FROM app_users WHERE id = ?1", [sent_by_user_id], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    let pending: bool = conn
+        .query_row(
+            "SELECT 1 FROM mri_fault_approvals WHERE id = ?1 AND decision = 'Pending'",
+            [approval_id],
+            |_| Ok(true),
+        )
+        .unwrap_or(false);
+    if !pending {
+        return Err("This fault is no longer pending".to_string());
+    }
+    conn.execute(
+        "INSERT INTO mri_fault_reminders (fault_approval_id, sent_by_user_id, sent_by_name, sent_at) VALUES (?1, ?2, ?3, ?4)",
+        rusqlite::params![approval_id, sent_by_user_id, sender_name, chrono_now()],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok("Reminder sent".to_string())
+}
+
+#[derive(Serialize, Deserialize)]
+struct FaultDecisionLogRow {
+    id: i64,
+    fault_approval_id: i64,
+    action: String,
+    from_severity: String,
+    to_severity: Option<String>,
+    reviewer: String,
+    review_method: String,
+    notes: Option<String>,
+    recorded_by: String,
+    is_provisional: bool,
+    logged_at: String,
+}
+
+#[tauri::command]
+fn get_mri_fault_decision_log(report_id: i64) -> Result<Vec<FaultDecisionLogRow>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, fault_approval_id, action, from_severity, to_severity, reviewer, review_method, notes, recorded_by, is_provisional, logged_at
+             FROM mri_fault_decision_log WHERE report_id = ?1 ORDER BY id",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([report_id], |row| {
+            Ok(FaultDecisionLogRow {
+                id: row.get(0)?,
+                fault_approval_id: row.get(1)?,
+                action: row.get(2)?,
+                from_severity: row.get(3)?,
+                to_severity: row.get(4)?,
+                reviewer: row.get(5)?,
+                review_method: row.get(6)?,
+                notes: row.get(7)?,
+                recorded_by: row.get(8)?,
+                is_provisional: row.get::<_, i32>(9)? != 0,
+                logged_at: row.get(10)?,
+            })
         })
-        .map(|(row, _)| row)
-        .collect();
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
     Ok(rows)
 }
 
@@ -4074,10 +4610,11 @@ fn get_mri_fault_decisions_pending_acknowledgment(viewer_user_id: i64) -> Result
          WHERE fa.original_severity = 'Moderate'
            AND fa.decision IN ('Approved', 'Reclassified', 'Rejected')
            AND fa.acknowledged_by IS NULL
+           AND (fa.acknowledgment_assigned_to_user_id IS NULL OR fa.acknowledgment_assigned_to_user_id = ?1)
          ORDER BY fa.updated_date DESC"
     ).map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map([], |row| {
+        .query_map([viewer_user_id], |row| {
             let country: Option<String> = row.get(12)?;
             Ok((
                 PendingFaultAcknowledgmentRow {
@@ -4142,6 +4679,8 @@ fn set_mri_fault_approval_decision(
     notes: Option<String>,
     recorded_by: String,
     is_provisional: bool,
+    next_reviewer_user_id: Option<i64>,
+    acknowledgment_assigned_to_user_id: Option<i64>,
 ) -> Result<String, String> {
     let conn = get_connection()?;
     let decision = decision.trim();
@@ -4219,6 +4758,20 @@ fn set_mri_fault_approval_decision(
             ],
         )
         .map_err(|e| e.to_string())?;
+        // The Critical stage goes to the named next reviewer (or back to anyone holding the
+        // role when none is named).
+        conn.execute(
+            "UPDATE mri_fault_approvals SET assigned_to_user_id = ?1 WHERE id = ?2",
+            rusqlite::params![next_reviewer_user_id, id],
+        )
+        .map_err(|e| e.to_string())?;
+        log_fault_decision(
+            &conn, id, report_id, "Escalated", &original_severity, Some("Critical"),
+            reviewer, review_method, notes.as_deref(), &recorded_by, is_provisional, next_reviewer_user_id,
+        )?;
+        // Table 3: a Critical fault means use stops and the unit is Red-Tagged, so the unit
+        // turns Red as soon as the reviewer raises the fault to Critical.
+        refresh_asset_tag_for_report(&conn, report_id, &recorded_by)?;
         return Ok("Fault escalated to Critical review".to_string());
     }
 
@@ -4259,14 +4812,26 @@ fn set_mri_fault_approval_decision(
             )
             .map_err(|e| e.to_string())?;
 
-            conn.execute(
-                "UPDATE assets SET tag_status = 'Red'
-                 WHERE id = (SELECT asset_id FROM mri_reports WHERE id = ?1)",
-                rusqlite::params![report_id],
-            )
-            .map_err(|e| e.to_string())?;
+            let asset_id: Option<i64> = conn
+                .query_row("SELECT asset_id FROM mri_reports WHERE id = ?1", [report_id], |row| row.get(0))
+                .ok()
+                .flatten();
+            if let Some(asset_id) = asset_id {
+                set_asset_tag(
+                    &conn,
+                    asset_id,
+                    "Red",
+                    &format!("Critical fault carried forward (report #{})", report_id),
+                    Some(report_id),
+                    &recorded_by,
+                )?;
+            }
         }
 
+        log_fault_decision(
+            &conn, id, report_id, "Carryforward", &original_severity, None,
+            reviewer, review_method, notes.as_deref(), &recorded_by, is_provisional, None,
+        )?;
         return Ok("Fault carried forward to next cycle".to_string());
     }
 
@@ -4347,9 +4912,22 @@ fn set_mri_fault_approval_decision(
         .map_err(|e| e.to_string())?;
     }
 
+    // Stage 4: the Moderate decision can name who must be informed of it.
+    if original_severity == "Moderate" {
+        conn.execute(
+            "UPDATE mri_fault_approvals SET acknowledgment_assigned_to_user_id = ?1 WHERE id = ?2",
+            rusqlite::params![acknowledgment_assigned_to_user_id, id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    log_fault_decision(
+        &conn, id, report_id, decision, &original_severity, Some(final_severity.as_str()),
+        reviewer, review_method, notes.as_deref(), &recorded_by, is_provisional, acknowledgment_assigned_to_user_id,
+    )?;
+
     // Reflect the tag directly on the asset record too. The subquery naturally no-ops if
     // this report isn't linked to an asset, so no special-casing is needed.
-    refresh_asset_tag_for_report(&conn, report_id)?;
+    refresh_asset_tag_for_report(&conn, report_id, &recorded_by)?;
 
     Ok("Fault approval decision saved".to_string())
 }
@@ -4357,7 +4935,7 @@ fn set_mri_fault_approval_decision(
 // Sets the unit's tag from the whole picture, not from one fault: Red while ANY Critical
 // fault on the same asset is still open (Red rectification, or a submitted Critical Fail
 // with no terminal decision yet, incl. Carryforward); Green only when none remain.
-fn refresh_asset_tag_for_report(conn: &rusqlite::Connection, report_id: i64) -> Result<(), String> {
+fn refresh_asset_tag_for_report(conn: &rusqlite::Connection, report_id: i64, changed_by: &str) -> Result<(), String> {
     let asset_id: Option<i64> = conn
         .query_row(
             "SELECT asset_id FROM mri_reports WHERE id = ?1",
@@ -4388,7 +4966,7 @@ fn refresh_asset_tag_for_report(conn: &rusqlite::Connection, report_id: i64) -> 
              JOIN mri_reports r ON res.report_id = r.id
              WHERE r.asset_id = ?1
                AND r.status NOT IN ('Draft', 'Rejected')
-               AND res.status = 'Fail' AND res.severity = 'Critical'
+               AND res.status = 'Fail' AND res.severity = 'Critical' AND res.repaired_on_site = 0
                AND NOT EXISTS (
                    SELECT 1 FROM mri_fault_approvals fa
                    WHERE fa.report_id = res.report_id
@@ -4399,13 +4977,280 @@ fn refresh_asset_tag_for_report(conn: &rusqlite::Connection, report_id: i64) -> 
         )
         .map_err(|e| e.to_string())?;
 
-    let tag = if red_rectifications + undecided_criticals > 0 { "Red" } else { "Green" };
+    // A Moderate fault a reviewer has raised to Critical is Pending under Critical review;
+    // its result row still says Moderate, so count it from the approval row instead.
+    let pending_criticals: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM mri_fault_approvals fa
+             JOIN mri_reports r ON fa.report_id = r.id
+             WHERE r.asset_id = ?1
+               AND r.status NOT IN ('Draft', 'Rejected')
+               AND fa.original_severity = 'Critical' AND fa.decision = 'Pending'",
+            [asset_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    // Manual 8.1 Yellow: the unit is being repaired / serviced. It is Yellow only while every
+    // open Red rectification already has a technician assigned (repair underway) and no
+    // Critical fault is still waiting for a decision; otherwise it stays Red. Still not
+    // ready for service -- Green only comes from verification.
+    let underway: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM mri_fault_rectifications fr
+             JOIN mri_fault_approvals fa ON fr.fault_approval_id = fa.id
+             JOIN mri_reports r ON fa.report_id = r.id
+             WHERE r.asset_id = ?1 AND fr.tag_status = 'Red'
+               AND TRIM(COALESCE(fr.assigned_technician, '')) <> ''",
+            [asset_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    let technician: Option<String> = conn
+        .query_row(
+            "SELECT fr.assigned_technician FROM mri_fault_rectifications fr
+             JOIN mri_fault_approvals fa ON fr.fault_approval_id = fa.id
+             JOIN mri_reports r ON fa.report_id = r.id
+             WHERE r.asset_id = ?1 AND fr.tag_status = 'Red'
+               AND TRIM(COALESCE(fr.assigned_technician, '')) <> ''
+             ORDER BY fr.updated_date DESC LIMIT 1",
+            [asset_id],
+            |row| row.get(0),
+        )
+        .ok()
+        .flatten();
+
+    let (tag, reason) = if undecided_criticals + pending_criticals == 0
+        && red_rectifications > 0
+        && underway == red_rectifications
+    {
+        (
+            "Yellow",
+            format!(
+                "Repair in progress (technician: {}) -- unit not ready until verified (report #{})",
+                technician.unwrap_or_default().trim(),
+                report_id
+            ),
+        )
+    } else if red_rectifications + undecided_criticals + pending_criticals > 0 {
+        ("Red", format!("Critical fault still open on this unit (report #{})", report_id))
+    } else {
+        ("Green", format!("No open Critical faults remain (report #{})", report_id))
+    };
+    set_asset_tag(conn, asset_id, tag, &reason, Some(report_id), changed_by)
+}
+
+// The single place that changes an asset's tag. Writes the new tag and its reason on the
+// asset and, only when the tag actually changes, adds a row to asset_tag_history.
+fn set_asset_tag(
+    conn: &rusqlite::Connection,
+    asset_id: i64,
+    tag: &str,
+    reason: &str,
+    report_id: Option<i64>,
+    changed_by: &str,
+) -> Result<(), String> {
+    let previous: Option<String> = conn
+        .query_row("SELECT tag_status FROM assets WHERE id = ?1", [asset_id], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
     conn.execute(
-        "UPDATE assets SET tag_status = ?1 WHERE id = ?2",
-        rusqlite::params![tag, asset_id],
+        "UPDATE assets SET tag_status = ?1, tag_reason = ?2 WHERE id = ?3",
+        rusqlite::params![tag, reason, asset_id],
     )
     .map_err(|e| e.to_string())?;
+    // A unit that returns to Green no longer needs its Red-tag exemption.
+    if tag == "Green" {
+        conn.execute(
+            "UPDATE asset_moc_exemptions SET status = 'Closed' WHERE asset_id = ?1 AND status = 'Active'",
+            [asset_id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    if previous.as_deref() != Some(tag) {
+        conn.execute(
+            "INSERT INTO asset_tag_history (asset_id, tag_status, previous_tag_status, reason, report_id, changed_by, changed_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            rusqlite::params![asset_id, tag, previous, reason, report_id, changed_by, chrono_now()],
+        )
+        .map_err(|e| e.to_string())?;
+    }
     Ok(())
+}
+
+#[derive(Serialize, Deserialize)]
+struct MocExemptionInput {
+    asset_id: i64,
+    moc_reference: String,
+    approved_by: String,
+    limitations: String,
+    required_controls: String,
+    valid_from: String,
+    valid_until: String,
+    return_conditions: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct MocExemption {
+    id: i64,
+    asset_id: i64,
+    moc_reference: String,
+    approved_by: String,
+    limitations: String,
+    required_controls: String,
+    valid_from: String,
+    valid_until: String,
+    return_conditions: String,
+    status: String,
+    created_by: Option<String>,
+    created_at: String,
+    revoked_by: Option<String>,
+    revoked_at: Option<String>,
+    revoke_reason: Option<String>,
+    // True only while status is Active and today falls inside the validity period.
+    is_valid: bool,
+}
+
+#[tauri::command]
+fn create_moc_exemption(exemption: MocExemptionInput, created_by: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    let required = [
+        ("MOC reference", &exemption.moc_reference),
+        ("Approved by", &exemption.approved_by),
+        ("Equipment limitations", &exemption.limitations),
+        ("Required controls", &exemption.required_controls),
+        ("Conditions for return to service", &exemption.return_conditions),
+        ("Valid from", &exemption.valid_from),
+        ("Valid until", &exemption.valid_until),
+    ];
+    for (label, value) in required.iter() {
+        if value.trim().is_empty() {
+            return Err(format!("{} is required", label));
+        }
+    }
+    if exemption.valid_until.trim() < exemption.valid_from.trim() {
+        return Err("Valid until cannot be earlier than valid from".to_string());
+    }
+    let tag: Option<String> = conn
+        .query_row("SELECT tag_status FROM assets WHERE id = ?1", [exemption.asset_id], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    if !matches!(tag.as_deref(), Some("Red") | Some("Yellow")) {
+        return Err("An exemption can only be recorded for a Red- or Yellow-tagged unit".to_string());
+    }
+    conn.execute(
+        "INSERT INTO asset_moc_exemptions (asset_id, moc_reference, approved_by, limitations, required_controls, valid_from, valid_until, return_conditions, status, created_by, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'Active', ?9, ?10)",
+        rusqlite::params![
+            exemption.asset_id,
+            exemption.moc_reference.trim(),
+            exemption.approved_by.trim(),
+            exemption.limitations.trim(),
+            exemption.required_controls.trim(),
+            exemption.valid_from.trim(),
+            exemption.valid_until.trim(),
+            exemption.return_conditions.trim(),
+            created_by,
+            chrono_now()
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok("Exemption recorded".to_string())
+}
+
+#[tauri::command]
+fn revoke_moc_exemption(id: i64, revoked_by: String, reason: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    if reason.trim().is_empty() {
+        return Err("A reason is required to revoke an exemption".to_string());
+    }
+    let rows = conn
+        .execute(
+            "UPDATE asset_moc_exemptions SET status = 'Revoked', revoked_by = ?1, revoked_at = ?2, revoke_reason = ?3
+             WHERE id = ?4 AND status = 'Active'",
+            rusqlite::params![revoked_by, chrono_now(), reason.trim(), id],
+        )
+        .map_err(|e| e.to_string())?;
+    if rows == 0 {
+        return Err("Exemption not found or no longer active".to_string());
+    }
+    Ok("Exemption revoked".to_string())
+}
+
+#[tauri::command]
+fn get_moc_exemptions(asset_id: i64) -> Result<Vec<MocExemption>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, asset_id, moc_reference, approved_by, limitations, required_controls, valid_from, valid_until,
+                    return_conditions, status, created_by, created_at, revoked_by, revoked_at, revoke_reason,
+                    CASE WHEN status = 'Active' AND date('now', 'localtime') BETWEEN valid_from AND valid_until THEN 1 ELSE 0 END
+             FROM asset_moc_exemptions WHERE asset_id = ?1 ORDER BY id DESC",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([asset_id], |row| {
+            Ok(MocExemption {
+                id: row.get(0)?,
+                asset_id: row.get(1)?,
+                moc_reference: row.get(2)?,
+                approved_by: row.get(3)?,
+                limitations: row.get(4)?,
+                required_controls: row.get(5)?,
+                valid_from: row.get(6)?,
+                valid_until: row.get(7)?,
+                return_conditions: row.get(8)?,
+                status: row.get(9)?,
+                created_by: row.get(10)?,
+                created_at: row.get(11)?,
+                revoked_by: row.get(12)?,
+                revoked_at: row.get(13)?,
+                revoke_reason: row.get(14)?,
+                is_valid: row.get::<_, i32>(15)? != 0,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
+}
+
+#[derive(Serialize, Deserialize)]
+struct AssetTagHistoryEntry {
+    id: i64,
+    asset_id: i64,
+    tag_status: String,
+    previous_tag_status: Option<String>,
+    reason: Option<String>,
+    report_id: Option<i64>,
+    changed_by: Option<String>,
+    changed_at: String,
+}
+
+#[tauri::command]
+fn get_asset_tag_history(asset_id: i64) -> Result<Vec<AssetTagHistoryEntry>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, asset_id, tag_status, previous_tag_status, reason, report_id, changed_by, changed_at
+             FROM asset_tag_history WHERE asset_id = ?1 ORDER BY id DESC",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([asset_id], |row| {
+            Ok(AssetTagHistoryEntry {
+                id: row.get(0)?,
+                asset_id: row.get(1)?,
+                tag_status: row.get(2)?,
+                previous_tag_status: row.get(3)?,
+                reason: row.get(4)?,
+                report_id: row.get(5)?,
+                changed_by: row.get(6)?,
+                changed_at: row.get(7)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
 }
 
 #[tauri::command]
@@ -4550,6 +5395,8 @@ struct MriFaultRectificationUpdate {
     assigned_technician: Option<String>,
     parts_status: String,
     repair_date: Option<String>,
+    #[serde(default)]
+    updated_by: Option<String>,
 }
 
 // Updates the in-progress repair plan (technician, parts, repair date). Does not touch
@@ -4568,6 +5415,25 @@ fn update_mri_fault_rectification(update: MriFaultRectificationUpdate) -> Result
     ).map_err(|e| e.to_string())?;
     if rows_affected == 0 {
         return Err("Rectification not found or already Green-Tagged".to_string());
+    }
+    // Assigning (or removing) the technician moves the unit Red <-> Yellow (repair underway).
+    let report_id: Option<i64> = conn
+        .query_row(
+            "SELECT fa.report_id FROM mri_fault_rectifications fr
+             JOIN mri_fault_approvals fa ON fr.fault_approval_id = fa.id WHERE fr.id = ?1",
+            [update.id],
+            |row| row.get(0),
+        )
+        .ok();
+    if let Some(rid) = report_id {
+        let who = update
+            .updated_by
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .unwrap_or("System")
+            .to_string();
+        refresh_asset_tag_for_report(&conn, rid, &who)?;
     }
     Ok("Rectification updated".to_string())
 }
@@ -4626,7 +5492,7 @@ fn verify_mri_fault_rectification(id: i64, verified_by: String) -> Result<String
 
     // Flip the asset's own tag back to Green now that the repair is verified.
     // Green only if no other Critical fault on this unit is still open.
-    refresh_asset_tag_for_report(&conn, report_id)?;
+    refresh_asset_tag_for_report(&conn, report_id, verified_by)?;
 
     Ok("Rectification verified -- tag removed".to_string())
 }
@@ -6569,10 +7435,19 @@ pub fn run() {
             get_provisional_mri_fault_approvals,
             get_mri_fault_rectifications,
             get_pending_mri_fault_rectifications,
+            get_asset_tag_history,
+            create_moc_exemption,
+            revoke_moc_exemption,
+            get_moc_exemptions,
             update_mri_fault_rectification,
             verify_mri_fault_rectification,
             get_carried_forward_faults,
             get_assignable_mri_reviewers,
+            send_fault_reminder,
+            get_mri_fault_decision_log,
+            get_last_post_job_info,
+            create_mri_report_from_last_post_job,
+            get_standby_prejob_reminders,
             get_mri_fault_decisions_pending_acknowledgment,
             acknowledge_mri_fault_decision
         ])

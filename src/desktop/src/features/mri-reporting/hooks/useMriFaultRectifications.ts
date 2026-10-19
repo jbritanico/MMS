@@ -50,6 +50,7 @@ export function useUpdateMriFaultRectification(reportId: number) {
       assignedTechnician: string | null;
       partsStatus: "Awaiting" | "Ordered" | "Available";
       repairDate: string | null;
+      updatedBy?: string | null;
     }) => invoke<string>("update_mri_fault_rectification", item),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["mri-fault-rectifications", reportId] });

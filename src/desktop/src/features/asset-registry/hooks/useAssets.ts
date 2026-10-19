@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { invoke } from "../../../lib/ipc";
-import type { Asset } from "../types";
+import type { Asset, AssetTagHistoryEntry, MocExemption, MocExemptionInput } from "../types";
 
 const ASSETS_KEY = ["assets"];
 
@@ -8,6 +8,40 @@ export function useAssets() {
     return useQuery({
         queryKey: ASSETS_KEY,
         queryFn: () => invoke<Asset[]>("get_assets"),
+    });
+}
+
+export function useAssetTagHistory(assetId: number | null) {
+    return useQuery({
+        queryKey: ["asset-tag-history", assetId],
+        queryFn: () => invoke<AssetTagHistoryEntry[]>("get_asset_tag_history", { assetId }),
+        enabled: assetId != null,
+    });
+}
+
+export function useMocExemptions(assetId: number | null) {
+    return useQuery({
+        queryKey: ["moc-exemptions", assetId],
+        queryFn: () => invoke<MocExemption[]>("get_moc_exemptions", { assetId }),
+        enabled: assetId != null,
+    });
+}
+
+export function useCreateMocExemption() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (args: { exemption: MocExemptionInput; createdBy: string }) =>
+            invoke("create_moc_exemption", { exemption: args.exemption, createdBy: args.createdBy }),
+        onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["moc-exemptions", v.exemption.asset_id] }),
+    });
+}
+
+export function useRevokeMocExemption() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (args: { id: number; revokedBy: string; reason: string }) =>
+            invoke("revoke_moc_exemption", args),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ["moc-exemptions"] }),
     });
 }
 

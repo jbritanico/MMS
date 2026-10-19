@@ -41,6 +41,37 @@ export function useCreateMriReport() {
   });
 }
 
+export interface LastPostJobInfo {
+  report_id: number;
+  hours_since: number;
+  within_72h: boolean;
+}
+
+export interface StandbyReminderRow {
+  asset_id: number;
+  asset_code: string;
+  report_id: number;
+  days_since: number;
+}
+
+// Stand-by equipment whose last report was a Post-Job one and has reached day 8.
+export function useStandbyPrejobReminders() {
+  return useQuery({
+    queryKey: ["standby-prejob-reminders"],
+    queryFn: () => invoke<StandbyReminderRow[]>("get_standby_prejob_reminders"),
+  });
+}
+
+// Starts the next report as a copy of the last Post-Job report (only allowed within 72 h).
+export function useCreateMriReportFromLastPostJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { assetId: number; templateId: number }) =>
+      invoke<number>("create_mri_report_from_last_post_job", vars),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
 export function useDeleteMriReport() {
   const qc = useQueryClient();
   return useMutation({

@@ -9,6 +9,7 @@ import {
     usePendingMriFaultAcknowledgments,
     useAcknowledgeMriFaultDecision,
     useAssignableMriReviewers,
+    useSendFaultReminder,
     type PendingFaultApprovalRow,
     type ProvisionalFaultApprovalRow,
     type PendingFaultAcknowledgmentRow,
@@ -63,6 +64,20 @@ function PendingApprovals() {
         ["mri.close_defect", "mri.approve"],
         reviewingRow?.country ?? null,
     );
+    // Stage 3: who a Moderate fault escalated to Critical goes to (FSM / Maintenance Manager).
+    const { data: criticalReviewers = [] } = useAssignableMriReviewers(
+        ["mri.approve"],
+        reviewingRow?.country ?? null,
+    );
+    // Stage 4: who should be informed of a reviewed Moderate decision.
+    const { data: ackCandidates = [] } = useAssignableMriReviewers(
+        ["mri.acknowledge_critical"],
+        reviewingRow?.country ?? null,
+    );
+    const [nextReviewerId, setNextReviewerId] = useState("");
+    const [ackUserId, setAckUserId] = useState("");
+    const sendReminder = useSendFaultReminder();
+    const canRemind = permissions.includes("mri.approve");
     const [reviewMethod, setReviewMethod] = useState<(typeof REVIEW_METHODS)[number]>("In-Person");
     const [newSeverity, setNewSeverity] = useState<(typeof SEVERITIES)[number]>("Minor");
     const [notes, setNotes] = useState("");
@@ -79,8 +94,13 @@ function PendingApprovals() {
             notes: string | null;
             recordedBy: string;
             isProvisional: boolean;
+            nextReviewerUserId?: number | null;
+            acknowledgmentAssignedToUserId?: number | null;
         }) => invoke<string>("set_mri_fault_approval_decision", item),
-        onSuccess: () => qc.invalidateQueries({ queryKey: ["pending-mri-fault-approvals"] }),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["pending-mri-fault-approvals"] });
+            qc.invalidateQueries({ queryKey: ["pending-mri-fault-acknowledgments"] });
+        },
     });
 
     // Confirms a phoned-in decision (from either queue below) — this only completes the
@@ -124,7 +144,19 @@ function PendingApprovals() {
         setReviewMethod("Phone");
         setNewSeverity(row.original_severity === "Critical" ? "Moderate" : "Minor");
         setNotes("");
+        setNextReviewerId("");
+        setAckUserId("");
         setReviewerName(relay ? "" : (user?.name ?? ""));
+    }
+
+    async function remind(row: PendingFaultApprovalRow) {
+        if (!user) return;
+        try {
+            await sendReminder.mutateAsync({ approvalId: row.id, sentByUserId: user.id });
+            flash(`Reminder sent to ${row.assigned_to_name ?? "the reviewer"}`, "ok");
+        } catch (err) {
+            flash(String(err), "err");
+        }
     }
 
     // A phoned-in decision (Phone method) is always Provisional — it takes effect
@@ -143,6 +175,12 @@ function PendingApprovals() {
             flash("Notes are required to record a decision.", "err");
             return;
         }
+        const escalating =
+            decision === "Reclassified" && row.original_severity === "Moderate" && newSeverity === "Critical";
+        if (escalating && !nextReviewerId) {
+            flash("Select the Maintenance Manager / FSM this Critical fault goes to.", "err");
+            return;
+        }
         try {
             await decide.mutateAsync({
                 id: row.id,
@@ -153,6 +191,9 @@ function PendingApprovals() {
                 notes: notes.trim(),
                 recordedBy: user.name,
                 isProvisional: relay,
+                nextReviewerUserId: escalating ? Number(nextReviewerId) : null,
+                acknowledgmentAssignedToUserId:
+                    row.original_severity === "Moderate" && !escalating && ackUserId ? Number(ackUserId) : null,
             });
             flash(`${decision} — ${row.checklist_description ?? "item"} on ${row.asset_code ?? "asset"}`, "ok");
             setReviewingId(null);
@@ -179,7 +220,7 @@ function PendingApprovals() {
                 {rows.map((row) => {
                         const direct = hasDirectAuthority(row, permissions);
                         const relayOnly = !direct && canRelay(permissions);
-                        const allowed = direct || relayOnly;
+                        const allowed = (direct || relayOnly) && row.can_act;
                         return (
                             <div key={row.id} className="review-card">
                                 <div className="review-card-top">
@@ -210,10 +251,27 @@ function PendingApprovals() {
                                     </div>
                                 )}
 
+                                <div style={{ fontSize: 12, color: "var(--text-soft)", marginTop: 6 }}>
+                                    <strong>Assigned to:</strong> {row.assigned_to_name ?? "Anyone with review authority"}
+                                </div>
+                                {row.last_reminder_at && (
+                                    <div style={{ fontSize: 11.5, fontWeight: 600, color: "#d97706", marginTop: 6 }}>
+                                        Reminder from {row.last_reminder_by ?? "a manager"} · {row.last_reminder_at}
+                                    </div>
+                                )}
+
                                 {!allowed && (
                                     <p style={{ fontSize: 11.5, color: "var(--text-soft)", marginTop: 10 }}>
-                                        You don't have the required permission to review this item.
+                                        {row.can_act
+                                            ? "You don't have the required permission to review this item."
+                                            : `Read-only — waiting on ${row.assigned_to_name ?? "the assigned reviewer"}.`}
                                     </p>
+                                )}
+
+                                {!row.can_act && canRemind && row.assigned_to_user_id !== null && (
+                                    <div className="actions" style={{ marginTop: 8 }}>
+                                        <button className="ghost" onClick={() => remind(row)}>Send Reminder</button>
+                                    </div>
                                 )}
 
                                 {allowed && (
@@ -311,6 +369,40 @@ function PendingApprovals() {
                                     </select>
                                 </div>
                             </div>
+                            {row.original_severity === "Moderate" && newSeverity === "Critical" && (
+                                <div className="field">
+                                    <label>Send Critical fault to (Maintenance Manager / FSM) — required when reclassifying to Major / Critical</label>
+                                    <select
+                                        className="neu-select"
+                                        value={nextReviewerId}
+                                        onChange={(e) => setNextReviewerId(e.target.value)}
+                                    >
+                                        <option value="">Select who reviews it next…</option>
+                                        {criticalReviewers.map((u) => (
+                                            <option key={u.id} value={u.id}>
+                                                {u.name} ({u.role})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+                            {row.original_severity === "Moderate" && newSeverity !== "Critical" && ackCandidates.length > 0 && (
+                                <div className="field">
+                                    <label>Inform (optional) — Maintenance Manager / FSM to acknowledge this decision</label>
+                                    <select
+                                        className="neu-select"
+                                        value={ackUserId}
+                                        onChange={(e) => setAckUserId(e.target.value)}
+                                    >
+                                        <option value="">Anyone who can acknowledge</option>
+                                        {ackCandidates.map((u) => (
+                                            <option key={u.id} value={u.id}>
+                                                {u.name} ({u.role})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
                             {relayOnly && (
                                 <div className="field">
                                     <label>Escalate To (Maintenance Supervisor / FSM)</label>

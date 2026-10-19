@@ -112,6 +112,7 @@ function ReportWizard({
   const hasEscalatableFault = checklistResultsForReview.some(
     (r) =>
       r.status === "Fail" &&
+      !r.repaired_on_site &&
       (r.severity === "Moderate" || r.severity === "Critical"),
   );
   // While the report is Submitted and awaiting review, the Supervisor may unlock and
@@ -1716,6 +1717,50 @@ function ChecklistEntryStep({
     return true; // Minor / no severity — no approval required
   }
 
+  // Figure 4: when the field team can repair a Moderate/Critical fault themselves, they
+  // repair it, verify it with a function test and close it on site, with no reviewer
+  // escalation and no Red tag. Shown only on Fails of that severity.
+  function renderRepairedOnSite(
+    ti: (typeof templateItems)[number],
+    result: Partial<MriReportChecklistResult>,
+    isFail: boolean,
+  ) {
+    if (!isFail) return null;
+    if (result.severity !== "Moderate" && result.severity !== "Critical") return null;
+    if (locked) {
+      return result.repaired_on_site ? (
+        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)" }}>
+          Repaired on site — function test performed
+        </span>
+      ) : null;
+    }
+    return (
+      <label
+        style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, marginTop: 4, cursor: "pointer" }}
+        title="The field team repaired this fault and verified it with a function test, so it is closed here without review and the unit stays Green."
+      >
+        <input
+          type="checkbox"
+          checked={!!result.repaired_on_site}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            if (checked && !(result.action_taken ?? "").trim()) {
+              flash("Describe the repair in Action Taken first", "err");
+              return;
+            }
+            const patch = {
+              repaired_on_site: checked,
+              closure_status: checked ? ("Closed" as const) : ("Pending" as const),
+            };
+            updateLocal(ti, patch);
+            autoSave(ti, patch);
+          }}
+        />
+        Repaired on site — function test performed (no review needed)
+      </label>
+    );
+  }
+
   function attachmentsFor(templateChecklistItemId: number) {
     return attachments.filter(
       (a) => a.template_checklist_item_id === templateChecklistItemId,
@@ -1805,6 +1850,7 @@ function ChecklistEntryStep({
       action_taken: "",
       date_observed: todayIso(),
       closure_status: "Pending",
+      repaired_on_site: false,
       ...saved,
       ...edited,
     };
@@ -1838,6 +1884,7 @@ function ChecklistEntryStep({
         action_taken: current.action_taken || null,
         date_observed: current.date_observed || todayIso(),
         closure_status: current.closure_status ?? "Pending",
+        repaired_on_site: current.repaired_on_site ?? false,
         // The backend only actually stamps this on a Fail save where reported_by
         // isn't already set -- see set_mri_report_checklist_result in lib.rs -- so
         // it's safe to send the current user on every save, Pass included.
@@ -2119,6 +2166,7 @@ function ChecklistEntryStep({
           canCloseDirectly={canCloseDirectly}
           isCarriedForward={isCarriedForward}
           flash={flash}
+          renderRepairedOnSite={renderRepairedOnSite}
         />
       )}
 
@@ -2269,6 +2317,7 @@ function ChecklistEntryStep({
                           placeholder={isFail ? "Required" : "—"}
                         />
                       )}
+                      {renderRepairedOnSite(ti, result, isFail)}
                     </div>
 
                     <input
@@ -2297,7 +2346,7 @@ function ChecklistEntryStep({
                       >
                         {CLOSURE_STATUSES.map((s) => (
                           <option key={s} value={s}>
-                            {s === "Critical" ? "Major / Critical" : s}
+                            {s}
                           </option>
                         ))}
                       </select>
@@ -2338,7 +2387,7 @@ function ChecklistEntryStep({
                       >
                         {CLOSURE_STATUSES.map((s) => (
                           <option key={s} value={s}>
-                            {s === "Critical" ? "Major / Critical" : s}
+                            {s}
                           </option>
                         ))}
                       </select>
@@ -2707,6 +2756,26 @@ function ReviewStep({
     }
   });
 
+  // Figure 3: a Pre-Job or Post-Job report must carry the Job Number from the JSR.
+  const stageForJob = (
+    headerRows.find((r) => r.label.trim().toLowerCase() === "compliance stage")
+      ?.value ?? ""
+  )
+    .trim()
+    .toUpperCase();
+  const jobNumberRow = headerRows.find(
+    (r) => r.label.trim().toLowerCase() === "job number",
+  );
+  if (
+    jobNumberRow &&
+    (stageForJob === "PRE-JOB" || stageForJob === "POST JOB") &&
+    !jobNumberRow.value.trim()
+  ) {
+    issues.push(
+      'Header — "Job Number" is required for a Pre-Job or Post-Job report (from the Job Service Report)',
+    );
+  }
+
   useEffect(() => {
     onValidate(issues);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2826,6 +2895,15 @@ function ReviewStep({
           labelColor: "#1f7a45",
           subColor: "#4d6b5b",
         }
+      : asset?.tag_status === "Yellow"
+        ? {
+            label: "Yellow tagged",
+            sub: asset?.tag_reason || "Repair in progress",
+            bg: "#fdf3dc",
+            border: "#f0d79a",
+            labelColor: "#92600a",
+            subColor: "#7a6a45",
+          }
       : asset?.tag_status === "Red"
         ? {
             label: "Red tagged",
@@ -4420,6 +4498,11 @@ interface DrawingChecklistViewProps {
   canCloseDirectly: (severity: string | null | undefined) => boolean;
   isCarriedForward: (checklistItemId: number) => boolean;
   flash: (msg: string, kind: "ok" | "err") => void;
+  renderRepairedOnSite: (
+    ti: any,
+    result: Partial<MriReportChecklistResult>,
+    isFail: boolean,
+  ) => React.ReactNode;
 }
 
 function DrawingChecklistView({
@@ -4444,6 +4527,7 @@ function DrawingChecklistView({
   canCloseDirectly,
   isCarriedForward,
   flash,
+  renderRepairedOnSite,
 }: DrawingChecklistViewProps) {
   const { data: sections = [] } = useChecklistSections();
   const [zoom, setZoom] = useState(1);
@@ -4918,6 +5002,7 @@ function DrawingChecklistView({
                         placeholder={isFail ? "Required" : "—"}
                       />
                     )}
+                    {renderRepairedOnSite(ti, result, isFail)}
                   </div>
 
                   <div
