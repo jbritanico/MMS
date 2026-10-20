@@ -3589,15 +3589,28 @@ fn set_mri_report_checklist_result(result: MriReportChecklistResult) -> Result<S
     // Audit trail for faults closed on site (who, when, what was done), so a Critical fault
     // closed without review is always traceable.
     if result.repaired_on_site {
-        conn.execute(
-            "INSERT INTO mri_onsite_repair_log (report_id, template_checklist_item_id, severity, action_taken, repaired_by, repaired_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, datetime('now', 'localtime'))",
-            rusqlite::params![
-                result.report_id, result.template_checklist_item_id, result.severity,
-                result.action_taken, result.reported_by
-            ],
-        )
-        .map_err(|e| e.to_string())?;
+        // One row per fault: re-saving the same repair updates it instead of adding another.
+        let updated = conn
+            .execute(
+                "UPDATE mri_onsite_repair_log SET severity = ?3, action_taken = ?4
+                 WHERE report_id = ?1 AND template_checklist_item_id = ?2",
+                rusqlite::params![
+                    result.report_id, result.template_checklist_item_id, result.severity,
+                    result.action_taken
+                ],
+            )
+            .map_err(|e| e.to_string())?;
+        if updated == 0 {
+            conn.execute(
+                "INSERT INTO mri_onsite_repair_log (report_id, template_checklist_item_id, severity, action_taken, repaired_by, repaired_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, datetime('now', 'localtime'))",
+                rusqlite::params![
+                    result.report_id, result.template_checklist_item_id, result.severity,
+                    result.action_taken, result.reported_by
+                ],
+            )
+            .map_err(|e| e.to_string())?;
+        }
     }
     // A fault repaired on site never goes to a reviewer, so drop any review row that was
     // opened for it before the field team marked it repaired.
@@ -4427,23 +4440,10 @@ fn close_mri_report(report_id: i64, closed_by: String) -> Result<String, String>
         ));
     }
 
-    // Table 3: the FSM / Maintenance Manager must be informed of every Moderate decision
-    // before the report closes.
-    let not_informed: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM mri_fault_approvals
-             WHERE report_id = ?1 AND original_severity = 'Moderate'
-               AND decision IN ('Approved', 'Reclassified', 'Rejected') AND acknowledged_by IS NULL",
-            [report_id],
-            |row| row.get(0),
-        )
-        .map_err(|e| e.to_string())?;
-    if not_informed > 0 {
-        return Err(format!(
-            "{} Moderate fault decision(s) have not been acknowledged by the FSM / Maintenance Manager yet.",
-            not_informed
-        ));
-    }
+    // Table 3: the FSM / Maintenance Manager "shall be informed" of every Moderate
+    // decision. The notice is raised when the decision is saved (it appears in the named
+    // person's acknowledgment queue); closing the report does not wait for it, so an
+    // unavailable manager can never hold a report open.
 
     let now = chrono_now();
     conn.execute(
@@ -5153,6 +5153,17 @@ fn set_mri_fault_approval_decision(
 
     // Figure 4 carries forward Minor/Moderate faults only; a Critical fault is never
     // deferred, and Table 3 only lets the FSM lower it to Moderate (not straight to Minor).
+    // Raising a Moderate fault to Critical hands it to Critical review authority.
+    if decision == "Reclassified"
+        && original_severity == "Moderate"
+        && new_severity.as_deref() == Some("Critical")
+    {
+        if let Some(next) = next_reviewer_user_id {
+            if !user_has_permission(&conn, next, "mri.approve") {
+                return Err("A fault raised to Critical must be passed to the FSM / Maintenance Manager.".to_string());
+            }
+        }
+    }
     if decision == "Carryforward" && original_severity == "Critical" {
         return Err("A Critical fault cannot be carried forward; approve it (stays Red until repaired) or lower it to Moderate.".to_string());
     }
