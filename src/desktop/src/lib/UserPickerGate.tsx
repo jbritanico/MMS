@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useCurrentUser } from "./currentUser";
+import { useCreateAppUser } from "../features/administration/hooks/useUserAdmin";
 import fieldOpsImage from "../assets/FieldMaintenance.png";
 import fieldOpsImageDark from "../assets/FieldDark.png";
 import type { Theme } from "./theme";
@@ -38,11 +39,11 @@ const TIER_REFERENCE: TierReference[] = [
   {
     name: "Job Supervisor",
     tier: "Tier 2",
-    description: "On-site lead and first point of contact for review.",
+    description: "Manual 4.5: ensures MR-I inspections are done and escalates equipment conditions.",
     responsibilities: [
-      "Reviews inspections and gives initial evaluation",
-      "Approves reports with no fault or Minor findings",
-      "Escalates Moderate/Critical issues to the right authority",
+      "Ensures MR-I inspections are completed pre-mobilization, pre-job and post-job",
+      "Reviews and closes reports with no fault or Minor-only findings",
+      "Verifies equipment readiness and escalates Moderate/Critical conditions to the named reviewer",
     ],
     accent: "#2f6fed",
   },
@@ -107,6 +108,51 @@ export function roleBadge(role: string): { label: string; color: string } {
   if (r.includes("tier 3") || r.includes("manager") || r.includes("fsm")) return { label: role, color: "#0d9488" };
   if (r.includes("view") || r.includes("data miner")) return { label: role, color: "#4b5563" };
   return { label: role, color: "#6b7280" };
+}
+
+// Shown only while the user table is completely empty (fresh database). Creates the first
+// Administrator so the rest of the users can be added under Administration. Offline stage:
+// no identity check here; it disappears the moment one user exists.
+function FirstRunSetup() {
+  const createUser = useCreateAppUser();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  async function create() {
+    setError(null);
+    if (!name.trim() || !email.trim()) {
+      setError("Enter a name and an email.");
+      return;
+    }
+    try {
+      await createUser.mutateAsync({ name: name.trim(), email: email.trim(), role: "Administrator" });
+    } catch (err) {
+      setError(String(err));
+    }
+  }
+
+  return (
+    <div style={{ maxWidth: 360, margin: "0 auto 16px", textAlign: "left" }}>
+      <p style={{ fontSize: 13, color: "var(--text-soft)", textAlign: "center", marginBottom: 12 }}>
+        No users exist yet. Create the first Administrator; you can add everyone else under Administration.
+      </p>
+      <div className="field">
+        <label>Name</label>
+        <input type="text" className="trigger-input" value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+      <div className="field">
+        <label>Email</label>
+        <input type="email" className="trigger-input" value={email} onChange={(e) => setEmail(e.target.value)} />
+      </div>
+      {error && <div className="toast err" style={{ marginBottom: 10 }}>{error}</div>}
+      <div className="actions">
+        <button className="primary" onClick={create} disabled={createUser.isPending} style={{ width: "100%" }}>
+          Create Administrator
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function useLiveClock() {
@@ -363,9 +409,11 @@ function UserPickerGate({
         {/* User profile picker OR Microsoft 365 mockup */}
         {authMode === "sso" ? (
           <Microsoft365Mockup />
+        ) : users.length === 0 ? (
+          <FirstRunSetup />
         ) : activeUsers.length === 0 ? (
           <p style={{ textAlign: "center", color: "var(--text-soft)", fontSize: 13 }}>
-            No active users found. Add a user under Administration first.
+            No active users found. Ask an Administrator to reactivate a user.
           </p>
         ) : (
           <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 14, marginBottom: 16 }}>

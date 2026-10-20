@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useCurrentUser } from "../../lib/currentUser";
 import {
   useAppUsers,
   useCreateAppUser,
@@ -8,6 +9,8 @@ import {
   COUNTRY_SCOPED_ROLES,
   type AppUser,
 } from "./hooks/useUserAdmin";
+import { useEffectivePermissions } from "./hooks/useUserAdmin";
+import { useExportFullBackup, useImportFullBackup, useClearAllUsers } from "./hooks/useFullBackup";
 import UserPermissions from "./UserPermissions";
 import UserCountryAccess from "./UserCountryAccess";
 
@@ -16,6 +19,17 @@ function Users() {
   const createUser = useCreateAppUser();
   const updateUser = useUpdateAppUser();
   const deleteUser = useDeleteAppUser();
+  const { user: currentUser } = useCurrentUser();
+  const { data: myPermissions = [] } = useEffectivePermissions(currentUser?.id ?? 0);
+  const canExportAll = myPermissions.includes("backups.export");
+  const canImportAll = myPermissions.includes("backups.import");
+  const exportFull = useExportFullBackup();
+  const importFull = useImportFullBackup();
+  const fullImportRef = useRef<HTMLInputElement>(null);
+  const clearUsers = useClearAllUsers();
+  const canManageUsers = myPermissions.includes("admin.users.manage");
+  const [clearOpen, setClearOpen] = useState(false);
+  const [clearConfirmText, setClearConfirmText] = useState("");
 
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
@@ -199,6 +213,108 @@ function Users() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {(canExportAll || canImportAll) && (
+        <div className="panel" style={{ maxWidth: 640, marginTop: 28, padding: 16 }}>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>Full data backup</div>
+          <p style={{ fontSize: 12.5, color: "var(--text-soft)", margin: "0 0 10px" }}>
+            Exports every table (users, roles, assets, templates, reports, faults, exemptions and the rest) to one file with
+            all ids kept. Import merges a file into the current database: rows in the file replace rows with the same id.
+            The file holds everything unencrypted, so store it safely.
+          </p>
+          <input
+            ref={fullImportRef}
+            type="file"
+            accept=".json"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const reader = new FileReader();
+              reader.onload = async (evt) => {
+                try {
+                  const result = await importFull.mutateAsync(evt.target?.result as string);
+                  flash(result, "ok");
+                } catch (err) {
+                  flash(String(err), "err");
+                }
+              };
+              reader.readAsText(file);
+              if (fullImportRef.current) fullImportRef.current.value = "";
+            }}
+          />
+          <div className="actions">
+            {canExportAll && (
+              <button
+                className="primary"
+                onClick={async () => {
+                  try {
+                    await exportFull();
+                    flash("Full backup downloaded.", "ok");
+                  } catch (err) {
+                    flash(String(err), "err");
+                  }
+                }}
+              >
+                ⤓ Export full backup
+              </button>
+            )}
+            {canImportAll && (
+              <button className="ghost" onClick={() => fullImportRef.current?.click()} disabled={importFull.isPending}>
+                ⤒ Import full backup
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {canManageUsers && (
+        <div className="panel" style={{ maxWidth: 640, marginTop: 16, padding: 16 }}>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>Clear all users</div>
+          <p style={{ fontSize: 12.5, color: "var(--text-soft)", margin: "0 0 10px" }}>
+            Deletes every user with their permission overrides and country access. Assets, templates, reports and role
+            defaults are kept. You will be signed out and asked to create the first Administrator again. Export a full
+            backup first if you want to restore the users later.
+          </p>
+          {!clearOpen ? (
+            <div className="actions">
+              <button className="danger" onClick={() => { setClearOpen(true); setClearConfirmText(""); }}>
+                Clear all users…
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div className="field">
+                <label>Type CLEAR to confirm</label>
+                <input
+                  type="text"
+                  className="trigger-input"
+                  value={clearConfirmText}
+                  onChange={(e) => setClearConfirmText(e.target.value)}
+                  style={{ maxWidth: 200 }}
+                />
+              </div>
+              <div className="actions">
+                <button
+                  className="danger"
+                  disabled={clearConfirmText !== "CLEAR" || clearUsers.isPending}
+                  onClick={async () => {
+                    try {
+                      await clearUsers.mutateAsync();
+                    } catch (err) {
+                      flash(String(err), "err");
+                    }
+                    setClearOpen(false);
+                  }}
+                >
+                  Clear all users
+                </button>
+                <button className="ghost" onClick={() => setClearOpen(false)}>Cancel</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

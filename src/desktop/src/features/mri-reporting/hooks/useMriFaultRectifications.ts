@@ -17,6 +17,10 @@ export interface MriFaultRectification {
   tag_status: "Red" | "Green" | "Planned";
   created_date: string;
   updated_date: string;
+  // Figure 4: limitations communicated to the field team while the fault is open.
+  limitations_note: string | null;
+  limitations_informed_by: string | null;
+  limitations_informed_date: string | null;
 }
 
 const PENDING_RECTIFICATIONS_KEY = ["pending-mri-fault-rectifications"];
@@ -64,8 +68,20 @@ export function useUpdateMriFaultRectification(reportId: number) {
 export function useVerifyMriFaultRectification(reportId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (item: { id: number; verifiedBy: string }) =>
+    mutationFn: (item: { id: number; verifiedBy: string; functionTestPassed: boolean }) =>
       invoke<string>("verify_mri_fault_rectification", item),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["mri-fault-rectifications", reportId] });
+      qc.invalidateQueries({ queryKey: PENDING_RECTIFICATIONS_KEY });
+    },
+  });
+}
+// Figure 4: record the equipment limitations communicated to the field team.
+export function useRecordEquipmentLimitations(reportId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (item: { id: number; note: string; informedBy: string }) =>
+      invoke<string>("record_equipment_limitations", item),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["mri-fault-rectifications", reportId] });
       qc.invalidateQueries({ queryKey: PENDING_RECTIFICATIONS_KEY });

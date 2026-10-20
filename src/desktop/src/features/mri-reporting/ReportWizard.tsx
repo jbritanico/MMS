@@ -121,6 +121,11 @@ function ReportWizard({
       !r.repaired_on_site &&
       (r.severity === "Moderate" || r.severity === "Critical"),
   );
+  // Table 3 / Figure 1: a Major/Critical fault is reviewed by the FSM / Maintenance Manager
+  // only, so with a Critical on the report the picker lists approvers, not supervisors.
+  const hasCriticalFault = checklistResultsForReview.some(
+    (r) => r.status === "Fail" && !r.repaired_on_site && r.severity === "Critical",
+  );
   // While the report is Submitted and awaiting review, the Supervisor may unlock and
   // close pending Minor checklist items before using Close & Approve Report -- but only
   // on the no-issue/Minor path (a report with escalatable faults must go through Endorse
@@ -132,7 +137,7 @@ function ReportWizard({
   // so the roster hook call stays unconditional regardless of load state.
   const assetForEscalation = assets.find((a) => a.id === report?.asset_id);
   const { data: assignableReviewers = [] } = useAssignableMriReviewers(
-    ["mri.close_defect", "mri.approve"],
+    hasCriticalFault ? ["mri.approve"] : ["mri.close_defect", "mri.approve"],
     assetForEscalation?.country ?? null,
   );
 
@@ -384,8 +389,9 @@ function ReportWizard({
           <div className="modal" style={{ width: "min(420px, 92vw)", textAlign: "left" }}>
             <h3>Escalate to</h3>
             <p>
-              Pick the Maintenance Supervisor or FSM this report's Moderate/Critical
-              fault(s) will be escalated to for review.
+              {hasCriticalFault
+                ? "This report has a Critical fault, so it can only be escalated to the FSM / Maintenance Manager."
+                : "Pick the Maintenance Supervisor or FSM this report's Moderate fault(s) will be escalated to for review."}
             </p>
             <div className="field">
               <label>Maintenance Supervisor / FSM</label>
@@ -2772,23 +2778,47 @@ function ReviewStep({
     }
   });
 
-  // Figure 3: a Pre-Job or Post-Job report must carry the Job Number from the JSR.
-  const stageForJob = (
-    headerRows.find((r) => r.label.trim().toLowerCase() === "compliance stage")
-      ?.value ?? ""
-  )
-    .trim()
-    .toUpperCase();
+  // Compliance Stage drives the Red-tag/MOC gate and the Job Number rule, so it is
+  // always required when the template carries it.
+  const stageRow = headerRows.find(
+    (r) => r.label.trim().toLowerCase() === "compliance stage",
+  );
+  if (stageRow && !stageRow.value.trim() && !stageRow.required) {
+    issues.push('Header — "Compliance Stage" is required');
+  }
+
+  // Figure 3 (Clarification 1): Pre-Mob / Pre-Job carry the Pre-Mobilization Checklist ID
+  // from the Job Service Report; Post-Job carries the job code. Templates without a
+  // Checklist ID field keep the Job Number rule on Pre-Job.
+  const stageForJob = (stageRow?.value ?? "").trim().toUpperCase();
   const jobNumberRow = headerRows.find(
     (r) => r.label.trim().toLowerCase() === "job number",
   );
-  if (
+  const checklistIdRow = headerRows.find(
+    (r) => r.label.trim().toLowerCase() === "pre-mobilization checklist id",
+  );
+  if (stageForJob === "PREMOB" || stageForJob === "PRE-JOB") {
+    if (checklistIdRow) {
+      if (!checklistIdRow.value.trim())
+        issues.push(
+          'Header — "Pre-Mobilization Checklist ID" is required for a Pre-Mob or Pre-Job report (from the Job Service Report)',
+        );
+    } else if (
+      stageForJob === "PRE-JOB" &&
+      jobNumberRow &&
+      !jobNumberRow.value.trim()
+    ) {
+      issues.push(
+        'Header — "Job Number" is required for a Pre-Job report (from the Job Service Report)',
+      );
+    }
+  } else if (
+    stageForJob === "POST JOB" &&
     jobNumberRow &&
-    (stageForJob === "PRE-JOB" || stageForJob === "POST JOB") &&
     !jobNumberRow.value.trim()
   ) {
     issues.push(
-      'Header — "Job Number" is required for a Pre-Job or Post-Job report (from the Job Service Report)',
+      'Header — "Job Number" is required for a Post-Job report (from the Job Service Report)',
     );
   }
 

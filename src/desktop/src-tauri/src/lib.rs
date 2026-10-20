@@ -205,6 +205,30 @@ fn open_and_migrate_connection() -> Result<Connection, String> {
     // Figure 3: the Job Number is typed in offline and checked against the Job Service
     // Report once the app is online.
     let _ = conn.execute("ALTER TABLE mri_reports ADD COLUMN job_number_status TEXT", []);
+    let _ = conn.execute("ALTER TABLE mri_reports ADD COLUMN job_number_checked_at TEXT", []);
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS mri_onsite_repair_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            report_id INTEGER NOT NULL,
+            template_checklist_item_id INTEGER NOT NULL,
+            severity TEXT,
+            action_taken TEXT,
+            repaired_by TEXT,
+            repaired_at TEXT NOT NULL
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+    // Open job numbers / checklist IDs downloaded from the Job Service Report the last time
+    // the device was online; hand-typed numbers offline are compared against this list.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS open_job_numbers (
+            job_number TEXT PRIMARY KEY,
+            downloaded_at TEXT NOT NULL
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
 
     // Reminders a manager sends to the reviewer a fault is waiting on.
     conn.execute(
@@ -920,6 +944,12 @@ fn open_and_migrate_connection() -> Result<Connection, String> {
         [],
     )
     .map_err(|e| e.to_string())?;
+    // Figure 4: a repair is verified only after a function test; kept on the rectification.
+    let _ = conn.execute("ALTER TABLE mri_fault_rectifications ADD COLUMN function_test_passed INTEGER", []);
+    // Figure 4: the field team is told about equipment limitations while a fault is open.
+    let _ = conn.execute("ALTER TABLE mri_fault_rectifications ADD COLUMN limitations_note TEXT", []);
+    let _ = conn.execute("ALTER TABLE mri_fault_rectifications ADD COLUMN limitations_informed_by TEXT", []);
+    let _ = conn.execute("ALTER TABLE mri_fault_rectifications ADD COLUMN limitations_informed_date TEXT", []);
 
     // One-time (but safe to run every startup) cleanup: earlier versions of
     // purge_mri_reports deleted reports without also clearing their Fault Review data,
@@ -1115,11 +1145,42 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
 
     if existing_role_perm_count > 0 {
+        // One-time (flagged) alignment with the clarified tiers: the Administrator is an IT
+        // role without review/approval authority, and the FSM can run the rectification step.
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS app_migrations (name TEXT PRIMARY KEY)",
+            [],
+        )
+        .map_err(|e| e.to_string())?;
+        let already: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM app_migrations WHERE name = 'mri1_audit_permissions'",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        if already == 0 {
+            conn.execute(
+                "DELETE FROM role_permissions WHERE role = 'Administrator' AND permission_code IN
+                 ('mri.edit_after_submit','mri.close_defect','mri.approve','mri.acknowledge_critical','mri.rectify',
+                  'mri.confirm_provisional','mri.record_provisional','mri.endorse_report','mri.enter_cost')",
+                [],
+            )
+            .map_err(|e| e.to_string())?;
+            conn.execute(
+                "INSERT OR IGNORE INTO role_permissions (role, permission_code) VALUES ('Maintenance Manager / FSM', 'mri.rectify')",
+                [],
+            )
+            .map_err(|e| e.to_string())?;
+            conn.execute("INSERT OR IGNORE INTO app_migrations (name) VALUES ('mri1_audit_permissions')", [])
+                .map_err(|e| e.to_string())?;
+        }
         if cost_perm_was_missing {
             // Existing install picking up this release: (1) the Operations Coordinator role
             // (Table 3 / Figure 1 review authority, alongside Maintenance Supervisor) starts
             // with the same permissions as Maintenance Supervisor; (2) the cost permission
-            // goes to the supervising roles; (3) Job Supervisor gets edit-after-submit, which
+            // goes to the operations/maintenance supervising roles (not Job Supervisor, whose
+            // Manual 4.5 duties do not include costing); (3) Job Supervisor gets edit-after-submit, which
             // it already had in practice through the endorse right before that permission
             // was wired to the report lock.
             conn.execute(
@@ -1130,11 +1191,9 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
             )
             .map_err(|e| e.to_string())?;
             for role in [
-                "Job Supervisor",
                 "Operations Coordinator",
                 "Maintenance Supervisor",
                 "Maintenance Manager / FSM",
-                "Administrator",
             ] {
                 conn.execute(
                     "INSERT OR IGNORE INTO role_permissions (role, permission_code) VALUES (?1, 'mri.enter_cost')",
@@ -1173,7 +1232,6 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
                 "mri.edit_after_submit",
                 "mri.record_provisional",
                 "mri.endorse_report",
-                "mri.enter_cost",
                 "mri_templates.view",
                 "data_browser.view",
             ],
@@ -1221,6 +1279,7 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
                 "mri.close_defect",
                 "mri.approve",
                 "mri.acknowledge_critical",
+                "mri.rectify",
                 "mri.confirm_provisional",
                 "mri.endorse_report",
                 "mri.enter_cost",
@@ -1238,15 +1297,6 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
                 "assets.delete",
                 "triggers.edit",
                 "mri.submit",
-                "mri.edit_after_submit",
-                "mri.close_defect",
-                "mri.approve",
-                "mri.acknowledge_critical",
-                "mri.rectify",
-                "mri.confirm_provisional",
-                "mri.record_provisional",
-                "mri.endorse_report",
-                "mri.enter_cost",
                 "mri_templates.view",
                 "mri_templates.edit",
                 "mri_templates.delete",
@@ -1302,6 +1352,7 @@ fn seed_field_catalogs(conn: &Connection) -> Result<(), String> {
         "MR Initization Date",
         "Compliance Stage",
         "Job Number",
+        "Pre-Mobilization Checklist ID",
         "OEM Serial",
         "Max OD",
         "Top Connection",
@@ -3071,6 +3122,19 @@ fn delete_mri_report(id: i64) -> Result<String, String> {
     Ok("Report deleted".to_string())
 }
 
+// True when the report's template includes the given header field (case-insensitive label).
+fn template_has_header_field(conn: &rusqlite::Connection, report_id: i64, label: &str) -> bool {
+    conn.query_row(
+        "SELECT 1 FROM mri_reports r
+         JOIN template_header_fields thf ON thf.template_id = r.template_id
+         JOIN header_field_catalog hfc ON hfc.id = thf.header_field_id
+         WHERE r.id = ?1 AND LOWER(TRIM(hfc.label)) = LOWER(TRIM(?2))",
+        rusqlite::params![report_id, label],
+        |_| Ok(true),
+    )
+    .unwrap_or(false)
+}
+
 #[tauri::command]
 fn submit_mri_report(id: i64, submitted_by: String) -> Result<String, String> {
     let conn = get_connection()?;
@@ -3084,28 +3148,65 @@ fn submit_mri_report(id: i64, submitted_by: String) -> Result<String, String> {
         .map(|s| s.trim().to_uppercase())
         .unwrap_or_default();
 
-    // Figure 3: a Pre-Job or Post-Job report must carry the Job Number from the Job
-    // Service Report (when the template has that field). Offline it is typed in by hand
-    // and flagged for checking against the JSR later.
+    // Compliance Stage drives the Red-tag/MOC gate and the Job Number rule below, so a
+    // report whose template has that field cannot be submitted with it left empty.
+    if template_has_header_field(&conn, id, "Compliance Stage") && stage.is_empty() {
+        return Err("Compliance Stage is required (Pre-Mob, Pre-Job, Post Job or Yard Inspection) before a report can be submitted.".to_string());
+    }
+
+    // Figure 3 (Clarification 1): Pre-Mob / Pre-Job carry the Pre-Mobilization Checklist ID
+    // from the Job Service Report (the job code does not exist before the job starts);
+    // Post-Job carries the job code. Offline both are typed by hand and flagged for
+    // checking against the JSR later. Templates without a Checklist ID field keep the
+    // earlier rule (Job Number on Pre-Job).
     let mut job_number_present = false;
-    if stage == "PRE-JOB" || stage == "POST JOB" {
-        let has_field: bool = conn
-            .query_row(
-                "SELECT 1 FROM mri_reports r
-                 JOIN template_header_fields thf ON thf.template_id = r.template_id
-                 JOIN header_field_catalog hfc ON hfc.id = thf.header_field_id
-                 WHERE r.id = ?1 AND LOWER(TRIM(hfc.label)) = 'job number'",
-                [id],
-                |_| Ok(true),
-            )
-            .unwrap_or(false);
-        if has_field {
-            let value = get_header_field_value(&conn, id, "Job Number");
+    if stage == "PREMOB" || stage == "PRE-JOB" {
+        if template_has_header_field(&conn, id, "Pre-Mobilization Checklist ID") {
+            let value = get_header_field_value(&conn, id, "Pre-Mobilization Checklist ID");
             if value.is_none() {
-                return Err("Job Number is required for a Pre-Job or Post-Job report (take it from the Job Service Report).".to_string());
+                return Err("Pre-Mobilization Checklist ID is required for a Pre-Mob or Pre-Job report (take it from the Job Service Report).".to_string());
+            }
+            job_number_present = true;
+        } else if stage == "PRE-JOB" && template_has_header_field(&conn, id, "Job Number") {
+            if get_header_field_value(&conn, id, "Job Number").is_none() {
+                return Err("Job Number is required for a Pre-Job report (take it from the Job Service Report).".to_string());
             }
             job_number_present = true;
         }
+    } else if stage == "POST JOB" && template_has_header_field(&conn, id, "Job Number") {
+        if get_header_field_value(&conn, id, "Job Number").is_none() {
+            return Err("Job Number is required for a Post-Job report (take it from the Job Service Report).".to_string());
+        }
+        job_number_present = true;
+    }
+
+    // Backend mirror of the wizard's checks: every Fail needs issue details and a severity.
+    let bad_fail: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM mri_report_checklist_results
+             WHERE report_id = ?1 AND status = 'Fail'
+               AND (COALESCE(TRIM(issue_details), '') = '' OR COALESCE(TRIM(severity), '') = '')",
+            [id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if bad_fail > 0 {
+        return Err(format!("{} failed checklist item(s) are missing issue details or a severity.", bad_fail));
+    }
+    let unassessed: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM template_checklist_items tci
+             JOIN mri_reports r ON r.template_id = tci.template_id
+             WHERE r.id = ?1 AND tci.required = 1
+               AND NOT EXISTS (SELECT 1 FROM mri_report_checklist_results cr
+                               WHERE cr.report_id = r.id AND cr.template_checklist_item_id = tci.id
+                                 AND COALESCE(cr.status, '') <> '')",
+            [id],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+    if unassessed > 0 {
+        return Err(format!("{} required checklist item(s) have not been assessed yet.", unassessed));
     }
 
     if stage == "PREMOB" || stage == "PRE-JOB" {
@@ -3140,9 +3241,32 @@ fn submit_mri_report(id: i64, submitted_by: String) -> Result<String, String> {
         rusqlite::params![submitted_by, now, id],
     ).map_err(|e| e.to_string())?;
     if job_number_present {
+        let label = if stage == "POST JOB" || !template_has_header_field(&conn, id, "Pre-Mobilization Checklist ID") {
+            "Job Number"
+        } else {
+            "Pre-Mobilization Checklist ID"
+        };
+        let typed = get_header_field_value(&conn, id, label).unwrap_or_default();
+        let cache_size: i64 = conn
+            .query_row("SELECT COUNT(*) FROM open_job_numbers", [], |r| r.get(0))
+            .unwrap_or(0);
+        let known: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM open_job_numbers WHERE UPPER(job_number) = UPPER(?1)",
+                [typed.trim()],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
+        // A number that is not on the downloaded list of open jobs is flagged for the
+        // supervisor straight away; a listed one still awaits the online check.
+        let status = if cache_size > 0 && known == 0 {
+            "Not on open-job list - supervisor to check"
+        } else {
+            "Pending verification"
+        };
         conn.execute(
-            "UPDATE mri_reports SET job_number_status = 'Pending verification' WHERE id = ?1",
-            [id],
+            "UPDATE mri_reports SET job_number_status = ?1 WHERE id = ?2",
+            rusqlite::params![status, id],
         )
         .map_err(|e| e.to_string())?;
     }
@@ -3176,12 +3300,100 @@ fn submit_mri_report(id: i64, submitted_by: String) -> Result<String, String> {
     Ok("Report submitted".to_string())
 }
 
+// Replaces the cached list of open job numbers / checklist IDs (call after each online
+// download of the Job Service Report).
+#[tauri::command]
+fn set_open_job_numbers(job_numbers: Vec<String>) -> Result<String, String> {
+    let conn = get_connection()?;
+    let now = chrono_now();
+    conn.execute("DELETE FROM open_job_numbers", []).map_err(|e| e.to_string())?;
+    let mut n = 0;
+    for j in job_numbers.iter().map(|j| j.trim()).filter(|j| !j.is_empty()) {
+        conn.execute(
+            "INSERT OR REPLACE INTO open_job_numbers (job_number, downloaded_at) VALUES (?1, ?2)",
+            rusqlite::params![j, now],
+        )
+        .map_err(|e| e.to_string())?;
+        n += 1;
+    }
+    Ok(format!("{} open job numbers cached", n))
+}
+
+#[derive(Serialize, Deserialize)]
+struct JobNumberCheck {
+    cached: i64,
+    known: bool,
+}
+
+// Used by the wizard to warn the user while typing: is this number on the cached list?
+#[tauri::command]
+fn check_job_number(job_number: String) -> Result<JobNumberCheck, String> {
+    let conn = get_connection()?;
+    let cached: i64 = conn
+        .query_row("SELECT COUNT(*) FROM open_job_numbers", [], |r| r.get(0))
+        .map_err(|e| e.to_string())?;
+    let known: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM open_job_numbers WHERE UPPER(job_number) = UPPER(?1)",
+            [job_number.trim()],
+            |r| r.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    Ok(JobNumberCheck { cached, known: known > 0 })
+}
+
+// Records the result of the online check against the Job Service Report. A mismatch stays
+// visible to the supervisor through get_job_number_flags.
+#[tauri::command]
+fn set_job_number_verification(report_id: i64, verified: bool) -> Result<String, String> {
+    let conn = get_connection()?;
+    let status = if verified { "Verified" } else { "Mismatch - supervisor to review" };
+    conn.execute(
+        "UPDATE mri_reports SET job_number_status = ?1, job_number_checked_at = ?2 WHERE id = ?3",
+        rusqlite::params![status, chrono_now(), report_id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(status.to_string())
+}
+
+#[derive(Serialize, Deserialize)]
+struct JobNumberFlag {
+    report_id: i64,
+    asset_id: Option<i64>,
+    job_number_status: String,
+}
+
+#[tauri::command]
+fn get_job_number_flags() -> Result<Vec<JobNumberFlag>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, asset_id, job_number_status FROM mri_reports
+             WHERE job_number_status LIKE 'Mismatch%' OR job_number_status LIKE 'Not on open-job list%'
+             ORDER BY id DESC",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(JobNumberFlag { report_id: row.get(0)?, asset_id: row.get(1)?, job_number_status: row.get(2)? })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
+}
+
 #[tauri::command]
 fn set_mri_report_status(id: i64, status: String) -> Result<String, String> {
     let conn = get_connection()?;
     let status = status.trim();
     if !valid_report_status(status) {
         return Err(format!("Invalid status '{}'", status));
+    }
+    // Submit, endorse, escalate and close each have their own checked command; this generic
+    // setter must not be a way around them.
+    if status != "Draft" {
+        return Err("Use the Submit, Endorse and Close actions to move a report forward; a status cannot be set directly.".to_string());
     }
     let now = chrono_now();
     if status == "Approved" || status == "Rejected" {
@@ -3374,6 +3586,19 @@ fn set_mri_report_checklist_result(result: MriReportChecklistResult) -> Result<S
             result.reported_by, result.repaired_on_site as i32
         ],
     ).map_err(|e| e.to_string())?;
+    // Audit trail for faults closed on site (who, when, what was done), so a Critical fault
+    // closed without review is always traceable.
+    if result.repaired_on_site {
+        conn.execute(
+            "INSERT INTO mri_onsite_repair_log (report_id, template_checklist_item_id, severity, action_taken, repaired_by, repaired_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, datetime('now', 'localtime'))",
+            rusqlite::params![
+                result.report_id, result.template_checklist_item_id, result.severity,
+                result.action_taken, result.reported_by
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+    }
     // A fault repaired on site never goes to a reviewer, so drop any review row that was
     // opened for it before the field team marked it repaired.
     if result.repaired_on_site {
@@ -3704,6 +3929,14 @@ fn endorse_mri_report(
             "This report has no Moderate/Critical faults to escalate -- use Close & Approve Report instead."
                 .to_string(),
         );
+    }
+    // Table 3 / Figure 1: a Major/Critical fault goes to the FSM / Maintenance Manager,
+    // so a report with a Critical fault can only be escalated to someone holding approval
+    // authority (never a supervisor who only holds the Moderate review).
+    if items.iter().any(|(_, sev)| sev == "Critical")
+        && !user_has_permission(&conn, assigned_to_user_id, "mri.approve")
+    {
+        return Err("This report has a Critical fault: it must be escalated to the FSM / Maintenance Manager.".to_string());
     }
     for (template_checklist_item_id, severity) in &items {
         let existing_decision: Option<String> = conn
@@ -4191,6 +4424,24 @@ fn close_mri_report(report_id: i64, closed_by: String) -> Result<String, String>
         return Err(format!(
             "Report must be Endorsed, or Escalated with everything resolved, before it can be closed (current status: {})",
             status
+        ));
+    }
+
+    // Table 3: the FSM / Maintenance Manager must be informed of every Moderate decision
+    // before the report closes.
+    let not_informed: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM mri_fault_approvals
+             WHERE report_id = ?1 AND original_severity = 'Moderate'
+               AND decision IN ('Approved', 'Reclassified', 'Rejected') AND acknowledged_by IS NULL",
+            [report_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if not_informed > 0 {
+        return Err(format!(
+            "{} Moderate fault decision(s) have not been acknowledged by the FSM / Maintenance Manager yet.",
+            not_informed
         ));
     }
 
@@ -4726,6 +4977,10 @@ fn get_assignable_mri_reviewers(
 
     let mut result = Vec::new();
     for (id, name, role) in users {
+        // The Administrator is an IT role, not a review authority (Table 4): never listed.
+        if role == "Administrator" {
+            continue;
+        }
         let mut has_perm = false;
         for code in &permission_codes {
             let has_role_perm: bool = conn
@@ -4895,6 +5150,15 @@ fn set_mri_fault_approval_decision(
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )
         .map_err(|e| e.to_string())?;
+
+    // Figure 4 carries forward Minor/Moderate faults only; a Critical fault is never
+    // deferred, and Table 3 only lets the FSM lower it to Moderate (not straight to Minor).
+    if decision == "Carryforward" && original_severity == "Critical" {
+        return Err("A Critical fault cannot be carried forward; approve it (stays Red until repaired) or lower it to Moderate.".to_string());
+    }
+    if decision == "Reclassified" && original_severity == "Critical" && new_severity.as_deref() == Some("Minor") {
+        return Err("A Critical fault can only be lowered to Moderate, not straight to Minor (Table 3).".to_string());
+    }
 
     let now = chrono_now();
     let provisional_status: Option<&str> = if is_provisional {
@@ -5489,13 +5753,17 @@ struct MriFaultRectification {
     tag_status: String,
     created_date: String,
     updated_date: String,
+    limitations_note: Option<String>,
+    limitations_informed_by: Option<String>,
+    limitations_informed_date: Option<String>,
 }
 
 const MRI_FAULT_RECTIFICATION_SELECT: &str =
     "SELECT fr.id, fr.fault_approval_id, fa.report_id, fa.template_checklist_item_id,
                 a.asset_code, cd.description,
                 fr.assigned_technician, fr.parts_status, fr.repair_date,
-                fr.verified_by, fr.verified_date, fr.tag_status, fr.created_date, fr.updated_date
+                fr.verified_by, fr.verified_date, fr.tag_status, fr.created_date, fr.updated_date,
+                fr.limitations_note, fr.limitations_informed_by, fr.limitations_informed_date
          FROM mri_fault_rectifications fr
          JOIN mri_fault_approvals fa ON fr.fault_approval_id = fa.id
          JOIN mri_reports rep ON fa.report_id = rep.id
@@ -5519,6 +5787,9 @@ fn map_mri_fault_rectification_row(row: &rusqlite::Row) -> rusqlite::Result<MriF
         tag_status: row.get(11)?,
         created_date: row.get(12)?,
         updated_date: row.get(13)?,
+        limitations_note: row.get(14)?,
+        limitations_informed_by: row.get(15)?,
+        limitations_informed_date: row.get(16)?,
     })
 }
 
@@ -5550,7 +5821,8 @@ fn get_pending_mri_fault_rectifications(viewer_user_id: i64) -> Result<Vec<MriFa
     let sql = "SELECT fr.id, fr.fault_approval_id, fa.report_id, fa.template_checklist_item_id,
                 a.asset_code, cd.description,
                 fr.assigned_technician, fr.parts_status, fr.repair_date,
-                fr.verified_by, fr.verified_date, fr.tag_status, fr.created_date, fr.updated_date, a.country
+                fr.verified_by, fr.verified_date, fr.tag_status, fr.created_date, fr.updated_date,
+                fr.limitations_note, fr.limitations_informed_by, fr.limitations_informed_date, a.country
          FROM mri_fault_rectifications fr
          JOIN mri_fault_approvals fa ON fr.fault_approval_id = fa.id
          JOIN mri_reports rep ON fa.report_id = rep.id
@@ -5561,7 +5833,7 @@ fn get_pending_mri_fault_rectifications(viewer_user_id: i64) -> Result<Vec<MriFa
     let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map([], |row| {
-            let country: Option<String> = row.get(14)?;
+            let country: Option<String> = row.get(17)?;
             Ok((map_mri_fault_rectification_row(row)?, country))
         })
         .map_err(|e| e.to_string())?
@@ -5630,15 +5902,64 @@ fn update_mri_fault_rectification(update: MriFaultRectificationUpdate) -> Result
     Ok("Rectification updated".to_string())
 }
 
+// Figure 4: while a fault is open the field team is informed of the equipment's
+// limitations (what the unit must not be used for). Recorded on the rectification with who
+// informed them and when.
+#[tauri::command]
+fn record_equipment_limitations(id: i64, note: String, informed_by: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    if note.trim().is_empty() {
+        return Err("Describe the equipment limitations communicated to the field team.".to_string());
+    }
+    if informed_by.trim().is_empty() {
+        return Err("Informed-by name is required".to_string());
+    }
+    let n = conn
+        .execute(
+            "UPDATE mri_fault_rectifications SET limitations_note = ?1, limitations_informed_by = ?2, limitations_informed_date = ?3
+             WHERE id = ?4 AND tag_status IN ('Red', 'Planned')",
+            rusqlite::params![note.trim(), informed_by.trim(), chrono_now(), id],
+        )
+        .map_err(|e| e.to_string())?;
+    if n == 0 {
+        return Err("Rectification not found or already verified".to_string());
+    }
+    Ok("Limitations recorded".to_string())
+}
+
 // Terminal step of the repair loop: records who verified the repair, flips tag_status
 // Red -> Green, and reflects that on the report's "Green Tagged" footer checkbox
 // (mirrors the same best-effort footer logic in set_mri_fault_approval_decision).
 #[tauri::command]
-fn verify_mri_fault_rectification(id: i64, verified_by: String) -> Result<String, String> {
+fn verify_mri_fault_rectification(
+    id: i64,
+    verified_by: String,
+    function_test_passed: bool,
+) -> Result<String, String> {
     let conn = get_connection()?;
     let verified_by = verified_by.trim();
     if verified_by.is_empty() {
         return Err("Verified-by name is required".to_string());
+    }
+    // Figure 4: a repair is only verified after the technician did the work, the repair
+    // date is on record and the unit passed a function test.
+    if !function_test_passed {
+        return Err("Confirm that the function test was performed and passed before verifying the repair.".to_string());
+    }
+    let (tech, repair_date, current_tag): (Option<String>, Option<String>, String) = conn
+        .query_row(
+            "SELECT assigned_technician, repair_date, tag_status FROM mri_fault_rectifications WHERE id = ?1",
+            [id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .map_err(|_| "Rectification not found or already verified".to_string())?;
+    if current_tag == "Red" {
+        if tech.as_deref().map_or(true, |t| t.trim().is_empty()) {
+            return Err("Assign the technician who did the repair before verifying it.".to_string());
+        }
+        if repair_date.as_deref().map_or(true, |d| d.trim().is_empty()) {
+            return Err("Record the repair date before verifying the repair.".to_string());
+        }
     }
 
     let found: Option<(i64, String)> = conn
@@ -5660,7 +5981,7 @@ fn verify_mri_fault_rectification(id: i64, verified_by: String) -> Result<String
 
     let now = chrono_now();
     conn.execute(
-        "UPDATE mri_fault_rectifications SET verified_by = ?1, verified_date = ?2, tag_status = 'Green', updated_date = ?2 WHERE id = ?3",
+        "UPDATE mri_fault_rectifications SET verified_by = ?1, verified_date = ?2, tag_status = 'Green', function_test_passed = 1, updated_date = ?2 WHERE id = ?3",
         rusqlite::params![verified_by, now, id],
     )
     .map_err(|e| e.to_string())?;
@@ -6402,6 +6723,211 @@ fn import_mri_templates_backup(backup_json: String) -> Result<String, String> {
     Ok(result)
 }
 
+// ---------------------------------------------------------------------------
+// Full data backup: every table in the database (users, roles and permissions, asset types,
+// lookups, catalogs, checklist databank, assets, templates, reports, faults, exemptions,
+// tag history and so on) exported as one JSON file with the ORIGINAL row ids, so every
+// relationship survives the round trip. Import is a merge: each backup row is written with
+// INSERT OR REPLACE, so a row in the backup wins over a row with the same id/unique key
+// already in the database. Columns are matched by name, so a backup from an older build
+// still imports into a newer one. Files contain everything in the clear: keep them safe.
+// ---------------------------------------------------------------------------
+fn backup_value_to_json(v: rusqlite::types::Value) -> serde_json::Value {
+    use rusqlite::types::Value as V;
+    match v {
+        V::Null => serde_json::Value::Null,
+        V::Integer(i) => serde_json::json!(i),
+        V::Real(f) => serde_json::Number::from_f64(f)
+            .map(serde_json::Value::Number)
+            .unwrap_or(serde_json::Value::Null),
+        V::Text(s) => serde_json::Value::String(s),
+        V::Blob(b) => {
+            let hex: String = b.iter().map(|x| format!("{:02x}", x)).collect();
+            serde_json::json!({ "$blob": hex })
+        }
+    }
+}
+
+fn backup_json_to_value(v: &serde_json::Value) -> rusqlite::types::Value {
+    use rusqlite::types::Value as V;
+    match v {
+        serde_json::Value::Null => V::Null,
+        serde_json::Value::Bool(b) => V::Integer(*b as i64),
+        serde_json::Value::Number(n) => match n.as_i64() {
+            Some(i) => V::Integer(i),
+            None => V::Real(n.as_f64().unwrap_or(0.0)),
+        },
+        serde_json::Value::String(s) => V::Text(s.clone()),
+        serde_json::Value::Object(o) => match o.get("$blob").and_then(|h| h.as_str()) {
+            Some(hex) => {
+                let bytes: Vec<u8> = (0..hex.len() / 2)
+                    .filter_map(|i| u8::from_str_radix(&hex[i * 2..i * 2 + 2], 16).ok())
+                    .collect();
+                V::Blob(bytes)
+            }
+            None => V::Text(v.to_string()),
+        },
+        serde_json::Value::Array(_) => V::Text(v.to_string()),
+    }
+}
+
+fn backup_local_tables(conn: &Connection) -> Result<Vec<String>, String> {
+    let mut stmt = conn
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+        .map_err(|e| e.to_string())?;
+    let names = stmt
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(names)
+}
+
+#[tauri::command]
+fn export_full_backup() -> Result<String, String> {
+    let conn = get_connection()?;
+    let mut tables = serde_json::Map::new();
+    let mut total_rows: usize = 0;
+    for table in backup_local_tables(&conn)? {
+        let mut stmt = conn
+            .prepare(&format!("SELECT * FROM \"{}\"", table))
+            .map_err(|e| e.to_string())?;
+        let columns: Vec<String> = stmt.column_names().iter().map(|c| c.to_string()).collect();
+        let col_count = columns.len();
+        let rows: Vec<serde_json::Value> = stmt
+            .query_map([], |row| {
+                let mut out = Vec::with_capacity(col_count);
+                for i in 0..col_count {
+                    out.push(backup_value_to_json(row.get::<_, rusqlite::types::Value>(i)?));
+                }
+                Ok(serde_json::Value::Array(out))
+            })
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        total_rows += rows.len();
+        tables.insert(
+            table,
+            serde_json::json!({ "columns": columns, "rows": rows }),
+        );
+    }
+    let backup = serde_json::json!({
+        "backup_type": "full_data",
+        "version": 1,
+        "exported_at": chrono_now(),
+        "row_count": total_rows,
+        "tables": tables,
+    });
+    serde_json::to_string(&backup).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn import_full_backup(backup_json: String) -> Result<String, String> {
+    let backup: serde_json::Value =
+        serde_json::from_str(&backup_json).map_err(|e| format!("Not a valid backup file: {}", e))?;
+    if backup["backup_type"].as_str() != Some("full_data") {
+        return Err("This is not a full data backup file (backup_type must be full_data)".to_string());
+    }
+    let tables = backup["tables"]
+        .as_object()
+        .ok_or("Missing 'tables' in backup file")?;
+
+    let conn = get_connection()?;
+    let local_tables = backup_local_tables(&conn)?;
+
+    // Rows are written with their original ids in arbitrary table order, so foreign key
+    // enforcement is switched off for the import and restored afterwards.
+    let fk_was_on: i64 = conn
+        .query_row("PRAGMA foreign_keys", [], |row| row.get(0))
+        .unwrap_or(0);
+    conn.execute_batch("PRAGMA foreign_keys = OFF;")
+        .map_err(|e| e.to_string())?;
+
+    let result = (|| -> Result<(usize, usize, Vec<String>), String> {
+        let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+        let mut rows_written = 0usize;
+        let mut tables_done = 0usize;
+        let mut notes: Vec<String> = Vec::new();
+        for (table, data) in tables {
+            if !local_tables.contains(table) {
+                notes.push(format!("table '{}' not in this build, skipped", table));
+                continue;
+            }
+            let backup_cols: Vec<String> = data["columns"]
+                .as_array()
+                .ok_or(format!("Table '{}' has no columns list", table))?
+                .iter()
+                .filter_map(|c| c.as_str().map(|s| s.to_string()))
+                .collect();
+            let rows = data["rows"]
+                .as_array()
+                .ok_or(format!("Table '{}' has no rows list", table))?;
+
+            let mut local_cols: Vec<String> = Vec::new();
+            {
+                let mut info = tx
+                    .prepare(&format!("PRAGMA table_info(\"{}\")", table))
+                    .map_err(|e| e.to_string())?;
+                let iter = info
+                    .query_map([], |row| row.get::<_, String>(1))
+                    .map_err(|e| e.to_string())?;
+                for c in iter {
+                    local_cols.push(c.map_err(|e| e.to_string())?);
+                }
+            }
+            // (index in backup row, column name) for columns that exist on both sides
+            let usable: Vec<(usize, &String)> = backup_cols
+                .iter()
+                .enumerate()
+                .filter(|(_, c)| local_cols.contains(c))
+                .collect();
+            if usable.is_empty() || rows.is_empty() {
+                continue;
+            }
+            let col_list = usable
+                .iter()
+                .map(|(_, c)| format!("\"{}\"", c))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let placeholders = (1..=usable.len())
+                .map(|i| format!("?{}", i))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let sql = format!(
+                "INSERT OR REPLACE INTO \"{}\" ({}) VALUES ({})",
+                table, col_list, placeholders
+            );
+            let mut stmt = tx.prepare(&sql).map_err(|e| e.to_string())?;
+            for row in rows {
+                let arr = row
+                    .as_array()
+                    .ok_or(format!("Bad row in table '{}'", table))?;
+                let params: Vec<rusqlite::types::Value> = usable
+                    .iter()
+                    .map(|(i, _)| backup_json_to_value(arr.get(*i).unwrap_or(&serde_json::Value::Null)))
+                    .collect();
+                stmt.execute(rusqlite::params_from_iter(params.iter()))
+                    .map_err(|e| format!("Table '{}': {}", table, e))?;
+                rows_written += 1;
+            }
+            tables_done += 1;
+        }
+        tx.commit().map_err(|e| e.to_string())?;
+        Ok((tables_done, rows_written, notes))
+    })();
+
+    if fk_was_on != 0 {
+        let _ = conn.execute_batch("PRAGMA foreign_keys = ON;");
+    }
+
+    let (tables_done, rows_written, notes) = result?;
+    let mut msg = format!("{} rows restored across {} tables", rows_written, tables_done);
+    if !notes.is_empty() {
+        msg.push_str(&format!(". Notes: {}", notes.join("; ")));
+    }
+    Ok(msg)
+}
+
 #[tauri::command]
 fn export_assets_backup() -> Result<String, String> {
     let conn = get_connection()?;
@@ -7104,6 +7630,31 @@ fn get_app_users() -> Result<Vec<AppUser>, String> {
     Ok(users)
 }
 
+// Empties the user table only: users, their permission overrides and their country scoping.
+// Role defaults, assets, templates, reports and faults are left alone (names stored on
+// reports stay as text; fault assignees that pointed at a deleted user simply become unset
+// in the UI). The app then shows the create-first-Administrator screen.
+#[tauri::command]
+fn clear_all_users() -> Result<String, String> {
+    let conn = get_connection()?;
+    let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+    let overrides = tx
+        .execute("DELETE FROM user_permission_overrides", [])
+        .map_err(|e| e.to_string())?;
+    let countries = tx
+        .execute("DELETE FROM user_country_access", [])
+        .map_err(|e| e.to_string())?;
+    let users = tx
+        .execute("DELETE FROM app_users", [])
+        .map_err(|e| e.to_string())?;
+    let _ = tx.execute("DELETE FROM sqlite_sequence WHERE name = 'app_users'", []);
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(format!(
+        "{} users cleared ({} permission overrides, {} country rows)",
+        users, overrides, countries
+    ))
+}
+
 #[derive(Serialize, Deserialize)]
 struct NewAppUser {
     name: String,
@@ -7597,6 +8148,8 @@ pub fn run() {
             get_previous_compliance_stage,
             delete_last_mri_report,
             export_assets_backup,
+            export_full_backup,
+            import_full_backup,
             import_assets_backup,
             export_mri_templates_backup,
             import_mri_templates_backup,
@@ -7617,6 +8170,7 @@ pub fn run() {
             create_app_user,
             update_app_user,
             delete_app_user,
+            clear_all_users,
             get_permissions,
             get_role_permissions,
             set_role_permission,
@@ -7653,6 +8207,11 @@ pub fn run() {
             get_last_post_job_info,
             create_mri_report_from_last_post_job,
             get_standby_prejob_reminders,
+            record_equipment_limitations,
+            set_open_job_numbers,
+            check_job_number,
+            set_job_number_verification,
+            get_job_number_flags,
             get_mri_fault_decisions_pending_acknowledgment,
             acknowledge_mri_fault_decision
         ])

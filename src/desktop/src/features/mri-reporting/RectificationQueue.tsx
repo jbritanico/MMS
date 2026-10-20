@@ -5,6 +5,7 @@ import {
     usePendingMriFaultRectifications,
     useUpdateMriFaultRectification,
     useVerifyMriFaultRectification,
+    useRecordEquipmentLimitations,
     type MriFaultRectification,
 } from "./hooks/useMriFaultRectifications";
 
@@ -26,6 +27,10 @@ function RectificationQueue() {
 
     const update = useUpdateMriFaultRectification(0);
     const verify = useVerifyMriFaultRectification(0);
+    const recordLimits = useRecordEquipmentLimitations(0);
+    const [functionTestOk, setFunctionTestOk] = useState(false);
+    const [limitsId, setLimitsId] = useState<number | null>(null);
+    const [limitsNote, setLimitsNote] = useState("");
 
     function flash(msg: string, kind: "ok" | "err") {
         setStatus({ msg, kind });
@@ -43,6 +48,25 @@ function RectificationQueue() {
     function startVerify(row: MriFaultRectification) {
         setVerifyingId(row.id);
         setEditingId(null);
+        setFunctionTestOk(false);
+    }
+
+    function startLimits(row: MriFaultRectification) {
+        setLimitsId(row.id);
+        setLimitsNote(row.limitations_note ?? "");
+        setEditingId(null);
+        setVerifyingId(null);
+    }
+
+    async function saveLimits(row: MriFaultRectification) {
+        if (!user) return;
+        try {
+            await recordLimits.mutateAsync({ id: row.id, note: limitsNote, informedBy: user.name });
+            flash(`Equipment limitations recorded for ${row.asset_code ?? "asset"}`, "ok");
+            setLimitsId(null);
+        } catch (err) {
+            flash(String(err), "err");
+        }
     }
 
     async function savePlan(row: MriFaultRectification) {
@@ -64,7 +88,7 @@ function RectificationQueue() {
     async function confirmVerify(row: MriFaultRectification) {
         if (!user) return;
         try {
-            await verify.mutateAsync({ id: row.id, verifiedBy: user.name });
+            await verify.mutateAsync({ id: row.id, verifiedBy: user.name, functionTestPassed: functionTestOk });
             flash(`${row.tag_status === "Planned" ? "Verified — follow-up closed for" : "Verified — tag removed for"} ${row.checklist_description ?? "item"} on ${row.asset_code ?? "asset"}`, "ok");
             setVerifyingId(null);
         } catch (err) {
@@ -173,6 +197,38 @@ function RectificationQueue() {
                                     </div>
                                 )}
 
+                                <div style={{ marginTop: 10, fontSize: 12.5 }}>
+                                    {row.limitations_note ? (
+                                        <p>
+                                            <strong>Equipment limitations told to field team:</strong> {row.limitations_note}
+                                            <span style={{ color: "var(--text-soft)" }}> — {row.limitations_informed_by}, {row.limitations_informed_date}</span>
+                                        </p>
+                                    ) : (
+                                        <p style={{ color: "var(--danger)" }}>Field team not yet informed of the equipment's limitations.</p>
+                                    )}
+                                    {canRectify && limitsId !== row.id && (
+                                        <button className="ghost" onClick={() => startLimits(row)}>
+                                            {row.limitations_note ? "Update limitations" : "Inform field team of limitations"}
+                                        </button>
+                                    )}
+                                    {canRectify && limitsId === row.id && (
+                                        <div style={{ marginTop: 8 }}>
+                                            <textarea
+                                                className="neu-input"
+                                                rows={3}
+                                                style={{ width: "100%" }}
+                                                placeholder="What the equipment must not be used for / operating restrictions until repaired"
+                                                value={limitsNote}
+                                                onChange={(e) => setLimitsNote(e.target.value)}
+                                            />
+                                            <div className="actions">
+                                                <button className="primary" onClick={() => saveLimits(row)}>Save</button>
+                                                <button className="ghost" onClick={() => setLimitsId(null)}>Cancel</button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
                                 {canRectify && isVerifying && (
                                     <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
                                         <p style={{ fontSize: 12.5, color: "var(--text-soft)" }}>
@@ -183,8 +239,12 @@ function RectificationQueue() {
                                         <p style={{ fontSize: 12.5, marginTop: 6 }}>
                                             Verified by: <strong>{user?.name ?? "Unknown"}</strong>
                                         </p>
+                                        <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12.5, marginTop: 6 }}>
+                                            <input type="checkbox" checked={functionTestOk} onChange={(e) => setFunctionTestOk(e.target.checked)} />
+                                            A function test was performed after the repair and the unit passed
+                                        </label>
                                         <div className="actions">
-                                            <button className="danger" onClick={() => confirmVerify(row)}>{row.tag_status === "Planned" ? "Confirm — Close" : "Confirm — Remove Tag"}</button>
+                                            <button className="danger" disabled={!functionTestOk} onClick={() => confirmVerify(row)}>{row.tag_status === "Planned" ? "Confirm — Close" : "Confirm — Remove Tag"}</button>
                                             <button className="ghost" onClick={() => setVerifyingId(null)}>Cancel</button>
                                         </div>
                                     </div>
@@ -198,4 +258,4 @@ function RectificationQueue() {
     );
 }
 
-export default RectificationQueue;
+export default RectificationQueue;
