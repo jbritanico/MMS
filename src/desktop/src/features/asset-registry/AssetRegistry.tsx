@@ -73,6 +73,7 @@ const DEFAULT_TRIGGER_ICON = (
 interface AssetRegistryCardProps {
   asset: Asset;
   assetTypeLabel: string | null;
+  assetTypeIcon: string | null;
   canEdit: boolean;
   canDelete: boolean;
   onRowClick: (asset: Asset) => void;
@@ -218,58 +219,72 @@ function AssetMocExemptions({
   );
 }
 
-function AssetRegistryCard({ asset: a, assetTypeLabel, canEdit, canDelete, onRowClick, onEdit, onDelete }: AssetRegistryCardProps) {
+function AssetRegistryCard({ asset: a, assetTypeLabel, assetTypeIcon, canEdit, canDelete, onRowClick, onEdit, onDelete }: AssetRegistryCardProps) {
   const { data: triggers = [] } = useAssetTriggers(a.id);
   const activeTriggers = triggers.filter((t) => t.enabled);
 
   return (
-    <div className="card" onClick={() => onRowClick(a)}>
-      <div className="card-main">
-        <div className="code">{a.asset_code}</div>
-        <div className="desc">{a.asset_description || "—"}</div>
-        <div className="meta">
-          {a.tag_status && (
-            <span
-              className="pill"
-              title={a.tag_reason ?? undefined}
-              style={{
-                background: a.tag_status === "Red" ? "var(--danger)" : a.tag_status === "Yellow" ? "var(--warn)" : "var(--success)",
-                color: "#fff",
-              }}
-            >
-              {a.tag_status} Tag
-            </span>
-          )}
-          <span className={`pill ${a.active ? "active" : "inactive"}`}>
-            {a.active ? "Active" : "Inactive"}
-          </span>
-          {a.country && <span className="pill neutral">{a.country}</span>}
-          {a.vehicle && <span className="pill neutral">Vehicle</span>}
-          {assetTypeLabel && <span className="pill neutral">{assetTypeLabel}</span>}
-        </div>
-        {activeTriggers.length > 0 && (
-          <div className="meta">
-            {activeTriggers.map((t) => (
-              <span
-                key={t.id}
-                className="trigger-icon-chip"
-                title={TRIGGER_TYPE_LABELS[t.trigger_type] ?? t.trigger_type}
-              >
-                <span
-                  style={{
-                    color: TRIGGER_TYPE_COLORS[t.trigger_type] ?? "var(--text-soft)",
-                    display: "inline-flex",
-                  }}
-                >
-                  {TRIGGER_TYPE_ICONS[t.trigger_type] ?? DEFAULT_TRIGGER_ICON}
-                </span>
-                <span>{t.running_value}/{t.interval_value}</span>
-              </span>
-            ))}
+    <div className="review-card" onClick={() => onRowClick(a)} style={{ cursor: "pointer" }}>
+      <div className="review-card-top">
+        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
+          <div style={{ width: 99, height: 99, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {assetTypeIcon && assetTypeIcon.trim().startsWith("data:") ? (
+              <img src={assetTypeIcon} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+            ) : (
+              <span style={{ fontSize: 11, color: "var(--text-soft)" }}>—</span>
+            )}
           </div>
-        )}
+          <div style={{ minWidth: 0 }}>
+            <div className="review-card-code">{a.asset_code}</div>
+            <div className="review-card-desc">{a.asset_description || "—"}</div>
+          </div>
+        </div>
+        <span className={`pill ${a.active ? "active" : "inactive"}`}>
+          {a.active ? "Active" : "Inactive"}
+        </span>
       </div>
-      <div className="card-actions">
+
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+        {a.tag_status && (
+          <span
+            className="pill"
+            title={a.tag_reason ?? undefined}
+            style={{
+              background: a.tag_status === "Red" ? "var(--danger)" : a.tag_status === "Yellow" ? "var(--warn)" : "var(--success)",
+              color: "#fff",
+            }}
+          >
+            {a.tag_status} Tag
+          </span>
+        )}
+        {a.country && <span className="pill neutral">{a.country}</span>}
+        {a.vehicle && <span className="pill neutral">Vehicle</span>}
+        {assetTypeLabel && <span className="pill neutral">{assetTypeLabel}</span>}
+      </div>
+
+      {activeTriggers.length > 0 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          {activeTriggers.map((t) => (
+            <span
+              key={t.id}
+              className="trigger-icon-chip"
+              title={TRIGGER_TYPE_LABELS[t.trigger_type] ?? t.trigger_type}
+            >
+              <span
+                style={{
+                  color: TRIGGER_TYPE_COLORS[t.trigger_type] ?? "var(--text-soft)",
+                  display: "inline-flex",
+                }}
+              >
+                {TRIGGER_TYPE_ICONS[t.trigger_type] ?? DEFAULT_TRIGGER_ICON}
+              </span>
+              <span>{t.running_value}/{t.interval_value}</span>
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 4 }}>
         <button className="icon-btn" aria-label="Edit" onClick={(e) => onEdit(e, a)} disabled={!canEdit} title={!canEdit ? "Your role doesn't have permission to edit assets" : "Edit"}>
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"
@@ -622,12 +637,13 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
               {assets.length === 0 ? "No assets yet — create one to get started" : "No matches for your search"}
             </div>
           ) : (
-            <div className="cards">
+            <div className="review-card-grid">
               {filtered.map((a) => (
                 <AssetRegistryCard
                   key={a.id}
                   asset={a}
                   assetTypeLabel={a.asset_type_id ? assetTypes.find((t) => t.id === a.asset_type_id)?.description ?? "Type" : null}
+                  assetTypeIcon={a.asset_type_id ? assetTypes.find((t) => t.id === a.asset_type_id)?.icon ?? null : null}
                   canEdit={canEdit}
                   canDelete={canDelete}
                   onRowClick={handleRowClick}

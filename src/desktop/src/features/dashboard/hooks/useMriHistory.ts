@@ -32,6 +32,7 @@ export interface MriHistoryRow {
   eh_reading: number | null;
   key_issues: string[];
   compliance_stage: string | null;
+  component_label?: string | null;
 }
 
 export function useAssetMriHistory(assetId: number | null) {

@@ -438,6 +438,7 @@ function AssetHistoryPanel({ assetId, assetCode, assetDescription, onBack, onOpe
                   <div className="mri-report-info">
                     <div className="mri-report-title">
                       Report #{row.id}
+                      {row.component_label && <span> · {row.component_label}</span>}
                       {row.compliance_stage && <span> / {row.compliance_stage}</span>}
                     </div>
                     <div className="mri-report-fields">

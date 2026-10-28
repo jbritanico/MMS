@@ -169,46 +169,47 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
       ) : templates.length === 0 ? (
         <div className="empty">No MR-I templates yet — create one above to get started</div>
       ) : (
-        <div className="cards">
+        <div className="review-card-grid">
           {templates.map((t) => (
             <div
-              className="card"
+              className="review-card"
               key={t.id}
+              style={{ cursor: "pointer" }}
               onClick={() => editingId !== t.id && onOpenTemplate(t.id, t.template_name)}
             >
-              {editingId === t.id ? (
-                <div className="card-main">
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && saveEdit(t)}
-                    autoFocus
-                  />
-                </div>
-              ) : (
-                <div className="asset-select-card-body" style={{ flex: 1 }}>
-                  <div className="asset-select-icon" style={{ flex: "0 0 84px" }}>
+              <div className="review-card-top">
+                <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
+                  <div style={{ width: 99, height: 99, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     {(() => {
                       const icon = assetTypes.find((a) => a.id === t.asset_type_id)?.icon;
                       return icon && icon.trim().startsWith("data:") ? (
-                        <img src={icon} alt="" />
+                        <img src={icon} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
                       ) : (
-                        <span className="asset-select-icon-placeholder">—</span>
+                        <span style={{ fontSize: 11, color: "var(--text-soft)" }}>—</span>
                       );
                     })()}
                   </div>
-                  <div className="card-main" style={{ flex: 1 }}>
-                    <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500 }}>{t.template_name}</div>
-                    <div className="desc">{assetTypeName(t.asset_type_id)}</div>
-                    <div className="meta">
-                      <span className={`pill ${statusPillClass(t.status)}`}>{t.status}</span>
+                  {editingId === t.id ? (
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && saveEdit(t)}
+                      onClick={(e) => e.stopPropagation()}
+                      autoFocus
+                      style={{ flex: 1, minWidth: 0 }}
+                    />
+                  ) : (
+                    <div style={{ minWidth: 0 }}>
+                      <div className="review-card-code">{t.template_name}</div>
+                      <div style={{ fontSize: 13, color: "var(--text-soft)", marginTop: 2 }}>{assetTypeName(t.asset_type_id)}</div>
                     </div>
-                  </div>
+                  )}
                 </div>
-              )}
+                <span className={`pill ${statusPillClass(t.status)}`}>{t.status}</span>
+              </div>
 
-              <div className="card-actions">
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 10 }}>
                 {editingId === t.id ? (
                   <>
                     <button className="icon-btn" aria-label="Save" onClick={() => saveEdit(t)}>

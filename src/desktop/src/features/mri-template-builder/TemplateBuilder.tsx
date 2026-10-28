@@ -28,13 +28,16 @@ import {
   useAddTemplateFooterField,
   useRemoveTemplateFooterField,
 } from "./hooks/useTemplateFooterFields";
+import TemplateComponentsStep from "./TemplateComponentsStep";
+import { useCurrentUser } from "../../lib/currentUser";
 import TemplatePreview from "./TemplatePreview";
 import TemplateDrawingStep from "./TemplateDrawingStep";
 
-type Step = "header" | "checklist" | "drawing" | "mid" | "footer" | "review";
+type Step = "header" | "components" | "checklist" | "drawing" | "mid" | "footer" | "review";
 
 const STEPS: { id: Step; label: string }[] = [
   { id: "header", label: "Header Fields" },
+  { id: "components", label: "Components (optional)" },
   { id: "checklist", label: "Checklist" },
   { id: "drawing", label: "Drawing" },
   { id: "mid", label: "Mid-Section" },
@@ -50,6 +53,7 @@ interface TemplateBuilderProps {
 
 function TemplateBuilder({ templateId, templateName, onBack }: TemplateBuilderProps) {
   const [step, setStep] = useState<Step>("header");
+  const { user: currentUser } = useCurrentUser();
   const currentIndex = STEPS.findIndex((s) => s.id === step);
 
   function goNext() {
@@ -83,6 +87,13 @@ function TemplateBuilder({ templateId, templateName, onBack }: TemplateBuilderPr
 
       <div className="panel" style={{ minHeight: 320 }}>
         {step === "header" && <HeaderFieldsStep templateId={templateId} />}
+        {step === "components" && (
+          <TemplateComponentsStep
+            templateId={templateId}
+            canEdit
+            createdBy={currentUser?.email ?? currentUser?.name ?? "Unknown user"}
+          />
+        )}
         {step === "checklist" && <ChecklistStep templateId={templateId} />}
         {step === "drawing" && <TemplateDrawingStep templateId={templateId} />}
         {step === "mid" && <MidFieldsStep templateId={templateId} />}

@@ -3,6 +3,7 @@ import { useAssets } from "../asset-registry/hooks/useAssets";
 import { useAssetTypes } from "../administration/hooks/useAssetTypes";
 import { useMriTemplates } from "../administration/hooks/useMriTemplates";
 import { useAssetTriggers } from "../asset-registry/hooks/useTriggers";
+import { useAllTemplateComponents } from "../mri-template-builder/hooks/useTemplateComponents";
 import type { Asset } from "../asset-registry/types";
 import {
   useCreateMriReport,
@@ -85,6 +86,7 @@ interface AssetSelectCardProps {
   blockingStatus: string | null;
   isCreating: boolean;
   standbyDay: number | null;
+  componentLabels: string[];
   onSelect: () => void;
 }
 
@@ -102,6 +104,7 @@ function AssetSelectCard({
   blockingStatus,
   isCreating,
   standbyDay,
+  componentLabels,
   onSelect,
 }: AssetSelectCardProps) {
   const { data: triggers = [] } = useAssetTriggers(asset.id);
@@ -127,6 +130,14 @@ function AssetSelectCard({
           <div className="asset-select-desc">{asset.asset_description || "—"}</div>
           <div className="asset-select-meta">
             <span className="pill neutral">{assetTypeLabel}</span>
+            <span className="pill neutral" title="Country of this asset">
+              {asset.country || "No country"}
+            </span>
+            {componentLabels.length > 0 && (
+              <span className="pill neutral" title="Choose the component when you start a report">
+                Components: {componentLabels.join(" · ")}
+              </span>
+            )}
             {activeTriggers.map((t) => (
               <span
                 key={t.id}
@@ -175,11 +186,15 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
   const createReport = useCreateMriReport();
   const createFromPostJob = useCreateMriReportFromLastPostJob();
   const { data: standbyReminders = [] } = useStandbyPrejobReminders();
+  const { data: allComponents = [] } = useAllTemplateComponents();
+  // Template with components: the user picks which component the report is for.
+  const [componentChoice, setComponentChoice] = useState<{ assetId: number; assetTypeId: number | null } | null>(null);
   // Figure 2: shown when the last report on the chosen asset was a Post-Job one, so the
   // user picks between duplicating it (<= 72 h) and starting a fresh Pre-Mob.
   const [postJobChoice, setPostJobChoice] = useState<{
     assetId: number;
     templateId: number;
+    componentId: number | null;
     info: LastPostJobInfo;
   } | null>(null);
   const { user: currentUser } = useCurrentUser();
@@ -211,31 +226,58 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
       (myCountries.length === 0 || myCountries.includes(a.country))
   );
 
-  function blockingReportFor(assetId: number) {
-    // Mirrors the backend's create_mri_report guard: any report on this asset that isn't
-    // Draft (still being filled out) or Approved (finished) blocks a new one from starting.
-    return existingReports.find((r) => r.asset_id === assetId && r.status !== "Draft" && r.status !== "Approved");
+  // The components an MR-I template defines (e.g. Left / Right pump).
+  function componentsFor(templateId: number | undefined) {
+    return templateId === undefined ? [] : allComponents.filter((c) => c.template_id === templateId && c.active);
   }
 
-  async function handleSelect(assetId: number, assetTypeId: number | null) {
+  // Reports are tracked per component: a pending report on the Left pump does not block a
+  // report on the Right pump. componentId null = the whole asset (assets with no components).
+  function blockingReportFor(assetId: number, componentId: number | null = null) {
+    // Mirrors the backend's create_mri_report guard: any report on this asset (or component)
+    // that isn't Draft (still being filled out) or Approved (finished) blocks a new one.
+    return existingReports.find(
+      (r) =>
+        r.asset_id === assetId &&
+        (r.component_id ?? null) === componentId &&
+        r.status !== "Draft" &&
+        r.status !== "Approved"
+    );
+  }
+
+  function draftFor(assetId: number, templateId: number, componentId: number | null) {
+    return existingReports.find(
+      (r) =>
+        r.asset_id === assetId &&
+        r.template_id === templateId &&
+        (r.component_id ?? null) === componentId &&
+        r.status === "Draft"
+    );
+  }
+
+  async function handleSelect(assetId: number, assetTypeId: number | null, componentId: number | null = null) {
     const template = findActiveTemplate(assetTypeId);
     if (!template) {
       flash("No active MR-I template exists for this asset's type yet", "err");
       return;
     }
 
-    const existingDraft = existingReports.find(
-      (r) => r.asset_id === assetId && r.template_id === template.id && r.status === "Draft"
-    );
+    // A template with components asks which component this report is for first.
+    if (componentId === null && componentsFor(template.id).length > 0) {
+      setComponentChoice({ assetId, assetTypeId });
+      return;
+    }
+
+    const existingDraft = draftFor(assetId, template.id, componentId);
     if (existingDraft) {
       onReportCreated(existingDraft.id);
       return;
     }
 
-    const blocking = blockingReportFor(assetId);
+    const blocking = blockingReportFor(assetId, componentId);
     if (blocking) {
       flash(
-        `Report #${blocking.id} for this asset is still ${blocking.status} — it must be closed before a new MR-I report can be started.`,
+        `Report #${blocking.id} for this asset${componentId !== null ? " component" : ""} is still ${blocking.status} — it must be closed before a new MR-I report can be started.`,
         "err"
       );
       return;
@@ -243,23 +285,23 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
 
     let info: LastPostJobInfo | null = null;
     try {
-      info = await invoke<LastPostJobInfo | null>("get_last_post_job_info", { assetId });
+      info = await invoke<LastPostJobInfo | null>("get_last_post_job_info", { assetId, componentId });
     } catch {
       info = null;
     }
     if (info) {
-      setPostJobChoice({ assetId, templateId: template.id, info });
+      setPostJobChoice({ assetId, templateId: template.id, componentId, info });
       return;
     }
 
-    await startBlank(assetId, template.id);
+    await startBlank(assetId, template.id, componentId);
   }
 
-  async function startBlank(assetId: number, templateId: number) {
+  async function startBlank(assetId: number, templateId: number, componentId: number | null = null) {
     setPostJobChoice(null);
     setCreatingFor(assetId);
     try {
-      const reportId = await createReport.mutateAsync({ template_id: templateId, asset_id: assetId });
+      const reportId = await createReport.mutateAsync({ template_id: templateId, asset_id: assetId, component_id: componentId });
       onReportCreated(reportId);
     } catch (err) {
       flash(String(err), "err");
@@ -268,11 +310,11 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
     }
   }
 
-  async function startFromPostJob(assetId: number, templateId: number) {
+  async function startFromPostJob(assetId: number, templateId: number, componentId: number | null = null) {
     setPostJobChoice(null);
     setCreatingFor(assetId);
     try {
-      const reportId = await createFromPostJob.mutateAsync({ assetId, templateId });
+      const reportId = await createFromPostJob.mutateAsync({ assetId, templateId, componentId });
       onReportCreated(reportId);
     } catch (err) {
       flash(String(err), "err");
@@ -303,8 +345,8 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
           <strong>Pre-Job MR-I due (stand-by equipment reached day 8):</strong>
           <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
             {standbyReminders.map((r) => (
-              <li key={r.asset_id}>
-                {r.asset_code} — day {r.days_since} since its Post-Job report
+              <li key={`${r.asset_id}-${r.component_id ?? "all"}`}>
+                {r.asset_code}{r.component_label ? ` (${r.component_label})` : ""} — day {r.days_since} since its Post-Job report
               </li>
             ))}
           </ul>
@@ -329,14 +371,14 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
               {postJobChoice.info.within_72h && (
                 <button
                   className="primary"
-                  onClick={() => startFromPostJob(postJobChoice.assetId, postJobChoice.templateId)}
+                  onClick={() => startFromPostJob(postJobChoice.assetId, postJobChoice.templateId, postJobChoice.componentId)}
                 >
                   Copy last Post-Job report
                 </button>
               )}
               <button
                 className={postJobChoice.info.within_72h ? "ghost" : "primary"}
-                onClick={() => startBlank(postJobChoice.assetId, postJobChoice.templateId)}
+                onClick={() => startBlank(postJobChoice.assetId, postJobChoice.templateId, postJobChoice.componentId)}
               >
                 Start a new report
               </button>
@@ -345,16 +387,68 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
           </div>
         </div>
       )}
+      {componentChoice && (() => {
+        const template = findActiveTemplate(componentChoice.assetTypeId);
+        const asset = assets.find((a) => a.id === componentChoice.assetId);
+        return (
+          <div className="modal-overlay" onClick={() => setComponentChoice(null)}>
+            <div className="modal" style={{ width: "min(480px, 94vw)", textAlign: "left" }} onClick={(e) => e.stopPropagation()}>
+              <h3 style={{ marginTop: 0 }}>Which component?</h3>
+              <p style={{ fontSize: 13 }}>
+                <strong>{asset?.asset_code}</strong> is inspected per component. Each is inspected and reported
+                separately, using the same template{template ? ` (${template.template_name})` : ""}.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, margin: "12px 0" }}>
+                {componentsFor(template?.id).map((c) => {
+                  const draft = template ? draftFor(componentChoice.assetId, template.id, c.id) : undefined;
+                  const blocking = blockingReportFor(componentChoice.assetId, c.id);
+                  const blocked = !!blocking && !draft;
+                  return (
+                    <button
+                      key={c.id}
+                      className={blocked ? "ghost" : "primary"}
+                      disabled={blocked}
+                      style={{ textAlign: "left" }}
+                      onClick={() => {
+                        const target = componentChoice;
+                        setComponentChoice(null);
+                        handleSelect(target.assetId, target.assetTypeId, c.id);
+                      }}
+                    >
+                      {c.label}
+                      <span style={{ fontWeight: 400, marginLeft: 8, fontSize: 12 }}>
+                        {draft
+                          ? `Continue draft (#${draft.id})`
+                          : blocked
+                            ? `Report #${blocking!.id} is ${blocking!.status} — close it first`
+                            : "Start new report"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="modal-actions" style={{ justifyContent: "flex-start" }}>
+                <button className="ghost" onClick={() => setComponentChoice(null)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       {filtered.length === 0 ? (
         <div className="empty">No active assets match your search</div>
       ) : (
         <div className="asset-select-grid">
           {filtered.map((a) => {
             const template = findActiveTemplate(a.asset_type_id);
+            const comps = componentsFor(template?.id);
+            const hasComponents = comps.length > 0;
             const hasDraftForTemplate =
               a.id !== null && !!template &&
-              existingReports.some((r) => r.asset_id === a.id && r.template_id === template.id && r.status === "Draft");
-            const blockingReport = a.id !== null ? blockingReportFor(a.id) : undefined;
+              existingReports.some(
+                (r) => r.asset_id === a.id && r.template_id === template.id && (r.component_id ?? null) === null && r.status === "Draft"
+              );
+            // With components, blocking is decided per component in the picker, not on the card.
+            const blockingReport = a.id !== null && !hasComponents ? blockingReportFor(a.id, null) : undefined;
             const disabled = !template || creatingFor === a.id || (!!blockingReport && !hasDraftForTemplate);
             const icon = assetTypes.find((t) => t.id === a.asset_type_id)?.icon;
             const resolvedIcon = icon && icon.trim().startsWith("data:") ? icon : undefined;
@@ -371,6 +465,7 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
                 blockingStatus={blockingReport && !hasDraftForTemplate ? blockingReport.status : null}
                 isCreating={creatingFor === a.id}
                 standbyDay={standbyReminders.find((r) => r.asset_id === a.id)?.days_since ?? null}
+                componentLabels={comps.map((c) => c.label)}
                 onSelect={() => a.id !== null && handleSelect(a.id, a.asset_type_id)}
               />
             );

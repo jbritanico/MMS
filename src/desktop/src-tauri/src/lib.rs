@@ -3,8 +3,9 @@ use serde::{Deserialize, Serialize};
 use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const BROWSABLE_TABLES: [&str; 24] = [
+const BROWSABLE_TABLES: [&str; 25] = [
     "assets",
+    "template_components",
     "maintenance_triggers",
     "checklist_databank",
     "checklist_sections",
@@ -190,6 +191,29 @@ fn open_and_migrate_connection() -> Result<Connection, String> {
             revoked_by TEXT,
             revoked_at TEXT,
             revoke_reason TEXT
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // Positional components defined by an MR-I TEMPLATE (e.g. Left / Right pump, Front / Rear).
+    // A template that lists components applies to every asset using it: the asset keeps one
+    // Asset Code, tag and triggers, but each MR-I report is raised for one component
+    // (mri_reports.component_id), so findings, faults, attachments and history stay separate
+    // per component while remaining linked to the parent asset. Labels are free text chosen
+    // by an administrator (suggestions come from the lookup criteria COMPONENT POSITION).
+    // A template with no active component behaves exactly as before.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS template_components (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            template_id INTEGER NOT NULL,
+            label TEXT NOT NULL,
+            display_order INTEGER NOT NULL DEFAULT 0,
+            active INTEGER NOT NULL DEFAULT 1,
+            created_by TEXT,
+            created_at TEXT NOT NULL,
+            UNIQUE(template_id, label),
+            FOREIGN KEY (template_id) REFERENCES mri_templates(id)
         )",
         [],
     )
@@ -978,6 +1002,7 @@ fn open_and_migrate_connection() -> Result<Connection, String> {
     // already-present column is deliberately ignored (same pattern as the migrations above).
     for stmt in [
         "ALTER TABLE mri_reports ADD COLUMN mr_cost REAL",
+        "ALTER TABLE mri_reports ADD COLUMN component_id INTEGER",
         "ALTER TABLE mri_reports ADD COLUMN mr_cost_by TEXT",
         "ALTER TABLE mri_reports ADD COLUMN mr_cost_date TEXT",
         "ALTER TABLE mri_report_attachments ADD COLUMN uploaded_by TEXT",
@@ -1351,6 +1376,7 @@ fn seed_field_catalogs(conn: &Connection) -> Result<(), String> {
         "MR II Due Date",
         "MR Initization Date",
         "Compliance Stage",
+        "Maintenance Type",
         "Job Number",
         "Pre-Mobilization Checklist ID",
         "OEM Serial",
@@ -1493,6 +1519,142 @@ fn update_asset(asset: Asset) -> Result<String, String> {
         ],
     ).map_err(|e| e.to_string())?;
     Ok("Asset updated".to_string())
+}
+
+// ---- Template components (positional sub-parts an MR-I template defines, e.g. Left / Right pump) ----
+
+#[derive(Serialize, Deserialize)]
+struct TemplateComponent {
+    id: i64,
+    template_id: i64,
+    label: String,
+    display_order: i64,
+    active: bool,
+}
+
+fn read_template_components(conn: &rusqlite::Connection, template_id: Option<i64>) -> Result<Vec<TemplateComponent>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, template_id, label, display_order, active FROM template_components
+             WHERE (?1 IS NULL OR template_id = ?1) ORDER BY template_id, display_order, id",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([template_id], |row| {
+            Ok(TemplateComponent {
+                id: row.get(0)?,
+                template_id: row.get(1)?,
+                label: row.get(2)?,
+                display_order: row.get(3)?,
+                active: row.get::<_, i32>(4)? != 0,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
+}
+
+#[tauri::command]
+fn get_template_components(template_id: i64) -> Result<Vec<TemplateComponent>, String> {
+    let conn = get_connection()?;
+    read_template_components(&conn, Some(template_id))
+}
+
+// Every component of every template, so list screens can show them without one query per template.
+#[tauri::command]
+fn get_all_template_components() -> Result<Vec<TemplateComponent>, String> {
+    let conn = get_connection()?;
+    read_template_components(&conn, None)
+}
+
+fn clean_component_label(label: &str) -> Result<String, String> {
+    let trimmed = label.trim();
+    if trimmed.is_empty() {
+        return Err("Component name is required".to_string());
+    }
+    if trimmed.chars().count() > 40 {
+        return Err("Component name must be 40 characters or fewer".to_string());
+    }
+    Ok(trimmed.to_string())
+}
+
+#[tauri::command]
+fn create_template_component(template_id: i64, label: String, created_by: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    let label = clean_component_label(&label)?;
+    let duplicate: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM template_components WHERE template_id = ?1 AND LOWER(label) = LOWER(?2)",
+            rusqlite::params![template_id, &label],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if duplicate > 0 {
+        return Err(format!("This template already has a component named \"{}\"", label));
+    }
+    let next_order: i64 = conn
+        .query_row(
+            "SELECT COALESCE(MAX(display_order), 0) + 1 FROM template_components WHERE template_id = ?1",
+            [template_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO template_components (template_id, label, display_order, active, created_by, created_at) VALUES (?1, ?2, ?3, 1, ?4, ?5)",
+        rusqlite::params![template_id, label, next_order, created_by.trim(), chrono_now()],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok("Component added".to_string())
+}
+
+#[tauri::command]
+fn rename_template_component(id: i64, label: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    let label = clean_component_label(&label)?;
+    let template_id: i64 = conn
+        .query_row("SELECT template_id FROM template_components WHERE id = ?1", [id], |row| row.get(0))
+        .map_err(|_| "Component not found".to_string())?;
+    let duplicate: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM template_components WHERE template_id = ?1 AND id != ?2 AND LOWER(label) = LOWER(?3)",
+            rusqlite::params![template_id, id, &label],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if duplicate > 0 {
+        return Err(format!("This template already has a component named \"{}\"", label));
+    }
+    conn.execute("UPDATE template_components SET label = ?1 WHERE id = ?2", rusqlite::params![label, id])
+        .map_err(|e| e.to_string())?;
+    Ok("Component renamed".to_string())
+}
+
+#[tauri::command]
+fn set_template_component_active(id: i64, active: bool) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute(
+        "UPDATE template_components SET active = ?1 WHERE id = ?2",
+        rusqlite::params![active as i32, id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(if active { "Component activated".to_string() } else { "Component deactivated".to_string() })
+}
+
+// A component that already has reports can only be deactivated, never deleted, so its
+// inspection history stays attached to it.
+#[tauri::command]
+fn delete_template_component(id: i64) -> Result<String, String> {
+    let conn = get_connection()?;
+    let used: i64 = conn
+        .query_row("SELECT COUNT(*) FROM mri_reports WHERE component_id = ?1", [id], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    if used > 0 {
+        return Err("This component already has reports, so it cannot be deleted. Deactivate it instead.".to_string());
+    }
+    conn.execute("DELETE FROM template_components WHERE id = ?1", [id])
+        .map_err(|e| e.to_string())?;
+    Ok("Component deleted".to_string())
 }
 
 #[tauri::command]
@@ -2236,6 +2398,11 @@ fn delete_mri_template(id: i64) -> Result<String, String> {
         [id],
     )
     .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM template_components WHERE template_id = ?1",
+        [id],
+    )
+    .map_err(|e| e.to_string())?;
 
     // Inlined from delete_template_drawing() rather than calling it directly -- that
     // function opens its own connection via get_connection(), which would try to
@@ -2759,15 +2926,19 @@ struct MriReport {
     mr_cost: Option<f64>,
     mr_cost_by: Option<String>,
     mr_cost_date: Option<String>,
+    // Which positional component of the asset this report is for (None = whole asset).
+    component_id: Option<i64>,
+    component_label: Option<String>,
 }
 
 #[tauri::command]
 fn get_mri_reports() -> Result<Vec<MriReport>, String> {
     let conn = get_connection()?;
     let mut stmt = conn.prepare(
-        "SELECT id, template_id, asset_id, status, submitted_by, submitted_date, approved_by, approved_date, created_date,
-                mr_cost, mr_cost_by, mr_cost_date
-         FROM mri_reports ORDER BY created_date DESC"
+        "SELECT r.id, r.template_id, r.asset_id, r.status, r.submitted_by, r.submitted_date, r.approved_by, r.approved_date, r.created_date,
+                r.mr_cost, r.mr_cost_by, r.mr_cost_date, r.component_id, c.label
+         FROM mri_reports r LEFT JOIN template_components c ON c.id = r.component_id
+         ORDER BY r.created_date DESC"
     ).map_err(|e| e.to_string())?;
     let reports = stmt
         .query_map([], |row| {
@@ -2784,6 +2955,8 @@ fn get_mri_reports() -> Result<Vec<MriReport>, String> {
                 mr_cost: row.get(9)?,
                 mr_cost_by: row.get(10)?,
                 mr_cost_date: row.get(11)?,
+                component_id: row.get(12)?,
+                component_label: row.get(13)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -2796,9 +2969,10 @@ fn get_mri_reports() -> Result<Vec<MriReport>, String> {
 fn get_mri_report(id: i64) -> Result<MriReport, String> {
     let conn = get_connection()?;
     conn.query_row(
-        "SELECT id, template_id, asset_id, status, submitted_by, submitted_date, approved_by, approved_date, created_date,
-                mr_cost, mr_cost_by, mr_cost_date
-         FROM mri_reports WHERE id = ?1",
+        "SELECT r.id, r.template_id, r.asset_id, r.status, r.submitted_by, r.submitted_date, r.approved_by, r.approved_date, r.created_date,
+                r.mr_cost, r.mr_cost_by, r.mr_cost_date, r.component_id, c.label
+         FROM mri_reports r LEFT JOIN template_components c ON c.id = r.component_id
+         WHERE r.id = ?1",
         [id],
         |row| Ok(MriReport {
             id: row.get(0)?,
@@ -2813,6 +2987,8 @@ fn get_mri_report(id: i64) -> Result<MriReport, String> {
             mr_cost: row.get(9)?,
             mr_cost_by: row.get(10)?,
             mr_cost_date: row.get(11)?,
+            component_id: row.get(12)?,
+            component_label: row.get(13)?,
         }),
     ).map_err(|e| e.to_string())
 }
@@ -2894,16 +3070,49 @@ fn get_reports_awaiting_cost(viewer_user_id: i64) -> Result<Vec<ReportNeedingAct
 struct NewMriReport {
     template_id: i64,
     asset_id: i64,
+    #[serde(default)]
+    component_id: Option<i64>,
 }
 
 #[tauri::command]
 fn create_mri_report(report: NewMriReport) -> Result<i64, String> {
     let conn = get_connection()?;
 
-    // Reuse an existing Draft for this asset+template if one already exists
+    // A template that defines components (e.g. Left / Right pump) needs the report tied to
+    // one of them; a template without components takes none. Findings, faults and history
+    // are then tracked per component while the asset code, template and tag stay shared.
+    let component_id = report.component_id;
+    let active_components: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM template_components WHERE template_id = ?1 AND active = 1",
+            [report.template_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    match component_id {
+        Some(cid) => {
+            let valid: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM template_components WHERE id = ?1 AND template_id = ?2 AND active = 1",
+                    rusqlite::params![cid, report.template_id],
+                    |row| row.get(0),
+                )
+                .map_err(|e| e.to_string())?;
+            if valid == 0 {
+                return Err("The selected component does not belong to this template or is inactive.".to_string());
+            }
+        }
+        None => {
+            if active_components > 0 {
+                return Err("This template has components — choose which component (for example Left or Right) this report is for.".to_string());
+            }
+        }
+    }
+
+    // Reuse an existing Draft for this asset+template+component if one already exists
     let existing_draft: Option<i64> = conn.query_row(
-        "SELECT id FROM mri_reports WHERE asset_id = ?1 AND template_id = ?2 AND status = 'Draft'",
-        rusqlite::params![report.asset_id, report.template_id],
+        "SELECT id FROM mri_reports WHERE asset_id = ?1 AND template_id = ?2 AND status = 'Draft' AND component_id IS ?3",
+        rusqlite::params![report.asset_id, report.template_id, component_id],
         |row| row.get(0),
     ).ok();
 
@@ -2916,23 +3125,23 @@ fn create_mri_report(report: NewMriReport) -> Result<i64, String> {
         let blocking: Option<(i64, String)> = conn
             .query_row(
                 "SELECT id, status FROM mri_reports
-                 WHERE asset_id = ?1 AND status NOT IN ('Draft', 'Approved')
+                 WHERE asset_id = ?1 AND status NOT IN ('Draft', 'Approved') AND component_id IS ?2
                  LIMIT 1",
-                [report.asset_id],
+                rusqlite::params![report.asset_id, component_id],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .ok();
         if let Some((pending_id, pending_status)) = blocking {
             return Err(format!(
-                "Report #{} for this asset is still {} — it must be endorsed and closed before a new MR-I report can be started for this asset.",
+                "Report #{} for this asset (or component) is still {} — it must be endorsed and closed before a new MR-I report can be started for it.",
                 pending_id, pending_status
             ));
         }
 
         let now = chrono_now();
         conn.execute(
-            "INSERT INTO mri_reports (template_id, asset_id, status, created_date) VALUES (?1, ?2, 'Draft', ?3)",
-            rusqlite::params![report.template_id, report.asset_id, now],
+            "INSERT INTO mri_reports (template_id, asset_id, status, created_date, component_id) VALUES (?1, ?2, 'Draft', ?3, ?4)",
+            rusqlite::params![report.template_id, report.asset_id, now, component_id],
         ).map_err(|e| e.to_string())?;
         conn.last_insert_rowid()
     };
@@ -2948,9 +3157,9 @@ fn create_mri_report(report: NewMriReport) -> Result<i64, String> {
            AND carried_to_report_id IS NULL
            AND report_id IN (
                SELECT id FROM mri_reports
-               WHERE asset_id = ?2 AND template_id = ?3 AND id != ?1
+               WHERE asset_id = ?2 AND template_id = ?3 AND id != ?1 AND component_id IS ?4
            )",
-        rusqlite::params![report_id, report.asset_id, report.template_id],
+        rusqlite::params![report_id, report.asset_id, report.template_id, component_id],
     )
     .map_err(|e| e.to_string())?;
 
@@ -2959,13 +3168,13 @@ fn create_mri_report(report: NewMriReport) -> Result<i64, String> {
 
 // Figure 2: the most recent non-draft report on an asset, when it was a Post-Job report.
 // Returns (report_id, hours since it was submitted).
-fn last_post_job_report(conn: &rusqlite::Connection, asset_id: i64) -> Option<(i64, i64)> {
+fn last_post_job_report(conn: &rusqlite::Connection, asset_id: i64, component_id: Option<i64>) -> Option<(i64, i64)> {
     let (id, submitted, created): (i64, Option<String>, String) = conn
         .query_row(
             "SELECT id, submitted_date, created_date FROM mri_reports
-             WHERE asset_id = ?1 AND status IN ('Submitted', 'Endorsed', 'Escalated', 'Approved')
+             WHERE asset_id = ?1 AND component_id IS ?2 AND status IN ('Submitted', 'Endorsed', 'Escalated', 'Approved')
              ORDER BY id DESC LIMIT 1",
-            [asset_id],
+            rusqlite::params![asset_id, component_id],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )
         .ok()?;
@@ -2986,9 +3195,9 @@ struct LastPostJobInfo {
 }
 
 #[tauri::command]
-fn get_last_post_job_info(asset_id: i64) -> Result<Option<LastPostJobInfo>, String> {
+fn get_last_post_job_info(asset_id: i64, component_id: Option<i64>) -> Result<Option<LastPostJobInfo>, String> {
     let conn = get_connection()?;
-    Ok(last_post_job_report(&conn, asset_id).map(|(report_id, hours)| LastPostJobInfo {
+    Ok(last_post_job_report(&conn, asset_id, component_id).map(|(report_id, hours)| LastPostJobInfo {
         report_id,
         hours_since: hours,
         within_72h: hours <= 72,
@@ -3000,10 +3209,10 @@ fn get_last_post_job_info(asset_id: i64) -> Result<Option<LastPostJobInfo>, Stri
 // RIF, job number, distance) and any open faults are NOT copied; faults still come across
 // through the normal carry-forward. Over 72 hours there is no duplication at all.
 #[tauri::command]
-fn create_mri_report_from_last_post_job(asset_id: i64, template_id: i64) -> Result<i64, String> {
+fn create_mri_report_from_last_post_job(asset_id: i64, template_id: i64, component_id: Option<i64>) -> Result<i64, String> {
     let (source_id, hours) = {
         let conn = get_connection()?;
-        last_post_job_report(&conn, asset_id)
+        last_post_job_report(&conn, asset_id, component_id)
             .ok_or("There is no previous Post-Job report on this asset to copy.".to_string())?
     };
     if hours > 72 {
@@ -3013,7 +3222,7 @@ fn create_mri_report_from_last_post_job(asset_id: i64, template_id: i64) -> Resu
         ));
     }
 
-    let report_id = create_mri_report(NewMriReport { template_id, asset_id })?;
+    let report_id = create_mri_report(NewMriReport { template_id, asset_id, component_id })?;
 
     let conn = get_connection()?;
     let already_filled: i64 = conn
@@ -3072,6 +3281,8 @@ fn create_mri_report_from_last_post_job(asset_id: i64, template_id: i64) -> Resu
 #[derive(Serialize, Deserialize)]
 struct StandbyReminderRow {
     asset_id: i64,
+    component_id: Option<i64>,
+    component_label: Option<String>,
     asset_code: String,
     report_id: i64,
     days_since: i64,
@@ -3095,21 +3306,48 @@ fn get_standby_prejob_reminders() -> Result<Vec<StandbyReminderRow>, String> {
 
     let mut out = Vec::new();
     for (asset_id, asset_code) in assets {
-        let Some((report_id, hours)) = last_post_job_report(&conn, asset_id) else { continue };
-        if hours < 7 * 24 {
-            continue;
+        // Check each component that has reports on this asset (or the whole asset when its
+        // reports carry no component).
+        let mut targets: Vec<(Option<i64>, Option<String>)> = Vec::new();
+        {
+            let mut cstmt = conn
+                .prepare(
+                    "SELECT DISTINCT r.component_id, c.label FROM mri_reports r
+                     LEFT JOIN template_components c ON c.id = r.component_id
+                     WHERE r.asset_id = ?1",
+                )
+                .map_err(|e| e.to_string())?;
+            let found: Vec<(Option<i64>, Option<String>)> = cstmt
+                .query_map([asset_id], |row| Ok((row.get(0)?, row.get(1)?)))
+                .map_err(|e| e.to_string())?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| e.to_string())?;
+            targets.extend(found);
         }
-        let has_draft: bool = conn
-            .query_row(
-                "SELECT 1 FROM mri_reports WHERE asset_id = ?1 AND status = 'Draft' LIMIT 1",
-                [asset_id],
-                |_| Ok(true),
-            )
-            .unwrap_or(false);
-        if has_draft {
-            continue;
+        for (component_id, component_label) in targets {
+            let Some((report_id, hours)) = last_post_job_report(&conn, asset_id, component_id) else { continue };
+            if hours < 7 * 24 {
+                continue;
+            }
+            let has_draft: bool = conn
+                .query_row(
+                    "SELECT 1 FROM mri_reports WHERE asset_id = ?1 AND status = 'Draft' AND component_id IS ?2 LIMIT 1",
+                    rusqlite::params![asset_id, component_id],
+                    |_| Ok(true),
+                )
+                .unwrap_or(false);
+            if has_draft {
+                continue;
+            }
+            out.push(StandbyReminderRow {
+                asset_id,
+                component_id,
+                component_label,
+                asset_code: asset_code.clone(),
+                report_id,
+                days_since: hours / 24 + 1,
+            });
         }
-        out.push(StandbyReminderRow { asset_id, asset_code, report_id, days_since: hours / 24 + 1 });
     }
     Ok(out)
 }
@@ -3152,6 +3390,42 @@ fn submit_mri_report(id: i64, submitted_by: String) -> Result<String, String> {
     // report whose template has that field cannot be submitted with it left empty.
     if template_has_header_field(&conn, id, "Compliance Stage") && stage.is_empty() {
         return Err("Compliance Stage is required (Pre-Mob, Pre-Job, Post Job or Yard Inspection) before a report can be submitted.".to_string());
+    }
+
+    // The Footer section (Operator, Operator Date, Supervisor, Supervisor Date) must be filled
+    // in before a report can be submitted. Checkbox fields, Remarks, Green Tagged and Job
+    // Ready stay optional.
+    {
+        let mut missing: Vec<String> = Vec::new();
+        let mut stmt = conn
+            .prepare(
+                "SELECT c.label, COALESCE(v.value, '')
+                 FROM template_footer_fields tf
+                 JOIN footer_field_catalog c ON c.id = tf.footer_field_id
+                 JOIN mri_reports r ON r.template_id = tf.template_id
+                 LEFT JOIN mri_report_footer_values v
+                        ON v.template_footer_field_id = tf.id AND v.report_id = r.id
+                 WHERE r.id = ?1",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([id], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+            .map_err(|e| e.to_string())?;
+        for row in rows {
+            let (label, value) = row.map_err(|e| e.to_string())?;
+            let key = label.trim().to_lowercase();
+            if ["operator", "operator date", "supervisor", "supervisor date"].contains(&key.as_str())
+                && value.trim().is_empty()
+            {
+                missing.push(label);
+            }
+        }
+        if !missing.is_empty() {
+            return Err(format!(
+                "The Footer section must be completed before submitting. Missing: {}",
+                missing.join(", ")
+            ));
+        }
     }
 
     // Figure 3 (Clarification 1): Pre-Mob / Pre-Job carry the Pre-Mobilization Checklist ID
@@ -7553,6 +7827,7 @@ struct MriHistoryRow {
     eh_reading: Option<f64>,
     key_issues: Vec<String>,
     compliance_stage: Option<String>,
+    component_label: Option<String>,
 }
 
 #[tauri::command]
@@ -7561,8 +7836,10 @@ fn get_asset_mri_history(asset_id: i64) -> Result<Vec<MriHistoryRow>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT r.id, r.status, r.submitted_by, r.submitted_date, r.approved_by, r.approved_date, r.created_date,
-                (SELECT COUNT(*) FROM mri_report_checklist_results WHERE report_id = r.id AND status = 'Fail') AS issue_count
+                (SELECT COUNT(*) FROM mri_report_checklist_results WHERE report_id = r.id AND status = 'Fail') AS issue_count,
+                c.label
          FROM mri_reports r
+         LEFT JOIN template_components c ON c.id = r.component_id
          WHERE r.asset_id = ?1
          ORDER BY r.id DESC",
         )
@@ -7583,6 +7860,7 @@ fn get_asset_mri_history(asset_id: i64) -> Result<Vec<MriHistoryRow>, String> {
                 eh_reading: None,
                 key_issues: Vec::new(),
                 compliance_stage: None,
+                component_label: row.get(8)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -8209,6 +8487,12 @@ pub fn run() {
             create_moc_exemption,
             revoke_moc_exemption,
             get_moc_exemptions,
+            get_template_components,
+            get_all_template_components,
+            create_template_component,
+            rename_template_component,
+            set_template_component_active,
+            delete_template_component,
             update_mri_fault_rectification,
             verify_mri_fault_rectification,
             get_carried_forward_faults,

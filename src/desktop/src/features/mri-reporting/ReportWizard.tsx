@@ -274,11 +274,28 @@ function ReportWizard({
       </div>
 
       <div className="header">
-        <h1>{asset?.asset_code ?? "Report"} — MR-I</h1>
+        <h1>
+          {asset?.asset_code ?? "Report"}
+          {report.component_label ? ` · ${report.component_label}` : ""} — MR-I
+        </h1>
         <span className="sub">
           {template?.template_name ?? ""} · {report.status}
         </span>
       </div>
+
+      {report.component_label && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+          <span className="pill neutral" title="One Asset Code covers all of its components">
+            Parent asset: {asset?.asset_code ?? "—"}
+          </span>
+          <span className="pill active" title="This report covers this component only">
+            Component: {report.component_label}
+          </span>
+          <span className="pill neutral" title="All components use the asset's template">
+            Shared template: {template?.template_name ?? "—"}
+          </span>
+        </div>
+      )}
 
       {carriedForward.length > 0 && (
         <div className="toast err" style={{ maxWidth: 600, marginBottom: 16 }}>
@@ -691,6 +708,10 @@ const JOB_OPERATING_HOURS = "job operating hours";
 const MR_II_DUE_DATE = "mr ii due date";
 const MR_INITIATION_DATE = "mr initization date";
 const COMPLIANCE_STAGE_FIELD = "compliance stage";
+const MAINTENANCE_TYPE_FIELD = "maintenance type";
+
+// Maintenance Type header field: why this inspection / work is being recorded.
+const MAINTENANCE_TYPE_OPTIONS = ["Corrective", "Preventive"];
 
 const COMPLIANCE_STAGE_OPTIONS = [
   "PREMOB",
@@ -944,6 +965,33 @@ function HeaderEntryStep({
                         {c.name}
                       </option>
                     ))}
+                </select>
+              </div>
+            );
+          }
+
+          if (label === MAINTENANCE_TYPE_FIELD) {
+            return (
+              <div key={tf.id} className="mri-preview-table-row">
+                <label>
+                  {fieldLabel(tf.header_field_id)}
+                  {tf.required && (
+                    <span style={{ color: "var(--danger)" }}> *</span>
+                  )}
+                </label>
+                <select
+                  className="neu-select"
+                  value={localValues[tf.id] ?? ""}
+                  onChange={(e) => handleChange(tf.id, e.target.value)}
+                  onBlur={() => handleBlur(tf.id)}
+                  disabled={locked}
+                >
+                  <option value="">— Select —</option>
+                  {MAINTENANCE_TYPE_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
                 </select>
               </div>
             );
@@ -2761,6 +2809,15 @@ function ReviewStep({
     if (r.required && !r.value.trim())
       issues.push(`Header — "${r.label}" is required`);
   });
+  footerRows.forEach((r) => {
+    if (
+      ["operator", "operator date", "supervisor", "supervisor date"].includes(
+        r.label.trim().toLowerCase(),
+      ) &&
+      !r.value.trim()
+    )
+      issues.push(`Footer — "${r.label}" is required`);
+  });
   checklistRows.forEach(({ ti, info, result }) => {
     const name = info?.description ?? `Item #${ti.id}`;
     if (!result || !result.status) {
@@ -3173,7 +3230,9 @@ function ReviewStep({
                 </div>
                 <div style={{ fontSize: 13, color: "#cfe2e6", marginTop: 3 }}>
                   {asset?.service_line || "—"} · Asset{" "}
-                  {asset?.asset_code ?? "—"} · {complianceStage || "—"} ·{" "}
+                  {asset?.asset_code ?? "—"}
+                  {report.component_label ? ` (${report.component_label})` : ""} ·{" "}
+                  {complianceStage || "—"} ·{" "}
                   {fmtDate(reportDateIso)}
                 </div>
               </div>
@@ -4071,7 +4130,7 @@ function ReviewStep({
               }}
             >
               <span>
-                Sprint MMS · MR-I report · {asset?.asset_code ?? "—"} ·
+                Sprint MMS · MR-I report · {asset?.asset_code ?? "—"}{report.component_label ? ` (${report.component_label})` : ""} ·
                 generated offline {generatedStamp}
               </span>
               <span>Page 1 of 2</span>
@@ -4491,7 +4550,7 @@ function ReviewStep({
               }}
             >
               <span>
-                Sprint MMS · MR-I report · {asset?.asset_code ?? "—"} ·
+                Sprint MMS · MR-I report · {asset?.asset_code ?? "—"}{report.component_label ? ` (${report.component_label})` : ""} ·
                 generated offline {generatedStamp}
               </span>
               <span>Page 2 of 2</span>

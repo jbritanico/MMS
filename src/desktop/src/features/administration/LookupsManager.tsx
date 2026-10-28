@@ -41,6 +41,8 @@ function LookupsManager() {
   const [previewRows, setPreviewRows] = useState<string[] | null>(null);
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState("");
 
   function flash(msg: string, kind: "ok" | "err") {
     setStatus({ msg, kind });
@@ -51,6 +53,9 @@ function LookupsManager() {
     setActiveCriteria(c);
     setEditingId(null);
     setRenamingCriteria(false);
+    setPreviewRows(null);
+    setPasteOpen(false);
+    setPasteText("");
   }
 
   function addNewCriteria() {
@@ -174,11 +179,51 @@ function LookupsManager() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
+  // Rows copied from Excel arrive as text, one cell per line (columns separated by tabs).
+  // Only the first column is used. A first line that is exactly "Name" is treated as the
+  // column heading and skipped. Matching is case-sensitive, like the existing import.
+  function parsePastedText(text: string): string[] {
+    const lines = text
+      .split(/\r?\n/)
+      .map((l) => l.split("\t")[0].trim())
+      .filter((l) => l.length > 0);
+    if (lines.length > 0 && lines[0].toLowerCase() === "name") lines.shift();
+    return lines;
+  }
+
+  function reviewPaste() {
+    const rows = parsePastedText(pasteText);
+    if (rows.length === 0) {
+      flash("Nothing to import — paste at least one value", "err");
+      return;
+    }
+    setPreviewRows(rows);
+    setPasteOpen(false);
+    setPasteText("");
+  }
+
+  // Marks each preview row: already in this criteria, repeated earlier in the same list, or new.
+  function classifyPreview(rows: string[]): { name: string; state: "new" | "exists" | "dup" }[] {
+    const existing = new Set(values.map((v) => v.name.trim()));
+    const seen = new Set<string>();
+    return rows.map((name) => {
+      if (existing.has(name)) return { name, state: "exists" as const };
+      if (seen.has(name)) return { name, state: "dup" as const };
+      seen.add(name);
+      return { name, state: "new" as const };
+    });
+  }
+
   async function confirmImport() {
     if (!previewRows || previewRows.length === 0) return;
+    const toAdd = classifyPreview(previewRows).filter((r) => r.state === "new").map((r) => r.name);
+    if (toAdd.length === 0) {
+      flash("Nothing new to import — every value already exists", "err");
+      return;
+    }
     setImporting(true);
     try {
-      const result = await bulkCreate.mutateAsync(previewRows);
+      const result = await bulkCreate.mutateAsync(toAdd);
       flash(result, "ok");
       setPreviewRows(null);
     } catch (err) {
@@ -303,29 +348,67 @@ function LookupsManager() {
           <div style={{ marginBottom: 18 }}>
             <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" style={{ display: "none" }} onChange={handleFileSelected} />
             <button className="ghost" onClick={() => fileInputRef.current?.click()}>Upload from CSV / Excel</button>
+            <button className="ghost" style={{ marginLeft: 8 }} onClick={() => setPasteOpen((o) => !o)}>Paste from Excel</button>
             <span style={{ fontSize: 12, color: "var(--text-soft)", marginLeft: 10 }}>Column: Name</span>
           </div>
 
-          {status && <div className={`toast ${status.kind}`} style={{ maxWidth: 400, marginBottom: 12 }}>{status.msg}</div>}
-
-          {previewRows && (
+          {pasteOpen && (
             <div className="panel" style={{ marginBottom: 18 }}>
-              <h2>Import preview — {previewRows.length} row{previewRows.length !== 1 ? "s" : ""}</h2>
-              <div className="cards" style={{ maxHeight: 240, overflowY: "auto" }}>
-                {previewRows.slice(0, 50).map((name, i) => (
-                  <div className="card" key={i} style={{ cursor: "default" }}>
-                    <div className="card-main"><div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500 }}>{name}</div></div>
-                  </div>
-                ))}
-              </div>
+              <h2>Paste values for {effectiveCriteria}</h2>
+              <p style={{ fontSize: 12.5, color: "var(--text-soft)", marginBottom: 8 }}>
+                Copy a column of cells in Excel and paste here (Ctrl+V), one value per line. Only the first column is used.
+              </p>
+              <textarea
+                value={pasteText}
+                onChange={(e) => setPasteText(e.target.value)}
+                autoFocus
+                rows={8}
+                placeholder={"Oman\nQatar\nUAE"}
+                style={{ width: "100%", maxWidth: 480, fontFamily: "var(--sans)", fontSize: 13 }}
+              />
               <div className="actions">
-                <button className="primary" onClick={confirmImport} disabled={importing}>
-                  {importing ? "Importing..." : `Import ${previewRows.length} values`}
-                </button>
-                <button className="ghost" onClick={() => setPreviewRows(null)}>Cancel</button>
+                <button className="primary" onClick={reviewPaste} disabled={!pasteText.trim()}>Review</button>
+                <button className="ghost" onClick={() => { setPasteOpen(false); setPasteText(""); }}>Cancel</button>
               </div>
             </div>
           )}
+
+          {status && <div className={`toast ${status.kind}`} style={{ maxWidth: 400, marginBottom: 12 }}>{status.msg}</div>}
+
+          {previewRows && (() => {
+            const classified = classifyPreview(previewRows);
+            const newCount = classified.filter((r) => r.state === "new").length;
+            const existsCount = classified.filter((r) => r.state === "exists").length;
+            const dupCount = classified.filter((r) => r.state === "dup").length;
+            return (
+              <div className="panel" style={{ marginBottom: 18 }}>
+                <h2>Import preview — {previewRows.length} row{previewRows.length !== 1 ? "s" : ""}</h2>
+                <p style={{ fontSize: 12.5, color: "var(--text-soft)", marginBottom: 8 }}>
+                  {newCount} new · {existsCount} already in {effectiveCriteria} · {dupCount} repeated in this list. Only new values are imported.
+                </p>
+                <div className="cards" style={{ maxHeight: 280, overflowY: "auto" }}>
+                  {classified.map((r, i) => (
+                    <div className="card" key={i} style={{ cursor: "default", opacity: r.state === "new" ? 1 : 0.6 }}>
+                      <div className="card-main">
+                        <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500 }}>{r.name}</div>
+                        <div className="meta">
+                          <span className={`pill ${r.state === "new" ? "active" : "inactive"}`}>
+                            {r.state === "new" ? "New" : r.state === "exists" ? "Already exists" : "Duplicate in list"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="actions">
+                  <button className="primary" onClick={confirmImport} disabled={importing || newCount === 0}>
+                    {importing ? "Importing..." : `Import ${newCount} new value${newCount !== 1 ? "s" : ""}`}
+                  </button>
+                  <button className="ghost" onClick={() => setPreviewRows(null)}>Cancel</button>
+                </div>
+              </div>
+            );
+          })()}
 
           {isLoading ? (
             <div className="empty">Loading...</div>

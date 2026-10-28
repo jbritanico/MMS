@@ -15,6 +15,16 @@ import {
     type PendingFaultAcknowledgmentRow,
 } from "./hooks/useMriFaultApprovals";
 
+const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+// dd/Mmm/yyyy. Accepts epoch seconds/milliseconds or a date string.
+function formatDate(raw: string | number | null | undefined): string {
+    if (raw === null || raw === undefined || String(raw).trim() === "") return "—";
+    const n = Number(raw);
+    const d = !isNaN(n) ? new Date(n < 1e12 ? n * 1000 : n) : new Date(String(raw));
+    if (isNaN(d.getTime())) return String(raw);
+    return `${String(d.getDate()).padStart(2, "0")}/${MONTH_ABBR[d.getMonth()]}/${d.getFullYear()}`;
+}
+
 const SEVERITY_COLOR: Record<string, string> = {
     Minor: "#d4ac0d",
     Moderate: "#d97706",
@@ -238,7 +248,7 @@ function PendingApprovals() {
                                 </div>
 
                                 <div className="review-card-desc">
-                                    Asset: {row.asset_code ?? "Unknown"} · Reported {row.created_date}
+                                    Asset: {row.asset_code ?? "Unknown"} · Reported {formatDate(row.created_date)}
                                 </div>
                                 {row.issue_details && (
                                     <div style={{ fontSize: 12.5, color: "var(--text-soft)" }}>
@@ -339,7 +349,7 @@ function PendingApprovals() {
                                 </span>
                             </div>
                             <p style={{ marginBottom: 4 }}>
-                                Asset: {row.asset_code ?? "Unknown"} · Reported {row.created_date}
+                                Asset: {row.asset_code ?? "Unknown"} · Reported {formatDate(row.created_date)}
                             </p>
                             {row.issue_details && (
                                 <p style={{ marginBottom: 4 }}><strong>Issue:</strong> {row.issue_details}</p>

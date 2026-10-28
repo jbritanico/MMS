@@ -810,6 +810,20 @@ function App() {
             box-shadow: inset 5px 5px 10px var(--neu-shadow-dark), inset -5px -5px 10px var(--neu-shadow-light), 0 0 0 2px #2f6fed33;
           }
 
+          /* Global neumorphic text boxes: every text-like input, textarea and select */
+          input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="range"]):not([type="color"]),
+          textarea, select {
+            padding: 10px 14px; border: none; border-radius: 10px;
+            font-size: 15px; font-family: var(--sans); background: var(--neu-bg); color: var(--text);
+            box-shadow: inset 4px 4px 8px var(--neu-shadow-dark), inset -4px -4px 8px var(--neu-shadow-light);
+            outline: none; box-sizing: border-box;
+          }
+          input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="range"]):not([type="color"]):focus,
+          textarea:focus, select:focus {
+            box-shadow: inset 5px 5px 10px var(--neu-shadow-dark), inset -5px -5px 10px var(--neu-shadow-light), 0 0 0 2px #2f6fed33;
+          }
+          input:disabled, textarea:disabled, select:disabled { color: var(--text-soft); box-shadow: none; cursor: not-allowed; opacity: 0.7; }
+
           .neu-select {
             padding: 12px 14px;
             border: none;

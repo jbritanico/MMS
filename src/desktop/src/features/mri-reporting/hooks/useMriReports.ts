@@ -17,6 +17,9 @@ export interface MriReport {
   mr_cost?: number | null;
   mr_cost_by?: string | null;
   mr_cost_date?: string | null;
+  // Positional component of the asset this report is for (e.g. Left Pump); null = whole asset.
+  component_id?: number | null;
+  component_label?: string | null;
 }
 
 const KEY = ["mri-reports"];
@@ -39,7 +42,7 @@ export function useMriReport(id: number | null) {
 export function useCreateMriReport() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (report: { template_id: number; asset_id: number }) =>
+    mutationFn: (report: { template_id: number; asset_id: number; component_id?: number | null }) =>
       invoke<number>("create_mri_report", { report }),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });
@@ -53,6 +56,8 @@ export interface LastPostJobInfo {
 
 export interface StandbyReminderRow {
   asset_id: number;
+  component_id?: number | null;
+  component_label?: string | null;
   asset_code: string;
   report_id: number;
   days_since: number;
@@ -70,7 +75,7 @@ export function useStandbyPrejobReminders() {
 export function useCreateMriReportFromLastPostJob() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { assetId: number; templateId: number }) =>
+    mutationFn: (vars: { assetId: number; templateId: number; componentId?: number | null }) =>
       invoke<number>("create_mri_report_from_last_post_job", vars),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });
