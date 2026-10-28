@@ -54,7 +54,11 @@ function canRelay(permissions: string[]) {
 
 type DecisionKind = "Approved" | "Reclassified" | "Rejected" | "Carryforward";
 
-function PendingApprovals() {
+interface PendingApprovalsProps {
+    onOpenFlow?: (reportId: number) => void;
+}
+
+function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
     const { user } = useCurrentUser();
     const { data: permissions = [] } = useEffectivePermissions(user?.id ?? 0);
     const { data: rows = [], isLoading } = usePendingMriFaultApprovals(user?.id ?? 0);
@@ -250,6 +254,11 @@ function PendingApprovals() {
                                 <div className="review-card-desc">
                                     Asset: {row.asset_code ?? "Unknown"} · Reported {formatDate(row.created_date)}
                                 </div>
+                                {onOpenFlow && (
+                                    <div style={{ marginTop: 4 }}>
+                                        <button className="ghost" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => onOpenFlow(row.report_id)}>Show flow</button>
+                                    </div>
+                                )}
                                 {row.issue_details && (
                                     <div style={{ fontSize: 12.5, color: "var(--text-soft)" }}>
                                         <strong>Issue:</strong> {row.issue_details}
@@ -309,6 +318,11 @@ function PendingApprovals() {
                                 <div className="review-card-code">
                                     {row.checklist_description ?? "Checklist item"}
                                 </div>
+                                {onOpenFlow && (
+                                    <div style={{ marginTop: 4 }}>
+                                        <button className="ghost" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => onOpenFlow(row.report_id)}>Show flow</button>
+                                    </div>
+                                )}
                                 <div className="review-card-desc">
                                     Asset: {row.asset_code ?? "Unknown"} · {row.decision} by {row.reviewer ?? "Unknown"} · recorded by {row.recorded_by ?? "Unknown"} on {row.created_date}
                                 </div>
@@ -492,6 +506,11 @@ function PendingApprovals() {
                                 <div className="review-card-code">
                                     {row.checklist_description ?? "Checklist item"}
                                 </div>
+                                {onOpenFlow && (
+                                    <div style={{ marginTop: 4 }}>
+                                        <button className="ghost" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => onOpenFlow(row.report_id)}>Show flow</button>
+                                    </div>
+                                )}
                                 <div className="review-card-desc">
                                     Asset: {row.asset_code ?? "Unknown"} · {row.decision}
                                     {row.new_severity ? ` → ${row.new_severity}` : ""} by {row.reviewer ?? "Unknown"} on {row.updated_date}

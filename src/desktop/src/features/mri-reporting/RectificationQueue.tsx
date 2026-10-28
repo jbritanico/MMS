@@ -11,7 +11,11 @@ import {
 
 const PARTS_STATUSES = ["Awaiting", "Ordered", "Available"] as const;
 
-function RectificationQueue() {
+interface RectificationQueueProps {
+    onOpenFlow?: (reportId: number) => void;
+}
+
+function RectificationQueue({ onOpenFlow }: RectificationQueueProps) {
     const { user } = useCurrentUser();
     const { data: permissions = [] } = useEffectivePermissions(user?.id ?? 0);
     const { data: rows = [], isLoading } = usePendingMriFaultRectifications(user?.id ?? 0);
@@ -148,6 +152,12 @@ function RectificationQueue() {
                                     <p style={{ fontSize: 11.5, color: "var(--text-soft)", marginTop: 10 }}>
                                         You don't have the required permission to manage rectification.
                                     </p>
+                                )}
+
+                                {onOpenFlow && (
+                                    <div style={{ marginTop: 8 }}>
+                                        <button className="ghost" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => onOpenFlow(row.report_id)}>Show flow</button>
+                                    </div>
                                 )}
 
                                 {canRectify && !isEditing && !isVerifying && (

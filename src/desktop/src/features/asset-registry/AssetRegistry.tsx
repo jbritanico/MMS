@@ -79,6 +79,7 @@ interface AssetRegistryCardProps {
   onRowClick: (asset: Asset) => void;
   onEdit: (e: React.MouseEvent, asset: Asset) => void;
   onDelete: (e: React.MouseEvent, asset: Asset) => void;
+  onShowFlow?: (assetId: number) => void;
 }
 
 // A separate component (not inline in the map below) because it needs to call
@@ -219,7 +220,7 @@ function AssetMocExemptions({
   );
 }
 
-function AssetRegistryCard({ asset: a, assetTypeLabel, assetTypeIcon, canEdit, canDelete, onRowClick, onEdit, onDelete }: AssetRegistryCardProps) {
+function AssetRegistryCard({ asset: a, assetTypeLabel, assetTypeIcon, canEdit, canDelete, onRowClick, onEdit, onDelete, onShowFlow }: AssetRegistryCardProps) {
   const { data: triggers = [] } = useAssetTriggers(a.id);
   const activeTriggers = triggers.filter((t) => t.enabled);
 
@@ -285,6 +286,16 @@ function AssetRegistryCard({ asset: a, assetTypeLabel, assetTypeIcon, canEdit, c
       )}
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 4 }}>
+        {onShowFlow && a.id !== null && (
+          <button className="icon-btn" aria-label="Show flow" title="Show history flow" onClick={(e) => { e.stopPropagation(); onShowFlow(a.id as number); }}>
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="3" y="4" width="6" height="5" rx="1" stroke="currentColor" strokeWidth="1.6" />
+              <rect x="15" y="4" width="6" height="5" rx="1" stroke="currentColor" strokeWidth="1.6" />
+              <rect x="9" y="15" width="6" height="5" rx="1" stroke="currentColor" strokeWidth="1.6" />
+              <path d="M9 6.5h6M6 9v3a2 2 0 0 0 2 2h1M18 9v3a2 2 0 0 1-2 2h-1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
         <button className="icon-btn" aria-label="Edit" onClick={(e) => onEdit(e, a)} disabled={!canEdit} title={!canEdit ? "Your role doesn't have permission to edit assets" : "Edit"}>
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"
@@ -306,9 +317,10 @@ type Mode = "create" | "edit" | "view";
 
 interface AssetRegistryProps {
   onViewTriggers: (assetId: number, assetCode: string) => void;
+  onShowAssetFlow?: (assetId: number) => void;
 }
 
-function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
+function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) {
   const { data: assets = [], isLoading } = useAssets();
   const { data: assetTypes = [] } = useAssetTypes();
   const { data: templates = [] } = useMriTemplates();
@@ -649,6 +661,7 @@ function AssetRegistry({ onViewTriggers }: AssetRegistryProps) {
                   onRowClick={handleRowClick}
                   onEdit={handleEdit}
                   onDelete={requestDelete}
+                  onShowFlow={onShowAssetFlow}
                 />
               ))}
             </div>

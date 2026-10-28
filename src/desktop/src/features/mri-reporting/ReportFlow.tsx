@@ -10,6 +10,8 @@ interface ReportFlowProps {
   onBack: () => void;
   onOpenReport: (reportId: number) => void;
   onNavigate: (target: FlowTarget) => void;
+  onShowAssetFlow: (assetId: number) => void;
+  onShowReportFlow: (reportId: number) => void;
 }
 
 type NodeKind = "asset" | "report" | "fault" | "decision" | "repair" | "onsite" | "tag" | "cost" | "carried" | "exemption";
@@ -24,6 +26,8 @@ interface FlowNode {
   tone: "neutral" | "danger" | "warn" | "success";
   details: [string, string][];
   open: { label: string; run: () => void; needs?: string[]; any?: boolean };
+  // Optional second button, e.g. jump to the asset's flow or another report's flow.
+  also?: { label: string; run: () => void };
 }
 
 const NODE_W = 210;
@@ -73,9 +77,9 @@ const REPAIR_PERMS = ["mri.rectify", "mri.approve", "mri.close_defect"];
 // repairs, plus tag changes, cost, on-site repairs, carried-forward faults and exemptions.
 // Read-only. Selecting a box shows its details and the existing screen that owns it; the
 // "Open" button is disabled when the signed-in user lacks the permission for that screen.
-function ReportFlow({ reportId, onBack, onOpenReport, onNavigate }: ReportFlowProps) {
-  const { data: flow, isLoading, error } = useReportFlow(reportId);
+function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlow, onShowReportFlow }: ReportFlowProps) {
   const { user } = useCurrentUser();
+  const { data: flow, isLoading, error } = useReportFlow(reportId, user?.id ?? 0);
   const { data: permissions = [] } = useEffectivePermissions(user?.id ?? 0);
   const [selected, setSelected] = useState<string | null>("report");
 
@@ -100,6 +104,7 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate }: ReportFlowPr
     tone: tagTone(flow.asset_tag_status),
     details: [["Asset", assetLabel], ["Description", flow.asset_description ?? "—"], ["Current tag", flow.asset_tag_status ?? "Not tagged"]],
     open: { label: "Open Asset Registry", run: () => onNavigate("assets"), needs: ["assets.view"] },
+    also: { label: "Show asset history flow", run: () => onShowAssetFlow(flow.asset_id) },
   });
   // Column 1: the report.
   nodes.push({
@@ -110,6 +115,7 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate }: ReportFlowPr
       ["Status", flow.status], ["Template", flow.template_name ?? "—"],
       ["Submitted by", flow.submitted_by ?? "—"], ["Submitted", flow.submitted_date ?? "—"],
       ["Closed by", flow.approved_by ?? "—"], ["Closed", flow.approved_date ?? "—"],
+      ["Country", flow.country ?? "—"],
     ],
     open: { label: "Open report", run: () => onOpenReport(flow.report_id) },
   });
@@ -125,6 +131,7 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate }: ReportFlowPr
       tone: severityTone(f.new_severity ?? f.original_severity),
       details: [["Fault", f.item_name], ["Original severity", f.original_severity], ["Final severity", f.new_severity ?? "—"], ["Carried forward to report", f.carried_to_report_id ? `#${f.carried_to_report_id}` : "—"]],
       open: { label: "Open Pending Approvals", run: () => onNavigate("pending-approvals"), needs: APPROVAL_PERMS, any: true },
+      also: f.carried_to_report_id ? { label: `Show flow of report #${f.carried_to_report_id}`, run: () => onShowReportFlow(f.carried_to_report_id as number) } : undefined,
     });
     edges.push(["report", fid]);
     const did = `d${f.approval_id}`;
@@ -135,7 +142,13 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate }: ReportFlowPr
       tone: pending ? "warn" : f.decision === "Rejected" ? "neutral" : "success",
       details: [
         ["Decision", f.decision], ["Reviewer", f.reviewer ?? "—"], ["Assigned to", f.assigned_to ?? "—"],
-        ["Provisional status", f.provisional_status ?? "—"], ["Acknowledged by", f.acknowledged_by ?? "—"], ["Log entries", String(f.log_entries)],
+        ["Provisional status", f.provisional_status ?? "—"], ["Acknowledged by", f.acknowledged_by ?? "—"],
+        ["Reminders sent", String(f.reminders)],
+        ...f.log.map((l, li): [string, string] => [
+          `Audit ${li + 1}: ${l.action}${l.is_provisional ? " (provisional)" : ""}`,
+          `${l.from_severity}${l.to_severity && l.to_severity !== l.from_severity ? ` → ${l.to_severity}` : ""} · ${l.reviewer} (${l.review_method}) · recorded by ${l.recorded_by} · ${l.logged_at}${l.notes ? ` · ${l.notes}` : ""}`,
+        ]),
+        ...(f.log.length === 0 ? ([["Audit trail", "No decisions logged yet"]] as [string, string][]) : []),
       ],
       open: { label: "Open Pending Approvals", run: () => onNavigate("pending-approvals"), needs: APPROVAL_PERMS, any: true },
     });
@@ -202,6 +215,7 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate }: ReportFlowPr
       lines: [`From report #${c.from_report_id}`], tone: "warn",
       details: [["Fault", c.item_name], ["From report", `#${c.from_report_id}`]],
       open: { label: `Open report #${c.from_report_id}`, run: () => onOpenReport(c.from_report_id) },
+      also: { label: `Show flow of report #${c.from_report_id}`, run: () => onShowReportFlow(c.from_report_id) },
     });
     edges.push([id, "report"]);
   });
@@ -299,6 +313,7 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate }: ReportFlowPr
             <button className="primary" onClick={sel.open.run} disabled={!canOpen(sel)} title={!canOpen(sel) ? "Your role doesn't have access to that screen" : undefined}>
               {sel.open.label}
             </button>
+            {sel.also && <button className="ghost" onClick={sel.also.run}>{sel.also.label}</button>}
             {!canOpen(sel) && <span style={{ fontSize: 11, color: "var(--text-soft)" }}>Your role doesn't have access to that screen.</span>}
           </div>
         </div>

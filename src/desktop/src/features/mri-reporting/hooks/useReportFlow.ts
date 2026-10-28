@@ -11,6 +11,18 @@ export interface FlowRepair {
   function_test_passed: boolean | null;
 }
 
+export interface FlowLogEntry {
+  action: string;
+  from_severity: string;
+  to_severity: string | null;
+  reviewer: string;
+  review_method: string;
+  notes: string | null;
+  recorded_by: string;
+  is_provisional: boolean;
+  logged_at: string;
+}
+
 export interface FlowFault {
   approval_id: number;
   item_name: string;
@@ -23,6 +35,8 @@ export interface FlowFault {
   acknowledged_by: string | null;
   carried_to_report_id: number | null;
   log_entries: number;
+  reminders: number;
+  log: FlowLogEntry[];
   repair: FlowRepair | null;
 }
 
@@ -71,6 +85,7 @@ export interface ReportFlow {
   asset_code: string | null;
   asset_description: string | null;
   asset_tag_status: string | null;
+  country: string | null;
   faults: FlowFault[];
   onsite_repairs: FlowOnsiteRepair[];
   tag_changes: FlowTagChange[];
@@ -79,10 +94,12 @@ export interface ReportFlow {
 }
 
 // Read-only: one report and everything connected to it (see get_report_flow in lib.rs).
-export function useReportFlow(reportId: number | null) {
+// Country-scoped: the backend refuses reports on assets outside the viewer's countries.
+export function useReportFlow(reportId: number | null, viewerUserId: number) {
   return useQuery({
-    queryKey: ["report-flow", reportId],
-    queryFn: () => invoke<ReportFlow>("get_report_flow", { reportId }),
-    enabled: reportId !== null,
+    queryKey: ["report-flow", reportId, viewerUserId],
+    queryFn: () => invoke<ReportFlow>("get_report_flow", { reportId, viewerUserId }),
+    enabled: reportId !== null && viewerUserId > 0,
+    retry: false,
   });
 }

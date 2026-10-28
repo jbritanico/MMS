@@ -330,9 +330,10 @@ interface AssetHistoryPanelProps {
   assetDescription: string | null;
   onBack: () => void;
   onOpenReport?: (reportId: number) => void;
+  onShowAssetFlow?: (assetId: number) => void;
 }
 
-function AssetHistoryPanel({ assetId, assetCode, assetDescription, onBack, onOpenReport }: AssetHistoryPanelProps) {
+function AssetHistoryPanel({ assetId, assetCode, assetDescription, onBack, onOpenReport, onShowAssetFlow }: AssetHistoryPanelProps) {
   const { data: rows = [], isLoading } = useAssetMriHistory(assetId);
   const { data: triggers = [] } = useAssetTriggers(assetId);
   const { user: currentUser } = useCurrentUser();
@@ -359,6 +360,11 @@ function AssetHistoryPanel({ assetId, assetCode, assetDescription, onBack, onOpe
         <button className="ghost" onClick={onBack} style={{ padding: "6px 12px", fontSize: 12 }}>
           ← Back to assets
         </button>
+        {onShowAssetFlow && (
+          <button className="ghost" onClick={() => onShowAssetFlow(assetId)} style={{ padding: "6px 12px", fontSize: 12 }}>
+            Show flow
+          </button>
+        )}
       </div>
 
       <div className="header">
@@ -536,10 +542,11 @@ type DashboardView = "hub" | "mri-history";
 
 interface DashboardProps {
   onOpenReport?: (reportId: number) => void;
+  onShowAssetFlow?: (assetId: number) => void;
   theme: Theme;
 }
 
-function Dashboard({ onOpenReport, theme }: DashboardProps) {
+function Dashboard({ onOpenReport, onShowAssetFlow, theme }: DashboardProps) {
   const [view, setView] = useState<DashboardView>("hub");
   const [selectedAsset, setSelectedAsset] = useState<{ id: number; code: string; description: string | null } | null>(null);
   const { data: assets = [], isLoading } = useAssetsWithMriHistorySummary();
@@ -553,6 +560,7 @@ function Dashboard({ onOpenReport, theme }: DashboardProps) {
           assetDescription={selectedAsset.description}
           onBack={() => setSelectedAsset(null)}
           onOpenReport={onOpenReport}
+          onShowAssetFlow={onShowAssetFlow}
         />
       </DashboardBackdrop>
     );

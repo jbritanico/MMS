@@ -3009,6 +3009,19 @@ struct FlowRepair {
 }
 
 #[derive(Serialize)]
+struct FlowLogEntry {
+    action: String,
+    from_severity: String,
+    to_severity: Option<String>,
+    reviewer: String,
+    review_method: String,
+    notes: Option<String>,
+    recorded_by: String,
+    is_provisional: bool,
+    logged_at: String,
+}
+
+#[derive(Serialize)]
 struct FlowFault {
     approval_id: i64,
     item_name: String,
@@ -3021,6 +3034,8 @@ struct FlowFault {
     acknowledged_by: Option<String>,
     carried_to_report_id: Option<i64>,
     log_entries: i64,
+    reminders: i64,
+    log: Vec<FlowLogEntry>,
     repair: Option<FlowRepair>,
 }
 
@@ -3074,6 +3089,7 @@ struct ReportFlow {
     asset_code: Option<String>,
     asset_description: Option<String>,
     asset_tag_status: Option<String>,
+    country: Option<String>,
     faults: Vec<FlowFault>,
     onsite_repairs: Vec<FlowOnsiteRepair>,
     tag_changes: Vec<FlowTagChange>,
@@ -3082,12 +3098,12 @@ struct ReportFlow {
 }
 
 #[tauri::command]
-fn get_report_flow(report_id: i64) -> Result<ReportFlow, String> {
+fn get_report_flow(report_id: i64, viewer_user_id: i64) -> Result<ReportFlow, String> {
     let conn = get_connection()?;
     let mut flow = conn
         .query_row(
             "SELECT r.id, r.status, t.template_name, r.submitted_by, r.submitted_date, r.approved_by, r.approved_date,
-                    r.mr_cost, r.mr_cost_by, r.mr_cost_date, r.asset_id, a.asset_code, a.asset_description, a.tag_status
+                    r.mr_cost, r.mr_cost_by, r.mr_cost_date, r.asset_id, a.asset_code, a.asset_description, a.tag_status, a.country
              FROM mri_reports r
              LEFT JOIN mri_templates t ON t.id = r.template_id
              LEFT JOIN assets a ON a.id = r.asset_id
@@ -3109,6 +3125,7 @@ fn get_report_flow(report_id: i64) -> Result<ReportFlow, String> {
                     asset_code: row.get(11)?,
                     asset_description: row.get(12)?,
                     asset_tag_status: row.get(13)?,
+                    country: row.get(14)?,
                     faults: Vec::new(),
                     onsite_repairs: Vec::new(),
                     tag_changes: Vec::new(),
@@ -3118,6 +3135,15 @@ fn get_report_flow(report_id: i64) -> Result<ReportFlow, String> {
             },
         )
         .map_err(|e| e.to_string())?;
+
+    // Country scoping, same rule as the review queues: a user restricted to some countries
+    // cannot open the flow of a report on an asset outside them.
+    if let Some(allowed) = user_country_restriction(&conn, viewer_user_id)? {
+        let ok = flow.country.as_deref().map_or(false, |c| allowed.iter().any(|a| a == c));
+        if !ok {
+            return Err("This report is on an asset outside your country access.".to_string());
+        }
+    }
 
     {
         let mut stmt = conn
@@ -3164,6 +3190,8 @@ fn get_report_flow(report_id: i64) -> Result<ReportFlow, String> {
                     acknowledged_by: row.get(8)?,
                     carried_to_report_id: row.get(9)?,
                     log_entries: row.get(10)?,
+                    reminders: 0,
+                    log: Vec::new(),
                     repair,
                 })
             })
@@ -3171,6 +3199,38 @@ fn get_report_flow(report_id: i64) -> Result<ReportFlow, String> {
         for r in rows {
             flow.faults.push(r.map_err(|e| e.to_string())?);
         }
+    }
+
+    // Audit trail per fault: every decision logged, plus how many reminders were sent.
+    for f in flow.faults.iter_mut() {
+        let mut stmt = conn
+            .prepare(
+                "SELECT action, COALESCE(from_severity, ''), to_severity, COALESCE(reviewer, ''), COALESCE(review_method, ''),
+                        notes, COALESCE(recorded_by, ''), is_provisional, COALESCE(logged_at, '')
+                 FROM mri_fault_decision_log WHERE fault_approval_id = ?1 ORDER BY id",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([f.approval_id], |row| {
+                Ok(FlowLogEntry {
+                    action: row.get(0)?,
+                    from_severity: row.get(1)?,
+                    to_severity: row.get(2)?,
+                    reviewer: row.get(3)?,
+                    review_method: row.get(4)?,
+                    notes: row.get(5)?,
+                    recorded_by: row.get(6)?,
+                    is_provisional: row.get::<_, i64>(7)? != 0,
+                    logged_at: row.get(8)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            f.log.push(r.map_err(|e| e.to_string())?);
+        }
+        f.reminders = conn
+            .query_row("SELECT COUNT(*) FROM mri_fault_reminders WHERE fault_approval_id = ?1", [f.approval_id], |row| row.get(0))
+            .unwrap_or(0);
     }
 
     {
@@ -3255,6 +3315,240 @@ fn get_report_flow(report_id: i64) -> Result<ReportFlow, String> {
             .map_err(|e| e.to_string())?;
         let rows = stmt
             .query_map([flow.asset_id], |row| {
+                Ok(FlowExemption {
+                    moc_reference: row.get(0)?,
+                    status: row.get(1)?,
+                    valid_from: row.get(2)?,
+                    valid_until: row.get(3)?,
+                    approved_by: row.get(4)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            flow.exemptions.push(r.map_err(|e| e.to_string())?);
+        }
+    }
+
+    Ok(flow)
+}
+
+// ---- Asset flow (read-only) ----------------------------------------------------------
+// The same idea one level up: one asset and everything that happened to it over time --
+// its reports in order, how faults were carried from one report to the next, every tag
+// change, its maintenance triggers and MOC exemptions. Pure SELECTs, country-scoped.
+#[derive(Serialize)]
+struct AssetFlowReport {
+    id: i64,
+    status: String,
+    template_name: Option<String>,
+    submitted_by: Option<String>,
+    submitted_date: Option<String>,
+    approved_date: Option<String>,
+    mr_cost: Option<f64>,
+    fault_count: i64,
+    open_fault_count: i64,
+}
+
+#[derive(Serialize)]
+struct AssetFlowTagChange {
+    tag_status: String,
+    previous_tag_status: Option<String>,
+    reason: Option<String>,
+    report_id: Option<i64>,
+    changed_by: Option<String>,
+    changed_at: Option<String>,
+}
+
+#[derive(Serialize)]
+struct AssetFlowCarry {
+    item_name: String,
+    from_report_id: i64,
+    to_report_id: i64,
+}
+
+#[derive(Serialize)]
+struct AssetFlowTrigger {
+    mr_level: String,
+    trigger_type: String,
+    enabled: bool,
+    interval_value: i64,
+    warning_value: i64,
+    running_value: i64,
+    last_reset_date: Option<String>,
+}
+
+#[derive(Serialize)]
+struct AssetFlow {
+    asset_id: i64,
+    asset_code: Option<String>,
+    asset_description: Option<String>,
+    asset_type: Option<String>,
+    country: Option<String>,
+    service_line: Option<String>,
+    tag_status: Option<String>,
+    tag_reason: Option<String>,
+    reports: Vec<AssetFlowReport>,
+    tag_changes: Vec<AssetFlowTagChange>,
+    carries: Vec<AssetFlowCarry>,
+    triggers: Vec<AssetFlowTrigger>,
+    exemptions: Vec<FlowExemption>,
+}
+
+#[tauri::command]
+fn get_asset_flow(asset_id: i64, viewer_user_id: i64) -> Result<AssetFlow, String> {
+    let conn = get_connection()?;
+    let mut flow = conn
+        .query_row(
+            "SELECT a.id, a.asset_code, a.asset_description, t.description, a.country, a.service_line, a.tag_status, a.tag_reason
+             FROM assets a LEFT JOIN asset_types t ON t.id = a.asset_type_id
+             WHERE a.id = ?1",
+            [asset_id],
+            |row| {
+                Ok(AssetFlow {
+                    asset_id: row.get(0)?,
+                    asset_code: row.get(1)?,
+                    asset_description: row.get(2)?,
+                    asset_type: row.get(3)?,
+                    country: row.get(4)?,
+                    service_line: row.get(5)?,
+                    tag_status: row.get(6)?,
+                    tag_reason: row.get(7)?,
+                    reports: Vec::new(),
+                    tag_changes: Vec::new(),
+                    carries: Vec::new(),
+                    triggers: Vec::new(),
+                    exemptions: Vec::new(),
+                })
+            },
+        )
+        .map_err(|e| e.to_string())?;
+
+    if let Some(allowed) = user_country_restriction(&conn, viewer_user_id)? {
+        let ok = flow.country.as_deref().map_or(false, |c| allowed.iter().any(|a| a == c));
+        if !ok {
+            return Err("This asset is outside your country access.".to_string());
+        }
+    }
+
+    {
+        let mut stmt = conn
+            .prepare(
+                "SELECT r.id, r.status, t.template_name, r.submitted_by, r.submitted_date, r.approved_date, r.mr_cost,
+                        (SELECT COUNT(*) FROM mri_fault_approvals fa WHERE fa.report_id = r.id),
+                        (SELECT COUNT(*) FROM mri_fault_approvals fa
+                           LEFT JOIN mri_fault_rectifications fr ON fr.fault_approval_id = fa.id
+                           WHERE fa.report_id = r.id
+                             AND (COALESCE(fa.decision, 'Pending') = 'Pending' OR (fr.id IS NOT NULL AND fr.verified_by IS NULL)))
+                 FROM mri_reports r
+                 LEFT JOIN mri_templates t ON t.id = r.template_id
+                 WHERE r.asset_id = ?1
+                 ORDER BY COALESCE(r.submitted_date, r.created_date), r.id",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([asset_id], |row| {
+                Ok(AssetFlowReport {
+                    id: row.get(0)?,
+                    status: row.get(1)?,
+                    template_name: row.get(2)?,
+                    submitted_by: row.get(3)?,
+                    submitted_date: row.get(4)?,
+                    approved_date: row.get(5)?,
+                    mr_cost: row.get(6)?,
+                    fault_count: row.get(7)?,
+                    open_fault_count: row.get(8)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            flow.reports.push(r.map_err(|e| e.to_string())?);
+        }
+    }
+
+    {
+        let mut stmt = conn
+            .prepare(
+                "SELECT COALESCE(tag_status, ''), previous_tag_status, reason, report_id, changed_by, changed_at
+                 FROM asset_tag_history WHERE asset_id = ?1 ORDER BY id",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([asset_id], |row| {
+                Ok(AssetFlowTagChange {
+                    tag_status: row.get(0)?,
+                    previous_tag_status: row.get(1)?,
+                    reason: row.get(2)?,
+                    report_id: row.get(3)?,
+                    changed_by: row.get(4)?,
+                    changed_at: row.get(5)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            flow.tag_changes.push(r.map_err(|e| e.to_string())?);
+        }
+    }
+
+    {
+        let mut stmt = conn
+            .prepare(
+                "SELECT COALESCE(cd.description, 'Checklist item'), fa.report_id, fa.carried_to_report_id
+                 FROM mri_fault_approvals fa
+                 JOIN mri_reports r ON r.id = fa.report_id
+                 LEFT JOIN template_checklist_items tci ON tci.id = fa.template_checklist_item_id
+                 LEFT JOIN checklist_databank cd ON cd.id = tci.checklist_item_id
+                 WHERE r.asset_id = ?1 AND fa.carried_to_report_id IS NOT NULL
+                 ORDER BY fa.id",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([asset_id], |row| {
+                Ok(AssetFlowCarry {
+                    item_name: row.get(0)?,
+                    from_report_id: row.get(1)?,
+                    to_report_id: row.get(2)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            flow.carries.push(r.map_err(|e| e.to_string())?);
+        }
+    }
+
+    {
+        let mut stmt = conn
+            .prepare(
+                "SELECT mr_level, trigger_type, enabled, interval_value, warning_value, running_value, last_reset_date
+                 FROM maintenance_triggers WHERE asset_id = ?1 ORDER BY mr_level, trigger_type",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([asset_id], |row| {
+                Ok(AssetFlowTrigger {
+                    mr_level: row.get(0)?,
+                    trigger_type: row.get(1)?,
+                    enabled: row.get::<_, i64>(2)? != 0,
+                    interval_value: row.get(3)?,
+                    warning_value: row.get(4)?,
+                    running_value: row.get(5)?,
+                    last_reset_date: row.get(6)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            flow.triggers.push(r.map_err(|e| e.to_string())?);
+        }
+    }
+
+    {
+        let mut stmt = conn
+            .prepare(
+                "SELECT COALESCE(moc_reference, ''), COALESCE(status, ''), valid_from, valid_until, approved_by
+                 FROM asset_moc_exemptions WHERE asset_id = ?1 ORDER BY id DESC",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([asset_id], |row| {
                 Ok(FlowExemption {
                     moc_reference: row.get(0)?,
                     status: row.get(1)?,
@@ -8687,6 +8981,7 @@ pub fn run() {
             get_mri_reports,
             get_mri_report,
             get_report_flow,
+            get_asset_flow,
             create_mri_report,
             delete_mri_report,
             submit_mri_report,

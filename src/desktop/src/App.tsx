@@ -19,6 +19,7 @@ import RectificationQueue from "./features/mri-reporting/RectificationQueue";
 import ReportReviewQueue from "./features/mri-reporting/ReportReviewQueue";
 import MyReportsQueue from "./features/mri-reporting/MyReportsQueue";
 import ReportFlow from "./features/mri-reporting/ReportFlow";
+import AssetFlow from "./features/mri-reporting/AssetFlow";
 import type { Theme } from "./lib/theme";
 import { CurrentUserProvider } from "./lib/currentUser";
 import UserPickerGate from "./lib/UserPickerGate";
@@ -39,7 +40,8 @@ type Screen =
   | "rectification-queue"
   | "report-review-queue"
   | "my-reports-queue"
-  | "report-flow";
+  | "report-flow"
+  | "asset-flow";
 type MrLevel = "MR-I" | "MR-II" | "MR-III";
 
 const queryClient = new QueryClient();
@@ -79,15 +81,41 @@ function App() {
     setScreen("report-wizard");
   }
 
-  // Document flow (read-only map of one report and what hangs off it). Back returns to the
-  // screen it was opened from.
-  const [flowReportId, setFlowReportId] = useState<number | null>(null);
+  // Document flow (read-only maps of one report, or of one asset over time). Opening a flow
+  // from another flow pushes onto a small stack, so Back steps through the flows you visited
+  // and finally returns to the screen the first flow was opened from.
+  type FlowEntry = { type: "report" | "asset"; id: number };
+  const [flowStack, setFlowStack] = useState<FlowEntry[]>([]);
   const [flowOrigin, setFlowOrigin] = useState<Screen>("my-reports-queue");
+  const currentFlow = flowStack.length > 0 ? flowStack[flowStack.length - 1] : null;
+
+  function openFlow(entry: FlowEntry) {
+    if (screen !== "report-flow" && screen !== "asset-flow") {
+      setFlowOrigin(screen);
+      setFlowStack([entry]);
+    } else {
+      setFlowStack((s) => [...s, entry]);
+    }
+    setScreen(entry.type === "report" ? "report-flow" : "asset-flow");
+  }
 
   function handleOpenFlow(reportId: number) {
-    setFlowOrigin(screen === "report-flow" ? flowOrigin : screen);
-    setFlowReportId(reportId);
-    setScreen("report-flow");
+    openFlow({ type: "report", id: reportId });
+  }
+
+  function handleOpenAssetFlow(assetId: number) {
+    openFlow({ type: "asset", id: assetId });
+  }
+
+  function handleFlowBack() {
+    if (flowStack.length > 1) {
+      const rest = flowStack.slice(0, -1);
+      setFlowStack(rest);
+      setScreen(rest[rest.length - 1].type === "report" ? "report-flow" : "asset-flow");
+    } else {
+      setFlowStack([]);
+      setScreen(flowOrigin);
+    }
   }
 
   const [theme, setTheme] = useState<Theme>("light");
@@ -2098,7 +2126,7 @@ function App() {
                   />
                 )}
                 {screen === "assets" && (
-                  <AssetRegistry onViewTriggers={handleViewTriggers} />
+                  <AssetRegistry onViewTriggers={handleViewTriggers} onShowAssetFlow={handleOpenAssetFlow} />
                 )}
                 {screen === "reports" && mrLevel === "MR-I" && (
                   <SelectAssetForReport onReportCreated={handleReportCreated} />
@@ -2114,17 +2142,30 @@ function App() {
                     onShowFlow={handleOpenFlow}
                   />
                 )}
-                {screen === "report-flow" && flowReportId !== null && (
+                {screen === "report-flow" && currentFlow?.type === "report" && (
                   <ReportFlow
-                    reportId={flowReportId}
-                    onBack={() => setScreen(flowOrigin)}
+                    reportId={currentFlow.id}
+                    onBack={handleFlowBack}
                     onOpenReport={(id) => handleReportCreated(id, true)}
                     onNavigate={(target) => setScreen(target)}
+                    onShowAssetFlow={handleOpenAssetFlow}
+                    onShowReportFlow={handleOpenFlow}
+                  />
+                )}
+                {screen === "asset-flow" && currentFlow?.type === "asset" && (
+                  <AssetFlow
+                    assetId={currentFlow.id}
+                    onBack={handleFlowBack}
+                    onOpenReport={(id) => handleReportCreated(id, true)}
+                    onShowReportFlow={handleOpenFlow}
+                    onOpenAssets={() => setScreen("assets")}
+                    onViewTriggers={handleViewTriggers}
                   />
                 )}
                 {screen === "dashboard" && (
                   <Dashboard
                     onOpenReport={(id) => handleReportCreated(id, true)}
+                    onShowAssetFlow={handleOpenAssetFlow}
                     theme={theme}
                   />
                 )}
@@ -2147,8 +2188,8 @@ function App() {
                 )}
                 {screen === "uilab" && <LiquidGlassTest />}
                 {screen === "distance-map-test" && <DistanceMapTest />}
-                {screen === "pending-approvals" && <PendingApprovals />}
-                {screen === "rectification-queue" && <RectificationQueue />}
+                {screen === "pending-approvals" && <PendingApprovals onOpenFlow={handleOpenFlow} />}
+                {screen === "rectification-queue" && <RectificationQueue onOpenFlow={handleOpenFlow} />}
                 {screen === "report-review-queue" && (
                   <ReportReviewQueue onOpenReport={handleReportCreated} onOpenFlow={handleOpenFlow} />
                 )}
