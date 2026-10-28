@@ -19,12 +19,13 @@ function formatDate(raw: string | number | null | undefined): string {
 
 interface MyReportsQueueProps {
     onOpenReport: (reportId: number) => void;
+    onOpenFlow?: (reportId: number) => void;
 }
 
 // Read-only status tracker for reports the current user submitted themselves -- no action
 // buttons, since closing/endorsing is a Supervisor+ action. Clicking a card just opens the
 // report, which is already locked to view-only once it's past Draft.
-function MyReportsQueue({ onOpenReport }: MyReportsQueueProps) {
+function MyReportsQueue({ onOpenReport, onOpenFlow }: MyReportsQueueProps) {
     const { user: currentUser } = useCurrentUser();
     const { data: rows = [], isLoading } = useMyOpenMriReports(currentUser?.name);
 
@@ -65,6 +66,9 @@ function MyReportsQueue({ onOpenReport }: MyReportsQueueProps) {
                                 </div>
                                 <div style={{ marginTop: 8 }}>
                                     <button className="ghost" onClick={(e) => { e.stopPropagation(); onOpenReport(row.id); }}>View report</button>
+                                    {onOpenFlow && (
+                                        <button className="ghost" style={{ marginLeft: 8 }} onClick={(e) => { e.stopPropagation(); onOpenFlow(row.id); }}>Show flow</button>
+                                    )}
                                 </div>
                             </div>
                         );

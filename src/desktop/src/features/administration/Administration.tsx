@@ -8,6 +8,7 @@ import LookupsManager from "./LookupsManager";
 import Users from "./Users";
 import Roles from "./Roles";
 import DataPurging from "./DataPurging";
+import DataBackup from "./DataBackup";
 import DataBrowser from "./DataBrowser";
 import { useCurrentUserPermissionCodes } from "../../lib/useCurrentUserPermissions";
 
@@ -21,6 +22,7 @@ export type AdminSection =
   | "data-browser"
   | "data-removal"
   | "data-purge"
+  | "data-backup"
   | "mri-template"
   | "mrii-template"
   | "mriii-template";
@@ -168,6 +170,16 @@ const GROUPS: Group[] = [
           </svg>
         ),
       },
+      {
+        id: "data-backup",
+        label: "Backup",
+        icon: (
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 4v10M12 14l-3.5-3.5M12 14l3.5-3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+        ),
+      },
     ],
   },
   {
@@ -226,6 +238,7 @@ const SECTION_PERMISSION: Partial<Record<AdminSection, string>> = {
   "data-browser": "data_browser.view",
   "data-removal": "data_browser.edit",
   "data-purge": "data_purging.execute",
+  "data-backup": "backups.export",
   "mri-template": "mri_templates.view",
   "mrii-template": "mri_templates.view",
   "mriii-template": "mri_templates.view",
@@ -240,6 +253,7 @@ const LABELS: Record<AdminSection, string> = {
   "data-browser": "Data Browser",
   "data-removal": "Data Removal",
   "data-purge": "Data Purge",
+  "data-backup": "Data Backup",
   "mri-template": "MR-I Template",
   "mrii-template": "MR-II Template",
   "mriii-template": "MR-III Template",
@@ -261,6 +275,7 @@ function Administration({ onOpenTemplate, active, setActive, openGroup, setOpenG
 
   function canSee(section: AdminSection): boolean {
     if (permCodes === null) return true; // fail-open: still loading, or no matching user yet
+    if (section === "data-backup") return permCodes.has("backups.export") || permCodes.has("backups.import");
     const required = SECTION_PERMISSION[section];
     if (!required) return true; // unmapped sections (not yet built) stay visible
     return permCodes.has(required);
@@ -357,6 +372,8 @@ function Administration({ onOpenTemplate, active, setActive, openGroup, setOpenG
           <DataBrowser />
         ) : active === "data-purge" ? (
           <DataPurging />
+        ) : active === "data-backup" ? (
+          <DataBackup />
         ) : (
           <div className="placeholder-screen">
             <h2>{LABELS[active]}</h2>

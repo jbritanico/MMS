@@ -84,12 +84,14 @@ interface ReportWizardProps {
   reportId: number;
   onBack: () => void;
   viewOnly?: boolean;
+  onShowFlow?: (reportId: number) => void;
 }
 
 function ReportWizard({
   reportId,
   onBack,
   viewOnly = false,
+  onShowFlow,
 }: ReportWizardProps) {
   const { data: report } = useMriReport(reportId);
   const { data: assets = [] } = useAssets();
@@ -271,6 +273,16 @@ function ReportWizard({
         >
           ← Back
         </button>
+        {onShowFlow && report.status !== "Draft" && (
+          <button
+            className="ghost"
+            onClick={() => onShowFlow(reportId)}
+            style={{ padding: "6px 12px", fontSize: 12 }}
+            title="Show the document flow: asset, faults, decisions, repairs and tag changes for this report"
+          >
+            Show flow
+          </button>
+        )}
       </div>
 
       <div className="header">

@@ -2993,6 +2993,286 @@ fn get_mri_report(id: i64) -> Result<MriReport, String> {
     ).map_err(|e| e.to_string())
 }
 
+// ---- Document flow (read-only) -------------------------------------------------------
+// One report and everything that hangs off it: asset and tag, faults with their decision
+// and repair, on-site repairs, tag changes caused by it, carried-forward faults and the
+// asset's MOC exemptions. Pure SELECTs; nothing here writes.
+#[derive(Serialize)]
+struct FlowRepair {
+    assigned_technician: Option<String>,
+    parts_status: Option<String>,
+    repair_date: Option<String>,
+    verified_by: Option<String>,
+    verified_date: Option<String>,
+    tag_status: Option<String>,
+    function_test_passed: Option<bool>,
+}
+
+#[derive(Serialize)]
+struct FlowFault {
+    approval_id: i64,
+    item_name: String,
+    original_severity: String,
+    decision: String,
+    new_severity: Option<String>,
+    reviewer: Option<String>,
+    assigned_to: Option<String>,
+    provisional_status: Option<String>,
+    acknowledged_by: Option<String>,
+    carried_to_report_id: Option<i64>,
+    log_entries: i64,
+    repair: Option<FlowRepair>,
+}
+
+#[derive(Serialize)]
+struct FlowOnsiteRepair {
+    item_name: String,
+    severity: Option<String>,
+    action_taken: Option<String>,
+    repaired_by: Option<String>,
+    repaired_at: Option<String>,
+}
+
+#[derive(Serialize)]
+struct FlowTagChange {
+    tag_status: String,
+    previous_tag_status: Option<String>,
+    reason: Option<String>,
+    changed_by: Option<String>,
+    changed_at: Option<String>,
+}
+
+#[derive(Serialize)]
+struct FlowCarried {
+    approval_id: i64,
+    from_report_id: i64,
+    item_name: String,
+}
+
+#[derive(Serialize)]
+struct FlowExemption {
+    moc_reference: String,
+    status: String,
+    valid_from: Option<String>,
+    valid_until: Option<String>,
+    approved_by: Option<String>,
+}
+
+#[derive(Serialize)]
+struct ReportFlow {
+    report_id: i64,
+    status: String,
+    template_name: Option<String>,
+    submitted_by: Option<String>,
+    submitted_date: Option<String>,
+    approved_by: Option<String>,
+    approved_date: Option<String>,
+    mr_cost: Option<f64>,
+    mr_cost_by: Option<String>,
+    mr_cost_date: Option<String>,
+    asset_id: i64,
+    asset_code: Option<String>,
+    asset_description: Option<String>,
+    asset_tag_status: Option<String>,
+    faults: Vec<FlowFault>,
+    onsite_repairs: Vec<FlowOnsiteRepair>,
+    tag_changes: Vec<FlowTagChange>,
+    carried_in: Vec<FlowCarried>,
+    exemptions: Vec<FlowExemption>,
+}
+
+#[tauri::command]
+fn get_report_flow(report_id: i64) -> Result<ReportFlow, String> {
+    let conn = get_connection()?;
+    let mut flow = conn
+        .query_row(
+            "SELECT r.id, r.status, t.template_name, r.submitted_by, r.submitted_date, r.approved_by, r.approved_date,
+                    r.mr_cost, r.mr_cost_by, r.mr_cost_date, r.asset_id, a.asset_code, a.asset_description, a.tag_status
+             FROM mri_reports r
+             LEFT JOIN mri_templates t ON t.id = r.template_id
+             LEFT JOIN assets a ON a.id = r.asset_id
+             WHERE r.id = ?1",
+            [report_id],
+            |row| {
+                Ok(ReportFlow {
+                    report_id: row.get(0)?,
+                    status: row.get(1)?,
+                    template_name: row.get(2)?,
+                    submitted_by: row.get(3)?,
+                    submitted_date: row.get(4)?,
+                    approved_by: row.get(5)?,
+                    approved_date: row.get(6)?,
+                    mr_cost: row.get(7)?,
+                    mr_cost_by: row.get(8)?,
+                    mr_cost_date: row.get(9)?,
+                    asset_id: row.get(10)?,
+                    asset_code: row.get(11)?,
+                    asset_description: row.get(12)?,
+                    asset_tag_status: row.get(13)?,
+                    faults: Vec::new(),
+                    onsite_repairs: Vec::new(),
+                    tag_changes: Vec::new(),
+                    carried_in: Vec::new(),
+                    exemptions: Vec::new(),
+                })
+            },
+        )
+        .map_err(|e| e.to_string())?;
+
+    {
+        let mut stmt = conn
+            .prepare(
+                "SELECT fa.id, COALESCE(cd.description, 'Checklist item'), COALESCE(fa.original_severity, ''), COALESCE(fa.decision, 'Pending'), fa.new_severity,
+                        fa.reviewer, au.name, fa.provisional_status, fa.acknowledged_by, fa.carried_to_report_id,
+                        (SELECT COUNT(*) FROM mri_fault_decision_log dl WHERE dl.fault_approval_id = fa.id),
+                        fr.id, fr.assigned_technician, fr.parts_status, fr.repair_date, fr.verified_by, fr.verified_date,
+                        fr.tag_status, fr.function_test_passed
+                 FROM mri_fault_approvals fa
+                 LEFT JOIN template_checklist_items tci ON tci.id = fa.template_checklist_item_id
+                 LEFT JOIN checklist_databank cd ON cd.id = tci.checklist_item_id
+                 LEFT JOIN app_users au ON au.id = fa.assigned_to_user_id
+                 LEFT JOIN mri_fault_rectifications fr ON fr.fault_approval_id = fa.id
+                 WHERE fa.report_id = ?1
+                 ORDER BY fa.id",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([report_id], |row| {
+                let repair_id: Option<i64> = row.get(11)?;
+                let repair = if repair_id.is_some() {
+                    Some(FlowRepair {
+                        assigned_technician: row.get(12)?,
+                        parts_status: row.get(13)?,
+                        repair_date: row.get(14)?,
+                        verified_by: row.get(15)?,
+                        verified_date: row.get(16)?,
+                        tag_status: row.get(17)?,
+                        function_test_passed: row.get::<_, Option<i64>>(18)?.map(|v| v != 0),
+                    })
+                } else {
+                    None
+                };
+                Ok(FlowFault {
+                    approval_id: row.get(0)?,
+                    item_name: row.get(1)?,
+                    original_severity: row.get(2)?,
+                    decision: row.get(3)?,
+                    new_severity: row.get(4)?,
+                    reviewer: row.get(5)?,
+                    assigned_to: row.get(6)?,
+                    provisional_status: row.get(7)?,
+                    acknowledged_by: row.get(8)?,
+                    carried_to_report_id: row.get(9)?,
+                    log_entries: row.get(10)?,
+                    repair,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            flow.faults.push(r.map_err(|e| e.to_string())?);
+        }
+    }
+
+    {
+        let mut stmt = conn
+            .prepare(
+                "SELECT COALESCE(cd.description, 'Checklist item'), o.severity, o.action_taken, o.repaired_by, o.repaired_at
+                 FROM mri_onsite_repair_log o
+                 LEFT JOIN template_checklist_items tci ON tci.id = o.template_checklist_item_id
+                 LEFT JOIN checklist_databank cd ON cd.id = tci.checklist_item_id
+                 WHERE o.report_id = ?1 ORDER BY o.id",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([report_id], |row| {
+                Ok(FlowOnsiteRepair {
+                    item_name: row.get(0)?,
+                    severity: row.get(1)?,
+                    action_taken: row.get(2)?,
+                    repaired_by: row.get(3)?,
+                    repaired_at: row.get(4)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            flow.onsite_repairs.push(r.map_err(|e| e.to_string())?);
+        }
+    }
+
+    {
+        let mut stmt = conn
+            .prepare(
+                "SELECT COALESCE(tag_status, ''), previous_tag_status, reason, changed_by, changed_at
+                 FROM asset_tag_history WHERE report_id = ?1 ORDER BY id",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([report_id], |row| {
+                Ok(FlowTagChange {
+                    tag_status: row.get(0)?,
+                    previous_tag_status: row.get(1)?,
+                    reason: row.get(2)?,
+                    changed_by: row.get(3)?,
+                    changed_at: row.get(4)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            flow.tag_changes.push(r.map_err(|e| e.to_string())?);
+        }
+    }
+
+    {
+        let mut stmt = conn
+            .prepare(
+                "SELECT fa.id, fa.report_id, COALESCE(cd.description, 'Checklist item')
+                 FROM mri_fault_approvals fa
+                 LEFT JOIN template_checklist_items tci ON tci.id = fa.template_checklist_item_id
+                 LEFT JOIN checklist_databank cd ON cd.id = tci.checklist_item_id
+                 WHERE fa.carried_to_report_id = ?1 ORDER BY fa.id",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([report_id], |row| {
+                Ok(FlowCarried {
+                    approval_id: row.get(0)?,
+                    from_report_id: row.get(1)?,
+                    item_name: row.get(2)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            flow.carried_in.push(r.map_err(|e| e.to_string())?);
+        }
+    }
+
+    {
+        let mut stmt = conn
+            .prepare(
+                "SELECT COALESCE(moc_reference, ''), COALESCE(status, ''), valid_from, valid_until, approved_by
+                 FROM asset_moc_exemptions WHERE asset_id = ?1 ORDER BY id DESC",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([flow.asset_id], |row| {
+                Ok(FlowExemption {
+                    moc_reference: row.get(0)?,
+                    status: row.get(1)?,
+                    valid_from: row.get(2)?,
+                    valid_until: row.get(3)?,
+                    approved_by: row.get(4)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            flow.exemptions.push(r.map_err(|e| e.to_string())?);
+        }
+    }
+
+    Ok(flow)
+}
+
+
 // Figure 3: after the maintenance is done, the MR report is directed to the operations
 // supervisor to insert the cost to perform the MR. Allowed on any submitted report (also
 // after it is closed, since the cost often arrives later). Needs mri.enter_cost in the UI.
@@ -8406,6 +8686,7 @@ pub fn run() {
             delete_table_row,
             get_mri_reports,
             get_mri_report,
+            get_report_flow,
             create_mri_report,
             delete_mri_report,
             submit_mri_report,

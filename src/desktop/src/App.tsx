@@ -18,6 +18,7 @@ import PendingApprovals from "./features/mri-reporting/PendingApprovals";
 import RectificationQueue from "./features/mri-reporting/RectificationQueue";
 import ReportReviewQueue from "./features/mri-reporting/ReportReviewQueue";
 import MyReportsQueue from "./features/mri-reporting/MyReportsQueue";
+import ReportFlow from "./features/mri-reporting/ReportFlow";
 import type { Theme } from "./lib/theme";
 import { CurrentUserProvider } from "./lib/currentUser";
 import UserPickerGate from "./lib/UserPickerGate";
@@ -37,7 +38,8 @@ type Screen =
   | "pending-approvals"
   | "rectification-queue"
   | "report-review-queue"
-  | "my-reports-queue";
+  | "my-reports-queue"
+  | "report-flow";
 type MrLevel = "MR-I" | "MR-II" | "MR-III";
 
 const queryClient = new QueryClient();
@@ -75,6 +77,17 @@ function App() {
     setSelectedReportId(reportId);
     setViewOnlyReport(viewOnly);
     setScreen("report-wizard");
+  }
+
+  // Document flow (read-only map of one report and what hangs off it). Back returns to the
+  // screen it was opened from.
+  const [flowReportId, setFlowReportId] = useState<number | null>(null);
+  const [flowOrigin, setFlowOrigin] = useState<Screen>("my-reports-queue");
+
+  function handleOpenFlow(reportId: number) {
+    setFlowOrigin(screen === "report-flow" ? flowOrigin : screen);
+    setFlowReportId(reportId);
+    setScreen("report-flow");
   }
 
   const [theme, setTheme] = useState<Theme>("light");
@@ -2098,6 +2111,15 @@ function App() {
                     reportId={selectedReportId}
                     onBack={() => setScreen(reportWizardOrigin)}
                     viewOnly={viewOnlyReport}
+                    onShowFlow={handleOpenFlow}
+                  />
+                )}
+                {screen === "report-flow" && flowReportId !== null && (
+                  <ReportFlow
+                    reportId={flowReportId}
+                    onBack={() => setScreen(flowOrigin)}
+                    onOpenReport={(id) => handleReportCreated(id, true)}
+                    onNavigate={(target) => setScreen(target)}
                   />
                 )}
                 {screen === "dashboard" && (
@@ -2128,10 +2150,10 @@ function App() {
                 {screen === "pending-approvals" && <PendingApprovals />}
                 {screen === "rectification-queue" && <RectificationQueue />}
                 {screen === "report-review-queue" && (
-                  <ReportReviewQueue onOpenReport={handleReportCreated} />
+                  <ReportReviewQueue onOpenReport={handleReportCreated} onOpenFlow={handleOpenFlow} />
                 )}
                 {screen === "my-reports-queue" && (
-                  <MyReportsQueue onOpenReport={handleReportCreated} />
+                  <MyReportsQueue onOpenReport={handleReportCreated} onOpenFlow={handleOpenFlow} />
                 )}
                 {screen === "template-builder" && selectedTemplate && (
                   <TemplateBuilder

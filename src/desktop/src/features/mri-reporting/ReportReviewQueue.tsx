@@ -10,6 +10,7 @@ const STATUS_LABEL: Record<string, { label: string; action: string; color: strin
 
 interface ReportReviewQueueProps {
     onOpenReport: (reportId: number) => void;
+    onOpenFlow?: (reportId: number) => void;
 }
 
 function formatSubmittedDate(value: string | null | undefined): string {
@@ -19,7 +20,7 @@ function formatSubmittedDate(value: string | null | undefined): string {
     return new Date(seconds * 1000).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
-function ReportReviewQueue({ onOpenReport }: ReportReviewQueueProps) {
+function ReportReviewQueue({ onOpenReport, onOpenFlow }: ReportReviewQueueProps) {
     const { user: currentUser } = useCurrentUser();
     const { data: rows = [], isLoading } = useReportsNeedingSupervisorAction(currentUser?.id ?? 0);
     const { data: permissions = [] } = useEffectivePermissions(currentUser?.id ?? 0);
@@ -73,6 +74,11 @@ function ReportReviewQueue({ onOpenReport }: ReportReviewQueueProps) {
                                     <button className="primary" onClick={() => onOpenReport(row.id)} style={{ width: "100%" }}>
                                         {meta.action}
                                     </button>
+                                    {onOpenFlow && (
+                                        <button className="ghost" onClick={() => onOpenFlow(row.id)} style={{ width: "100%", marginTop: 6 }}>
+                                            Show flow
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         );
