@@ -12,7 +12,7 @@ import MaintenanceTriggers from "./features/asset-registry/MaintenanceTriggers";
 import TemplateBuilder from "./features/mri-template-builder/TemplateBuilder";
 import SelectAssetForReport from "./features/mri-reporting/SelectAssetForReport";
 import ReportWizard from "./features/mri-reporting/ReportWizard";
-import LiquidGlassTest from "./features/ui-lab/LiquidGlassTest";
+import UiLab from "./features/ui-lab/UiLab";
 import DistanceMapTest from "./features/distance-map-test/DistanceMapTest";
 import PendingApprovals from "./features/mri-reporting/PendingApprovals";
 import RectificationQueue from "./features/mri-reporting/RectificationQueue";
@@ -22,6 +22,7 @@ import ReportFlow from "./features/mri-reporting/ReportFlow";
 import AssetFlow from "./features/mri-reporting/AssetFlow";
 import type { Theme } from "./lib/theme";
 import { CurrentUserProvider } from "./lib/currentUser";
+import WindowTitle from "./lib/WindowTitle";
 import UserPickerGate from "./lib/UserPickerGate";
 
 type Screen =
@@ -137,6 +138,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <CurrentUserProvider>
+        <WindowTitle />
         <div className="app" data-theme={theme}>
           <style>{`
           :root, [data-theme="light"] {
@@ -2186,7 +2188,7 @@ function App() {
                     onBack={() => setScreen("assets")}
                   />
                 )}
-                {screen === "uilab" && <LiquidGlassTest />}
+                {screen === "uilab" && <UiLab />}
                 {screen === "distance-map-test" && <DistanceMapTest />}
                 {screen === "pending-approvals" && <PendingApprovals onOpenFlow={handleOpenFlow} />}
                 {screen === "rectification-queue" && <RectificationQueue onOpenFlow={handleOpenFlow} />}

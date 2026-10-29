@@ -93,6 +93,13 @@ const TIER_REFERENCE: TierReference[] = [
   },
 ];
 
+// "Operator (Tier 1)", "Data Miner View (Read Only)", "Administrator" -- used in the window title.
+export function userLevelLabel(role: string): string {
+  const match = TIER_REFERENCE.find((t) => t.name === role);
+  if (!match) return role;
+  return /^(Tier \d|Read Only)/.test(match.tier) ? `${role} (${match.tier})` : role;
+}
+
 export function tierAccent(role: string): string {
   const match = TIER_REFERENCE.find((t) => t.name === role);
   return match ? match.accent : roleBadge(role).color;
