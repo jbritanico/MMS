@@ -2,9 +2,9 @@ import { useCurrentUser } from "../../lib/currentUser";
 import { useMyOpenMriReports } from "./hooks/useMriReports";
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
-    Submitted: { label: "Awaiting Supervisor endorsement", color: "#d97706" },
-    Endorsed: { label: "Endorsed — awaiting close", color: "#2f6fed" },
-    Escalated: { label: "Escalated — under review", color: "#c0392b" },
+    Submitted: { label: "Awaiting Supervisor endorsement", color: "var(--st-amber)" },
+    Endorsed: { label: "Endorsed — awaiting close", color: "var(--st-blue)" },
+    Escalated: { label: "Escalated — under review", color: "var(--st-red)" },
 };
 
 const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -43,7 +43,7 @@ function MyReportsQueue({ onOpenReport, onOpenFlow }: MyReportsQueueProps) {
             ) : (
                 <div className="review-card-grid">
                     {rows.map((row) => {
-                        const meta = STATUS_LABEL[row.status] ?? { label: row.status, color: "#6b7280" };
+                        const meta = STATUS_LABEL[row.status] ?? { label: row.status, color: "var(--st-grey)" };
                         return (
                             <div key={row.id} className="review-card" style={{ cursor: "pointer" }} onClick={() => onOpenReport(row.id)}>
                                 <div className="review-card-top">
@@ -51,7 +51,7 @@ function MyReportsQueue({ onOpenReport, onOpenFlow }: MyReportsQueueProps) {
                                     <span
                                         style={{
                                             fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20,
-                                            color: "#fff", background: meta.color, whiteSpace: "nowrap",
+                                            color: "var(--on-status)", background: meta.color, whiteSpace: "nowrap",
                                         }}
                                     >
                                         {meta.label}

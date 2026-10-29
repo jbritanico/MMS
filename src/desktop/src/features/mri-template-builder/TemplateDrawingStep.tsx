@@ -216,7 +216,7 @@ function TemplateDrawingStep({ templateId }: TemplateDrawingStepProps) {
           style={{
             position: "relative", borderRadius: 16, overflow: "hidden",
             background: "#000",
-            boxShadow: "inset 3px 3px 8px var(--neu-shadow-dark), inset -3px -3px 8px var(--neu-shadow-light)",
+            boxShadow: "var(--neu-inset-deep)",
             cursor: placing ? "crosshair" : "default",
           }}
         >
@@ -303,7 +303,7 @@ function TemplateDrawingStep({ templateId }: TemplateDrawingStepProps) {
                             <span
                               style={{
                                 fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 20,
-                                color: "#fff", background: severityColor[ti.severity] ?? "var(--text-soft)",
+                                color: "var(--on-status)", background: severityColor[ti.severity] ?? "var(--text-soft)",
                               }}
                             >
                               {ti.severity}

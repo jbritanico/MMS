@@ -279,7 +279,7 @@ const TemplateGraph3D = forwardRef<TemplateGraph3DHandle, TemplateGraph3DProps>(
         overflowY: "auto",
         borderRadius: 16,
         padding: 16,
-        boxShadow: "inset 3px 3px 8px var(--neu-shadow-dark), inset -3px -3px 8px var(--neu-shadow-light)",
+        boxShadow: "var(--neu-inset-deep)",
       }}
     >
       <TreeRow node={tree} collapsedIds={collapsedIds} toggle={toggle} />

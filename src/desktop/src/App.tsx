@@ -141,6 +141,36 @@ function App() {
         <WindowTitle />
         <div className="app" data-theme={theme}>
           <style>{`
+          .app {
+            --neu-inset: inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light);
+            --neu-raised: 5px 5px 10px var(--neu-shadow-dark), -5px -5px 10px var(--neu-shadow-light);
+            --neu-inset-deep: inset 3px 3px 8px var(--neu-shadow-dark), inset -3px -3px 8px var(--neu-shadow-light);
+            --neu-inset-sm: inset 2px 2px 4px var(--neu-shadow-dark), inset -2px -2px 4px var(--neu-shadow-light);
+            --neu-raised-sm: 3px 3px 6px var(--neu-shadow-dark), -3px -3px 6px var(--neu-shadow-light);
+            --tab-track: rgba(0,0,0,0.04);
+            --st-amber: #d97706;
+            --st-blue: #2f6fed;
+            --st-red: #c0392b;
+            --st-teal: #0d9488;
+            --st-grey: #6b7280;
+            --on-status: #fff;
+            --disabled-bg: #e9ebed;
+            --hero-veil: linear-gradient(100deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.82) 30%, rgba(255,255,255,0.45) 65%, rgba(255,255,255,0.15) 100%);
+            --glass-bg: rgba(255,255,255,0.5);
+            --glass-bg-strong: rgba(255,255,255,0.7);
+            --glass-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            --glass-shadow-strong: 0 1px 4px rgba(0,0,0,0.12);
+            --text-halo: 0 1px 4px rgba(255,255,255,0.85);
+            --shadow-card: 0 2px 8px rgba(0,0,0,0.05);
+            --shadow-card-lg: 0 2px 10px rgba(0,0,0,0.06);
+            --shadow-pop: 0 2px 8px rgba(0,0,0,0.12);
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+          }
+          .icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 8px; max-height: 320px; overflow-y: auto; margin-bottom: 14px; }
+          .icon-cell { width: 56px; height: 56px; padding: 0; display: flex; align-items: center; justify-content: center; }
+          .icon-cell img { filter: var(--icon-filter, none); }
+          .panel.panel-flat { box-shadow: none; border: 1px solid var(--border); padding: 18px; }
+          .inset-well { width: 72px; height: 72px; border-radius: 14px; background: var(--neu-bg); box-shadow: var(--neu-inset); display: flex; align-items: center; justify-content: center; }
           :root, [data-theme="light"] {
             --bg: #f3f4f5;
             --neu-bg: #e7eaf0;
@@ -2100,6 +2130,120 @@ function App() {
               break-after: auto;
             }
           }
+          /* ===== macOS themes: ported from the UI Lab macOS sample (MacOsTest.tsx) ===== */
+          [data-theme="macos"] {
+            --bg: #ffffff; --neu-bg: #f6f6f6; --neu-shadow-dark: transparent; --neu-shadow-light: transparent;
+            --surface: #ffffff; --border: rgba(0,0,0,0.12); --row: rgba(0,0,0,0.035); --ctl: #ffffff; --field: #ffffff;
+            --bar: #ececef; --side: rgba(236,236,240,0.82); --field-border: rgba(0,0,0,0.28);
+            --text: #1d1d1f; --text-soft: #6e6e73;
+            --accent: #0a84ff; --accent-soft: rgba(0,122,255,0.12); --accent-blue: #0a84ff; --accent-blue-deep: #0a6cdc;
+            --chart-violet: #af52de; --chart-green: #34c759; --hover-highlight: rgba(0,122,255,0.10);
+            --warn: #b25000; --warn-soft: #fff1dc; --danger: #d70015; --danger-soft: #ffe5e8; --success: #1f8a3d; --success-soft: #e2f6e8;
+            --radius: 10px;
+            --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
+          }
+          [data-theme="macos-dark"] {
+            --bg: #1e1e20; --neu-bg: #28282a; --neu-shadow-dark: transparent; --neu-shadow-light: transparent;
+            --surface: #2a2a2d; --border: rgba(255,255,255,0.10); --row: rgba(255,255,255,0.04); --ctl: #4a4a4f; --field: #2a2a2d;
+            --bar: #2b2b2e; --side: rgba(44,44,48,0.78); --field-border: rgba(255,255,255,0.24);
+            --text: #f2f2f4; --text-soft: #9a9aa2;
+            --accent: #0a84ff; --accent-soft: rgba(10,132,255,0.22); --accent-blue: #0a84ff; --accent-blue-deep: #4da3ff;
+            --chart-violet: #bf5af2; --chart-green: #30d158; --hover-highlight: rgba(10,132,255,0.22);
+            --warn: #ff9f0a; --warn-soft: #3a2c10; --danger: #ff453a; --danger-soft: #3d1c1a; --success: #30d158; --success-soft: #153a22;
+            --radius: 10px;
+            --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
+            --hero-veil: linear-gradient(100deg, rgba(30,30,32,0.94) 0%, rgba(30,30,32,0.82) 30%, rgba(30,30,32,0.45) 65%, rgba(30,30,32,0.15) 100%);
+            --glass-bg: rgba(44,44,48,0.6); --glass-bg-strong: rgba(44,44,48,0.8); --text-halo: none;
+            --tab-track: rgba(255,255,255,0.06); --disabled-bg: #3a3a3c;
+          }
+          [data-theme="macos"] .app, .app[data-theme="macos"] { color-scheme: light; }
+          .app[data-theme="macos-dark"] { color-scheme: dark; }
+
+          /* base type and density: 13px, tight tracking, no zoom */
+          .app[data-theme^="macos"] { zoom: 1; font-family: var(--sans); font-size: 13px; letter-spacing: -0.01em; }
+          .app[data-theme^="macos"] .content { background: var(--bg); }
+
+          /* groups: panels, tiles, cards (mac-group) */
+          .app[data-theme^="macos"] .panel, .app[data-theme^="macos"] .menu-card, .app[data-theme^="macos"] .review-card, .app[data-theme^="macos"] .toast {
+            background: var(--row); border: 1px solid var(--border); border-radius: 10px; box-shadow: none;
+          }
+          .app[data-theme^="macos"] .panel { padding: 16px; }
+          .app[data-theme^="macos"] .panel.panel-flat { background: transparent; }
+          .app[data-theme^="macos"] .panel h2 { font-size: 13px; font-weight: 600; text-transform: none; letter-spacing: -0.01em; color: var(--text); margin: 0 0 10px; }
+          .app[data-theme^="macos"] .card { border: 0; border-top: 1px solid var(--border); border-radius: 0; padding: 10px 14px; background: transparent; box-shadow: none; }
+          .app[data-theme^="macos"] .card:first-child { border-top: 0; }
+          .app[data-theme^="macos"] .pill { font-size: 11px; }
+
+          /* push buttons (mac-btn) */
+          .app[data-theme^="macos"] button:not(.theme-fab):not(.glass-button):not(.mr-level-btn):not(.page-btn):not(.side-drawer-handle):not(.neu-toggle):not(.menu-card):not(.uilab-fab):not(.icon-btn) {
+            font-family: var(--sans); font-size: 13px; font-weight: 400; letter-spacing: -0.01em; color: var(--text);
+            padding: 3px 14px; min-height: 22px; background: var(--ctl); border: 1px solid var(--border); border-radius: 6px;
+            box-shadow: 0 0.5px 1.5px rgba(0,0,0,0.22); cursor: default; transition: none;
+          }
+          .app[data-theme^="macos"] button:not(.theme-fab):not(.glass-button):not(.mr-level-btn):not(.page-btn):not(.side-drawer-handle):not(.neu-toggle):not(.menu-card):not(.uilab-fab):not(.icon-btn):active { filter: brightness(0.92); box-shadow: 0 0.5px 1.5px rgba(0,0,0,0.22); transform: none; }
+          .app[data-theme^="macos"] button.primary:not(.theme-fab):not(.glass-button):not(.mr-level-btn) {
+            color: #fff; font-weight: 400; border-color: #0a6cdc; background: linear-gradient(180deg, #3d9dff, #0a7cff);
+          }
+          .app[data-theme^="macos"] button.ghost:not(.theme-fab):not(.glass-button):not(.mr-level-btn) { color: var(--text); }
+          .app[data-theme^="macos"] button:disabled { opacity: 0.45; }
+
+          /* icon buttons: compact square control, icon stays readable */
+          .app[data-theme^="macos"] button.icon-btn {
+            width: 28px; height: 28px; min-height: 0; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+            background: var(--ctl); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 0.5px 1.5px rgba(0,0,0,0.22);
+            color: var(--text); cursor: default; transition: none;
+          }
+          .app[data-theme^="macos"] button.icon-btn:active { filter: brightness(0.92); box-shadow: 0 0.5px 1.5px rgba(0,0,0,0.22); transform: none; }
+          .app[data-theme^="macos"] button.icon-btn svg { width: 17px; height: 17px; color: inherit; }
+          .app[data-theme^="macos"] button.icon-btn.icon-danger { color: var(--danger); }
+          .app[data-theme^="macos"] button.icon-btn.icon-danger svg { color: var(--danger); }
+
+          /* fields (mac-input) and popups (mac-popup) */
+          .app[data-theme^="macos"] input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="button"]):not([type="submit"]):not(.neu-check-input),
+          .app[data-theme^="macos"] textarea, .app[data-theme^="macos"] .field input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]) {
+            font: inherit; letter-spacing: -0.01em; color: var(--text); background: var(--field); border: 1px solid var(--field-border);
+            border-radius: 6px; padding: 4px 8px; outline: none; box-shadow: 0 0.5px 1px rgba(0,0,0,0.12) inset;
+          }
+          .app[data-theme^="macos"] select, .app[data-theme^="macos"] .field select {
+            appearance: none; -webkit-appearance: none; font: inherit; letter-spacing: -0.01em; color: var(--text);
+            padding: 3px 26px 3px 10px; background-color: var(--ctl); border: 1px solid var(--field-border); border-radius: 6px;
+            box-shadow: 0 0.5px 1.5px rgba(0,0,0,0.2);
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18'><rect width='18' height='18' rx='4' fill='%230a84ff'/><path d='M5.5 7.5L9 4.5l3.5 3M5.5 10.5L9 13.5l3.5-3' fill='none' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>"); background-repeat: no-repeat; background-size: 18px 18px; background-position: right 3px center;
+          }
+          .app[data-theme^="macos"] input:focus, .app[data-theme^="macos"] textarea:focus, .app[data-theme^="macos"] select:focus, .app[data-theme^="macos"] .field input:focus, .app[data-theme^="macos"] .field select:focus {
+            border-color: #0a84ff; box-shadow: 0 0 0 3.5px rgba(10,132,255,0.35); outline: none;
+          }
+          .app[data-theme^="macos"] input:disabled, .app[data-theme^="macos"] textarea:disabled, .app[data-theme^="macos"] select:disabled { opacity: 0.5; box-shadow: none; }
+
+          /* switches (mac-switch) */
+          .app[data-theme^="macos"] .neu-toggle {
+            width: 38px; height: 22px; border-radius: 11px; border: 0; padding: 0; min-height: 0; position: relative;
+            background: rgba(120,120,128,0.32); box-shadow: none; transition: background 160ms; cursor: default;
+          }
+          .app[data-theme^="macos"] .neu-toggle[data-on="true"] { background: #34c759; box-shadow: none; }
+          .app[data-theme^="macos"] .neu-toggle-knob { top: 2px; left: 2px; width: 18px; height: 18px; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.3); transition: transform 160ms; }
+          .app[data-theme^="macos"] .neu-toggle[data-on="true"] .neu-toggle-knob { transform: translateX(16px); background: #fff; }
+
+          /* checkboxes (mac-check) */
+          .app[data-theme^="macos"] .neu-check { gap: 8px; font-size: 13px; line-height: 16px; cursor: default; }
+          .app[data-theme^="macos"] .neu-check-box { width: 16px; height: 16px; border-radius: 4px; background: var(--field); border: 1px solid rgba(120,120,128,0.55); box-shadow: none; }
+          .app[data-theme^="macos"] .neu-check-box svg { width: 11px; height: 11px; }
+          .app[data-theme^="macos"] .neu-check-input:checked + .neu-check-box { background: #0a84ff; border-color: #0a84ff; color: #fff; box-shadow: none; }
+
+          /* tables (mac-table) */
+          .app[data-theme^="macos"] .grid-table { background: transparent; border: 1px solid var(--border); border-radius: 10px; box-shadow: none; }
+          .app[data-theme^="macos"] .grid-row { padding: 6px 12px; font-size: 12.5px; gap: 12px; }
+          .app[data-theme^="macos"] .grid-row:nth-child(even):not(.grid-head) { background: var(--row); }
+          .app[data-theme^="macos"] .grid-row:not(.grid-head):hover { background: var(--hover-highlight); }
+          .app[data-theme^="macos"] .grid-head { font-size: 12.5px; font-weight: 500; text-transform: none; letter-spacing: -0.01em; color: var(--text-soft); background: transparent; border-bottom: 1px solid var(--border); }
+
+          /* sheets / dialogs (mac-sheet) */
+          .app[data-theme^="macos"] .modal {
+            background: var(--side); backdrop-filter: blur(30px) saturate(1.6); border: 1px solid var(--border);
+            border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+          }
+          .app[data-theme^="macos"] .modal h3 { font-size: 13px; font-weight: 600; margin: 8px 0 4px; }
+          .app[data-theme^="macos"] .modal p { font-size: 11.5px; color: var(--text-soft); }
         `}</style>
 
           <UserPickerGate theme={theme}>

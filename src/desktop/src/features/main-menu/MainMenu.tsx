@@ -1,7 +1,7 @@
 import { useState, type ReactElement } from "react";
 import { createPortal } from "react-dom";
 import IdleScreensaver from "../idle/IdleScreenSaver";
-import { THEMES, type Theme } from "../../lib/theme";
+import { VISIBLE_THEMES, isDarkTheme, type Theme } from "../../lib/theme";
 import fieldOpsImage from "../../assets/FieldMaintenance.png";
 import fieldOpsImageDark from "../../assets/FieldDark.png";
 import { useCurrentUser } from "../../lib/currentUser";
@@ -291,7 +291,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
       >
         <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
           <img
-            src={currentTheme === "dark" ? fieldOpsImageDark : fieldOpsImage}
+            src={isDarkTheme(currentTheme) ? fieldOpsImageDark : fieldOpsImage}
             alt=""
             style={{
               width: "100%",
@@ -307,7 +307,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
                 position: "absolute",
                 inset: 0,
                 background:
-                  "linear-gradient(100deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.82) 30%, rgba(255,255,255,0.45) 65%, rgba(255,255,255,0.15) 100%)",
+                  "var(--hero-veil)",
               }}
             />
           )}
@@ -327,8 +327,8 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
                   handleCardClick(opt.id);
                 }}
                 style={{
-                  background: "rgba(255,255,255,0.5)",
-                  boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+                  background: "var(--glass-bg)",
+                  boxShadow: "var(--glass-shadow)",
                 }}
               >
                 <div className="menu-icon-wrap">{opt.icon}</div>
@@ -381,14 +381,14 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
               >
                 <span
                   className="kpi-footer-label"
-                  style={{ textShadow: "0 1px 4px rgba(255,255,255,0.85)" }}
+                  style={{ textShadow: "var(--text-halo)" }}
                 >
                   {k.label}
                 </span>
                 <div className="kpi-footer-row">
                   <span
                     className={`kpi-footer-value ${k.key === "defects" ? "pale-red" : ""}`}
-                    style={{ textShadow: "0 1px 4px rgba(255,255,255,0.85)" }}
+                    style={{ textShadow: "var(--text-halo)" }}
                   >
                     {k.value}
                     <span className="kpi-footer-unit">{k.unit}</span>
@@ -402,11 +402,11 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
                 {k.key === "availability" && (
                   <div
                     style={{
-                      background: "rgba(255,255,255,0.7)",
+                      background: "var(--glass-bg-strong)",
                       borderRadius: 8,
                       padding: "4px 6px",
                       marginTop: 4,
-                      boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
+                      boxShadow: "var(--glass-shadow-strong)",
                     }}
                   >
                     <div className="kpi-gauge-track">
@@ -756,7 +756,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
 
               <div>
                 <div className="drawer-section-label">Theme</div>
-                {THEMES.map((t) => (
+                {VISIBLE_THEMES.map((t) => (
                   <button
                     key={t.id}
                     className={`theme-option ${currentTheme === t.id ? "active" : ""}`}

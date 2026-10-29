@@ -3,9 +3,9 @@ import { useCurrentUser } from "../../lib/currentUser";
 import { useEffectivePermissions } from "../administration/hooks/useUserAdmin";
 
 const STATUS_LABEL: Record<string, { label: string; action: string; color: string }> = {
-    Submitted: { label: "Awaiting endorsement", action: "Endorse", color: "#d97706" },
-    Endorsed: { label: "Endorsed — awaiting close", action: "Close", color: "#2f6fed" },
-    Escalated: { label: "Resolved — awaiting close", action: "Close", color: "#0d9488" },
+    Submitted: { label: "Awaiting endorsement", action: "Endorse", color: "var(--st-amber)" },
+    Endorsed: { label: "Endorsed — awaiting close", action: "Close", color: "var(--st-blue)" },
+    Escalated: { label: "Resolved — awaiting close", action: "Close", color: "var(--st-teal)" },
 };
 
 interface ReportReviewQueueProps {
@@ -41,7 +41,7 @@ function ReportReviewQueue({ onOpenReport, onOpenFlow }: ReportReviewQueueProps)
             ) : (
                 <div className="review-card-grid">
                     {rows.map((row) => {
-                        const meta = STATUS_LABEL[row.status] ?? { label: row.status, action: "Review", color: "#6b7280" };
+                        const meta = STATUS_LABEL[row.status] ?? { label: row.status, action: "Review", color: "var(--st-grey)" };
                         return (
                             <div key={row.id} className="review-card">
                                 <div className="review-card-top">
@@ -49,7 +49,7 @@ function ReportReviewQueue({ onOpenReport, onOpenFlow }: ReportReviewQueueProps)
                                     <span
                                         style={{
                                             fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20,
-                                            color: "#fff", background: meta.color, whiteSpace: "nowrap",
+                                            color: "var(--on-status)", background: meta.color, whiteSpace: "nowrap",
                                         }}
                                     >
                                         {meta.label}

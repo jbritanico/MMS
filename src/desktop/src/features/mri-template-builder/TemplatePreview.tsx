@@ -119,7 +119,7 @@ function TemplatePreview({ templateId, templateName }: TemplatePreviewProps) {
                           <span
                             style={{
                               fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 20,
-                              color: "#fff", background: severityColor[ti.severity] ?? "var(--text-soft)",
+                              color: "var(--on-status)", background: severityColor[ti.severity] ?? "var(--text-soft)",
                             }}
                           >
                             {ti.severity}
@@ -188,7 +188,7 @@ function TemplatePreview({ templateId, templateName }: TemplatePreviewProps) {
                             style={{
                               flexShrink: 0, width: 20, height: 20, borderRadius: "50%",
                               display: "flex", alignItems: "center", justifyContent: "center",
-                              fontSize: 10.5, fontWeight: 700, color: "#fff",
+                              fontSize: 10.5, fontWeight: 700, color: "var(--on-status)",
                               background: linkedLabels.length > 0 ? "var(--accent)" : "var(--text-soft)",
                             }}
                           >

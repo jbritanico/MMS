@@ -59,35 +59,21 @@ function IconPicker({ onSelect, onClose }: IconPickerProps) {
         )}
 
         {results.length > 0 && (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(56px, 1fr))",
-              gap: 8,
-              maxHeight: 320,
-              overflowY: "auto",
-              marginBottom: 14,
-            }}
-          >
+          <div className="icon-grid">
             {results.map((iconId) => (
               <button
                 key={iconId}
-                className="ghost"
+                className="ghost icon-cell"
                 onClick={() => handlePick(iconId)}
                 disabled={picking !== null}
                 title={iconId}
-                style={{
-                  width: 56, height: 56, padding: 0,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  opacity: picking === iconId ? 0.5 : 1,
-                }}
+                style={{ opacity: picking === iconId ? 0.5 : 1 }}
               >
                 <img
                   src={`https://api.iconify.design/${iconId}.svg`}
                   alt={iconId}
                   width={28}
                   height={28}
-                  style={{ filter: "var(--icon-filter, none)" }}
                 />
               </button>
             ))}

@@ -244,7 +244,7 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
                                     <span
                                         style={{
                                             fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20,
-                                            color: "#fff", background: SEVERITY_COLOR[row.original_severity], whiteSpace: "nowrap",
+                                            color: "var(--on-status)", background: SEVERITY_COLOR[row.original_severity], whiteSpace: "nowrap",
                                         }}
                                     >
                                         {row.original_severity}
@@ -274,7 +274,7 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
                                     <strong>Assigned to:</strong> {row.assigned_to_name ?? "Anyone with review authority"}
                                 </div>
                                 {row.last_reminder_at && (
-                                    <div style={{ fontSize: 11.5, fontWeight: 600, color: "#d97706", marginTop: 6 }}>
+                                    <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--st-amber)", marginTop: 6 }}>
                                         Reminder from {row.last_reminder_by ?? "a manager"} · {row.last_reminder_at}
                                     </div>
                                 )}
@@ -356,7 +356,7 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
                                 <span
                                     style={{
                                         fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20,
-                                        color: "#fff", background: SEVERITY_COLOR[row.original_severity], whiteSpace: "nowrap",
+                                        color: "var(--on-status)", background: SEVERITY_COLOR[row.original_severity], whiteSpace: "nowrap",
                                     }}
                                 >
                                     {row.original_severity}

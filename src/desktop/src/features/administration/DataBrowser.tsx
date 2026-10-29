@@ -107,9 +107,7 @@ function DataBrowser() {
               padding: "6px 12px", borderRadius: 8, fontSize: 12, fontFamily: "var(--mono)",
               background: selectedTable === t ? "var(--accent-soft)" : "var(--neu-bg)",
               color: selectedTable === t ? "var(--accent)" : "var(--text-soft)",
-              boxShadow: selectedTable === t
-                ? "inset 2px 2px 4px var(--neu-shadow-dark), inset -2px -2px 4px var(--neu-shadow-light)"
-                : "3px 3px 6px var(--neu-shadow-dark), -3px -3px 6px var(--neu-shadow-light)",
+              boxShadow: selectedTable === t ? "var(--neu-inset-sm)" : "var(--neu-raised-sm)",
             }}
           >
             {t}

@@ -241,7 +241,7 @@ function LookupsManager() {
       </p>
 
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 18 }}>
-        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", padding: 4, background: "rgba(0,0,0,0.04)", borderRadius: 12 }}>
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", padding: 4, background: "var(--tab-track)", borderRadius: 12 }}>
           {criteriaList.map((c) => {
             const isActive = effectiveCriteria === c;
             if (isActive && renamingCriteria) {
@@ -279,9 +279,9 @@ function LookupsManager() {
                   style={{
                     padding: "7px 16px", borderRadius: 9, fontSize: 13, fontWeight: 600,
                     background: isActive ? "var(--neu-bg)" : "transparent",
-                    color: isActive ? "#2f6fed" : "var(--text-soft)",
+                    color: isActive ? "var(--accent-blue)" : "var(--text-soft)",
                     boxShadow: isActive
-                      ? "inset 2px 2px 4px var(--neu-shadow-dark), inset -2px -2px 4px var(--neu-shadow-light)"
+                      ? "var(--neu-inset-sm)"
                       : "none",
                   }}
                 >

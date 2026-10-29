@@ -9,7 +9,7 @@ import { useAssetTriggers } from "../asset-registry/hooks/useTriggers";
 import { useCurrentUser } from "../../lib/currentUser";
 import dashboardBgImage from "../../assets/FieldMaintenance.png";
 import dashboardBgImageDark from "../../assets/FieldDark.png";
-import type { Theme } from "../../lib/theme";
+import { isDarkTheme, type Theme } from "../../lib/theme";
 
 const STATUS_COLOR: Record<string, string> = {
   Draft: "#6b7280",
@@ -232,7 +232,7 @@ function DashboardBackdrop({
   return (
     <div className="dashboard-bg-wrap">
       <div className="dashboard-bg-layer">
-        <img src={theme === "dark" ? dashboardBgImageDark : dashboardBgImage} alt="" />
+        <img src={isDarkTheme(theme) ? dashboardBgImageDark : dashboardBgImage} alt="" />
         <div className="dashboard-bg-veil" />
       </div>
       <div className="dashboard-bg-content">{children}</div>

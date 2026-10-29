@@ -188,7 +188,7 @@ function ChecklistDatabank() {
                 Section and asset-type scoping happens per template, not here.
             </p>
 
-            <div style={{ display: "flex", gap: 4, marginBottom: 18, padding: 4, background: "rgba(0,0,0,0.04)", borderRadius: 12, width: "fit-content" }}>
+            <div style={{ display: "flex", gap: 4, marginBottom: 18, padding: 4, background: "var(--tab-track)", borderRadius: 12, width: "fit-content" }}>
                 {LEVELS.map((lvl) => (
                     <button
                         key={lvl}
@@ -199,9 +199,9 @@ function ChecklistDatabank() {
                             fontSize: 13,
                             fontWeight: 600,
                             background: activeTab === lvl ? "var(--neu-bg)" : "transparent",
-                            color: activeTab === lvl ? "#2f6fed" : "var(--text-soft)",
+                            color: activeTab === lvl ? "var(--accent-blue)" : "var(--text-soft)",
                             boxShadow: activeTab === lvl
-                                ? "inset 2px 2px 4px var(--neu-shadow-dark), inset -2px -2px 4px var(--neu-shadow-light)"
+                                ? "var(--neu-inset-sm)"
                                 : "none",
                         }}
                     >

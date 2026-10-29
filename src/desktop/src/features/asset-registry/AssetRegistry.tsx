@@ -166,11 +166,11 @@ function AssetMocExemptions({
       <label>Red-tag exemption (MOC)</label>
       <div>
         {valid ? (
-          <span className="pill" style={{ background: "var(--success)", color: "#fff" }}>
+          <span className="pill" style={{ background: "var(--success)", color: "var(--on-status)" }}>
             Exemption valid until {valid.valid_until}
           </span>
         ) : (
-          <span className="pill" style={{ background: "var(--danger)", color: "#fff" }}>
+          <span className="pill" style={{ background: "var(--danger)", color: "var(--on-status)" }}>
             No valid exemption
           </span>
         )}
@@ -252,7 +252,7 @@ function AssetRegistryCard({ asset: a, assetTypeLabel, assetTypeIcon, canEdit, c
             title={a.tag_reason ?? undefined}
             style={{
               background: a.tag_status === "Red" ? "var(--danger)" : a.tag_status === "Yellow" ? "var(--warn)" : "var(--success)",
-              color: "#fff",
+              color: "var(--on-status)",
             }}
           >
             {a.tag_status} Tag
@@ -480,7 +480,7 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
               placeholder="e.g. GEN-0142"
               readOnly={codeLocked}
               disabled={isView}
-              style={codeLocked && !isView ? { background: "#e9ebed", color: "#6b7280", cursor: "not-allowed" } : undefined} />
+              style={codeLocked && !isView ? { background: "var(--disabled-bg)", color: "var(--st-grey)", cursor: "not-allowed" } : undefined} />
           </div>
           <div className="field">
             <label>Description</label>
@@ -497,7 +497,7 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
                     className="pill"
                     style={{
                       background: form.tag_status === "Red" ? "var(--danger)" : form.tag_status === "Yellow" ? "var(--warn)" : "var(--success)",
-                      color: "#fff",
+                      color: "var(--on-status)",
                     }}
                   >
                     {form.tag_status} Tag
@@ -610,9 +610,23 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
               </>
             ) : (
               <>
-                <button className="primary" onClick={handleSave} disabled={mode === "create" && !canCreate}>
-                  {mode === "create" ? "Create asset" : "Save changes"}
-                </button>
+                {mode === "create" ? (
+                  <button
+                    className="primary icon-btn"
+                    aria-label="Create asset"
+                    title={canCreate ? "Create asset" : "Your role doesn't have permission to create assets"}
+                    onClick={handleSave}
+                    disabled={!canCreate}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                ) : (
+                  <button className="primary" onClick={handleSave}>
+                    Save changes
+                  </button>
+                )}
                 {mode === "create" && !canCreate && (
                   <span style={{ fontSize: 11, color: "var(--text-soft)" }}>
                     Your role doesn't have permission to create assets.
@@ -634,12 +648,18 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
               value={query} onChange={(e) => setQuery(e.target.value)} />
             <span className="count">{filtered.length} of {assets.length}</span>
             <input ref={importFileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
-            <button className="ghost" onClick={() => exportBackup()} title="Download a full backup of all assets and their triggers">
-              ⤓ Export Backup
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button className="ghost icon-btn" aria-label="Export Backup" onClick={() => exportBackup()} title="Export Backup: download a full backup of all assets and their triggers">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </button>
-            <button className="ghost" onClick={() => importFileRef.current?.click()} title="Restore assets from a backup file">
-              ⤒ Import Backup
+            <button className="ghost icon-btn" aria-label="Import Backup" onClick={() => importFileRef.current?.click()} title="Import Backup: restore assets from a backup file">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 15V4M7.5 8.5L12 4l4.5 4.5M5 19h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </button>
+            </div>
           </div>
 
           {isLoading ? (

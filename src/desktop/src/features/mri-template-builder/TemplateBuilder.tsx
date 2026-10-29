@@ -152,7 +152,7 @@ function HeaderFieldsStep({ templateId }: { templateId: number }) {
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-      <div className="panel" style={{ boxShadow: "none", border: "1px solid var(--border)", padding: 18 }}>
+      <div className="panel panel-flat">
         <h2>Available header fields</h2>
         <p style={{ fontSize: 12.5, color: "var(--text-soft)", marginBottom: 12 }}>
           Click a field to add it to this template.
@@ -179,7 +179,7 @@ function HeaderFieldsStep({ templateId }: { templateId: number }) {
         </div>
       </div>
 
-      <div className="panel" style={{ boxShadow: "none", border: "1px solid var(--border)", padding: 18 }}>
+      <div className="panel panel-flat">
         <h2>Selected for this template ({sortedTemplateFields.length})</h2>
         <p style={{ fontSize: 12.5, color: "var(--text-soft)", marginBottom: 12 }}>
           Reorder and mark fields required as they'll appear on the MR-I form.
@@ -293,7 +293,7 @@ function ChecklistStep({ templateId }: { templateId: number }) {
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-      <div className="panel" style={{ boxShadow: "none", border: "1px solid var(--border)", padding: 18 }}>
+      <div className="panel panel-flat">
         <h2>Checklist databank (MR-I)</h2>
         <input
           type="text"
@@ -330,7 +330,7 @@ function ChecklistStep({ templateId }: { templateId: number }) {
         )}
       </div>
 
-      <div className="panel" style={{ boxShadow: "none", border: "1px solid var(--border)", padding: 18 }}>
+      <div className="panel panel-flat">
         <h2>Selected for this template ({sortedTemplateItems.length})</h2>
         <p style={{ fontSize: 12.5, color: "var(--text-soft)", marginBottom: 12 }}>
           Assign a section, mark required, and reorder. Items are grouped by section below.

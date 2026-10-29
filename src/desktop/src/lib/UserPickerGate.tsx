@@ -3,7 +3,7 @@ import { useCurrentUser } from "./currentUser";
 import { useCreateAppUser } from "../features/administration/hooks/useUserAdmin";
 import fieldOpsImage from "../assets/FieldMaintenance.png";
 import fieldOpsImageDark from "../assets/FieldDark.png";
-import type { Theme } from "./theme";
+import { isDarkTheme, type Theme } from "./theme";
 
 interface TierReference {
   name: string;
@@ -216,7 +216,7 @@ function Microsoft365Mockup() {
             width: "100%",
             padding: "10px 12px",
             borderRadius: 8,
-            border: "1px solid var(--line, #d8dcd2)",
+            border: "1px solid var(--border)",
             marginBottom: 14,
             fontSize: 13.5,
             background: "var(--bg, #f4f5f2)",
@@ -230,8 +230,8 @@ function Microsoft365Mockup() {
             padding: "10px 12px",
             borderRadius: 8,
             border: "none",
-            background: "#2f6fed",
-            color: "#fff",
+            background: "var(--accent-blue)",
+            color: "var(--on-status)",
             fontSize: 13.5,
             fontWeight: 600,
             cursor: "pointer",
@@ -316,7 +316,7 @@ function UserPickerGate({
       {/* Full-bleed photo backdrop, top of the page only */}
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 560, overflow: "hidden" }}>
         <img
-          src={theme === "dark" ? fieldOpsImageDark : fieldOpsImage}
+          src={isDarkTheme(theme) ? fieldOpsImageDark : fieldOpsImage}
           alt="Field maintenance operations"
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />
@@ -326,7 +326,7 @@ function UserPickerGate({
               position: "absolute",
               inset: 0,
               background:
-                "linear-gradient(100deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.82) 30%, rgba(255,255,255,0.45) 65%, rgba(255,255,255,0.15) 100%)",
+                "var(--hero-veil)",
             }}
           />
         )}
@@ -357,13 +357,13 @@ function UserPickerGate({
               alignItems: "center",
               flexWrap: "wrap",
               background: "var(--surface, #fff)",
-              border: "1px solid var(--line, #e2e2e2)",
+              border: "1px solid var(--border)",
               borderRadius: 12,
               padding: "10px 18px",
-              boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+              boxShadow: "var(--shadow-card-lg)",
             }}
           >
-            <StatusPill label="System Status" value={<span style={{ color: "#1f7a4d" }}>&#9679; Online</span>} />
+            <StatusPill label="System Status" value={<span style={{ color: "var(--success)" }}>&#9679; Online</span>} />
             <StatusPill label="Data Sync" value="Synced" />
             <StatusPill label="Date" value={dateLabel} />
             <StatusPill label="Time" value={timeLabel} />
@@ -372,7 +372,7 @@ function UserPickerGate({
 
         {/* Hero text over the photo */}
         <h1 style={{ color: "var(--text, #1c211d)", margin: 0, fontSize: 34, lineHeight: 1.15, maxWidth: 560 }}>
-          Maintenance Management System <span style={{ color: "#d97706" }}>2.0</span>
+          Maintenance Management System <span style={{ color: "var(--st-amber)" }}>2.0</span>
         </h1>
         <p style={{ color: "var(--text-soft)", fontSize: 14, margin: "10px 0 4px" }}>
           Connected Assets &middot; Smart Inspections &middot; Digital Workflows
@@ -386,11 +386,11 @@ function UserPickerGate({
           style={{
             display: "inline-flex",
             background: "var(--surface, #fff)",
-            border: "1px solid var(--line, #e2e2e2)",
+            border: "1px solid var(--border)",
             borderRadius: 10,
             padding: 4,
             marginBottom: 24,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+            boxShadow: "var(--shadow-card)",
           }}
         >
           {(["local", "sso"] as AuthMode[]).map((mode) => (
@@ -404,8 +404,8 @@ function UserPickerGate({
                 fontSize: 12.5,
                 fontWeight: 600,
                 cursor: "pointer",
-                background: authMode === mode ? "#2f6fed" : "transparent",
-                color: authMode === mode ? "#fff" : "var(--text-soft)",
+                background: authMode === mode ? "var(--accent-blue)" : "transparent",
+                color: authMode === mode ? "var(--on-status)" : "var(--text-soft)",
               }}
             >
               {mode === "local" ? "Local Users" : "Microsoft 365"}
@@ -430,8 +430,8 @@ function UserPickerGate({
                 onClick={prevUser}
                 style={{
                   flex: "0 0 auto", width: 34, height: 34, borderRadius: "50%",
-                  border: "1px solid var(--line, #e2e2e2)", background: "var(--surface, #fff)",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.12)", cursor: "pointer",
+                  border: "1px solid var(--border)", background: "var(--surface, #fff)",
+                  boxShadow: "var(--shadow-pop)", cursor: "pointer",
                   display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
                 }}
               >
@@ -449,7 +449,7 @@ function UserPickerGate({
                     textAlign: "left",
                     alignItems: "flex-start",
                     borderLeft: `16px solid ${tierAccent(activeUser.role)}`,
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+                    boxShadow: "var(--shadow-sm)",
                   }}
                   onClick={() => setCurrentUserId(activeUser.id)}
                 >
@@ -477,8 +477,8 @@ function UserPickerGate({
                 onClick={nextUser}
                 style={{
                   flex: "0 0 auto", width: 34, height: 34, borderRadius: "50%",
-                  border: "1px solid var(--line, #e2e2e2)", background: "var(--surface, #fff)",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.12)", cursor: "pointer",
+                  border: "1px solid var(--border)", background: "var(--surface, #fff)",
+                  boxShadow: "var(--shadow-pop)", cursor: "pointer",
                   display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
                 }}
               >
@@ -520,7 +520,7 @@ function UserPickerGate({
             fontSize: 11.5,
             color: "var(--text-soft)",
             padding: "10px 4px 0",
-            borderTop: "1px solid var(--line, #e2e2e2)",
+            borderTop: "1px solid var(--border)",
           }}
         >
           <span>Sprint MMS 2.0 · Offline First · Built for Reliability</span>

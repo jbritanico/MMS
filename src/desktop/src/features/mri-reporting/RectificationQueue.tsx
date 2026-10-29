@@ -137,8 +137,8 @@ function RectificationQueue({ onOpenFlow }: RectificationQueueProps) {
                                     <span
                                         style={{
                                             fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20,
-                                            color: "#fff",
-                                            background: row.tag_status === "Planned" ? "#2f6fed" : row.assigned_technician ? "#d97706" : "#c0392b",
+                                            color: "var(--on-status)",
+                                            background: row.tag_status === "Planned" ? "var(--st-blue)" : row.assigned_technician ? "var(--st-amber)" : "var(--st-red)",
                                             whiteSpace: "nowrap",
                                         }}
                                     >

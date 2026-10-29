@@ -239,7 +239,7 @@ function DistanceMapField({
                 ref={containerRef}
                 style={{
                     width: "100%", height: 320, borderRadius: 14, overflow: "hidden",
-                    boxShadow: "inset 3px 3px 8px var(--neu-shadow-dark), inset -3px -3px 8px var(--neu-shadow-light)",
+                    boxShadow: "var(--neu-inset-deep)",
                 }}
             />
 

@@ -103,9 +103,7 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
                     borderRadius: 14,
                     cursor: "pointer",
                     background: isOn ? "var(--success-soft)" : "var(--neu-bg)",
-                    boxShadow: isOn
-                      ? "inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light)"
-                      : "5px 5px 10px var(--neu-shadow-dark), -5px -5px 10px var(--neu-shadow-light)",
+                    boxShadow: isOn ? "var(--neu-inset)" : "var(--neu-raised)",
                     outline: isOverride ? `1.5px solid ${stateColor[state]}` : "none",
                     outlineOffset: -1.5,
                     transition: "background 0.15s, box-shadow 0.15s",

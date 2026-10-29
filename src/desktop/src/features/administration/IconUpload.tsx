@@ -54,14 +54,7 @@ function IconUpload({ onSelect, onClose }: IconUploadProps) {
 
         {preview ? (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, margin: "18px 0" }}>
-            <div
-              style={{
-                width: 72, height: 72, borderRadius: 14,
-                background: "var(--neu-bg)",
-                boxShadow: "inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}
-            >
+            <div className="inset-well">
               <img src={preview} alt="preview" style={{ width: 40, height: 40, objectFit: "contain" }} />
             </div>
             <button className="ghost" onClick={() => fileInputRef.current?.click()}>Choose a different file</button>
