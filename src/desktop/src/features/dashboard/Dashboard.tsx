@@ -10,13 +10,15 @@ import { useCurrentUser } from "../../lib/currentUser";
 import dashboardBgImage from "../../assets/FieldMaintenance.png";
 import dashboardBgImageDark from "../../assets/FieldDark.png";
 import { isDarkTheme, type Theme } from "../../lib/theme";
+import { useAssets } from "../asset-registry/hooks/useAssets";
+import { TagLamp, Gauge } from "../../components/Instruments";
 
 const STATUS_COLOR: Record<string, string> = {
-  Draft: "#6b7280",
-  Submitted: "#d97706",
-  Endorsed: "#2f6fed",
-  Escalated: "#0d9488",
-  Approved: "#16a34a",
+  Draft: "var(--st-grey)",
+  Submitted: "var(--st-amber)",
+  Endorsed: "var(--st-blue)",
+  Escalated: "var(--st-teal)",
+  Approved: "var(--st-green)",
 };
 
 // Same mapping used on the Maintenance Triggers admin screen / Select Asset for Report /
@@ -216,8 +218,8 @@ function reportIconFor(status: string): ReactElement {
 }
 
 function reportIconStyle(status: string): { background: string; color: string } {
-  if (status === "Draft") return { background: "var(--neu-shadow-dark)", color: "var(--text-soft)" };
-  return { background: STATUS_COLOR[status] ?? "#6b7280", color: "#fff" };
+  if (status === "Draft") return { background: "var(--chip-bg)", color: "var(--text-soft)" };
+  return { background: STATUS_COLOR[status] ?? "var(--st-grey)", color: "var(--on-status)" };
 }
 
 // Washed-out background photo layer, the same treatment used on the Main Menu screen,
@@ -250,6 +252,9 @@ interface DashboardAssetCardProps {
 function DashboardAssetCard({ asset, onSelect }: DashboardAssetCardProps) {
   const { data: triggers = [] } = useAssetTriggers(asset.asset_id);
   const activeTriggers = triggers.filter((t) => t.enabled);
+  // Tag lamp: the asset's current Red / Yellow / Green tag (shared, cached Asset Registry list).
+  const { data: registryAssets = [] } = useAssets();
+  const registryAsset = registryAssets.find((x) => x.id === asset.asset_id);
 
   return (
     <div className="mri-history-card" onClick={onSelect}>
@@ -257,13 +262,14 @@ function DashboardAssetCard({ asset, onSelect }: DashboardAssetCardProps) {
         <div className="code">{asset.asset_code}</div>
         <div className="desc">{asset.asset_description || "—"}</div>
         <div className="meta">
+          {registryAsset?.tag_status && <TagLamp status={registryAsset.tag_status} size={16} title={registryAsset.tag_reason ?? undefined} />}
           <span className="pill neutral">
             {asset.report_count} report{asset.report_count === 1 ? "" : "s"}
           </span>
           {asset.latest_status && (
             <span
               className="pill"
-              style={{ background: STATUS_COLOR[asset.latest_status] ?? "#6b7280", color: "#fff" }}
+              style={{ background: STATUS_COLOR[asset.latest_status] ?? "var(--st-grey)", color: "var(--on-status)" }}
             >
               {asset.latest_status}
             </span>
@@ -305,20 +311,27 @@ interface StatCardProps {
 
 function StatCard({ type, label, runningValue, intervalValue }: StatCardProps) {
   const color = TRIGGER_TYPE_COLORS[type] ?? "var(--text-soft)";
-  const iconBg = TRIGGER_STAT_ICON_BG[type] ?? "var(--neu-shadow-dark)";
+  const iconBg = TRIGGER_STAT_ICON_BG[type] ?? "var(--chip-bg)";
   const pct = intervalValue > 0 ? Math.min(100, Math.max(0, (runningValue / intervalValue) * 100)) : 0;
 
   return (
-    <div className="mri-stat-card">
-      <span className="mri-stat-icon" style={{ background: iconBg, color }}>
-        {TRIGGER_TYPE_ICONS[type] ?? DEFAULT_TRIGGER_ICON}
-      </span>
-      <div className="mri-stat-body">
+    <div className="mri-stat-card mri-stat-gauge-card">
+      <div className="mri-stat-head">
+        <span className="mri-stat-icon" style={{ background: iconBg, color }}>
+          {TRIGGER_TYPE_ICONS[type] ?? DEFAULT_TRIGGER_ICON}
+        </span>
         <div className="mri-stat-label">{label}</div>
-        <div className="mri-stat-value">{runningValue.toLocaleString()}</div>
-        <div className="mri-stat-bar-track">
-          <div className="mri-stat-bar-fill" style={{ width: `${pct}%`, background: color }} />
-        </div>
+      </div>
+      <Gauge
+        value={runningValue}
+        max={intervalValue > 0 ? intervalValue : 1}
+        caption={type}
+        reading={runningValue.toLocaleString()}
+        badSide="high"
+        size={170}
+      />
+      <div className="mri-stat-of">
+        {runningValue.toLocaleString()} of {intervalValue.toLocaleString()} ({Math.round(pct)}%)
       </div>
     </div>
   );
@@ -403,7 +416,7 @@ function AssetHistoryPanel({ assetId, assetCode, assetDescription, onBack, onOpe
 
             return (
               <div key={row.id} className="mri-report-item">
-                <span className="mri-report-dot" style={{ background: STATUS_COLOR[row.status] ?? "#6b7280" }} />
+                <span className="mri-report-dot" style={{ background: STATUS_COLOR[row.status] ?? "var(--st-grey)" }} />
                 <div className="mri-report-card">
                   {(row.km_reading !== null || row.oh_reading !== null || row.eh_reading !== null) && (
                     <div className="mri-report-readings">
@@ -498,7 +511,7 @@ function AssetHistoryPanel({ assetId, assetCode, assetDescription, onBack, onOpe
                     {isAdministrator && isLatestEntry && (
                       <button
                         className="danger mri-report-view-btn"
-                        style={{ background: "var(--danger)", color: "#fff" }}
+                        style={{ background: "var(--danger)", color: "var(--on-status)" }}
                         onClick={() => setPendingDelete({ id: row.id })}
                       >
                         {TRASH_ICON}

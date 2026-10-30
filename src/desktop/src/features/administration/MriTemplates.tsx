@@ -146,13 +146,17 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
         <button className="primary" onClick={handleCreate}>Create template</button>
       </div>
 
-      <div style={{ marginBottom: 18 }}>
+      <div style={{ marginBottom: 18, display: "flex", gap: 8, alignItems: "center" }}>
         <input ref={importFileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
-        <button className="ghost" onClick={() => exportBackup()} title="Download a full backup of all MR-I templates">
-          ⤓ Export Backup
-        </button>{" "}
-        <button className="ghost" onClick={() => importFileRef.current?.click()} title="Restore templates from a backup file">
-          ⤒ Import Backup
+        <button className="ghost icon-btn" aria-label="Export Backup" onClick={() => exportBackup()} title="Export Backup: download a full backup of all MR-I templates">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        <button className="ghost icon-btn" aria-label="Import Backup" onClick={() => importFileRef.current?.click()} title="Import Backup: restore templates from a backup file">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 15V4M7.5 8.5L12 4l4.5 4.5M5 19h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
       </div>
 

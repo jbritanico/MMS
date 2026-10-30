@@ -241,7 +241,7 @@ function LookupsManager() {
       </p>
 
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 18 }}>
-        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", padding: 4, background: "var(--tab-track)", borderRadius: 12 }}>
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", padding: "var(--seg-track-pad, 4px)", background: "var(--tab-track)", borderRadius: "var(--seg-track-radius, 12px)" }}>
           {criteriaList.map((c) => {
             const isActive = effectiveCriteria === c;
             if (isActive && renamingCriteria) {
@@ -277,11 +277,11 @@ function LookupsManager() {
                 <button
                   onClick={() => selectCriteria(c)}
                   style={{
-                    padding: "7px 16px", borderRadius: 9, fontSize: 13, fontWeight: 600,
-                    background: isActive ? "var(--neu-bg)" : "transparent",
-                    color: isActive ? "var(--accent-blue)" : "var(--text-soft)",
+                    padding: "var(--seg-pad, 7px 16px)", border: "var(--seg-border, none)", borderRadius: "var(--seg-radius, 9px)", fontSize: "var(--seg-font, 13px)", fontWeight: isActive ? "var(--seg-on-weight, 600)" : "var(--seg-off-weight, 600)",
+                    background: isActive ? "var(--seg-on-bg, var(--neu-bg))" : "transparent",
+                    color: isActive ? "var(--seg-on-color, var(--accent-blue))" : "var(--seg-off-color, var(--text-soft))",
                     boxShadow: isActive
-                      ? "var(--neu-inset-sm)"
+                      ? "var(--seg-on-shadow, var(--neu-inset-sm))"
                       : "none",
                   }}
                 >

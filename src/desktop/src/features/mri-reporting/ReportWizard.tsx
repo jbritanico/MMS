@@ -334,7 +334,6 @@ function ReportWizard({
             maxWidth: 600,
             marginBottom: 16,
             padding: 14,
-            background: "var(--neu-bg)",
           }}
         >
           <strong style={{ fontSize: 13 }}>
@@ -1670,12 +1669,19 @@ const SEVERITIES = ["Minor", "Moderate", "Critical"] as const;
 // Shared control height so the Date Observed picker, Closure Status dropdown,
 // and Severity dropdown all line up at the same height wherever they appear
 // together (list view row, drawing view fields).
-const FIELD_CONTROL_HEIGHT = 38;
+// Sizes come from theme variables so a compact theme (macOS) can shrink the fields; fallbacks keep the original look.
 const uniformFieldStyle: React.CSSProperties = {
-  height: FIELD_CONTROL_HEIGHT,
+  height: "var(--field-h, 38px)",
   boxSizing: "border-box",
-  padding: "0 12px",
+  paddingTop: 0,
+  paddingBottom: 0,
+  paddingLeft: "var(--field-px, 12px)",
+  paddingRight: "var(--field-px, 12px)",
   fontSize: 13,
+};
+const uniformSelectStyle: React.CSSProperties = {
+  ...uniformFieldStyle,
+  paddingRight: "var(--select-pr, 12px)",
 };
 
 function SeverityDistributionSummary({
@@ -1826,6 +1832,10 @@ function ChecklistEntryStep({
           checked={!!result.repaired_on_site}
           onChange={(e) => {
             const checked = e.target.checked;
+            if (checked && !(result.issue_details ?? "").trim()) {
+              flash("Add issue details before marking this fault as repaired on site", "err");
+              return;
+            }
             if (checked && !(result.action_taken ?? "").trim()) {
               flash("Describe the repair in Action Taken first", "err");
               return;
@@ -1886,6 +1896,9 @@ function ChecklistEntryStep({
     msg: string;
     kind: "ok" | "err";
   } | null>(null);
+  // Centered popup used when a Fail cannot be Closed (blank Issue Details or Action Taken).
+  const [closeWarning, setCloseWarning] = useState<string | null>(null);
+  const warn = (msg: string) => setCloseWarning(msg);
   const [view, setView] = useState<"list" | "drawing">("list");
   const [selectedHotspotId, setSelectedHotspotId] = useState<number | null>(
     null,
@@ -2195,6 +2208,10 @@ function ChecklistEntryStep({
         </div>
       </div>
 
+      {closeWarning && (
+        <CloseBlockedModal message={closeWarning} onClose={() => setCloseWarning(null)} />
+      )}
+
       {status && (
         <div
           className={`toast ${status.kind}`}
@@ -2248,6 +2265,7 @@ function ChecklistEntryStep({
           canCloseDirectly={canCloseDirectly}
           isCarriedForward={isCarriedForward}
           flash={flash}
+          warn={warn}
           renderRepairedOnSite={renderRepairedOnSite}
         />
       )}
@@ -2319,7 +2337,7 @@ function ChecklistEntryStep({
                           padding: "6px 10px",
                           fontSize: 12,
                           ...(result.status === "Pass"
-                            ? { background: "var(--accent)", color: "#fff" }
+                            ? { background: "var(--accent)", color: "var(--on-status)" }
                             : {}),
                         }}
                         onClick={() => {
@@ -2354,7 +2372,7 @@ function ChecklistEntryStep({
                       className="trigger-input"
                       value={result.issue_details ?? ""}
                       onChange={(e) =>
-                        updateLocal(ti, { issue_details: e.target.value })
+                        updateLocal(ti, { issue_details: e.target.value, ...(!e.target.value.trim() && result.closure_status === "Closed" && !result.repaired_on_site ? { closure_status: "Pending" as const } : {}) })
                       }
                       onBlur={() => autoSave(ti, {})}
                       disabled={
@@ -2392,7 +2410,7 @@ function ChecklistEntryStep({
                           className="trigger-input"
                           value={result.action_taken ?? ""}
                           onChange={(e) =>
-                            updateLocal(ti, { action_taken: e.target.value })
+                            updateLocal(ti, { action_taken: e.target.value, ...(!e.target.value.trim() && result.closure_status === "Closed" && !result.repaired_on_site ? { closure_status: "Pending" as const } : {}) })
                           }
                           onBlur={() => autoSave(ti, {})}
                           disabled={locked || !isFail}
@@ -2417,7 +2435,7 @@ function ChecklistEntryStep({
                     {!isFail ? (
                       <select
                         className="neu-select"
-                        style={uniformFieldStyle}
+                        style={uniformSelectStyle}
                         value={result.closure_status ?? "Pending"}
                         onChange={(e) => {
                           const val = e.target.value as "Pending" | "Closed";
@@ -2439,7 +2457,7 @@ function ChecklistEntryStep({
                     ) : !locked || canReviewClosure ? (
                       <select
                         className="neu-select"
-                        style={uniformFieldStyle}
+                        style={uniformSelectStyle}
                         value={result.closure_status ?? "Pending"}
                         disabled={!canCloseDirectly(result.severity)}
                         title={
@@ -2449,10 +2467,20 @@ function ChecklistEntryStep({
                         }
                         onChange={(e) => {
                           const val = e.target.value as "Pending" | "Closed";
-                          if (val === "Closed" && !(result.action_taken ?? "").trim()) {
-                            flash(
-                              "Add an action taken entry before closing this item",
-                              "err",
+                          if (
+                            val === "Closed" &&
+                            (!(result.issue_details ?? "").trim() || !(result.action_taken ?? "").trim())
+                          ) {
+                            // Strict rule: a Fail cannot be Closed while Issue Details or Action Taken is blank.
+                            // Put the dropdown back to Pending at once and warn.
+                            e.target.value = "Pending";
+                            updateLocal(ti, { closure_status: "Pending" });
+                            warn(
+                              !(result.issue_details ?? "").trim() && !(result.action_taken ?? "").trim()
+                                ? "Cannot close: Issue Details and Action Taken are both blank. Closure Status reset to Pending."
+                                : !(result.issue_details ?? "").trim()
+                                  ? "Cannot close: Issue Details is blank. Closure Status reset to Pending."
+                                  : "Cannot close: Action Taken is blank. Closure Status reset to Pending.",
                             );
                             return;
                           }
@@ -2499,7 +2527,7 @@ function ChecklistEntryStep({
                       )}
                       <select
                         className="neu-select"
-                        style={{ ...uniformFieldStyle, padding: "0 6px" }}
+                        style={{ ...uniformSelectStyle, paddingLeft: 6, paddingRight: "var(--select-pr, 6px)" }}
                         value={result.severity ?? ""}
                         onChange={(e) => {
                           const val = (e.target.value ||
@@ -2593,8 +2621,7 @@ function DistanceRouteThumbnail({
     flexShrink: 0,
     borderRadius: 10,
     background: "var(--neu-bg)",
-    boxShadow:
-      "inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light)",
+    boxShadow: "var(--neu-inset)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -2841,6 +2868,10 @@ function ReviewStep({
       if (!result.issue_details?.trim())
         issues.push(
           `Checklist — "${name}" is marked Fail but has no issue details`,
+        );
+      if (!result.action_taken?.trim())
+        issues.push(
+          `Checklist — "${name}" is marked Fail but has no action taken`,
         );
       if (!result.severity)
         issues.push(`Checklist — "${name}" is marked Fail but has no severity`);
@@ -4590,6 +4621,27 @@ const ZOOM_MAX = 3;
 const ZOOM_STEP = 0.25;
 const DRAWING_VIEW_HEIGHT = 640;
 
+// Centered warning popup (same overlay and card as the other dialogs in this wizard).
+function CloseBlockedModal({ message, onClose }: { message: string; onClose: () => void }) {
+  return (
+    <div className="modal-overlay" role="alertdialog" aria-modal="true" aria-label="Cannot close this item">
+      <div className="modal" style={{ width: "min(420px, 92vw)", textAlign: "left" }}>
+        <div className="modal-icon" style={{ background: "var(--danger-soft)", color: "var(--danger)" }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 8v5M12 16.5v.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <path d="M10.3 4.5L3 18a2 2 0 0 0 1.7 3h14.6a2 2 0 0 0 1.7-3L13.7 4.5a2 2 0 0 0-3.4 0z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+          </svg>
+        </div>
+        <h3>Cannot close this item</h3>
+        <p>{message}</p>
+        <div className="modal-actions">
+          <button className="primary" autoFocus onClick={onClose}>OK</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface DrawingChecklistViewProps {
   drawing: { image_data: string };
   hotspots: any[];
@@ -4615,6 +4667,7 @@ interface DrawingChecklistViewProps {
   canCloseDirectly: (severity: string | null | undefined) => boolean;
   isCarriedForward: (checklistItemId: number) => boolean;
   flash: (msg: string, kind: "ok" | "err") => void;
+  warn: (msg: string) => void;
   renderRepairedOnSite: (
     ti: any,
     result: Partial<MriReportChecklistResult>,
@@ -4644,6 +4697,7 @@ function DrawingChecklistView({
   canCloseDirectly,
   isCarriedForward,
   flash,
+  warn,
   renderRepairedOnSite,
 }: DrawingChecklistViewProps) {
   const { data: sections = [] } = useChecklistSections();
@@ -4754,8 +4808,7 @@ function DrawingChecklistView({
           overflow: "hidden",
           background: "#000",
           height: DRAWING_VIEW_HEIGHT,
-          boxShadow:
-            "inset 3px 3px 8px var(--neu-shadow-dark), inset -3px -3px 8px var(--neu-shadow-light)",
+          boxShadow: "var(--neu-inset-deep)",
         }}
       >
         <div
@@ -4888,7 +4941,7 @@ function DrawingChecklistView({
                     justifyContent: "center",
                     fontSize: 12,
                     fontWeight: 700,
-                    color: "#fff",
+                    color: "var(--on-status)",
                     background: hotspotColor(h),
                     border: alertColor
                       ? `2px solid ${alertColor}`
@@ -5029,7 +5082,7 @@ function DrawingChecklistView({
                           fontSize: 12,
                           flex: 1,
                           ...(result.status === "Pass"
-                            ? { background: "var(--accent)", color: "#fff" }
+                            ? { background: "var(--accent)", color: "var(--on-status)" }
                             : {}),
                         }}
                         onClick={() => {
@@ -5067,7 +5120,7 @@ function DrawingChecklistView({
                       className="trigger-input"
                       value={result.issue_details ?? ""}
                       onChange={(e) =>
-                        updateLocal(ti, { issue_details: e.target.value })
+                        updateLocal(ti, { issue_details: e.target.value, ...(!e.target.value.trim() && result.closure_status === "Closed" && !result.repaired_on_site ? { closure_status: "Pending" as const } : {}) })
                       }
                       onBlur={() => autoSave(ti, {})}
                       disabled={
@@ -5112,7 +5165,7 @@ function DrawingChecklistView({
                         className="trigger-input"
                         value={result.action_taken ?? ""}
                         onChange={(e) =>
-                          updateLocal(ti, { action_taken: e.target.value })
+                          updateLocal(ti, { action_taken: e.target.value, ...(!e.target.value.trim() && result.closure_status === "Closed" && !result.repaired_on_site ? { closure_status: "Pending" as const } : {}) })
                         }
                         onBlur={() => autoSave(ti, {})}
                         disabled={locked || !isFail}
@@ -5148,7 +5201,7 @@ function DrawingChecklistView({
                       {!isFail ? (
                         <select
                           className="neu-select"
-                          style={uniformFieldStyle}
+                          style={uniformSelectStyle}
                           value={result.closure_status ?? "Pending"}
                           onChange={(e) => {
                             const val = e.target.value as "Pending" | "Closed";
@@ -5170,7 +5223,7 @@ function DrawingChecklistView({
                       ) : !locked || canReviewClosure ? (
                         <select
                           className="neu-select"
-                          style={uniformFieldStyle}
+                          style={uniformSelectStyle}
                           value={result.closure_status ?? "Pending"}
                           disabled={!canCloseDirectly(result.severity)}
                           title={
@@ -5180,10 +5233,20 @@ function DrawingChecklistView({
                           }
                           onChange={(e) => {
                             const val = e.target.value as "Pending" | "Closed";
-                            if (val === "Closed" && !(result.action_taken ?? "").trim()) {
-                              flash(
-                                "Add an action taken entry before closing this item",
-                                "err",
+                            if (
+                              val === "Closed" &&
+                              (!(result.issue_details ?? "").trim() || !(result.action_taken ?? "").trim())
+                            ) {
+                              // Strict rule: a Fail cannot be Closed while Issue Details or Action Taken is blank.
+                              // Put the dropdown back to Pending at once and warn.
+                              e.target.value = "Pending";
+                              updateLocal(ti, { closure_status: "Pending" });
+                              warn(
+                                !(result.issue_details ?? "").trim() && !(result.action_taken ?? "").trim()
+                                  ? "Cannot close: Issue Details and Action Taken are both blank. Closure Status reset to Pending."
+                                  : !(result.issue_details ?? "").trim()
+                                    ? "Cannot close: Issue Details is blank. Closure Status reset to Pending."
+                                    : "Cannot close: Action Taken is blank. Closure Status reset to Pending.",
                               );
                               return;
                             }
@@ -5229,7 +5292,7 @@ function DrawingChecklistView({
                       )}
                       <select
                         className="neu-select"
-                        style={{ ...uniformFieldStyle, padding: "0 6px" }}
+                        style={{ ...uniformSelectStyle, paddingLeft: 6, paddingRight: "var(--select-pr, 6px)" }}
                         value={result.severity ?? ""}
                         onChange={(e) => {
                           const val = (e.target.value ||
@@ -5672,8 +5735,7 @@ function AttachmentGallery({
                         alignItems: "center",
                         justifyContent: "center",
                         background: "var(--neu-bg)",
-                        boxShadow:
-                          "inset 2px 2px 5px var(--neu-shadow-dark), inset -2px -2px 5px var(--neu-shadow-light)",
+                        boxShadow: "var(--neu-inset-well)",
                         fontSize: 9,
                         fontWeight: 700,
                         color: "var(--text-soft)",
@@ -5687,8 +5749,7 @@ function AttachmentGallery({
                         alignItems: "center",
                         justifyContent: "center",
                         background: "var(--neu-bg)",
-                        boxShadow:
-                          "inset 2px 2px 5px var(--neu-shadow-dark), inset -2px -2px 5px var(--neu-shadow-light)",
+                        boxShadow: "var(--neu-inset-well)",
                         fontSize: 12,
                         fontWeight: 700,
                         color: "var(--text-soft)",
@@ -5717,7 +5778,7 @@ function AttachmentGallery({
                         borderRadius: "50%",
                         border: "none",
                         background: "var(--danger)",
-                        color: "#fff",
+                        color: "var(--on-status)",
                         fontSize: 10,
                         lineHeight: "16px",
                         cursor: "pointer",
@@ -5732,7 +5793,7 @@ function AttachmentGallery({
                         borderRadius: "50%",
                         border: "none",
                         background: "var(--danger)",
-                        color: "#fff",
+                        color: "var(--on-status)",
                         fontSize: 13,
                         lineHeight: "22px",
                         cursor: "pointer",

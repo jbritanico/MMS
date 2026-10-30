@@ -188,20 +188,20 @@ function ChecklistDatabank() {
                 Section and asset-type scoping happens per template, not here.
             </p>
 
-            <div style={{ display: "flex", gap: 4, marginBottom: 18, padding: 4, background: "var(--tab-track)", borderRadius: 12, width: "fit-content" }}>
+            <div style={{ display: "flex", gap: 4, marginBottom: 18, padding: "var(--seg-track-pad, 4px)", background: "var(--tab-track)", borderRadius: "var(--seg-track-radius, 12px)", width: "fit-content" }}>
                 {LEVELS.map((lvl) => (
                     <button
                         key={lvl}
                         onClick={() => switchTab(lvl)}
                         style={{
-                            padding: "7px 16px",
-                            borderRadius: 9,
-                            fontSize: 13,
-                            fontWeight: 600,
-                            background: activeTab === lvl ? "var(--neu-bg)" : "transparent",
-                            color: activeTab === lvl ? "var(--accent-blue)" : "var(--text-soft)",
+                            padding: "var(--seg-pad, 7px 16px)", border: "var(--seg-border, none)",
+                            borderRadius: "var(--seg-radius, 9px)",
+                            fontSize: "var(--seg-font, 13px)",
+                            fontWeight: activeTab === lvl ? "var(--seg-on-weight, 600)" : "var(--seg-off-weight, 600)",
+                            background: activeTab === lvl ? "var(--seg-on-bg, var(--neu-bg))" : "transparent",
+                            color: activeTab === lvl ? "var(--seg-on-color, var(--accent-blue))" : "var(--seg-off-color, var(--text-soft))",
                             boxShadow: activeTab === lvl
-                                ? "var(--neu-inset-sm)"
+                                ? "var(--seg-on-shadow, var(--neu-inset-sm))"
                                 : "none",
                         }}
                     >

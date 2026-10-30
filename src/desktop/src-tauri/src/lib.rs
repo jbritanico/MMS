@@ -4399,12 +4399,24 @@ fn set_mri_report_checklist_result(result: MriReportChecklistResult) -> Result<S
         ));
     }
 
+    // A Fail cannot be Closed while its issue details or action taken are blank.
+    if result.status.as_deref() == Some("Fail") && result.closure_status == "Closed" {
+        if result.issue_details.as_deref().map_or(true, |a| a.trim().is_empty()) {
+            return Err("Add issue details before closing this item.".to_string());
+        }
+        if result.action_taken.as_deref().map_or(true, |a| a.trim().is_empty()) {
+            return Err("Add an action taken entry before closing this item.".to_string());
+        }
+    }
+
     // Figure 4: only a Fail can be "repaired on site", it needs the action taken written
     // down, and it is closed by the field team right away.
     let mut result = result;
     if result.repaired_on_site {
         if result.status.as_deref() != Some("Fail") {
             result.repaired_on_site = false;
+        } else if result.issue_details.as_deref().map_or(true, |a| a.trim().is_empty()) {
+            return Err("Add issue details before marking this fault as repaired on site.".to_string());
         } else if result.action_taken.as_deref().map_or(true, |a| a.trim().is_empty()) {
             return Err("Describe the repair in Action Taken before marking this fault as repaired on site (function test performed).".to_string());
         } else {

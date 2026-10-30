@@ -5,6 +5,7 @@ import { useMriTemplates } from "../administration/hooks/useMriTemplates";
 import { useAssetTriggers } from "../asset-registry/hooks/useTriggers";
 import { useAllTemplateComponents } from "../mri-template-builder/hooks/useTemplateComponents";
 import type { Asset } from "../asset-registry/types";
+import { TagLamp } from "../../components/Instruments";
 import {
   useCreateMriReport,
   useCreateMriReportFromLastPostJob,
@@ -129,6 +130,7 @@ function AssetSelectCard({
         <div className="asset-select-info">
           <div className="asset-select-desc">{asset.asset_description || "—"}</div>
           <div className="asset-select-meta">
+            {asset.tag_status && <TagLamp status={asset.tag_status} size={16} title={asset.tag_reason ?? undefined} />}
             <span className="pill neutral">{assetTypeLabel}</span>
             <span className="pill neutral" title="Country of this asset">
               {asset.country || "No country"}

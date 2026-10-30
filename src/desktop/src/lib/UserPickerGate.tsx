@@ -3,7 +3,7 @@ import { useCurrentUser } from "./currentUser";
 import { useCreateAppUser } from "../features/administration/hooks/useUserAdmin";
 import fieldOpsImage from "../assets/FieldMaintenance.png";
 import fieldOpsImageDark from "../assets/FieldDark.png";
-import { isDarkTheme, type Theme } from "./theme";
+import { isDarkTheme, VISIBLE_THEMES, type Theme } from "./theme";
 
 interface TierReference {
   name: string;
@@ -252,9 +252,11 @@ function Microsoft365Mockup() {
 function UserPickerGate({
   children,
   theme,
+  onThemeChange,
 }: {
   children: ReactNode;
   theme: Theme;
+  onThemeChange?: (t: Theme) => void;
 }) {
   const { user, users, isLoading, setCurrentUserId } = useCurrentUser();
   const now = useLiveClock();
@@ -313,6 +315,21 @@ function UserPickerGate({
         .flip-prev { animation-name: flip-in-prev; }
       `}</style>
       <div style={{ position: "relative", height: "100%", overflowY: "auto", background: "var(--bg, #f4f5f2)" }}>
+      {onThemeChange && (
+        <div className="gate-theme-picker" role="group" aria-label="Theme">
+          {VISIBLE_THEMES.map((t) => (
+            <button
+              key={t.id}
+              className={`theme-option ${theme === t.id ? "active" : ""}`}
+              onClick={() => onThemeChange(t.id)}
+              title={`${t.label} theme`}
+            >
+              <span className="theme-swatch" style={{ background: t.swatch }} />
+              <span>{t.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
       {/* Full-bleed photo backdrop, top of the page only */}
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 560, overflow: "hidden" }}>
         <img

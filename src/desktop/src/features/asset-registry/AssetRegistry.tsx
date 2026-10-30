@@ -10,6 +10,7 @@ import { useAssetTypes } from "../administration/hooks/useAssetTypes";
 import { useMriTemplates } from "../administration/hooks/useMriTemplates";
 import { useLookups } from "../administration/hooks/useLookups";
 import AssetTypeCombobox from "../administration/AssetTypeCombobox";
+import { TagLamp } from "../../components/Instruments";
 import { useCurrentUser } from "../../lib/currentUser";
 import { useEffectivePermissions } from "../administration/hooks/useUserAdmin";
 
@@ -247,16 +248,7 @@ function AssetRegistryCard({ asset: a, assetTypeLabel, assetTypeIcon, canEdit, c
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
         {a.tag_status && (
-          <span
-            className="pill"
-            title={a.tag_reason ?? undefined}
-            style={{
-              background: a.tag_status === "Red" ? "var(--danger)" : a.tag_status === "Yellow" ? "var(--warn)" : "var(--success)",
-              color: "var(--on-status)",
-            }}
-          >
-            {a.tag_status} Tag
-          </span>
+          <TagLamp status={a.tag_status} size={20} title={a.tag_reason ?? undefined} />
         )}
         {a.country && <span className="pill neutral">{a.country}</span>}
         {a.vehicle && <span className="pill neutral">Vehicle</span>}
@@ -493,15 +485,7 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
               <label>Tag status</label>
               <div>
                 {form.tag_status ? (
-                  <span
-                    className="pill"
-                    style={{
-                      background: form.tag_status === "Red" ? "var(--danger)" : form.tag_status === "Yellow" ? "var(--warn)" : "var(--success)",
-                      color: "var(--on-status)",
-                    }}
-                  >
-                    {form.tag_status} Tag
-                  </span>
+                  <TagLamp status={form.tag_status} size={22} showText title={form.tag_reason ?? undefined} />
                 ) : (
                   <span className="pill neutral">Not tagged</span>
                 )}

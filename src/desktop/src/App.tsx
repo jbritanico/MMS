@@ -146,6 +146,7 @@ function App() {
             --neu-raised: 5px 5px 10px var(--neu-shadow-dark), -5px -5px 10px var(--neu-shadow-light);
             --neu-inset-deep: inset 3px 3px 8px var(--neu-shadow-dark), inset -3px -3px 8px var(--neu-shadow-light);
             --neu-inset-sm: inset 2px 2px 4px var(--neu-shadow-dark), inset -2px -2px 4px var(--neu-shadow-light);
+            --neu-inset-well: inset 2px 2px 5px var(--neu-shadow-dark), inset -2px -2px 5px var(--neu-shadow-light);
             --neu-raised-sm: 3px 3px 6px var(--neu-shadow-dark), -3px -3px 6px var(--neu-shadow-light);
             --tab-track: rgba(0,0,0,0.04);
             --st-amber: #d97706;
@@ -155,6 +156,8 @@ function App() {
             --st-grey: #6b7280;
             --on-status: #fff;
             --disabled-bg: #e9ebed;
+            --chip-bg: var(--neu-shadow-dark);
+            --st-green: #16a34a;
             --hero-veil: linear-gradient(100deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.82) 30%, rgba(255,255,255,0.45) 65%, rgba(255,255,255,0.15) 100%);
             --glass-bg: rgba(255,255,255,0.5);
             --glass-bg-strong: rgba(255,255,255,0.7);
@@ -617,6 +620,13 @@ function App() {
             box-shadow: inset 2px 2px 4px var(--neu-shadow-dark), inset -2px -2px 4px var(--neu-shadow-light);
           }
 
+          .gate-theme-picker {
+            position: absolute; top: 16px; right: 20px; z-index: 20;
+            display: flex; gap: 4px; padding: 5px;
+            border-radius: 14px;
+            background: var(--glass-bg-strong); box-shadow: var(--glass-shadow-strong);
+            backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+          }
           .theme-swatch {
             width: 18px;
             height: 18px;
@@ -1400,6 +1410,13 @@ function App() {
           .mri-stat-value { font-size: 22px; font-weight: 700; margin-bottom: 10px; }
           .mri-stat-bar-track { height: 8px; border-radius: 20px; background: var(--neu-shadow-dark); overflow: hidden; }
           .mri-stat-bar-fill { height: 100%; border-radius: 20px; transition: width 0.3s; }
+          /* B3: stat cards show a round gauge (running value against the trigger interval). */
+          .mri-stat-gauge-card { flex-direction: column; align-items: center; gap: 10px; padding: 16px 18px; }
+          .mri-stat-head { display: flex; align-items: center; gap: 10px; align-self: stretch; }
+          .mri-stat-head .mri-stat-icon { width: 34px; height: 34px; }
+          .mri-stat-head .mri-stat-icon svg { width: 18px; height: 18px; }
+          .mri-stat-head .mri-stat-label { margin: 0; }
+          .mri-stat-of { font-size: 12px; color: var(--text-soft); font-weight: 600; }
 
           .mri-report-timeline { position: relative; margin-top: 28px; padding-left: 34px; }
           .mri-report-timeline::before {
@@ -2132,7 +2149,7 @@ function App() {
           }
           /* ===== macOS themes: ported from the UI Lab macOS sample (MacOsTest.tsx) ===== */
           [data-theme="macos"] {
-            --bg: #ffffff; --neu-bg: #f6f6f6; --neu-shadow-dark: transparent; --neu-shadow-light: transparent;
+            --bg: #ffffff; --tab-track: rgba(120,120,128,0.18); --chip-bg: rgba(120,120,128,0.2); --neu-bg: #f6f6f6; --neu-shadow-dark: transparent; --neu-shadow-light: transparent;
             --surface: #ffffff; --border: rgba(0,0,0,0.12); --row: rgba(0,0,0,0.035); --ctl: #ffffff; --field: #ffffff;
             --bar: #ececef; --side: rgba(236,236,240,0.82); --field-border: rgba(0,0,0,0.28);
             --text: #1d1d1f; --text-soft: #6e6e73;
@@ -2140,6 +2157,7 @@ function App() {
             --chart-violet: #af52de; --chart-green: #34c759; --hover-highlight: rgba(0,122,255,0.10);
             --warn: #b25000; --warn-soft: #fff1dc; --danger: #d70015; --danger-soft: #ffe5e8; --success: #1f8a3d; --success-soft: #e2f6e8;
             --radius: 10px;
+            --field-h: 24px; --field-px: 8px; --select-pr: 26px; --neu-inset: inset 0 0 0 1px var(--border); --neu-inset-deep: inset 0 0 0 1px var(--border); --neu-inset-sm: inset 0 0 0 1px var(--border); --neu-inset-well: inset 0 0 0 1px var(--border); --neu-raised: 0 0 0 1px var(--border), 0 0.5px 1.5px rgba(0,0,0,0.12); --neu-raised-sm: 0 0 0 1px var(--border), 0 0.5px 1.5px rgba(0,0,0,0.12); --seg-pad: 3px 14px; --seg-radius: 6px; --seg-font: 12px; --seg-on-weight: 600; --seg-off-weight: 400; --seg-on-bg: var(--ctl); --seg-on-color: var(--text); --seg-off-color: var(--text); --seg-on-shadow: 0 0.5px 1.5px rgba(0,0,0,0.3), 0 0 0 0.5px rgba(0,0,0,0.04); --seg-track-radius: 8px; --seg-track-pad: 2px; --seg-border: 0;
             --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
           }
           [data-theme="macos-dark"] {
@@ -2151,10 +2169,11 @@ function App() {
             --chart-violet: #bf5af2; --chart-green: #30d158; --hover-highlight: rgba(10,132,255,0.22);
             --warn: #ff9f0a; --warn-soft: #3a2c10; --danger: #ff453a; --danger-soft: #3d1c1a; --success: #30d158; --success-soft: #153a22;
             --radius: 10px;
+            --field-h: 24px; --field-px: 8px; --select-pr: 26px; --neu-inset: inset 0 0 0 1px var(--border); --neu-inset-deep: inset 0 0 0 1px var(--border); --neu-inset-sm: inset 0 0 0 1px var(--border); --neu-inset-well: inset 0 0 0 1px var(--border); --neu-raised: 0 0 0 1px var(--border), 0 0.5px 1.5px rgba(0,0,0,0.12); --neu-raised-sm: 0 0 0 1px var(--border), 0 0.5px 1.5px rgba(0,0,0,0.12); --seg-pad: 3px 14px; --seg-radius: 6px; --seg-font: 12px; --seg-on-weight: 600; --seg-off-weight: 400; --seg-on-bg: var(--ctl); --seg-on-color: var(--text); --seg-off-color: var(--text); --seg-on-shadow: 0 0.5px 1.5px rgba(0,0,0,0.3), 0 0 0 0.5px rgba(0,0,0,0.04); --seg-track-radius: 8px; --seg-track-pad: 2px; --seg-border: 0;
             --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
             --hero-veil: linear-gradient(100deg, rgba(30,30,32,0.94) 0%, rgba(30,30,32,0.82) 30%, rgba(30,30,32,0.45) 65%, rgba(30,30,32,0.15) 100%);
             --glass-bg: rgba(44,44,48,0.6); --glass-bg-strong: rgba(44,44,48,0.8); --text-halo: none;
-            --tab-track: rgba(255,255,255,0.06); --disabled-bg: #3a3a3c;
+            --tab-track: rgba(120,120,128,0.3); --chip-bg: rgba(120,120,128,0.3); --disabled-bg: #3a3a3c;
           }
           [data-theme="macos"] .app, .app[data-theme="macos"] { color-scheme: light; }
           .app[data-theme="macos-dark"] { color-scheme: dark; }
@@ -2175,12 +2194,12 @@ function App() {
           .app[data-theme^="macos"] .pill { font-size: 11px; }
 
           /* push buttons (mac-btn) */
-          .app[data-theme^="macos"] button:not(.theme-fab):not(.glass-button):not(.mr-level-btn):not(.page-btn):not(.side-drawer-handle):not(.neu-toggle):not(.menu-card):not(.uilab-fab):not(.icon-btn) {
+          .app[data-theme^="macos"] button:not(.theme-fab):not(.glass-button):not(.mr-level-btn):not(.page-btn):not(.side-drawer-handle):not(.neu-toggle):not(.menu-card):not(.uilab-fab):not(.icon-btn):not(.drawer-nav-btn):not(.admin-group-header):not(.admin-child-item):not(.theme-option) {
             font-family: var(--sans); font-size: 13px; font-weight: 400; letter-spacing: -0.01em; color: var(--text);
             padding: 3px 14px; min-height: 22px; background: var(--ctl); border: 1px solid var(--border); border-radius: 6px;
             box-shadow: 0 0.5px 1.5px rgba(0,0,0,0.22); cursor: default; transition: none;
           }
-          .app[data-theme^="macos"] button:not(.theme-fab):not(.glass-button):not(.mr-level-btn):not(.page-btn):not(.side-drawer-handle):not(.neu-toggle):not(.menu-card):not(.uilab-fab):not(.icon-btn):active { filter: brightness(0.92); box-shadow: 0 0.5px 1.5px rgba(0,0,0,0.22); transform: none; }
+          .app[data-theme^="macos"] button:not(.theme-fab):not(.glass-button):not(.mr-level-btn):not(.page-btn):not(.side-drawer-handle):not(.neu-toggle):not(.menu-card):not(.uilab-fab):not(.icon-btn):not(.drawer-nav-btn):not(.admin-group-header):not(.admin-child-item):not(.theme-option):active { filter: brightness(0.92); box-shadow: 0 0.5px 1.5px rgba(0,0,0,0.22); transform: none; }
           .app[data-theme^="macos"] button.primary:not(.theme-fab):not(.glass-button):not(.mr-level-btn) {
             color: #fff; font-weight: 400; border-color: #0a6cdc; background: linear-gradient(180deg, #3d9dff, #0a7cff);
           }
@@ -2244,9 +2263,198 @@ function App() {
           }
           .app[data-theme^="macos"] .modal h3 { font-size: 13px; font-weight: 600; margin: 8px 0 4px; }
           .app[data-theme^="macos"] .modal p { font-size: 11.5px; color: var(--text-soft); }
+          /* A3a: Main Menu tiles (grouped tile with a blue app icon, like the sample sheet) */
+          .app[data-theme^="macos"] .menu-grid { gap: 14px; }
+          .app[data-theme^="macos"] .menu-card { padding: 16px 14px; min-height: clamp(120px, 18vh, 170px); transition: background 0.12s; cursor: default; }
+          .app[data-theme^="macos"] .menu-card:hover { transform: none; box-shadow: none; background: var(--hover-highlight); }
+          .app[data-theme^="macos"] .menu-card:active { transform: none; box-shadow: none; filter: brightness(0.95); }
+          .app[data-theme^="macos"] .menu-icon-wrap {
+            width: 44px; height: 44px; margin: 0 auto 10px; border-radius: 11px; color: #fff;
+            background: linear-gradient(180deg, #3d9dff, #0a7cff); box-shadow: 0 0.5px 1.5px rgba(0,0,0,0.25);
+          }
+          .app[data-theme^="macos"] .menu-card:hover .menu-icon-wrap, .app[data-theme^="macos"] .menu-card:active .menu-icon-wrap { color: #fff; }
+          .app[data-theme^="macos"] .menu-icon-wrap svg { width: 24px; height: 24px; }
+          .app[data-theme^="macos"] .menu-card h3 { font-size: 13px; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01em; }
+          .app[data-theme^="macos"] .menu-card p { font-size: 11.5px; line-height: 1.35; color: var(--text-soft); }
+          /* A3b: side drawer (frosted sidebar) and the user handle at the screen edge */
+          .app[data-theme^="macos"] .side-drawer-overlay { background: rgba(0,0,0,0.12); }
+          .app[data-theme^="macos"] .side-drawer {
+            background: var(--side); backdrop-filter: blur(24px) saturate(1.6); -webkit-backdrop-filter: blur(24px) saturate(1.6);
+            border-left: 1px solid var(--border); box-shadow: -8px 0 30px rgba(0,0,0,0.22); padding: 14px 10px; gap: 12px;
+          }
+          .app[data-theme^="macos"] .drawer-user-card { padding: 10px 12px; border-radius: 10px; background: var(--row); border: 1px solid var(--border); box-shadow: none; }
+          .app[data-theme^="macos"] .drawer-user-name { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+          .app[data-theme^="macos"] .drawer-user-role { font-size: 11.5px; margin-top: 2px; }
+          .app[data-theme^="macos"] .drawer-section-label { font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none; margin: 4px 8px 2px; }
+          .app[data-theme^="macos"] .drawer-nav-btn {
+            padding: 5px 8px; border-radius: 6px; border: 0; background: transparent; box-shadow: none; min-height: 0;
+            color: var(--text); font-size: 13px; font-weight: 400; letter-spacing: -0.01em; gap: 8px; cursor: default;
+          }
+          .app[data-theme^="macos"] .drawer-nav-btn:hover { background: rgba(120,120,128,0.14); color: var(--text); }
+          .app[data-theme^="macos"] .drawer-nav-btn:active { background: var(--accent-blue); color: #fff; }
+          .app[data-theme^="macos"] .drawer-nav-btn svg { width: 15px; height: 15px; color: var(--accent-blue); }
+          .app[data-theme^="macos"] .drawer-nav-btn:active svg { color: #fff; }
+          .app[data-theme^="macos"] .side-drawer-handle:not(.side-drawer-handle-avatar) { border: 1px solid var(--border); border-right: 0; background: var(--side); backdrop-filter: blur(24px); box-shadow: none; }
+          .app[data-theme^="macos"] .drawer-handle-avatar-circle { box-shadow: 0 0.5px 1.5px rgba(0,0,0,0.3); }
+          .app[data-theme^="macos"] .drawer-handle-avatar-info { background: var(--side); backdrop-filter: blur(24px) saturate(1.6); border: 1px solid var(--border); border-left: 0; border-radius: 0 10px 10px 0; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
+          .app[data-theme^="macos"] .side-drawer-handle-name { font-size: 13px; letter-spacing: -0.01em; }
+          .app[data-theme^="macos"] .side-drawer-handle-role { font-size: 11px; }
+          /* A3c: Administration left navigation (sidebar list, blue selected row) */
+          .app[data-theme^="macos"] .admin-layout { gap: 16px; }
+          .app[data-theme^="macos"] .admin-sidebar {
+            background: var(--side); backdrop-filter: blur(24px) saturate(1.6); -webkit-backdrop-filter: blur(24px) saturate(1.6);
+            border: 1px solid var(--border); border-radius: 10px; box-shadow: none; padding: 10px; gap: 2px; width: clamp(190px, 22cqi, 240px);
+          }
+          .app[data-theme^="macos"] .admin-group { margin-bottom: 2px; }
+          .app[data-theme^="macos"] .admin-group-header {
+            padding: 5px 8px; border-radius: 6px; border: 0; background: transparent; box-shadow: none; min-height: 0;
+            font-size: 13px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); gap: 8px; cursor: default;
+          }
+          .app[data-theme^="macos"] .admin-group-header:hover { background: rgba(120,120,128,0.14); }
+          .app[data-theme^="macos"] .admin-group-header.highlight { color: var(--text); }
+          .app[data-theme^="macos"] .admin-nav-icon { width: 18px; height: 18px; border-radius: 0; background: transparent; box-shadow: none; color: var(--accent-blue); }
+          .app[data-theme^="macos"] .admin-nav-icon svg { width: 15px; height: 15px; }
+          .app[data-theme^="macos"] .admin-chevron { width: 12px; height: 12px; }
+          .app[data-theme^="macos"] .admin-group-body-inner { padding-left: 22px; gap: 1px; }
+          .app[data-theme^="macos"] .admin-child-item {
+            padding: 5px 8px; border-radius: 6px; border: 0; background: transparent; box-shadow: none; min-height: 0;
+            font-size: 13px; font-weight: 400; letter-spacing: -0.01em; color: var(--text); gap: 8px; cursor: default;
+          }
+          .app[data-theme^="macos"] .admin-child-item:hover { background: rgba(120,120,128,0.14); }
+          .app[data-theme^="macos"] .admin-child-item.active { background: var(--accent-blue); color: #fff; box-shadow: none; }
+          .app[data-theme^="macos"] .admin-child-icon { width: 16px; height: 16px; color: var(--accent-blue); }
+          .app[data-theme^="macos"] .admin-child-icon svg { width: 15px; height: 15px; }
+          .app[data-theme^="macos"] .admin-child-item.active .admin-child-icon { color: #fff; }
+          /* A3d: wizard steps and MR level buttons (tab strips use the --seg-* variables above) */
+          .app[data-theme^="macos"] .wizard-steps { gap: 2px; margin-bottom: 14px; }
+          .app[data-theme^="macos"] .wizard-step { padding: 4px 8px; border-radius: 6px; font-size: 12px; gap: 6px; letter-spacing: -0.01em; }
+          .app[data-theme^="macos"] .wizard-step-dot { width: 20px; height: 20px; font-size: 11px; background: rgba(120,120,128,0.18); box-shadow: none; color: var(--text-soft); }
+          .app[data-theme^="macos"] .wizard-step.active { color: var(--text); font-weight: 600; }
+          .app[data-theme^="macos"] .wizard-step.active .wizard-step-dot { background: var(--accent-blue); color: #fff; }
+          .app[data-theme^="macos"] .wizard-step.done .wizard-step-dot { background: var(--accent-soft); color: var(--accent-blue); }
+          .app[data-theme^="macos"] .mr-level-row { height: 30px; margin-top: 10px; }
+          .app[data-theme^="macos"] .mr-level-btn {
+            width: 30px; height: 30px; font-size: 12px; font-weight: 600; color: var(--accent-blue); background: var(--ctl);
+            border: 1px solid var(--border); box-shadow: 0 0.5px 1.5px rgba(0,0,0,0.22); cursor: default;
+          }
+          .app[data-theme^="macos"] .mr-level-btn:hover { box-shadow: 0 0.5px 1.5px rgba(0,0,0,0.22); background: var(--hover-highlight); }
+          .app[data-theme^="macos"] .mr-level-btn:active { filter: brightness(0.92); box-shadow: 0 0.5px 1.5px rgba(0,0,0,0.22); }
+          /* A3e: pagination, theme button and picker (search box is covered by the field rules) */
+          .app[data-theme^="macos"] .pagination-bar { margin-top: 10px; gap: 8px; }
+          .app[data-theme^="macos"] .page-btn {
+            min-width: 26px; height: 22px; padding: 0 8px; border-radius: 6px; font-size: 12px; color: var(--text);
+            background: var(--ctl); border: 1px solid var(--border); box-shadow: 0 0.5px 1.5px rgba(0,0,0,0.22); cursor: default;
+          }
+          .app[data-theme^="macos"] .page-btn:active:not(:disabled) { filter: brightness(0.92); }
+          .app[data-theme^="macos"] .page-btn:disabled { opacity: 0.4; box-shadow: none; }
+          .app[data-theme^="macos"] .page-btn.page-num.active { color: #fff; font-weight: 600; border-color: #0a6cdc; background: linear-gradient(180deg, #3d9dff, #0a7cff); box-shadow: none; }
+          .app[data-theme^="macos"] .page-dots { font-size: 12px; }
+          .app[data-theme^="macos"] .theme-fab {
+            width: 32px; height: 32px; color: var(--text); background: var(--ctl); border: 1px solid var(--border);
+            box-shadow: 0 0.5px 1.5px rgba(0,0,0,0.22); cursor: default;
+          }
+          .app[data-theme^="macos"] .theme-fab:hover { color: var(--accent-blue); transform: none; }
+          .app[data-theme^="macos"] .theme-fab:active { box-shadow: 0 0.5px 1.5px rgba(0,0,0,0.22); transform: none; filter: brightness(0.92); }
+          .app[data-theme^="macos"] .theme-fab svg { width: 16px; height: 16px; }
+          .app[data-theme^="macos"] .theme-picker {
+            bottom: 60px; gap: 1px; padding: 5px; border-radius: 10px; background: var(--side);
+            backdrop-filter: blur(30px) saturate(1.6); -webkit-backdrop-filter: blur(30px) saturate(1.6);
+            border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+          }
+          .app[data-theme^="macos"] .theme-option {
+            padding: 4px 10px; border-radius: 5px; border: 0; background: transparent; box-shadow: none; min-height: 0;
+            color: var(--text); font-size: 13px; font-weight: 400; letter-spacing: -0.01em; gap: 8px; cursor: default;
+          }
+          .app[data-theme^="macos"] .theme-option:hover { background: var(--accent-blue); color: #fff; }
+          .app[data-theme^="macos"] .gate-theme-picker { border-radius: 8px; padding: 3px; border: 1px solid var(--border); box-shadow: 0 4px 14px rgba(0,0,0,0.18); }
+          .app[data-theme^="macos"] .theme-option.active { box-shadow: none; font-weight: 600; }
+          .app[data-theme^="macos"] .theme-swatch { width: 14px; height: 14px; box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.25); }
+          /* A4a: Dashboard tiles, history cards, stat cards, report timeline.
+             Also replaces places that used the (transparent here) shadow colours as fills or dividers. */
+          .app[data-theme^="macos"] .dashboard-hub-grid { gap: 12px; margin-top: 14px; }
+          .app[data-theme^="macos"] .dashboard-tile { padding: 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--row); box-shadow: none; gap: 8px; cursor: default; transition: background 0.12s; }
+          .app[data-theme^="macos"] .dashboard-tile:hover { transform: none; background: var(--hover-highlight); }
+          .app[data-theme^="macos"] .dashboard-tile-icon { width: 34px; height: 34px; border-radius: 8px; background: var(--accent-soft); color: var(--accent-blue); }
+          .app[data-theme^="macos"] .dashboard-tile-icon svg { width: 19px; height: 19px; }
+          .app[data-theme^="macos"] .dashboard-tile-title { font-size: 13px; letter-spacing: -0.01em; }
+          .app[data-theme^="macos"] .dashboard-tile-desc { font-size: 11.5px; }
+          .app[data-theme^="macos"] .dashboard-tile.disabled { box-shadow: none; border: 1px dashed var(--border); background: transparent; }
+          .app[data-theme^="macos"] .dashboard-tile-badge { background: var(--chip-bg); }
+          .app[data-theme^="macos"] .mri-history-grid { gap: 12px; margin-top: 14px; }
+          .app[data-theme^="macos"] .mri-history-card { background: var(--row); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; box-shadow: none; gap: 8px; cursor: default; transition: background 0.12s; }
+          .app[data-theme^="macos"] .mri-history-card:hover { transform: none; background: var(--hover-highlight); }
+          .app[data-theme^="macos"] .mri-history-card .code { font-size: 14px; }
+          .app[data-theme^="macos"] .mri-history-card .desc { font-size: 12px; line-height: 1.45; }
+          .app[data-theme^="macos"] .mri-stat-grid { gap: 10px; margin-top: 14px; }
+          .app[data-theme^="macos"] .mri-stat-card, .app[data-theme^="macos"] .mri-report-card {
+            background: var(--row); backdrop-filter: none; -webkit-backdrop-filter: none;
+            border: 1px solid var(--border); border-radius: 10px; box-shadow: none;
+          }
+          .app[data-theme^="macos"] .mri-stat-card { padding: 12px 14px; gap: 12px; }
+          .app[data-theme^="macos"] .mri-report-card { padding: 28px 16px 14px; gap: 14px; }
+          .app[data-theme^="macos"] .mri-stat-bar-track { background: var(--chip-bg); }
+          .app[data-theme^="macos"] .mri-report-timeline::before { background: var(--border); }
+          .app[data-theme^="macos"] .mri-report-dot { box-shadow: 0 0 0 4px var(--bg); }
+          .app[data-theme^="macos"] .mri-preview-toggle { background: var(--chip-bg); }
+          .app[data-theme^="macos"] .trigger-row + .trigger-row, .app[data-theme^="macos"] .card + .card { border-top: 1px solid var(--border); box-shadow: none; }
+          .app[data-theme^="macos"] .build-ground { stroke: var(--border); }
+          /* A4b: Main Menu KPI strip. The red-to-green gauge colours are kept (they carry meaning); the frame is flat. */
+          .app[data-theme^="macos"] .kpi-footer { background: var(--bg); border-top: 1px solid var(--border); padding: 10px 0 0; gap: 10px; }
+          .app[data-theme^="macos"] .kpi-footer-item { padding: 8px 12px; gap: 4px; border-radius: 10px; background: var(--row); border: 1px solid var(--border); box-shadow: none; cursor: default; min-width: 140px; transition: background 0.12s; }
+          .app[data-theme^="macos"] .kpi-footer-item:hover { transform: none; background: var(--hover-highlight); box-shadow: none; }
+          .app[data-theme^="macos"] .kpi-footer-item:active { transform: none; box-shadow: none; filter: brightness(0.95); }
+          .app[data-theme^="macos"] .kpi-footer-label { font-size: 11px; letter-spacing: -0.01em; }
+          .app[data-theme^="macos"] .kpi-footer-value { font-family: var(--sans); font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 600; letter-spacing: -0.02em; }
+          .app[data-theme^="macos"] .kpi-footer-delta { font-family: var(--sans); font-variant-numeric: tabular-nums; font-size: 11px; }
+          .app[data-theme^="macos"] .kpi-footer-delta.good { color: var(--success); }
+          .app[data-theme^="macos"] .kpi-gauge-track { height: 5px; border-radius: 3px; }
+          .app[data-theme^="macos"] .kpi-gauge-mask { background: #e3e3e6; box-shadow: none; }
+          .app[data-theme="macos-dark"] .kpi-gauge-mask { background: #3a3a3c; }
+          /* A4c: trigger rows and inputs, form labels, list text */
+          .app[data-theme^="macos"] .field { margin-bottom: 10px; }
+          .app[data-theme^="macos"] .field label { font-size: 12px; margin-bottom: 3px; letter-spacing: -0.01em; }
+          .app[data-theme^="macos"] .trigger-row { padding: 8px 4px; font-size: 13px; gap: 8px; }
+          .app[data-theme^="macos"] .trigger-row.trigger-head { font-size: 12px; text-transform: none; letter-spacing: -0.01em; font-weight: 500; }
+          .app[data-theme^="macos"] .trigger-readonly { font-family: var(--sans); font-variant-numeric: tabular-nums; }
+          .app[data-theme^="macos"] .trigger-input { width: 100%; font-size: 13px; }
+          .app[data-theme^="macos"] .trigger-input:disabled { background: var(--disabled-bg); color: var(--text-soft); opacity: 1; }
+          .app[data-theme^="macos"] .neu-select { width: 100%; }
+          .app[data-theme^="macos"] .code { font-family: var(--sans); font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+          .app[data-theme^="macos"] .desc { font-size: 12px; }
+          .app[data-theme^="macos"] .mri-preview-form { border-radius: 10px; padding: 16px; }
+          .app[data-theme^="macos"] .mri-preview-section-label { font-size: 11px; font-weight: 600; text-transform: none; letter-spacing: 0; }
+          .app[data-theme^="macos"] .mri-preview-input { height: 24px; border-radius: 6px; }
+          /* A4d (self-review): sunken/raised wells become hairline outlines via the --neu-* variables above;
+             permission/country tiles keep their on/off tint but use the macOS radius. */
+          .app[data-theme^="macos"] [role="switch"]:not(.neu-toggle), .app[data-theme^="macos"] [role="radio"] { border-radius: 10px !important; cursor: default !important; }
+          /* A4d (checked in a headless render of the real stylesheet): destructive buttons and review-card text */
+          /* macOS: the Fail button (and other danger buttons) use a pale red fill with red text. */
+          .app[data-theme="macos"] button.danger:not(.theme-fab):not(.glass-button):not(.mr-level-btn) { background: #fbd9d6 !important; color: #b3140b !important; box-shadow: inset 0 0 0 1px rgba(215,0,21,0.25) !important; }
+          .app[data-theme="macos-dark"] button.danger:not(.theme-fab):not(.glass-button):not(.mr-level-btn) { background: rgba(255,69,58,0.22) !important; color: #ff6961 !important; box-shadow: inset 0 0 0 1px rgba(255,69,58,0.35) !important; }
+          .app[data-theme^="macos"] button.danger:not(.theme-fab):not(.glass-button):not(.mr-level-btn):hover { filter: brightness(0.97); }
+          .app[data-theme^="macos"] .review-card-code { font-family: var(--sans); font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+          .app[data-theme^="macos"] .review-card-desc { font-size: 12px; }
+          /* B1: shared instruments (Instruments.tsx). Skeuomorphic base for Light/Dark and the other themes. */
+          .instr-lamp { --lamp-size: 18px; display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-soft); }
+          .instr-lamp i { width: var(--lamp-size); height: var(--lamp-size); flex: none; border-radius: 50%; display: block; border: max(1.5px, calc(var(--lamp-size) * 0.1)) solid #8b9199; box-shadow: 0 2px 4px rgba(0,0,0,0.55), 0 0 0 1px #4a4f56; }
+          .instr-lamp.off i { background: radial-gradient(circle at 35% 30%, #5b6068, #2b2e33); }
+          .instr-lamp.red i { background: radial-gradient(circle at 35% 30%, #ffd6d1, #ff3b2f 45%, #b3140b); box-shadow: 0 0 calc(var(--lamp-size) * 0.45) calc(var(--lamp-size) * 0.1) rgba(255,59,47,0.8), 0 2px 4px rgba(0,0,0,0.55); }
+          .instr-lamp.yellow i { background: radial-gradient(circle at 35% 30%, #fff3c2, #ffc928 45%, #b88a05); box-shadow: 0 0 calc(var(--lamp-size) * 0.45) calc(var(--lamp-size) * 0.1) rgba(255,201,40,0.8), 0 2px 4px rgba(0,0,0,0.55); }
+          .instr-lamp.green i { background: radial-gradient(circle at 35% 30%, #d9ffe0, #36d65a 45%, #0e8a2d); box-shadow: 0 0 calc(var(--lamp-size) * 0.45) calc(var(--lamp-size) * 0.1) rgba(54,214,90,0.8), 0 2px 4px rgba(0,0,0,0.55); }
+          .instr-lamp-text { line-height: 1; }
+          .instr-gauge { max-width: 100%; border-radius: 14px; padding: 7px; background: linear-gradient(160deg, #3b3f45, #15171a); box-shadow: 0 8px 14px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.35) inset; box-sizing: border-box; }
+          .instr-gauge svg { display: block; width: 100%; height: auto; border-radius: 9px; }
+          /* B1: macOS themes get a flatter instrument: flat lamp with a soft ring, slim light bezel on the gauge. */
+          .app[data-theme^="macos"] .instr-lamp i { border: 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.18); }
+          .app[data-theme^="macos"] .instr-lamp.off i { background: var(--st-grey); }
+          .app[data-theme^="macos"] .instr-lamp.red i { background: var(--st-red); box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15), 0 0 0 calc(var(--lamp-size) * 0.14) color-mix(in srgb, var(--st-red) 25%, transparent); }
+          .app[data-theme^="macos"] .instr-lamp.yellow i { background: #ffcc00; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15), 0 0 0 calc(var(--lamp-size) * 0.14) rgba(255,204,0,0.28); }
+          .app[data-theme^="macos"] .instr-lamp.green i { background: var(--st-green); box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15), 0 0 0 calc(var(--lamp-size) * 0.14) color-mix(in srgb, var(--st-green) 25%, transparent); }
+          .app[data-theme^="macos"] .instr-lamp { font-weight: 600; letter-spacing: 0; text-transform: none; font-size: 12px; }
+          .app[data-theme^="macos"] .instr-gauge { padding: 4px; border-radius: 12px; background: var(--neu-bg); box-shadow: inset 0 0 0 1px var(--border); }
         `}</style>
 
-          <UserPickerGate theme={theme}>
+          <UserPickerGate theme={theme} onThemeChange={handleThemeChange}>
             {screen !== "menu" && (
               <div className="ui-nav">
                 <button
