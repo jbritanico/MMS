@@ -256,161 +256,160 @@ function ReportWizard({
     report.status === "Approved" ||
     (alreadySubmitted && !canEditAfterSubmit);
 
+  // ---- top-of-screen summary: one header row, one "next step" bar, then info cards ----
+  const nextAction: { title: string; text: string; label: string; onClick: () => void } | null =
+    viewOnly || !canEndorse
+      ? null
+      : report.status === "Submitted" && hasEscalatableFault
+        ? {
+            title: "Next step: endorse this report",
+            text: "It has Moderate/Critical faults. Endorsing moves it to Escalated and sends those faults to the Pending Approvals queue; it is closed afterwards, once every escalated fault is resolved.",
+            label: "Endorse Report",
+            onClick: () => setShowEndorsePicker(true),
+          }
+        : report.status === "Submitted"
+          ? {
+              title: "Next step: close and approve",
+              text: "No Moderate/Critical faults. Review the checklist below (you can mark any pending Minor issue as Closed), then close and approve.",
+              label: "Close & Approve Report",
+              onClick: handleReviewAndClose,
+            }
+          : report.status === "Escalated"
+            ? {
+                title: "Next step: close the report",
+                text: "It can be closed once every escalated fault has been reviewed (and, if Critical, rectified and verified).",
+                label: "Close Report",
+                onClick: handleClose,
+              }
+            : null;
+  const statusTone: Record<string, string> = {
+    Draft: "var(--st-grey, #6b7280)",
+    Submitted: "var(--st-amber, #d97706)",
+    Endorsed: "var(--st-blue, #2f6fed)",
+    Escalated: "var(--st-teal, #0d9488)",
+    Approved: "var(--success, #16a34a)",
+  };
+  const showCost = !viewOnly && alreadySubmitted;
+  const showIssues = openPriorIssues.length > 0 || carriedForward.length > 0;
+
   return (
     <div>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          marginBottom: 6,
-        }}
-      >
-        <button
-          className="ghost"
-          onClick={onBack}
-          style={{ padding: "6px 12px", fontSize: 12 }}
-        >
-          ← Back
-        </button>
-        {onShowFlow && report.status !== "Draft" && (
-          <button
-            className="ghost"
-            onClick={() => onShowFlow(reportId)}
-            style={{ padding: "6px 12px", fontSize: 12 }}
-            title="Show the document flow: asset, faults, decisions, repairs and tag changes for this report"
-          >
-            Show flow
-          </button>
-        )}
-      </div>
+      <style>{`
+        .mri-top-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px 20px;flex-wrap:wrap;margin-bottom:14px}
+        .mri-top-left{display:flex;flex-direction:column;gap:8px;min-width:0}
+        .mri-top-nav{display:flex;gap:8px}
+        .mri-top-nav button{padding:5px 12px;font-size:12px}
+        .mri-top-title{margin:0;font-size:22px;line-height:1.2}
+        .mri-top-tags{display:flex;gap:6px;flex-wrap:wrap}
+        .mri-top-tag{font-size:11.5px;padding:3px 10px;border-radius:999px;border:1px solid var(--border);color:var(--text-soft);background:var(--surface, transparent);white-space:nowrap}
+        .mri-top-tag b{color:var(--text);font-weight:600}
+        .mri-top-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+        .mri-top-status{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;padding:6px 14px;border-radius:999px;color:var(--on-status, #fff);background:var(--tone)}
+        .mri-top-status i{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.85}
+        .mri-top-access{font-size:11.5px;color:var(--text-soft)}
+        .mri-top-next{display:flex;align-items:center;justify-content:space-between;gap:12px 20px;flex-wrap:wrap;border-left:4px solid var(--accent-blue, var(--accent));padding:14px 18px;margin-bottom:14px}
+        .mri-top-next h3{margin:0 0 3px;font-size:14px}
+        .mri-top-next p{margin:0;font-size:12.5px;color:var(--text-soft);max-width:78ch}
+        .mri-top-next button{white-space:nowrap}
+        .mri-top-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:16px;align-items:start}
+        .mri-top-card{padding:14px 16px;margin:0}
+        .mri-top-card-h{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+        .mri-top-card-h strong{font-size:13px}
+        .mri-top-count{font-size:11px;font-weight:700;min-width:20px;height:20px;padding:0 6px;border-radius:10px;display:inline-grid;place-items:center;background:var(--warn-soft);color:var(--warn)}
+        .mri-top-sub{font-size:11px;color:var(--text-soft);margin-left:auto}
+        .mri-issue{padding:8px 0;border-top:1px solid var(--border);display:grid;gap:2px}
+        .mri-issue:first-of-type{border-top:0;padding-top:0}
+        .mri-issue-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;font-weight:600}
+        .mri-sev{font-size:10.5px;font-weight:700;padding:1px 8px;border-radius:999px;color:var(--on-status, #fff)}
+        .mri-issue-l{font-size:12px;color:var(--text-soft)}
+        .mri-issue-l b{color:var(--text);font-weight:500}
+        .mri-link{background:none;border:0;padding:4px 0 0;color:var(--accent-blue, var(--accent));font-size:12px;cursor:pointer}
+      `}</style>
 
-      <div className="header">
-        <h1>
-          {asset?.asset_code ?? "Report"}
-          {report.component_label ? ` · ${report.component_label}` : ""} — MR-I
-        </h1>
-        <span className="sub">
-          {template?.template_name ?? ""} · {report.status}
-        </span>
-      </div>
-
-      {report.component_label && (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-          <span className="pill neutral" title="One Asset Code covers all of its components">
-            Parent asset: {asset?.asset_code ?? "—"}
-          </span>
-          <span className="pill active" title="This report covers this component only">
-            Component: {report.component_label}
-          </span>
-          <span className="pill neutral" title="All components use the asset's template">
-            Shared template: {template?.template_name ?? "—"}
-          </span>
-        </div>
-      )}
-
-      {carriedForward.length > 0 && (
-        <div className="toast err" style={{ maxWidth: 600, marginBottom: 16 }}>
-          <strong>
-            Inheriting {carriedForward.length} carried-forward issue
-            {carriedForward.length === 1 ? "" : "s"} from a previous report:
-          </strong>
-          <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
-            {carriedForward.map((f) => (
-              <li key={f.id}>
-                {f.checklist_description ?? "Checklist item"} —{" "}
-                {f.original_severity}
-                {f.notes ? ` (${f.notes})` : ""}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {openPriorIssues.length > 0 && (
-        <div
-          className="panel"
-          style={{
-            maxWidth: 600,
-            marginBottom: 16,
-            padding: 14,
-          }}
-        >
-          <strong style={{ fontSize: 13 }}>
-            {openPriorIssues.length} open issue
-            {openPriorIssues.length === 1 ? "" : "s"} still pending from earlier
-            reports on this asset (read-only history):
-          </strong>
-          <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
-            {openPriorIssues.map((issue) => (
-              <li key={issue.id} style={{ fontSize: 12.5, marginBottom: 6 }}>
-                <strong>
-                  {issue.checklist_description ?? "Checklist item"}
-                </strong>
-                {issue.severity ? ` — ${issue.severity}` : ""}
-                {issue.issue_details ? (
-                  <div style={{ color: "var(--text-soft)" }}>
-                    Issue: {issue.issue_details}
-                  </div>
-                ) : null}
-                {issue.action_taken ? (
-                  <div style={{ color: "var(--text-soft)" }}>
-                    Action Taken: {issue.action_taken}
-                  </div>
-                ) : null}
-                {issue.date_observed ? (
-                  <div style={{ color: "var(--text-soft)" }}>
-                    Observed: {issue.date_observed} (Report #{issue.report_id})
-                  </div>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {fieldsLocked && (
-        <div className="toast err" style={{ maxWidth: 500, marginBottom: 16 }}>
-          This report is {report.status.toLowerCase()} and can no longer be
-          edited.
-        </div>
-      )}
-
-      {alreadySubmitted && !fieldsLocked && (
-        <div className="toast ok" style={{ maxWidth: 500, marginBottom: 16 }}>
-          This report is {report.status.toLowerCase()}. You have permission to
-          edit it after submission, until it's closed.
-        </div>
-      )}
-      {!viewOnly && alreadySubmitted && (
-        <MrCostPanel
-          reportId={reportId}
-          cost={report.mr_cost ?? null}
-          costBy={report.mr_cost_by ?? null}
-          costDate={report.mr_cost_date ?? null}
-          canEnter={canEnterCost}
-          enteredBy={currentUser?.name ?? ""}
-        />
-      )}
-      {!viewOnly &&
-        report.status === "Submitted" &&
-        canEndorse &&
-        hasEscalatableFault && (
-          <div
-            className="panel"
-            style={{ maxWidth: 500, marginBottom: 16, padding: 14 }}
-          >
-            <p style={{ fontSize: 13, marginBottom: 10 }}>
-              This report has Moderate/Critical faults requiring escalation.
-              Endorsing it will move it to Escalated and send those faults to
-              the Pending Approvals queue. It still needs to be closed
-              afterward, once every escalated fault is resolved.
-            </p>
-            <button className="primary" onClick={() => setShowEndorsePicker(true)}>
-              Endorse Report
-            </button>
+      <div className="mri-top-head">
+        <div className="mri-top-left">
+          <div className="mri-top-nav">
+            <button className="ghost" onClick={onBack}>← Back</button>
+            {onShowFlow && report.status !== "Draft" && (
+              <button
+                className="ghost"
+                onClick={() => onShowFlow(reportId)}
+                title="Show the document flow: asset, faults, decisions, repairs and tag changes for this report"
+              >
+                Show flow
+              </button>
+            )}
           </div>
-        )}
+          <h1 className="mri-top-title">
+            {asset?.asset_code ?? "Report"}
+            {report.component_label ? ` · ${report.component_label}` : ""} — MR-I
+          </h1>
+          <div className="mri-top-tags">
+            <span className="mri-top-tag">Report <b>#{reportId}</b></span>
+            {report.component_label && (
+              <span className="mri-top-tag" title="One Asset Code covers all of its components">
+                Parent asset <b>{asset?.asset_code ?? "—"}</b>
+              </span>
+            )}
+            {report.component_label && (
+              <span className="mri-top-tag" title="This report covers this component only">
+                Component <b>{report.component_label}</b>
+              </span>
+            )}
+            <span className="mri-top-tag" title="All components use the asset's template">
+              Template <b>{template?.template_name ?? "—"}</b>
+            </span>
+          </div>
+        </div>
+        <div className="mri-top-right">
+          <span
+            className="mri-top-status"
+            style={{ ["--tone" as string]: statusTone[report.status] ?? "var(--st-grey, #6b7280)" }}
+          >
+            <i />
+            {report.status}
+          </span>
+          {fieldsLocked ? (
+            <span className="mri-top-access" title={`This report is ${report.status.toLowerCase()} and can no longer be edited.`}>
+              Read-only
+            </span>
+          ) : alreadySubmitted ? (
+            <span className="mri-top-access" title="You have permission to edit this report after submission, until it is closed.">
+              You can edit until it is closed
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      {nextAction && (
+        <div className="panel mri-top-next">
+          <div>
+            <h3>{nextAction.title}</h3>
+            <p>{nextAction.text}</p>
+          </div>
+          <button className="primary" onClick={nextAction.onClick}>
+            {nextAction.label}
+          </button>
+        </div>
+      )}
+
+      {(showIssues || showCost) && (
+        <div className="mri-top-grid">
+          {showIssues && (
+            <OpenIssuesCard openPriorIssues={openPriorIssues} carriedForward={carriedForward} />
+          )}
+          {showCost && (
+            <MrCostPanel
+              reportId={reportId}
+              cost={report.mr_cost ?? null}
+              costBy={report.mr_cost_by ?? null}
+              costDate={report.mr_cost_date ?? null}
+              canEnter={canEnterCost}
+              enteredBy={currentUser?.name ?? ""}
+            />
+          )}
+        </div>
+      )}
 
       {showEndorsePicker && (
         <div className="modal-overlay">
@@ -437,50 +436,26 @@ function ReportWizard({
                   </option>
                 ))}
               </select>
+              {!assignedToUserId && (
+                <span style={{ fontSize: 11.5, color: "var(--text-soft)", marginTop: 4, display: "block" }}>
+                  Select who this is for to enable Confirm &amp; Endorse.
+                </span>
+              )}
             </div>
             <div className="modal-actions">
               <button className="ghost" onClick={() => setShowEndorsePicker(false)}>
                 Cancel
               </button>
-              <button className="primary" onClick={handleEndorse}>
+              <button
+                className="primary"
+                onClick={handleEndorse}
+                disabled={!assignedToUserId || endorseReport.isPending}
+                title={!assignedToUserId ? "Select a Maintenance Supervisor / FSM first" : undefined}
+              >
                 Confirm &amp; Endorse
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {!viewOnly &&
-        report.status === "Submitted" &&
-        canEndorse &&
-        !hasEscalatableFault && (
-          <div
-            className="panel"
-            style={{ maxWidth: 500, marginBottom: 16, padding: 14 }}
-          >
-            <p style={{ fontSize: 13, marginBottom: 10 }}>
-              This report has no Moderate/Critical faults. Review the checklist
-              below — you can mark any pending Minor issue as Closed — then
-              close and approve the report directly.
-            </p>
-            <button className="primary" onClick={handleReviewAndClose}>
-              Close &amp; Approve Report
-            </button>
-          </div>
-        )}
-
-      {!viewOnly && report.status === "Escalated" && canEndorse && (
-        <div
-          className="panel"
-          style={{ maxWidth: 500, marginBottom: 16, padding: 14 }}
-        >
-          <p style={{ fontSize: 13, marginBottom: 10 }}>
-            This report is Escalated. It can be closed once every escalated
-            fault has been reviewed (and, if Critical, rectified and verified).
-          </p>
-          <button className="primary" onClick={handleClose}>
-            Close Report
-          </button>
         </div>
       )}
 
@@ -1786,7 +1761,8 @@ function ChecklistEntryStep({
   // checklist item on an earlier report for this asset -- read-only context so whoever
   // is filling out THIS report's single Action Taken entry can see what was done
   // before, without needing to open the older reports.
-  const { data: checklistHistory = [] } = useMriChecklistHistory(assetId, reportId);
+  const { data: checklistHistory = [], isSuccess: checklistHistoryLoaded } =
+    useMriChecklistHistory(assetId, reportId);
   // Direct-authority check for CLOSING an individual checklist item, independent of the
   // report-level "locked"/canReviewClosure gate above (which only governs whether fields
   // can still be edited after submission). Per the severity table, a Minor fault needs no
@@ -1859,12 +1835,17 @@ function ChecklistEntryStep({
     );
   }
 
-  // Prior reports' Action Taken entries for this checklist item, oldest first -- one
+  // Prior reports' Action Taken entries for this checklist item, MOST RECENT FIRST -- one
   // per report, since only one Action Taken entry is ever allowed per report.
+  // report_date is the report's created date (epoch seconds); report id breaks ties.
   function historyForItem(checklistItemId: number) {
     return checklistHistory
       .filter((h) => h.checklist_item_id === checklistItemId)
-      .sort((a, b) => a.report_date.localeCompare(b.report_date));
+      .sort(
+        (a, b) =>
+          (Number(b.report_date) || 0) - (Number(a.report_date) || 0) ||
+          b.report_id - a.report_id,
+      );
   }
 
   // Is this checklist item carried forward from an earlier report (still Pending
@@ -1948,6 +1929,12 @@ function ChecklistEntryStep({
       repaired_on_site: false,
       ...saved,
       ...edited,
+      // A carried-forward item's description is read-only, so a blank saved value
+      // (e.g. a row auto-saved before the history query loaded) must never hide the
+      // original text -- otherwise the Fail can't be submitted and can't be fixed.
+      ...(carriedIssueDetails && !(edited?.issue_details ?? saved?.issue_details ?? "").trim()
+        ? { issue_details: carriedIssueDetails }
+        : {}),
     };
   }
 
@@ -2039,7 +2026,10 @@ function ChecklistEntryStep({
       locked ||
       templateItems.length === 0 ||
       !savedResultsLoaded ||
-      !pendingItemIdsLoaded
+      !pendingItemIdsLoaded ||
+      // The carried-forward Issue Details text comes from the history query; saving
+      // before it loads stores a blank description on a read-only field.
+      !checklistHistoryLoaded
     )
       return;
     templateItems.forEach((ti) => {
@@ -2049,6 +2039,15 @@ function ChecklistEntryStep({
       );
       if (alreadySaved) {
         autoDefaulted.add(ti.id);
+        // Repair a carried-forward Fail that was saved earlier with a blank description.
+        if (
+          alreadySaved.status === "Fail" &&
+          !(alreadySaved.issue_details ?? "").trim() &&
+          isCarriedForward(ti.checklist_item_id) &&
+          carriedIssueDetailsFor(ti.checklist_item_id)
+        ) {
+          autoSave(ti, { issue_details: carriedIssueDetailsFor(ti.checklist_item_id) });
+        }
         return;
       }
       autoDefaulted.add(ti.id);
@@ -2061,6 +2060,7 @@ function ChecklistEntryStep({
     locked,
     savedResultsLoaded,
     pendingItemIdsLoaded,
+    checklistHistoryLoaded,
   ]);
 
   const grouped = (() => {
@@ -2387,17 +2387,6 @@ function ChecklistEntryStep({
                     />
 
                     <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                      {isFail &&
-                        historyForItem(ti.checklist_item_id).map((h) => (
-                          <span
-                            key={h.report_id}
-                            style={{ fontSize: 12.5, color: "var(--text-soft)" }}
-                          >
-                            {h.reported_at ?? h.report_date}
-                            {h.reported_by ? ` by ${h.reported_by}` : ""}
-                            {`: ${h.action_taken || "—"}`}
-                          </span>
-                        ))}
                       {isFail && locked && result.action_taken ? (
                         <span style={{ fontSize: 12.5 }}>
                           {result.reported_at ?? ""}
@@ -2417,6 +2406,7 @@ function ChecklistEntryStep({
                           placeholder={isFail ? "Required" : "—"}
                         />
                       )}
+                      <PreviousActions entries={isFail ? historyForItem(ti.checklist_item_id) : []} />
                       {renderRepairedOnSite(ti, result, isFail)}
                     </div>
 
@@ -3112,6 +3102,30 @@ function ReviewStep({
       value: fmtDate(findHeaderValue("MR II Due Date")),
     },
   ];
+  // Every header field on the template must also appear on the report. The fixed fields
+  // above keep their place; anything else the template defines (Job Number,
+  // Pre-Mobilization Checklist ID, Maintenance Type, Engine Hours (This Report) or a
+  // custom field) is added after them, in the template's display order.
+  {
+    const shown = new Set(
+      [
+        "country", "service line", "client", "location", "asset no",
+        "unit model capacity", "compliance stage", "mr initization date",
+        "previous engine hours", "current engine hours", "job operating hours",
+        "mr ii due date",
+      ],
+    );
+    headerRows.forEach((r) => {
+      const key = r.label.trim().toLowerCase();
+      if (!key || key === "—" || shown.has(key)) return;
+      shown.add(key);
+      const v = (r.value ?? "").trim();
+      assetDetailFields.push({
+        label: r.label.trim().split(/\s+/).map((w, i) => (/^[A-Z0-9]{2,4}$/.test(w) ? w : i === 0 ? w.charAt(0) + w.slice(1).toLowerCase() : w.toLowerCase())).join(" "),
+        value: v ? (/date/i.test(r.label) ? fmtDate(v) : v) : "—",
+      });
+    });
+  }
 
   const preJobRow = findMidRow("Distance Travelled Pre-Job (KM)");
   const postJobRow = findMidRow("Distance Travelled Post-Job (KM)");
@@ -3141,7 +3155,7 @@ function ReviewStep({
 
   // Full stamped history thread for one Fail item: every prior occurrence (from
   // get_mri_checklist_history, keyed by the stable checklist_databank id) plus this
-  // report's own entry, oldest first -- each occurrence also carries its own
+  // report's own entry, MOST RECENT FIRST (this report on top) -- each occurrence also carries its own
   // append-only action-log entries (mri_checklist_action_log), so the PDF can show
   // the complete chain of follow-up actions for an issue that carried through several
   // MR-I cycles, without anyone needing to open the older reports.
@@ -3152,7 +3166,11 @@ function ReviewStep({
   ): HistoryThreadEntry[] {
     const past: HistoryThreadEntry[] = checklistHistory
       .filter((h) => h.checklist_item_id === ti.checklist_item_id)
-      .sort((a, b) => a.report_date.localeCompare(b.report_date));
+      .sort(
+        (a, b) =>
+          (Number(b.report_date) || 0) - (Number(a.report_date) || 0) ||
+          b.report_id - a.report_id,
+      );
     const current: HistoryThreadEntry[] =
       result?.status === "Fail"
         ? [
@@ -3169,7 +3187,7 @@ function ReviewStep({
             },
           ]
         : [];
-    return [...past, ...current];
+    return [...current, ...past];
   }
 
   const generatedStamp = fmtDateTime(new Date());
@@ -5137,22 +5155,6 @@ function DrawingChecklistView({
 
                    <div className="field">
                     <label>Action Taken</label>
-                    {isFail &&
-                      historyForItem(ti.checklist_item_id).map((h) => (
-                        <span
-                          key={h.report_id}
-                          style={{
-                            display: "block",
-                            fontSize: 12.5,
-                            color: "var(--text-soft)",
-                            marginBottom: 4,
-                          }}
-                        >
-                          {h.reported_at ?? h.report_date}
-                          {h.reported_by ? ` by ${h.reported_by}` : ""}
-                          {`: ${h.action_taken || "—"}`}
-                        </span>
-                      ))}
                     {isFail && locked && result.action_taken ? (
                       <span style={{ display: "block", fontSize: 12.5, marginBottom: 4 }}>
                         {result.reported_at ?? ""}
@@ -5172,6 +5174,7 @@ function DrawingChecklistView({
                         placeholder={isFail ? "Required" : "—"}
                       />
                     )}
+                    <PreviousActions entries={isFail ? historyForItem(ti.checklist_item_id) : []} />
                     {renderRepairedOnSite(ti, result, isFail)}
                   </div>
 
@@ -5887,8 +5890,8 @@ function MrCostPanel({
   }
 
   return (
-    <div className="panel" style={{ maxWidth: 500, marginBottom: 16, padding: 14 }}>
-      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>Cost to perform the MR</div>
+    <div className="panel mri-top-card">
+      <div className="mri-top-card-h"><strong>Cost to perform the MR</strong></div>
       {cost !== null && (
         <div style={{ fontSize: 12.5, color: "var(--text-soft)", marginBottom: 8 }}>
           Recorded: <strong>{cost.toLocaleString()}</strong>
@@ -5921,6 +5924,133 @@ function MrCostPanel({
       {msg && (
         <div className={`toast ${msg.ok ? "ok" : "err"}`} style={{ marginTop: 8 }}>{msg.text}</div>
       )}
+    </div>
+  );
+}
+
+// Open issues still pending from earlier reports on the same asset/component, plus any
+// faults formally carried forward to this report. Compact list; long lists collapse.
+function OpenIssuesCard({
+  openPriorIssues,
+  carriedForward,
+}: {
+  openPriorIssues: {
+    id: number;
+    report_id: number;
+    checklist_description: string | null;
+    severity: string | null;
+    issue_details: string | null;
+    action_taken: string | null;
+    date_observed: string | null;
+  }[];
+  carriedForward: {
+    id: number;
+    checklist_description: string | null;
+    original_severity: string;
+    notes: string | null;
+  }[];
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const sevTone = (s: string | null | undefined) =>
+    s === "Critical"
+      ? "var(--danger, #b3261e)"
+      : s === "Moderate"
+        ? "var(--st-amber, #d97706)"
+        : "var(--st-grey, #6b7280)";
+  const LIMIT = 3;
+  const visible = showAll ? openPriorIssues : openPriorIssues.slice(0, LIMIT);
+  return (
+    <div className="panel mri-top-card">
+      {openPriorIssues.length > 0 && (
+        <>
+          <div className="mri-top-card-h">
+            <strong>Open issues from earlier reports</strong>
+            <span className="mri-top-count">{openPriorIssues.length}</span>
+            <span className="mri-top-sub">read-only</span>
+          </div>
+          {visible.map((issue) => (
+            <div key={issue.id} className="mri-issue">
+              <div className="mri-issue-h">
+                {issue.checklist_description ?? "Checklist item"}
+                {issue.severity && (
+                  <span className="mri-sev" style={{ background: sevTone(issue.severity) }}>
+                    {issue.severity}
+                  </span>
+                )}
+              </div>
+              {issue.issue_details && (
+                <div className="mri-issue-l">Issue: <b>{issue.issue_details}</b></div>
+              )}
+              {issue.action_taken && (
+                <div className="mri-issue-l">Action taken: <b>{issue.action_taken}</b></div>
+              )}
+              <div className="mri-issue-l">
+                Report #{issue.report_id}
+                {issue.date_observed ? ` · observed ${issue.date_observed}` : ""}
+              </div>
+            </div>
+          ))}
+          {openPriorIssues.length > LIMIT && (
+            <button className="mri-link" onClick={() => setShowAll((v) => !v)}>
+              {showAll ? "Show fewer" : `Show all ${openPriorIssues.length}`}
+            </button>
+          )}
+        </>
+      )}
+      {carriedForward.length > 0 && (
+        <div style={{ marginTop: openPriorIssues.length > 0 ? 12 : 0 }}>
+          <div className="mri-top-card-h">
+            <strong>Carried forward to this report</strong>
+            <span className="mri-top-count">{carriedForward.length}</span>
+          </div>
+          {carriedForward.map((f) => (
+            <div key={f.id} className="mri-issue">
+              <div className="mri-issue-h">
+                {f.checklist_description ?? "Checklist item"}
+                <span className="mri-sev" style={{ background: sevTone(f.original_severity) }}>
+                  {f.original_severity}
+                </span>
+              </div>
+              {f.notes && <div className="mri-issue-l">{f.notes}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Earlier reports' Action Taken entries for one checklist item, shown under this
+// report's Action Taken box. Entries arrive most recent first (see historyForItem).
+function PreviousActions({ entries }: { entries: MriChecklistHistoryEntry[] }) {
+  if (entries.length === 0) return null;
+  const when = (h: MriChecklistHistoryEntry) => {
+    if (h.reported_at) return h.reported_at;
+    const secs = Number(h.report_date);
+    return Number.isFinite(secs) && secs > 0
+      ? new Date(secs * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
+      : h.report_date;
+  };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 4 }}>
+      <span
+        style={{
+          fontSize: 10.5,
+          fontWeight: 700,
+          letterSpacing: "0.05em",
+          textTransform: "uppercase",
+          color: "var(--text-soft)",
+        }}
+      >
+        Previous actions (most recent first)
+      </span>
+      {entries.map((h) => (
+        <span key={h.report_id} style={{ fontSize: 12.5, color: "var(--text-soft)" }}>
+          {when(h)}
+          {h.reported_by ? ` by ${h.reported_by}` : ""}
+          {`: ${h.action_taken || "—"}`}
+        </span>
+      ))}
     </div>
   );
 }

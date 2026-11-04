@@ -24,6 +24,7 @@ import type { Theme } from "./lib/theme";
 import { CurrentUserProvider } from "./lib/currentUser";
 import WindowTitle from "./lib/WindowTitle";
 import UserPickerGate from "./lib/UserPickerGate";
+import UserBadge from "./lib/UserBadge";
 
 type Screen =
   | "menu"
@@ -74,6 +75,10 @@ function App() {
   // Back returns to that same screen instead of always landing on Select Asset for
   // Report ("reports"), which is what it did before regardless of the true origin.
   const [reportWizardOrigin, setReportWizardOrigin] = useState<Screen>("reports");
+
+  // Attention Required screens (and reports / flows opened from them) show the signed-in
+  // user's name and tier top-right.
+  const ATTENTION_SCREENS: Screen[] = ["pending-approvals", "rectification-queue", "report-review-queue", "my-reports-queue"];
 
   function handleReportCreated(reportId: number, viewOnly: boolean = false) {
     setReportWizardOrigin(screen);
@@ -134,6 +139,11 @@ function App() {
     setSelectedAsset({ id: assetId, code: assetCode });
     setScreen("triggers");
   }
+
+  const showUserBadge =
+    ATTENTION_SCREENS.includes(screen) ||
+    (screen === "report-wizard" && ATTENTION_SCREENS.includes(reportWizardOrigin)) ||
+    ((screen === "report-flow" || screen === "asset-flow") && ATTENTION_SCREENS.includes(flowOrigin));
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -299,11 +309,16 @@ function App() {
 
           * { box-sizing: border-box; }
           html { font-size: 17px; }
-          html, body, #root { height: 100%; margin: 0; }          
-          .app { font-family: var(--sans); background: var(--bg); color: var(--text); height: calc(100vh / 1.05); display: flex; flex-direction: column; overflow: hidden; zoom: 1.05; }
+          html, body, #root { height: 100%; margin: 0; }
+          /* The app scrolls inside .content; the window itself never scrolls (avoids a stray
+             scrollbar when the zoom-corrected width rounds a pixel over). */
+          html, body { overflow: hidden; }          
+          .app { font-family: var(--sans); background: var(--bg); color: var(--text); height: calc(100vh / 1.05); width: calc(100vw / 1.05); display: flex; flex-direction: column; overflow: hidden; zoom: 1.05; }
           .ui-nav {
             padding: 16px 16px 0;
+            display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
           }
+          .user-badge { font-size: 13px; color: var(--text); white-space: nowrap; }
 
           .content {
             flex: 1; min-width: 0; overflow-y: auto; padding: clamp(12px, 1.6vw, 18px); background: var(--neu-bg);
@@ -865,7 +880,7 @@ function App() {
 
           .header { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
           .header h1 { font-size: clamp(20px, 2.2vw, 25px); font-weight: 600; margin: 0; letter-spacing: -0.01em; }
-          .header .sub { font-size: 14px; color: var(--text-soft); font-family: var(--mono); }
+          .header .sub { font-size: 14px; color: var(--text-soft); font-family: var(--mono); min-width: 0; }
 
           .layout { display: grid; grid-template-columns: minmax(280px, 340px) 1fr; gap: 20px; align-items: start; }
           @container (max-width: 720px) { .layout { grid-template-columns: 1fr; } }
@@ -1288,6 +1303,8 @@ function App() {
           button:active { box-shadow: inset 3px 3px 6px var(--neu-shadow-dark), inset -3px -3px 6px var(--neu-shadow-light); transform: translateY(0); }
           button.primary { color: #2f6fed; font-weight: 600; }
           button.ghost { color: var(--text-soft); }
+          /* Disabled buttons must look disabled in every theme (macOS themes have their own rule). */
+          button:disabled, button:disabled:active { cursor: not-allowed; opacity: 0.45; box-shadow: none; transform: none; }
 
           .toast {
             margin-top: 12px; padding: 10px 14px; border-radius: 10px; font-size: 13px;
@@ -1417,6 +1434,21 @@ function App() {
           .mri-stat-head .mri-stat-icon svg { width: 18px; height: 18px; }
           .mri-stat-head .mri-stat-label { margin: 0; }
           .mri-stat-of { font-size: 12px; color: var(--text-soft); font-weight: 600; }
+          /* Dashboard KPI cards (replaces the round gauges) */
+          .mri-kpi-card { flex-direction: column; align-items: stretch; gap: 12px; padding: 16px 18px; }
+          .mri-kpi-head { display: flex; align-items: center; gap: 10px; }
+          .mri-kpi-head .mri-stat-icon { width: 34px; height: 34px; }
+          .mri-kpi-head .mri-stat-icon svg { width: 18px; height: 18px; }
+          .mri-kpi-head .mri-stat-label { margin: 0; flex: 1; min-width: 0; }
+          .mri-kpi-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+          .mri-kpi-pill i { width: 7px; height: 7px; border-radius: 50%; display: block; }
+          .mri-kpi-value { font-size: 30px; font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums; }
+          .mri-kpi-unit { font-size: 15px; font-weight: 600; color: var(--text-soft); margin-left: 4px; }
+          .mri-kpi-of { display: block; font-size: 12px; font-weight: 500; color: var(--text-soft); letter-spacing: 0; margin-top: 4px; }
+          .mri-kpi-track { position: relative; height: 8px; border-radius: 999px; background: var(--chip-bg, rgba(0,0,0,0.08)); overflow: visible; }
+          .mri-kpi-fill { height: 100%; border-radius: 999px; transition: width 0.4s ease; }
+          .mri-kpi-warn { position: absolute; top: -3px; width: 2px; height: 14px; border-radius: 1px; background: var(--text-soft); opacity: 0.6; transform: translateX(-1px); }
+          .mri-kpi-foot { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--text-soft); font-variant-numeric: tabular-nums; }
 
           .mri-report-timeline { position: relative; margin-top: 28px; padding-left: 34px; }
           .mri-report-timeline::before {
@@ -2179,7 +2211,7 @@ function App() {
           .app[data-theme="macos-dark"] { color-scheme: dark; }
 
           /* base type and density: 13px, tight tracking, no zoom */
-          .app[data-theme^="macos"] { zoom: 1; font-family: var(--sans); font-size: 13px; letter-spacing: -0.01em; }
+          .app[data-theme^="macos"] { zoom: 1; height: 100vh; width: 100vw; font-family: var(--sans); font-size: 13px; letter-spacing: -0.01em; }
           .app[data-theme^="macos"] .content { background: var(--bg); }
 
           /* groups: panels, tiles, cards (mac-group) */
@@ -2464,6 +2496,7 @@ function App() {
                 >
                   ← Back to main menu
                 </button>
+                {showUserBadge && <UserBadge />}
               </div>
             )}
 

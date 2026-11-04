@@ -155,7 +155,9 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
 
     function startReview(row: PendingFaultApprovalRow, relay: boolean) {
         setReviewingId(row.id);
-        setReviewMethod("Phone");
+        // Reviewing directly in the app defaults to In-Person (the reviewer may switch to
+        // Phone); recording on someone else's behalf (phone relay) is always Phone.
+        setReviewMethod(relay ? "Phone" : "In-Person");
         setNewSeverity(row.original_severity === "Critical" ? "Moderate" : "Minor");
         setNotes("");
         setNextReviewerId("");
@@ -201,7 +203,7 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
                 decision,
                 newSeverity: decision === "Reclassified" ? newSeverity : null,
                 reviewer,
-                reviewMethod,
+                reviewMethod: relay ? "Phone" : reviewMethod,
                 notes: notes.trim(),
                 recordedBy: user.name,
                 isProvisional: relay,
@@ -218,6 +220,27 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
 
     return (
         <div>
+            <style>{`
+                .pa-card{gap:12px;min-width:0}
+                .pa-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+                .pa-title{font-size:15px;font-weight:600;line-height:1.3;color:var(--text);min-width:0;overflow-wrap:anywhere}
+                .pa-sev{flex:none;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;color:var(--on-status);white-space:nowrap;margin-top:1px}
+                .pa-meta{display:flex;flex-wrap:wrap;gap:4px 6px;font-size:12px;color:var(--text-soft)}
+                .pa-meta span{white-space:nowrap;padding:2px 8px;border-radius:999px;border:1px solid var(--border)}
+                .pa-dl{display:grid;grid-template-columns:minmax(0,1fr);gap:2px;margin:0;padding:10px 0 0;border-top:1px solid var(--border)}
+                .pa-dl dt{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-soft)}
+                .pa-dl dd{margin:0 0 8px;font-size:12.5px;line-height:1.45;color:var(--text)}
+                .pa-dl dd:last-child{margin-bottom:0}
+                .review-card-grid:has(.pa-card){grid-template-columns:repeat(auto-fill,minmax(300px,1fr));align-items:stretch}
+                .pa-note{font-size:11.5px;color:var(--text-soft)}
+                .pa-remind{font-weight:600;color:var(--st-amber)}
+                .pa-foot{margin-top:auto;padding-top:12px;border-top:1px solid var(--border);display:flex;flex-direction:column;align-items:stretch;gap:12px}
+                .pa-assignee{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text);min-width:0}
+                .pa-assignee small{display:block;font-size:10.5px;color:var(--text-soft);text-transform:uppercase;letter-spacing:.04em}
+                .pa-avatar{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;background:var(--accent-soft);color:var(--accent-blue, var(--accent))}
+                .pa-btns{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+                .pa-sm{padding:7px 14px;font-size:12.5px}
+            `}</style>
             <div className="header">
                 <h1>Pending Approvals</h1>
                 <span className="sub">Moderate and Critical faults awaiting review or reclassification</span>
@@ -236,70 +259,61 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
                         const relayOnly = !direct && canRelay(permissions);
                         const allowed = (direct || relayOnly) && row.can_act;
                         return (
-                            <div key={row.id} className="review-card">
-                                <div className="review-card-top">
-                                    <div className="review-card-code">
-                                        {row.checklist_description ?? "Checklist item"}
-                                    </div>
-                                    <span
-                                        style={{
-                                            fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20,
-                                            color: "var(--on-status)", background: SEVERITY_COLOR[row.original_severity], whiteSpace: "nowrap",
-                                        }}
-                                    >
+                            <div key={row.id} className="review-card pa-card">
+                                <div className="pa-head">
+                                    <div className="pa-title">{row.checklist_description ?? "Checklist item"}</div>
+                                    <span className="pa-sev" style={{ background: SEVERITY_COLOR[row.original_severity] }}>
                                         {row.original_severity}
                                     </span>
                                 </div>
-
-                                <div className="review-card-desc">
-                                    Asset: {row.asset_code ?? "Unknown"} · Reported {formatDate(row.created_date)}
+                                <div className="pa-meta">
+                                    <span>{row.asset_code ?? "Unknown asset"}</span>
+                                    <span>Report #{row.report_id}</span>
+                                    <span>Reported {formatDate(row.created_date)}</span>
                                 </div>
-                                {onOpenFlow && (
-                                    <div style={{ marginTop: 4 }}>
-                                        <button className="ghost" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => onOpenFlow(row.report_id)}>Show flow</button>
-                                    </div>
-                                )}
-                                {row.issue_details && (
-                                    <div style={{ fontSize: 12.5, color: "var(--text-soft)" }}>
-                                        <strong>Issue:</strong> {row.issue_details}
-                                    </div>
-                                )}
-                                {row.action_taken && (
-                                    <div style={{ fontSize: 12.5, color: "var(--text-soft)" }}>
-                                        <strong>Action Taken:</strong> {row.action_taken}
-                                    </div>
+
+                                {(row.issue_details || row.action_taken) && (
+                                    <dl className="pa-dl">
+                                        {row.issue_details && (<><dt>Issue</dt><dd>{row.issue_details}</dd></>)}
+                                        {row.action_taken && (<><dt>Action taken</dt><dd>{row.action_taken}</dd></>)}
+                                    </dl>
                                 )}
 
-                                <div style={{ fontSize: 12, color: "var(--text-soft)", marginTop: 6 }}>
-                                    <strong>Assigned to:</strong> {row.assigned_to_name ?? "Anyone with review authority"}
-                                </div>
                                 {row.last_reminder_at && (
-                                    <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--st-amber)", marginTop: 6 }}>
+                                    <div className="pa-note pa-remind">
                                         Reminder from {row.last_reminder_by ?? "a manager"} · {row.last_reminder_at}
                                     </div>
                                 )}
-
                                 {!allowed && (
-                                    <p style={{ fontSize: 11.5, color: "var(--text-soft)", marginTop: 10 }}>
+                                    <div className="pa-note">
                                         {row.can_act
                                             ? "You don't have the required permission to review this item."
                                             : `Read-only — waiting on ${row.assigned_to_name ?? "the assigned reviewer"}.`}
-                                    </p>
-                                )}
-
-                                {!row.can_act && canRemind && row.assigned_to_user_id !== null && (
-                                    <div className="actions" style={{ marginTop: 8 }}>
-                                        <button className="ghost" onClick={() => remind(row)}>Send Reminder</button>
                                     </div>
                                 )}
 
-                                {allowed && (
-                                    <div className="actions" style={{ marginTop: 12 }}>
-                                        <button className="primary" onClick={() => startReview(row, !direct)}>
-                                            {direct ? "Review" : "Record (Phone Relay)"}
-                                        </button>
+                                <div className="pa-foot">
+                                    <div className="pa-assignee">
+                                        <span className="pa-avatar">{(row.assigned_to_name ?? "?").trim().charAt(0).toUpperCase()}</span>
+                                        <span>
+                                            <small>Assigned to</small>
+                                            {row.assigned_to_name ?? "Anyone with review authority"}
+                                        </span>
                                     </div>
-                                )}
+                                    <div className="pa-btns">
+                                        {onOpenFlow && (
+                                            <button className="ghost pa-sm" onClick={() => onOpenFlow(row.report_id)}>Show flow</button>
+                                        )}
+                                        {!row.can_act && canRemind && row.assigned_to_user_id !== null && (
+                                            <button className="ghost pa-sm" onClick={() => remind(row)}>Send Reminder</button>
+                                        )}
+                                        {allowed && (
+                                            <button className="primary pa-sm" onClick={() => startReview(row, !direct)}>
+                                                {direct ? "Review" : "Record (Phone Relay)"}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         );
                     })}
@@ -314,20 +328,25 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
                     </div>
                     <div className="review-card-grid">
                         {provisionalRows.map((row) => (
-                            <div key={row.id} className="review-card">
-                                <div className="review-card-code">
-                                    {row.checklist_description ?? "Checklist item"}
+                            <div key={row.id} className="review-card pa-card">
+                                <div className="pa-head">
+                                    <div className="pa-title">{row.checklist_description ?? "Checklist item"}</div>
                                 </div>
-                                {onOpenFlow && (
-                                    <div style={{ marginTop: 4 }}>
-                                        <button className="ghost" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => onOpenFlow(row.report_id)}>Show flow</button>
+                                <div className="pa-meta">
+                                    <span>{row.asset_code ?? "Unknown asset"}</span>
+                                    <span>Report #{row.report_id}</span>
+                                </div>
+                                <dl className="pa-dl">
+                                    <dt>Decision</dt><dd>{row.decision} by {row.reviewer ?? "Unknown"}</dd>
+                                    <dt>Recorded</dt><dd>by {row.recorded_by ?? "Unknown"} on {formatDate(row.created_date)}</dd>
+                                </dl>
+                                <div className="pa-foot">
+                                    <div className="pa-btns">
+                                        {onOpenFlow && (
+                                            <button className="ghost pa-sm" onClick={() => onOpenFlow(row.report_id)}>Show flow</button>
+                                        )}
+                                        <button className="primary pa-sm" onClick={() => confirmEntry(row)}>Confirm</button>
                                     </div>
-                                )}
-                                <div className="review-card-desc">
-                                    Asset: {row.asset_code ?? "Unknown"} · {row.decision} by {row.reviewer ?? "Unknown"} · recorded by {row.recorded_by ?? "Unknown"} on {row.created_date}
-                                </div>
-                                <div className="actions">
-                                    <button className="primary" onClick={() => confirmEntry(row)}>Confirm</button>
                                 </div>
                             </div>
                         ))}
@@ -380,7 +399,25 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
                                 <div className="field">
                                     <label>Review Method</label>
-                                    <input type="text" className="trigger-input" value="Phone" disabled />
+                                    {relayOnly ? (
+                                        <input
+                                            type="text"
+                                            className="trigger-input"
+                                            value="Phone"
+                                            disabled
+                                            title="A decision recorded on the authority's behalf is always logged as Phone"
+                                        />
+                                    ) : (
+                                        <select
+                                            className="neu-select"
+                                            value={reviewMethod}
+                                            onChange={(e) => setReviewMethod(e.target.value as (typeof REVIEW_METHODS)[number])}
+                                        >
+                                            {REVIEW_METHODS.map((m) => (
+                                                <option key={m} value={m}>{m}</option>
+                                            ))}
+                                        </select>
+                                    )}
                                 </div>
                                 <div className="field">
                                     <label>Reclassify To (if applicable)</label>
@@ -502,26 +539,29 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
                     </div>
                     <div className="review-card-grid">
                         {acknowledgmentRows.map((row) => (
-                            <div key={row.id} className="review-card">
-                                <div className="review-card-code">
-                                    {row.checklist_description ?? "Checklist item"}
+                            <div key={row.id} className="review-card pa-card">
+                                <div className="pa-head">
+                                    <div className="pa-title">{row.checklist_description ?? "Checklist item"}</div>
                                 </div>
-                                {onOpenFlow && (
-                                    <div style={{ marginTop: 4 }}>
-                                        <button className="ghost" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => onOpenFlow(row.report_id)}>Show flow</button>
-                                    </div>
-                                )}
-                                <div className="review-card-desc">
-                                    Asset: {row.asset_code ?? "Unknown"} · {row.decision}
-                                    {row.new_severity ? ` → ${row.new_severity}` : ""} by {row.reviewer ?? "Unknown"} on {row.updated_date}
+                                <div className="pa-meta">
+                                    <span>{row.asset_code ?? "Unknown asset"}</span>
+                                    <span>Report #{row.report_id}</span>
                                 </div>
-                                {row.notes && (
-                                    <div style={{ fontSize: 12.5, color: "var(--text-soft)" }}>
-                                        <strong>Notes:</strong> {row.notes}
+                                <dl className="pa-dl">
+                                    <dt>Decision</dt>
+                                    <dd>
+                                        {row.decision}
+                                        {row.new_severity ? ` → ${row.new_severity}` : ""} by {row.reviewer ?? "Unknown"} on {formatDate(row.updated_date)}
+                                    </dd>
+                                    {row.notes && (<><dt>Notes</dt><dd>{row.notes}</dd></>)}
+                                </dl>
+                                <div className="pa-foot">
+                                    <div className="pa-btns">
+                                        {onOpenFlow && (
+                                            <button className="ghost pa-sm" onClick={() => onOpenFlow(row.report_id)}>Show flow</button>
+                                        )}
+                                        <button className="primary pa-sm" onClick={() => acknowledgeEntry(row)}>Acknowledge</button>
                                     </div>
-                                )}
-                                <div className="actions">
-                                    <button className="primary" onClick={() => acknowledgeEntry(row)}>Acknowledge</button>
                                 </div>
                             </div>
                         ))}

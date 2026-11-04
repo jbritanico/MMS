@@ -30,13 +30,29 @@ interface FlowNode {
   also?: { label: string; run: () => void };
 }
 
-const NODE_W = 210;
-const NODE_H = 84;
-const COL = 265;
-const ROW = 108;
+const NODE_W = 236;
+const NODE_H = 92;
+const COL = 292;
+const ROW = 118;
+const HEAD = 46; // room for the stage headers above the first row
+const STAGES = ["Asset", "Report", "Faults", "Decisions", "Repairs"];
+
+// Small line icons per box type (24x24, stroke = currentColor).
+const KIND_ICON: Record<NodeKind, string> = {
+  asset: "M3 7h11v9H3zM14 10h4l3 3v3h-7zM6.5 19.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17.5 19.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z",
+  report: "M6 3h9l4 4v14H6zM15 3v4h4M9 12h7M9 16h7M9 8h3",
+  fault: "M12 3 2 20h20zM12 10v4M12 17h.01",
+  decision: "M14 4l6 6M11 7l6 6M13 5l-7 7 3 3 7-7M8 14l-5 5M15 20h6",
+  repair: "M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z",
+  onsite: "M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z",
+  tag: "M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8zM7.5 7.5h.01",
+  cost: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM15 9.5c0-1.4-1.3-2.5-3-2.5s-3 1-3 2.3c0 3.2 6 1.8 6 5 0 1.4-1.3 2.7-3 2.7s-3-1.1-3-2.5M12 5v2M12 17v2",
+  carried: "M4 12h13M13 6l6 6-6 6M4 5v14",
+  exemption: "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4",
+};
 
 const TONE_STROKE: Record<FlowNode["tone"], string> = {
-  neutral: "var(--border)",
+  neutral: "var(--text-soft)",
   danger: "var(--danger)",
   warn: "var(--warn)",
   success: "var(--success)",
@@ -93,6 +109,18 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
     );
   }
 
+  // Timestamps arrive as epoch seconds (or ISO text); show them as 04/Nov/2026 14:05.
+  const when = (raw: string | number | null | undefined): string => {
+    if (raw === null || raw === undefined || String(raw).trim() === "") return "—";
+    const n = Number(raw);
+    const d = !isNaN(n) ? new Date(n < 1e12 ? n * 1000 : n) : new Date(String(raw));
+    if (isNaN(d.getTime())) return String(raw);
+    const M = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()];
+    return `${String(d.getDate()).padStart(2, "0")}/${M}/${d.getFullYear()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  };
+  // Endorsing stores the endorser in approved_by too; it only means "closed" once Approved.
+  const closed = flow.status === "Approved";
+
   const nodes: FlowNode[] = [];
   const edges: [string, string][] = [];
   const assetLabel = flow.asset_code ?? "Asset";
@@ -113,8 +141,8 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
     tone: flow.status === "Approved" ? "success" : flow.status === "Escalated" ? "warn" : "neutral",
     details: [
       ["Status", flow.status], ["Template", flow.template_name ?? "—"],
-      ["Submitted by", flow.submitted_by ?? "—"], ["Submitted", flow.submitted_date ?? "—"],
-      ["Closed by", flow.approved_by ?? "—"], ["Closed", flow.approved_date ?? "—"],
+      ["Submitted by", flow.submitted_by ?? "—"], ["Submitted", when(flow.submitted_date)],
+      [closed ? "Closed by" : "Endorsed by", flow.approved_by ?? "—"], [closed ? "Closed" : "Endorsed", when(flow.approved_date)],
       ["Country", flow.country ?? "—"],
     ],
     open: { label: "Open report", run: () => onOpenReport(flow.report_id) },
@@ -136,17 +164,24 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
     edges.push(["report", fid]);
     const did = `d${f.approval_id}`;
     const pending = f.decision === "Pending";
+    // How the latest decision was taken (In-Person / Phone), from the decision log.
+    const lastLog = f.log.length > 0 ? f.log[f.log.length - 1] : null;
+    const method = lastLog?.review_method ? `${lastLog.review_method}${lastLog.is_provisional ? ", provisional" : ""}` : "";
     nodes.push({
       id: did, kind: "decision", x: COL * 3, y, title: `Decision: ${f.decision}`,
-      lines: [f.reviewer ?? f.assigned_to ? `${f.reviewer ?? f.assigned_to}` : "", f.provisional_status ? `Provisional: ${f.provisional_status}` : ""].filter(Boolean),
+      lines: [
+        f.reviewer ?? f.assigned_to ? `${f.reviewer ?? f.assigned_to}` : "",
+        !pending && method ? `Method: ${method}` : pending ? "Awaiting decision" : "",
+        f.provisional_status ? `Provisional: ${f.provisional_status}` : "",
+      ].filter(Boolean),
       tone: pending ? "warn" : f.decision === "Rejected" ? "neutral" : "success",
       details: [
-        ["Decision", f.decision], ["Reviewer", f.reviewer ?? "—"], ["Assigned to", f.assigned_to ?? "—"],
+        ["Decision", f.decision], ["Reviewer", f.reviewer ?? "—"], ["Review method", !pending && lastLog ? lastLog.review_method : "—"], ["Assigned to", f.assigned_to ?? "—"],
         ["Provisional status", f.provisional_status ?? "—"], ["Acknowledged by", f.acknowledged_by ?? "—"],
         ["Reminders sent", String(f.reminders)],
         ...f.log.map((l, li): [string, string] => [
           `Audit ${li + 1}: ${l.action}${l.is_provisional ? " (provisional)" : ""}`,
-          `${l.from_severity}${l.to_severity && l.to_severity !== l.from_severity ? ` → ${l.to_severity}` : ""} · ${l.reviewer} (${l.review_method}) · recorded by ${l.recorded_by} · ${l.logged_at}${l.notes ? ` · ${l.notes}` : ""}`,
+          `${l.from_severity}${l.to_severity && l.to_severity !== l.from_severity ? ` → ${l.to_severity}` : ""} · ${l.reviewer} (${l.review_method}) · recorded by ${l.recorded_by} · ${when(l.logged_at)}${l.notes ? ` · ${l.notes}` : ""}`,
         ]),
         ...(f.log.length === 0 ? ([["Audit trail", "No decisions logged yet"]] as [string, string][]) : []),
       ],
@@ -163,7 +198,7 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
         details: [
           ["Technician", f.repair.assigned_technician ?? "—"], ["Parts", f.repair.parts_status ?? "—"], ["Repair date", f.repair.repair_date ?? "—"],
           ["Function test", f.repair.function_test_passed == null ? "—" : f.repair.function_test_passed ? "Passed" : "Not passed"],
-          ["Verified by", f.repair.verified_by ?? "—"], ["Verified", f.repair.verified_date ?? "—"], ["Repair tag", f.repair.tag_status ?? "—"],
+          ["Verified by", f.repair.verified_by ?? "—"], ["Verified", when(f.repair.verified_date)], ["Repair tag", f.repair.tag_status ?? "—"],
         ],
         open: { label: "Open Rectification Queue", run: () => onNavigate("rectification-queue"), needs: REPAIR_PERMS, any: true },
       });
@@ -179,8 +214,8 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
     const y = extraY(); extraRow++;
     nodes.push({
       id: "cost", kind: "cost", x: COL, y, title: `MR cost ${flow.mr_cost}`,
-      lines: [flow.mr_cost_by ? `by ${flow.mr_cost_by}` : "", flow.mr_cost_date ?? ""].filter(Boolean), tone: "neutral",
-      details: [["MR cost", String(flow.mr_cost)], ["Entered by", flow.mr_cost_by ?? "—"], ["Entered", flow.mr_cost_date ?? "—"]],
+      lines: [flow.mr_cost_by ? `by ${flow.mr_cost_by}` : "", flow.mr_cost_date ? when(flow.mr_cost_date) : ""].filter(Boolean), tone: "neutral",
+      details: [["MR cost", String(flow.mr_cost)], ["Entered by", flow.mr_cost_by ?? "—"], ["Entered", when(flow.mr_cost_date)]],
       open: { label: "Open report", run: () => onOpenReport(flow.report_id) },
     });
     edges.push(["report", "cost"]);
@@ -191,7 +226,7 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
     nodes.push({
       id: "tag", kind: "tag", x: COL * 2, y, title: `Tag: ${flow.tag_changes.map((t) => t.tag_status).join(" → ")}`,
       lines: [last.reason ?? ""].filter(Boolean), tone: tagTone(last.tag_status),
-      details: flow.tag_changes.map((t, i) => [`${i + 1}. ${t.previous_tag_status ?? "Not tagged"} → ${t.tag_status}`, `${t.reason ?? "no reason"}${t.changed_by ? ` (${t.changed_by})` : ""} ${t.changed_at ?? ""}`] as [string, string]),
+      details: flow.tag_changes.map((t, i) => [`${i + 1}. ${t.previous_tag_status ?? "Not tagged"} → ${t.tag_status}`, `${t.reason ?? "no reason"}${t.changed_by ? ` (${t.changed_by})` : ""} ${t.changed_at ? when(t.changed_at) : ""}`] as [string, string]),
       open: { label: "Open Asset Registry", run: () => onNavigate("assets"), needs: ["assets.view"] },
     });
     edges.push(["report", "tag"]);
@@ -235,6 +270,29 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
   const width = Math.max(...nodes.map((n) => n.x)) + NODE_W + 20;
   const height = Math.max(...nodes.map((n) => n.y)) + NODE_H + 20;
   const sel = selected ? byId.get(selected) : null;
+  // What a box shows: a short title, a status chip, and the remaining lines (no repeats).
+  const view = (n: FlowNode): { title: string; chip: string; lines: string[] } => {
+    switch (n.kind) {
+      case "asset":
+        return { title: n.title, chip: n.lines[1] ?? "", lines: n.lines.slice(0, 1) };
+      case "report":
+        return { title: n.title, chip: n.lines[0] ?? "", lines: n.lines.slice(1) };
+      case "fault": {
+        // "Moderate → Minor": chip shows the final severity, the line keeps the original.
+        const sev = n.lines[0] ?? "";
+        const parts = sev.split("→").map((x) => x.trim());
+        return parts.length > 1
+          ? { title: n.title, chip: parts[1], lines: [`was ${parts[0]}`, ...n.lines.slice(1)] }
+          : { title: n.title, chip: sev, lines: n.lines.slice(1) };
+      }
+      case "decision":
+        return { title: "Decision", chip: n.title.replace(/^Decision:\s*/, ""), lines: n.lines };
+      case "repair":
+        return { title: "Repair", chip: n.title === "Repair verified" ? "Verified" : "Open", lines: n.lines };
+      default:
+        return { title: n.title, chip: "", lines: n.lines };
+    }
+  };
   const canOpen = (n: FlowNode) => {
     if (!n.open.needs) return true;
     return n.open.any ? n.open.needs.some((p) => permissions.includes(p)) : n.open.needs.every((p) => permissions.includes(p));
@@ -250,74 +308,172 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
         <span className="sub">Report #{flow.report_id} · {flow.status} · select a box to see details and open its screen</span>
       </div>
 
-      <div className="panel" style={{ overflow: "auto", padding: 16 }}>
-        <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="group" aria-label="Document flow diagram">
+      <style>{`
+        .rf-wrap{overflow:auto;padding:14px 16px 10px}
+        .rf-node{cursor:pointer;outline:none}
+        .rf-node .rf-card{transition:transform .15s ease, filter .15s ease}
+        .rf-node:hover .rf-card,.rf-node:focus-visible .rf-card{transform:translateY(-2px)}
+        .rf-edge{fill:none;stroke-width:2;opacity:.55}
+        .rf-edge.live{stroke-dasharray:6 6;animation:rf-dash 1.4s linear infinite;opacity:.8}
+        @keyframes rf-dash{to{stroke-dashoffset:-24}}
+        @media (prefers-reduced-motion:reduce){.rf-edge.live{animation:none}.rf-node .rf-card{transition:none}}
+        .rf-legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:11.5px;color:var(--text-soft);padding:10px 4px 2px;border-top:1px solid var(--border);margin-top:6px}
+        .rf-legend span{display:inline-flex;align-items:center;gap:6px}
+        .rf-legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+        .rf-detail-h{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+        .rf-detail-ico{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;flex:none}
+        .rf-detail-h h2{margin:0 !important;font-size:16px !important;text-transform:none !important;letter-spacing:0 !important;color:var(--text) !important}
+        .rf-chip{font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;color:#fff;white-space:nowrap}
+        .rf-dl{display:grid;grid-template-columns:max-content 1fr;font-size:13px}
+        .rf-dl > div{display:contents}
+        .rf-dl span{padding:6px 0;border-bottom:1px solid var(--border)}
+        .rf-dl span:first-child{color:var(--text-soft);padding-right:24px}
+      `}</style>
+      <div className="panel rf-wrap">
+        <svg width={width} height={height + HEAD} viewBox={`0 0 ${width} ${height + HEAD}`} role="group" aria-label="Document flow diagram">
           <defs>
-            <marker id="flow-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-              <path d="M0,0 L10,5 L0,10 z" fill="var(--text-soft)" />
-            </marker>
+            <pattern id="rf-dots" width="18" height="18" patternUnits="userSpaceOnUse">
+              <circle cx="1.5" cy="1.5" r="1.1" fill="var(--text-soft)" opacity="0.18" />
+            </pattern>
+            <filter id="rf-shadow" x="-10%" y="-10%" width="120%" height="140%">
+              <feDropShadow dx="0" dy="3" stdDeviation="4" floodColor="#000" floodOpacity="0.12" />
+            </filter>
+            <filter id="rf-glow" x="-15%" y="-15%" width="130%" height="140%">
+              <feDropShadow dx="0" dy="0" stdDeviation="5" floodColor="#2f6fed" floodOpacity="0.55" />
+            </filter>
+            {(["neutral", "danger", "warn", "success"] as const).map((t) => (
+              <marker key={t} id={`rf-arrow-${t}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill={TONE_STROKE[t]} />
+              </marker>
+            ))}
           </defs>
-          {edges.map(([a, b], i) => {
-            const A = byId.get(a)!, B = byId.get(b)!;
-            const x1 = A.x + NODE_W, y1 = A.y + NODE_H / 2, x2 = B.x, y2 = B.y + NODE_H / 2;
-            const forward = x2 >= x1;
-            const sx = forward ? x1 : A.x + NODE_W / 2, sy = forward ? y1 : A.y;
-            const ex = forward ? x2 : B.x + NODE_W / 2, ey = forward ? y2 : B.y + NODE_H;
-            const d = forward
-              ? `M${sx},${sy} C${sx + 40},${sy} ${ex - 40},${ey} ${ex},${ey}`
-              : `M${sx},${sy} C${sx},${sy - 30} ${ex},${ey + 30} ${ex},${ey}`;
-            return <path key={i} d={d} fill="none" stroke="var(--text-soft)" strokeWidth={1.4} markerEnd="url(#flow-arrow)" opacity={0.7} />;
+          <rect x={0} y={0} width={width} height={height + HEAD} fill="url(#rf-dots)" />
+          {/* stage lanes + headers */}
+          {STAGES.map((label, ci) => {
+            const used = nodes.some((n) => Math.round(n.x / COL) === ci);
+            if (!used) return null;
+            const lx = ci * COL - 8;
+            return (
+              <g key={label}>
+                <rect x={lx} y={4} width={NODE_W + 16} height={height + HEAD - 8} rx={14} fill="var(--text)" opacity={ci % 2 === 0 ? 0.025 : 0.045} />
+                <circle cx={lx + 22} cy={24} r={11} fill="var(--accent-blue, #2f6fed)" />
+                <text x={lx + 22} y={28} fontSize={11} fontWeight={700} fill="#fff" textAnchor="middle">{ci + 1}</text>
+                <text x={lx + 40} y={28} fontSize={11.5} fontWeight={700} fill="var(--text-soft)" letterSpacing="0.08em">{label.toUpperCase()}</text>
+              </g>
+            );
           })}
-          {nodes.map((n) => (
-            <g
-              key={n.id}
-              transform={`translate(${n.x},${n.y})`}
-              onClick={() => setSelected(n.id)}
-              onDoubleClick={() => canOpen(n) && n.open.run()}
-              style={{ cursor: "pointer" }}
-              tabIndex={0}
-              role="button"
-              aria-label={n.title}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(n.id); } }}
-            >
-              <rect
-                width={NODE_W} height={NODE_H} rx={12}
-                fill="var(--neu-bg)" stroke={selected === n.id ? "var(--accent-blue)" : TONE_STROKE[n.tone]}
-                strokeWidth={selected === n.id ? 3 : 1.8}
-              />
-              {wrapText(n.title, 26).slice(0, 2).map((l, i) => (
-                <text key={i} x={12} y={22 + i * 15} fontSize={12.5} fontWeight={700} fill="var(--text)">{l}</text>
-              ))}
-              {n.lines.slice(0, 2).map((l, i) => (
-                <text key={i} x={12} y={(wrapText(n.title, 26).length > 1 ? 54 : 40) + i * 14} fontSize={11} fill="var(--text-soft)">
-                  {l.length > 32 ? l.slice(0, 31) + "…" : l}
-                </text>
-              ))}
-            </g>
-          ))}
+          <g transform={`translate(0,${HEAD})`}>
+            {edges.map(([a, b], i) => {
+              const A = byId.get(a)!, B = byId.get(b)!;
+              const x1 = A.x + NODE_W, y1 = A.y + NODE_H / 2, x2 = B.x, y2 = B.y + NODE_H / 2;
+              const forward = x2 >= x1;
+              const sx = forward ? x1 : A.x + NODE_W / 2, sy = forward ? y1 : A.y;
+              const ex = forward ? x2 - 2 : B.x + NODE_W / 2, ey = forward ? y2 : B.y + NODE_H;
+              // Forward links share one vertical trunk half-way between the columns, then
+              // turn into each target with rounded corners (tidier than fanned curves).
+              const mx = sx + (ex - sx) / 2;
+              const r = Math.min(12, Math.abs(ey - sy) / 2);
+              const dir = ey > sy ? 1 : -1;
+              const d = !forward
+                ? `M${sx},${sy} C${sx},${sy - 30} ${ex},${ey + 30} ${ex},${ey}`
+                : Math.abs(ey - sy) < 1
+                  ? `M${sx},${sy} H${ex}`
+                  : `M${sx},${sy} H${mx - r} Q${mx},${sy} ${mx},${sy + dir * r} V${ey - dir * r} Q${mx},${ey} ${mx + r},${ey} H${ex}`;
+              // Moving dash only on links into something still open: an open repair or a pending decision.
+              const live = (B.kind === "repair" && B.tone === "danger") || (B.kind === "decision" && B.tone === "warn");
+              return <path key={i} className={`rf-edge${live ? " live" : ""}`} d={d} stroke={TONE_STROKE[B.tone]} markerEnd={`url(#rf-arrow-${B.tone})`} />;
+            })}
+            {nodes.map((n) => {
+              const v = view(n);
+              const col = TONE_STROKE[n.tone];
+              const isSel = selected === n.id;
+              const chipW = v.chip ? Math.min(110, 16 + v.chip.length * 6.3) : 0;
+              // Title sits beside the chip; a long title gets the full width and the chip moves below it.
+              const besideChars = Math.max(10, Math.floor((NODE_W - 56 - (chipW ? chipW + 14 : 12)) / 7.1));
+              const chipBelow = !!v.chip && wrapText(v.title, besideChars).length > 2;
+              const titleAll = wrapText(v.title, chipBelow ? Math.floor((NODE_W - 68) / 7.1) : besideChars);
+              const titleLines = titleAll.slice(0, 2);
+              if (titleAll.length > 2) titleLines[1] = titleLines[1].replace(/.{0,1}$/, "…");
+              const subLines = chipBelow ? [] : v.lines.slice(0, 2);
+              return (
+                <g
+                  key={n.id}
+                  className="rf-node"
+                  transform={`translate(${n.x},${n.y})`}
+                  onClick={() => setSelected(n.id)}
+                  onDoubleClick={() => canOpen(n) && n.open.run()}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`${v.title}${v.chip ? `, ${v.chip}` : ""}`}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(n.id); } }}
+                >
+                  <g className="rf-card">
+                    <rect width={NODE_W} height={NODE_H} rx={14} fill="var(--surface, #fff)" filter={isSel ? "url(#rf-glow)" : "url(#rf-shadow)"}
+                      stroke={isSel ? "var(--accent-blue, #2f6fed)" : "var(--border)"} strokeWidth={isSel ? 2.5 : 1} />
+                    <rect x={0} y={10} width={4} height={NODE_H - 20} rx={2} fill={col} />
+                    <circle cx={30} cy={30} r={16} fill={col} opacity={0.14} />
+                    <g transform="translate(20,20) scale(0.84)" fill="none" stroke={col} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d={KIND_ICON[n.kind]} />
+                    </g>
+                    {titleLines.map((l, i) => (
+                      <text key={i} x={56} y={25 + i * 15} fontSize={13} fontWeight={700} fill="var(--text)">{l}</text>
+                    ))}
+                    {v.chip && (
+                      <g transform={chipBelow ? `translate(56,${25 + titleLines.length * 15 - 4})` : `translate(${NODE_W - chipW - 10},12)`}>
+                        <rect width={chipW} height={20} rx={10} fill={col} />
+                        <text x={chipW / 2} y={14} fontSize={10.5} fontWeight={700} fill="#fff" textAnchor="middle">{v.chip.length > 16 ? v.chip.slice(0, 15) + "…" : v.chip}</text>
+                      </g>
+                    )}
+                    {subLines.map((l, i) => (
+                      <text key={i} x={56} y={25 + titleLines.length * 15 + 6 + i * 15} fontSize={11.5} fill="var(--text-soft)">
+                        {l.length > 28 ? l.slice(0, 27) + "…" : l}
+                      </text>
+                    ))}
+                  </g>
+                </g>
+              );
+            })}
+          </g>
         </svg>
+        <div className="rf-legend" aria-label="Legend">
+          <span><i style={{ background: TONE_STROKE.danger }} />Critical / Red tag / open repair</span>
+          <span><i style={{ background: TONE_STROKE.warn }} />Moderate / pending / escalated</span>
+          <span><i style={{ background: TONE_STROKE.success }} />Approved / verified / green</span>
+          <span><i style={{ background: TONE_STROKE.neutral }} />Other</span>
+          <span>Moving line = still open · double-click a box to open its screen</span>
+        </div>
       </div>
 
-      {sel && (
-        <div className="panel" style={{ marginTop: 14 }}>
-          <h2 style={{ marginTop: 0 }}>{sel.title}</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "max-content 1fr", gap: "4px 16px", fontSize: 13 }}>
-            {sel.details.map(([k, v], i) => (
-              <div key={i} style={{ display: "contents" }}>
-                <span style={{ color: "var(--text-soft)" }}>{k}</span>
-                <span>{v}</span>
-              </div>
-            ))}
+      {sel && (() => {
+        const v = view(sel);
+        const col = TONE_STROKE[sel.tone];
+        return (
+          <div className="panel" style={{ marginTop: 14 }}>
+            <div className="rf-detail-h">
+              <span className="rf-detail-ico" style={{ background: `color-mix(in srgb, ${col} 15%, transparent)`, color: col }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={KIND_ICON[sel.kind]} /></svg>
+              </span>
+              <h2>{sel.title}</h2>
+              {v.chip && <span className="rf-chip" style={{ background: col }}>{v.chip}</span>}
+            </div>
+            <div className="rf-dl">
+              {sel.details.map(([k, val], i) => (
+                <div key={i}>
+                  <span>{k}</span>
+                  <span>{val}</span>
+                </div>
+              ))}
+            </div>
+            <div className="actions" style={{ marginTop: 14 }}>
+              <button className="primary" onClick={sel.open.run} disabled={!canOpen(sel)} title={!canOpen(sel) ? "Your role doesn't have access to that screen" : undefined}>
+                {sel.open.label}
+              </button>
+              {sel.also && <button className="ghost" onClick={sel.also.run}>{sel.also.label}</button>}
+              {!canOpen(sel) && <span style={{ fontSize: 11, color: "var(--text-soft)" }}>Your role doesn't have access to that screen.</span>}
+            </div>
           </div>
-          <div className="actions" style={{ marginTop: 12 }}>
-            <button className="primary" onClick={sel.open.run} disabled={!canOpen(sel)} title={!canOpen(sel) ? "Your role doesn't have access to that screen" : undefined}>
-              {sel.open.label}
-            </button>
-            {sel.also && <button className="ghost" onClick={sel.also.run}>{sel.also.label}</button>}
-            {!canOpen(sel) && <span style={{ fontSize: 11, color: "var(--text-soft)" }}>Your role doesn't have access to that screen.</span>}
-          </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

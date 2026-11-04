@@ -11,7 +11,7 @@ import dashboardBgImage from "../../assets/FieldMaintenance.png";
 import dashboardBgImageDark from "../../assets/FieldDark.png";
 import { isDarkTheme, type Theme } from "../../lib/theme";
 import { useAssets } from "../asset-registry/hooks/useAssets";
-import { TagLamp, Gauge } from "../../components/Instruments";
+import { TagLamp } from "../../components/Instruments";
 
 const STATUS_COLOR: Record<string, string> = {
   Draft: "var(--st-grey)",
@@ -307,31 +307,58 @@ interface StatCardProps {
   label: string;
   runningValue: number;
   intervalValue: number;
+  warningValue?: number;
 }
 
-function StatCard({ type, label, runningValue, intervalValue }: StatCardProps) {
+const STAT_UNITS: Record<string, string> = { KM: "km", OH: "h", EH: "h" };
+
+// Modern KPI card: big reading, slim progress bar with the warning point marked,
+// and a status pill (On track / Due soon / Overdue) driven by the trigger's own thresholds.
+function StatCard({ type, label, runningValue, intervalValue, warningValue }: StatCardProps) {
   const color = TRIGGER_TYPE_COLORS[type] ?? "var(--text-soft)";
   const iconBg = TRIGGER_STAT_ICON_BG[type] ?? "var(--chip-bg)";
+  const unit = STAT_UNITS[type] ?? "";
   const pct = intervalValue > 0 ? Math.min(100, Math.max(0, (runningValue / intervalValue) * 100)) : 0;
+  const warnPct = intervalValue > 0 && warningValue ? Math.min(100, (warningValue / intervalValue) * 100) : null;
+  const status =
+    intervalValue > 0 && runningValue >= intervalValue
+      ? { text: "Overdue", tone: "var(--danger)" }
+      : warningValue && runningValue >= warningValue
+        ? { text: "Due soon", tone: "var(--st-amber)" }
+        : { text: "On track", tone: "var(--success)" };
+  const left = intervalValue - runningValue;
 
   return (
-    <div className="mri-stat-card mri-stat-gauge-card">
-      <div className="mri-stat-head">
+    <div className="mri-stat-card mri-kpi-card">
+      <div className="mri-kpi-head">
         <span className="mri-stat-icon" style={{ background: iconBg, color }}>
           {TRIGGER_TYPE_ICONS[type] ?? DEFAULT_TRIGGER_ICON}
         </span>
         <div className="mri-stat-label">{label}</div>
+        <span className="mri-kpi-pill" style={{ color: status.tone, background: `color-mix(in srgb, ${status.tone} 14%, transparent)` }}>
+          <i style={{ background: status.tone }} />
+          {status.text}
+        </span>
       </div>
-      <Gauge
-        value={runningValue}
-        max={intervalValue > 0 ? intervalValue : 1}
-        caption={type}
-        reading={runningValue.toLocaleString()}
-        badSide="high"
-        size={170}
-      />
-      <div className="mri-stat-of">
-        {runningValue.toLocaleString()} of {intervalValue.toLocaleString()} ({Math.round(pct)}%)
+      <div className="mri-kpi-value">
+        {runningValue.toLocaleString()}
+        <span className="mri-kpi-unit">{unit}</span>
+        <span className="mri-kpi-of">of {intervalValue.toLocaleString()} {unit}</span>
+      </div>
+      <div
+        className="mri-kpi-track"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={intervalValue}
+        aria-valuenow={runningValue}
+        aria-label={`${label}: ${runningValue} of ${intervalValue}`}
+      >
+        <div className="mri-kpi-fill" style={{ width: `${pct}%`, background: status.tone }} />
+        {warnPct !== null && <span className="mri-kpi-warn" style={{ left: `${warnPct}%` }} title={`Warning at ${warningValue!.toLocaleString()} ${unit}`} />}
+      </div>
+      <div className="mri-kpi-foot">
+        <span>{left >= 0 ? `${left.toLocaleString()} ${unit} left` : `${(-left).toLocaleString()} ${unit} over`}</span>
+        <span>{Math.round(pct)}%</span>
       </div>
     </div>
   );
@@ -396,6 +423,7 @@ function AssetHistoryPanel({ assetId, assetCode, assetDescription, onBack, onOpe
               label={def.label}
               runningValue={trigger.running_value}
               intervalValue={trigger.interval_value}
+              warningValue={trigger.warning_value}
             />
           );
         })}

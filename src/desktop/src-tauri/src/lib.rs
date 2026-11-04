@@ -4517,6 +4517,7 @@ fn get_mri_checklist_history(
          JOIN mri_reports r ON r.id = res.report_id
          JOIN template_checklist_items tci ON tci.id = res.template_checklist_item_id
          WHERE r.asset_id = ?1 AND res.status = 'Fail' AND res.report_id != ?2
+           AND r.component_id IS (SELECT component_id FROM mri_reports WHERE id = ?2)
          ORDER BY r.created_date ASC, r.id ASC"
     ).map_err(|e| e.to_string())?;
     let entries = stmt
@@ -8204,12 +8205,16 @@ fn get_pending_checklist_item_ids(
          JOIN mri_reports rep ON r.report_id = rep.id
          JOIN template_checklist_items tci ON r.template_checklist_item_id = tci.id
          WHERE rep.asset_id = ?1 AND rep.id != ?2 AND r.status = 'Fail' AND r.closure_status = 'Pending'
+           -- Components (e.g. Left / Right) are inspected separately: only faults from
+           -- reports on the SAME component as this report carry forward into it.
+           AND rep.component_id IS (SELECT component_id FROM mri_reports WHERE id = ?2)
            AND rep.id = (
                SELECT rep2.id
                FROM mri_report_checklist_results r2
                JOIN mri_reports rep2 ON r2.report_id = rep2.id
                JOIN template_checklist_items tci2 ON r2.template_checklist_item_id = tci2.id
                WHERE rep2.asset_id = ?1 AND rep2.id != ?2
+                 AND rep2.component_id IS (SELECT component_id FROM mri_reports WHERE id = ?2)
                  AND tci2.checklist_item_id = tci.checklist_item_id
                ORDER BY rep2.created_date DESC, rep2.id DESC
                LIMIT 1
@@ -8264,12 +8269,14 @@ fn get_open_prior_issues(
          LEFT JOIN checklist_databank cd ON tci.checklist_item_id = cd.id
          WHERE rep.asset_id = ?1 AND rep.id != ?2 AND r.status = 'Fail'
            AND NOT (r.closure_status = 'Closed' AND rep.status = 'Approved')
+           AND rep.component_id IS (SELECT component_id FROM mri_reports WHERE id = ?2)
            AND rep.id = (
                SELECT rep2.id
                FROM mri_report_checklist_results r2
                JOIN mri_reports rep2 ON r2.report_id = rep2.id
                JOIN template_checklist_items tci2 ON r2.template_checklist_item_id = tci2.id
                WHERE rep2.asset_id = ?1 AND rep2.id != ?2
+                 AND rep2.component_id IS (SELECT component_id FROM mri_reports WHERE id = ?2)
                  AND tci2.checklist_item_id = tci.checklist_item_id
                ORDER BY rep2.created_date DESC, rep2.id DESC
                LIMIT 1

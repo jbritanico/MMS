@@ -100,6 +100,12 @@ export function userLevelLabel(role: string): string {
   return /^(Tier \d|Read Only)/.test(match.tier) ? `${role} (${match.tier})` : role;
 }
 
+// Tier label, description and accent for a role, as shown on the sign-in screen.
+export function tierInfo(role: string): { tier: string; description: string; accent: string } | null {
+  const m = TIER_REFERENCE.find((t) => t.name.toLowerCase() === role.trim().toLowerCase());
+  return m ? { tier: m.tier, description: m.description, accent: m.accent } : null;
+}
+
 export function tierAccent(role: string): string {
   const match = TIER_REFERENCE.find((t) => t.name === role);
   return match ? match.accent : roleBadge(role).color;
@@ -505,27 +511,50 @@ function UserPickerGate({
           </div>
         )}
 
-        {/* Roles & responsibilities reference */}
-        <h2 style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-soft)", margin: "0 0 12px" }}>
-          User Roles &amp; Responsibilities
-        </h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14, marginBottom: 20 }}>
-          {TIER_REFERENCE.map((tier) => (
-            <div
-              key={tier.name}
-              className="menu-card"
-              style={{ textAlign: "left", alignItems: "flex-start", borderLeft: `4px solid ${tier.accent}`, cursor: "default" }}
-            >
-              <h3 style={{ margin: "0 0 4px" }}>{tier.name}</h3>
-              <div style={{ fontSize: 11, fontWeight: 700, color: tier.accent, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>{tier.tier}</div>
-              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, color: "var(--text-soft)", lineHeight: 1.6 }}>
-                {tier.responsibilities.map((r) => (
-                  <li key={r}>{r}</li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
+        {/* Roles & responsibilities: only the one matching the selected (or M365 signed-in) user */}
+        {(() => {
+          const roleUser = authMode === "local" ? activeUser : undefined; // M365: set from the signed-in account once SSO is live
+          if (!roleUser) {
+            return authMode === "sso" ? (
+              <p style={{ fontSize: 12.5, color: "var(--text-soft)", margin: "0 0 20px" }}>
+                Your role and responsibilities will appear here after you sign in with Microsoft 365.
+              </p>
+            ) : null;
+          }
+          const tier =
+            TIER_REFERENCE.find((t) => t.name.toLowerCase() === roleUser.role.trim().toLowerCase()) ?? null;
+          const accent = tier ? tier.accent : tierAccent(roleUser.role);
+          return (
+            <>
+              <h2 style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-soft)", margin: "0 0 12px" }}>
+                Role &amp; Responsibilities &middot; {roleUser.name}
+              </h2>
+              <div
+                key={roleUser.id}
+                style={{ textAlign: "left", marginBottom: 20, maxWidth: 640 }}
+              >
+                <h3 style={{ margin: "0 0 4px" }}>{tier ? tier.name : roleUser.role}</h3>
+                <div style={{ fontSize: 11, fontWeight: 700, color: accent, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  {tier ? tier.tier : "Role"}
+                </div>
+                {tier ? (
+                  <>
+                    <p style={{ margin: "0 0 8px", fontSize: 12.5, color: "var(--text-soft)" }}>{tier.description}</p>
+                    <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, color: "var(--text-soft)", lineHeight: 1.6 }}>
+                      {tier.responsibilities.map((r) => (
+                        <li key={r}>{r}</li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-soft)" }}>
+                    No responsibilities are defined for this role yet. Ask an Administrator.
+                  </p>
+                )}
+              </div>
+            </>
+          );
+        })()}
 
         {/* Footer */}
         <div
