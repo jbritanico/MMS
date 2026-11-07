@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { invoke } from "../../../lib/ipc";
+import { useCurrentUser } from "../../../lib/currentUser";
 import type { Asset, AssetTagHistoryEntry, MocExemption, MocExemptionInput } from "../types";
 
 const ASSETS_KEY = ["assets"];
@@ -8,6 +9,16 @@ export function useAssets() {
     return useQuery({
         queryKey: ASSETS_KEY,
         queryFn: () => invoke<Asset[]>("get_assets"),
+    });
+}
+
+// Assets the signed-in user may see (their country access). Asset Registry and Select Asset.
+export function useAssetsForViewer() {
+    const { user } = useCurrentUser();
+    return useQuery({
+        queryKey: [...ASSETS_KEY, "viewer", user?.id ?? 0],
+        queryFn: () => invoke<Asset[]>("get_assets", { viewerUserId: user?.id ?? null }),
+        enabled: !!user,
     });
 }
 

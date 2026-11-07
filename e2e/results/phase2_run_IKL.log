@@ -1,0 +1,167 @@
+﻿start state: e2e\run\snapshots\before_I1.db
+
+== I1 Asset Registry shows assets as cards
+   [ok] ASSET1 and ASSET2 shown as cards with Active pill, Edit and Delete -- [["ASSET1",["Show history flow","Edit","Delete"]],["ASSET2",["Show history flow","Edit","Delete"]]]
+   [ok] search filters the cards; count shows 1 of 2 -- 1 of 2
+   [ok] then 2 of 2
+   [review] card look (icon, pills, trigger chips) -- see screenshots
+   => Needs review
+
+== I2 Asset card actions and opening an asset
+   [ok] step 1: the asset opens in the panel in view mode
+   [ok] step 2: Edit opens it in edit mode
+   [ok] step 3: delete confirmation appears
+   [ok] Cancel leaves the asset in place
+   [ok] step 4: Edit and Delete disabled for Suganya with a no-permission tooltip -- [{"l":"Edit","d":true,"title":"Your role doesn't have permission to edit assets"},{"l":"Delete","d":true,"title":"Your role doesn't have permission to delete assets"}]
+   => Pass
+
+== I3 MR-I Templates shown as cards
+   [ok] COILED TUBING UNIT and PUMP UNIT cards with status pill and icon buttons -- [["COILED TUBING UNIT COILED TUBING UNIT Ac",["View this template's structure","Click to cycle Draft → Active → Inactive","Rename","Delete"]],["PUMP UNIT PUMPING UNIT Active",["View this template's structure","Click to cycle Draft → Active → Inactive","Rename","Delete"]]]
+   [info] PUMP UNIT buttons -- View this template's structure, Click to cycle Draft → Active → Inactive, Rename, Delete
+   [ok] Rename turns the name into a text box with Save and Cancel -- ["Save","Cancel"]
+   [ok] Cancel restores the name
+   [ok] Delete (cancelled) keeps the template
+   [info] Structure and card-click opening -- see screenshots; not opened by the run
+   => Pass
+
+== I4 Text boxes use the neumorphic style everywhere
+   [review] neumorphic text boxes, focus glow, dimmer disabled boxes -- screens saved for Jess
+   => Needs review
+
+== I5 Show flow is not offered on a Draft
+   [ok] no Show flow button on a Draft report -- ← Back to main menu, ← Back, ← Previous, Next →
+   => Pass
+
+== I6 Show flow on My Reports
+   [info] Compliance Stage after choosing YARD INSPECTION -- screen "— Select —", stored {"value":""}
+   [info] report used -- #20: Minor-only (no faults) Yard Inspection on ASSET1, submitted for I6 / I7 / I12
+   [FAIL] report submitted (not closed) -- Header — "Compliance Stage" is required
+   [FAIL] the card has a Show flow button
+   [BLOCKED] TypeError: Cannot read properties of undefined (reading 'querySelectorAll')
+   => Blocked
+
+== I12 Flow respects role permissions
+   [ok] asset box: Open Asset Registry enabled -- [{"text":"Open Asset Registry","disabled":false,"title":""},{"text":"Show asset history flow","disabled":false,"title":""}]
+   [ok] Decision box: Open button disabled with the no-access note -- {"text":"Open Pending Approvals","disabled":true,"title":"Your role doesn't have access to that screen"}
+   [ok] Repair box: Open button disabled with the no-access note -- {"text":"Open Rectification Queue","disabled":true,"title":"Your role doesn't have access to that screen"}
+   [ok] selecting boxes and reading details still works
+   [info] report used -- Report 2 (#9, submitted by Suganya), opened through the asset flow since it is closed; the My Reports route is checked in I6
+   => Pass
+
+== I7 Show flow on Reports to Review and on an open report
+   [BLOCKED] nothing clickable matching "Show flow"
+   => Blocked
+
+== I8 Flow of a report with five faults
+   [ok] five fault boxes -- ASSET2, Green Tag | Report #9, Approved | Agitator, Critical | Decision, Approved | Repair, Verified | Actuators on Control Pane | Decision, Rejected | Air Filter, Moderate | Decision, Approved | Repair, Verified | Breather, Critical | Decision, Approved | Repair, Verified | Brass Bushing Condition W | Decision, Carryforward | Tag: Green → Red → Yellow | MOC MOC-2026-014
+   [ok] Agitator row ends in a Repair verified box -- ASSET2Green TagPUMPING UNIT > Report #9ApprovedPUMP UNIT > AgitatorCritical > DecisionApprovedKamil ShahzadMethod: In-Person > RepairVerifiedTechnician: Ahmed KhanParts: Available
+   [ok] Breather row ends in a Repair verified box -- BreatherCritical > DecisionApprovedKamil ShahzadMethod: In-Person > RepairVerifiedTechnician: Ahmed KhanParts: Available
+   [ok] Air Filter row has no Red repair box -- MOC MOC-2026-014Revokeduntil 2026-11-14 > Air FilterModerate > DecisionApprovedDisantha PereraMethod: In-Person > RepairVerifiedTechnician: Ahmed KhanParts: Available
+   [ok] Actuators on Control Panel row has no Red repair box -- Actuators onControl PanelModerate > DecisionRejectedDisantha PereraMethod: In-Person
+   [ok] Brass Bushing Condition Within Tolerance Limits row has no Red repair box -- Brass Bushing ConditionWithin Tolerance LimitsModerate > DecisionCarryforwardDisantha PereraMethod: In-Person
+   [ok] a Tag box lists the tag changes of this report
+   [review] red border on Critical, amber on Moderate -- see screenshot
+   => Pass
+
+== I9 Carried-forward fault appears on the next report
+   [ok] Carried in box names Report 2 as the source -- Carried in: Brass Bushing Condition Within Tolerance Limits Fault Brass Bushing Condition Within Tolerance Limits From report #9 Open report #9 Show flow of report #9
+   [ok] Open report opens Report 2 read-only
+   [ok] Back returns to the flow of Report 3
+   => Pass
+
+== I10 Flow of a Critical report and an on-site repair on ASSET1
+   [ok] C9: Ball Valves Critical becoming Moderate -- Ball Valves Moderate Fault Ball Valves Original severity Critical Final severity Moderate Carried forward to report — Open Pending Approvals
+   [ok] C9: Tag box present (Red then Green) -- Tag: Red → GreenNo open Critical faults rem…
+   [ok] F9: a Repaired on site box for Ball Valves -- ASSET1, Green Tag | Report #18, Approved | Repaired on site: Ball Valves
+   [ok] F9: no decision or repair boxes for it
+   => Pass
+
+== I11 Boxes open the screen that owns them
+   [ok] selecting a Fault box lists its details -- Air Filter Moderate Fault Air Filter Original severity Moderate Final severity — Carried forward to report — Open Pending Approvals
+   [ok] selected box highlighted with a blue border
+   [ok] Open Pending Approvals opens it -- Pending Approvals
+   [ok] Open Rectification Queue opens it -- Rectification Queue
+   [ok] Open Asset Registry opens it
+   [ok] double-clicking a Decision box opens its screen directly -- Pending Approvals
+   [info] read-only flow -- no control on the flow screen changes a decision, repair or tag (only Open / Show buttons)
+   => Pass
+
+== I13 Flow shows the MOC exemption
+   [ok] an MOC box for MOC-2026-014 is shown -- ASSET2, Green Tag | Report #9, Approved | Agitator, Critical | Decision, Approved | Repair, Verified | Actuators on Control | Decision, Rejected | Air Filter, Moderate | Decision, Approved | Repair, Verified | Breather, Critical | Decision, Approved | Repair, Verified | Brass Bushing Condit | Decision, Carryforwa | Tag: Green → Red → Y | MOC MOC-2026-014
+   [ok] MOC box shows reference, Revoked, validity dates and approver -- MOC MOC-2026-014 Reference MOC-2026-014 Status Revoked Valid 2026-11-07 to 2026-11-14 Approved by Kamil Shahzad Open Asset Registry
+   [ok] its button opens the Asset Registry -- [{"text":"Open Asset Registry","disabled":false,"title":""}]
+   => Pass
+
+== K1 Theme picker offers three themes
+   [ok] exactly three themes: Light, Dark, macOS Light -- got ["Light","Dark","macOS Light"], expected ["Light","Dark","macOS Light"]
+   [ok] picking each one changes the whole app at once (no restart) -- dark | macos | light
+   => Pass
+
+== K2 Light theme looks the same as before the colour clean-up
+   [review] look -- screens saved for Jess
+   => Needs review
+
+== K3 Dark theme still works
+   [review] look -- screens saved for Jess
+   => Needs review
+
+== K4 macOS Light: text boxes have a visible border
+   [review] text box borders -- screen saved for Jess
+   => Needs review
+
+== K5 macOS Light: icon buttons are visible
+   [review] icon buttons -- screen saved for Jess
+   => Needs review
+
+== K6 macOS Light: switches, checkboxes and dropdowns
+   [BLOCKED] waitUntil condition timed out after 10000ms
+   => Blocked
+
+== K7 macOS Light: tables and dialogs
+   [review] tables and dialogs -- screen saved for Jess
+   => Needs review
+
+== K8 macOS Light: screens not yet converted (observation only)
+   [review] observation -- screens saved for Jess
+   => Needs review
+
+== K9 Switching themes back and forth
+   [review] no leftovers after switching -- screens saved for Jess
+   => Needs review
+
+== K10 Theme picker on the user selection screen
+   [review] theme picker on the sign-in screen -- screens saved for Jess
+   => Needs review
+
+== K11 macOS Light: Fail button has a pale red fill
+   [review] Fail button fill -- screen saved for Jess
+   => Needs review
+
+== L1 Tag lamps in the Asset Registry
+   [info] lamps -- {"label":"Green tag","title":"Green tag: No open Critical faults remain (report #17)"} {"label":"Green tag","title":"Green tag: No open Critical faults remain (report #12)"}
+   [review] lamp look -- screen saved for Jess
+   => Needs review
+
+== L2 Tag lamps on Select Asset For Report and Dashboard cards
+   [review] lamps -- screens saved for Jess
+   => Needs review
+
+== L3 Dashboard stat cards
+   [review] stat cards -- screen saved for Jess
+   => Needs review
+
+== L4 Main Menu KPIs (unchanged look)
+   [review] KPIs -- screen saved for Jess
+   => Needs review
+
+== L5 Lamps and dashboard cards in Light, Dark and macOS Light
+   [review] lamps and cards in each theme -- screens saved for Jess
+   => Needs review
+
+== L6 Gauges at small window size
+   [review] gauges at small size -- screens saved for Jess
+   => Needs review
+real assets.db: before 11829248 bytes, 2026-11-07T08:52:05.446Z | after 11829248 bytes, 2026-11-07T08:52:05.446Z | UNCHANGED
+test assets.db: before 11829248 bytes, 2026-11-07T14:28:53.082Z | after 11829248 bytes, 2026-11-07T14:48:07.732Z
+
+snapshot saved: after_L6.db 

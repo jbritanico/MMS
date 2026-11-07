@@ -56,7 +56,18 @@ export function useUpdateMriFaultRectification(reportId: number) {
       partsStatus: "Awaiting" | "Ordered" | "Available";
       repairDate: string | null;
       updatedBy?: string | null;
-    }) => invoke<string>("update_mri_fault_rectification", item),
+    }) =>
+      // The Rust command takes a single `update: MriFaultRectificationUpdate` argument whose
+      // fields are snake_case (no serde rename), so the plan must be wrapped and renamed here.
+      invoke<string>("update_mri_fault_rectification", {
+        update: {
+          id: item.id,
+          assigned_technician: item.assignedTechnician,
+          parts_status: item.partsStatus,
+          repair_date: item.repairDate,
+          updated_by: item.updatedBy ?? null,
+        },
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["mri-fault-rectifications", reportId] });
       qc.invalidateQueries({ queryKey: PENDING_RECTIFICATIONS_KEY });

@@ -580,16 +580,22 @@ function AssetHistoryPanel({ assetId, assetCode, assetDescription, onBack, onOpe
 }
 
 type DashboardView = "hub" | "mri-history";
+// Which dashboard view and asset are open. Held by App so Back from a flow returns to them.
+export type DashboardNav = { view: DashboardView; asset: { id: number; code: string; description: string | null } | null };
 
 interface DashboardProps {
   onOpenReport?: (reportId: number) => void;
   onShowAssetFlow?: (assetId: number) => void;
   theme: Theme;
+  nav: DashboardNav;
+  onNavChange: (nav: DashboardNav) => void;
 }
 
-function Dashboard({ onOpenReport, onShowAssetFlow, theme }: DashboardProps) {
-  const [view, setView] = useState<DashboardView>("hub");
-  const [selectedAsset, setSelectedAsset] = useState<{ id: number; code: string; description: string | null } | null>(null);
+function Dashboard({ onOpenReport, onShowAssetFlow, theme, nav, onNavChange }: DashboardProps) {
+  const view = nav.view;
+  const selectedAsset = nav.asset;
+  const setView = (v: DashboardView) => onNavChange({ ...nav, view: v });
+  const setSelectedAsset = (a: DashboardNav["asset"]) => onNavChange({ ...nav, asset: a });
   const { data: assets = [], isLoading } = useAssetsWithMriHistorySummary();
 
   if (view === "mri-history" && selectedAsset) {

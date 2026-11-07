@@ -1,0 +1,14 @@
+﻿start state: e2e\run\snapshots\before_J8.db
+
+== J8 Show flow from the dashboard asset history
+   [ok] a Show flow button sits beside Back to assets -- ← Back to main menu, ← Back to assets, Show flow, View Report, View Report, View Report, View Report, View Report, View Report, View Report, View Report
+   [ok] opens the asset history flow -- ASSET2 — Asset history flow
+   [info] Open button for a screen Marilyn may not have -- [{"text":"Open triggers","disabled":false,"title":""}]
+   [info] report box buttons for Marilyn -- [{"text":"Show flow of this report","disabled":false,"title":""},{"text":"Open report","disabled":false,"title":""}]
+   [FAIL] Back returns to the asset history panel -- landed on "Dashboard"; buttons: ← Back to main menu
+   [review] Open buttons disabled where Marilyn has no permission -- see the info rows and screenshot
+   => Fail
+real assets.db: before 11829248 bytes, 2026-11-07T08:52:05.446Z | after 11829248 bytes, 2026-11-07T08:52:05.446Z | UNCHANGED
+test assets.db: before 11829248 bytes, 2026-11-07T14:28:53.082Z | after 11829248 bytes, 2026-11-07T14:31:56.397Z
+
+snapshot saved: after_J8.db (= before_J9.db)

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, type ReactElement } from "react";
 import {
-  useAssets, useCreateAsset, useUpdateAsset, useDeleteAsset, useAssetTagHistory,
+  useAssetsForViewer, useCreateAsset, useUpdateAsset, useDeleteAsset, useAssetTagHistory,
   useMocExemptions, useCreateMocExemption, useRevokeMocExemption,
   useExportAssetsBackup, useImportAssetsBackup,
 } from "./hooks/useAssets";
@@ -86,6 +86,16 @@ interface AssetRegistryCardProps {
 // A separate component (not inline in the map below) because it needs to call
 // useAssetTriggers for its own asset -- hooks can't be called conditionally
 // inside a .map() in the parent component.
+// Tag-history time: stored as Unix seconds; same DD/Mon/YYYY format as Pending Approvals.
+function formatChangedAt(raw: string): string {
+  const n = Number(raw);
+  if (!raw.trim() || isNaN(n)) return raw;
+  const d = new Date(n < 1e12 ? n * 1000 : n);
+  if (isNaN(d.getTime())) return raw;
+  const m = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${String(d.getDate()).padStart(2, "0")}/${m[d.getMonth()]}/${d.getFullYear()}`;
+}
+
 // Shows why the unit carries its current tag and the full tag history (Manual 8.1, 8.2).
 function AssetTagHistory({ assetId, reason }: { assetId: number | null; reason: string | null }) {
   const { data: history = [] } = useAssetTagHistory(assetId);
@@ -102,7 +112,7 @@ function AssetTagHistory({ assetId, reason }: { assetId: number | null; reason: 
           <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
             {history.map((h) => (
               <li key={h.id}>
-                {h.changed_at}: {h.previous_tag_status ?? "Not tagged"} → <strong>{h.tag_status}</strong>
+                {formatChangedAt(h.changed_at)}: {h.previous_tag_status ?? "Not tagged"} → <strong>{h.tag_status}</strong>
                 {h.reason ? ` — ${h.reason}` : ""}
                 {h.changed_by ? ` (by ${h.changed_by})` : ""}
               </li>
@@ -313,7 +323,7 @@ interface AssetRegistryProps {
 }
 
 function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) {
-  const { data: assets = [], isLoading } = useAssets();
+  const { data: assets = [], isLoading } = useAssetsForViewer();
   const { data: assetTypes = [] } = useAssetTypes();
   const { data: templates = [] } = useMriTemplates();
   const { data: countryOptions = [] } = useLookups("COUNTRY");

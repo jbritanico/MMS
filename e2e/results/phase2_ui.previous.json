@@ -1,0 +1,4618 @@
+{
+ "cases": {
+  "S5": {
+   "id": "S5",
+   "runner": "claude-code",
+   "title": "Starting state of the two assets (main menu as Disantha)",
+   "checks": [
+    {
+     "label": "Fleet Availability tile shows 100.0%",
+     "outcome": "ok",
+     "detail": "Fleet Availability\n100.0%\nOpen Defects"
+    },
+    {
+     "label": "Open Defects tile shows 0",
+     "outcome": "ok",
+     "detail": "Open Defects\n0\nDisantha Perera"
+    },
+    {
+     "label": "no Attention Required tab on clean data",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "assets, triggers, no reports / exemptions / tag history",
+     "outcome": "info",
+     "detail": "stored data checked in Phase 1 (S5: all ok)"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/S5/01_main_menu_disantha.png"
+   ],
+   "date": "2026-11-07T13:53:42.552Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "S7": {
+   "id": "S7",
+   "runner": "claude-code",
+   "title": "Title bar shows the signed-in user and level",
+   "checks": [
+    {
+     "label": "picker title",
+     "outcome": "ok",
+     "detail": "got \"Sprint MMS\", expected \"Sprint MMS\""
+    },
+    {
+     "label": "title for Jess Britanico",
+     "outcome": "ok",
+     "detail": "got \"Sprint MMS | Jess Britanico | Administrator\", expected \"Sprint MMS | Jess Britanico | Administrator\""
+    },
+    {
+     "label": "after signing out Jess",
+     "outcome": "ok",
+     "detail": "got \"Sprint MMS\", expected \"Sprint MMS\""
+    },
+    {
+     "label": "title for Suganya Rajendran",
+     "outcome": "ok",
+     "detail": "got \"Sprint MMS | Suganya Rajendran | Operator (Tier 1)\", expected \"Sprint MMS | Suganya Rajendran | Operator (Tier 1)\""
+    },
+    {
+     "label": "after signing out Suganya",
+     "outcome": "ok",
+     "detail": "got \"Sprint MMS\", expected \"Sprint MMS\""
+    },
+    {
+     "label": "title for Abdulla Qais",
+     "outcome": "ok",
+     "detail": "got \"Sprint MMS | Abdulla Qais | Job Supervisor (Tier 2)\", expected \"Sprint MMS | Abdulla Qais | Job Supervisor (Tier 2)\""
+    },
+    {
+     "label": "after signing out Abdulla",
+     "outcome": "ok",
+     "detail": "got \"Sprint MMS\", expected \"Sprint MMS\""
+    },
+    {
+     "label": "title for Jan-Albert Victorino",
+     "outcome": "ok",
+     "detail": "got \"Sprint MMS | Jan-Albert Victorino | Operations Coordinator (Tier 2)\", expected \"Sprint MMS | Jan-Albert Victorino | Operations Coordinator (Tier 2)\""
+    },
+    {
+     "label": "after signing out Jan-Albert",
+     "outcome": "ok",
+     "detail": "got \"Sprint MMS\", expected \"Sprint MMS\""
+    },
+    {
+     "label": "title for Disantha Perera",
+     "outcome": "ok",
+     "detail": "got \"Sprint MMS | Disantha Perera | Maintenance Supervisor (Tier 2)\", expected \"Sprint MMS | Disantha Perera | Maintenance Supervisor (Tier 2)\""
+    },
+    {
+     "label": "after signing out Disantha",
+     "outcome": "ok",
+     "detail": "got \"Sprint MMS\", expected \"Sprint MMS\""
+    },
+    {
+     "label": "title for Kamil Shahzad",
+     "outcome": "ok",
+     "detail": "got \"Sprint MMS | Kamil Shahzad | Maintenance Manager / FSM (Tier 3)\", expected \"Sprint MMS | Kamil Shahzad | Maintenance Manager / FSM (Tier 3)\""
+    },
+    {
+     "label": "after signing out Kamil",
+     "outcome": "ok",
+     "detail": "got \"Sprint MMS\", expected \"Sprint MMS\""
+    },
+    {
+     "label": "title for Marilyn Tabay",
+     "outcome": "ok",
+     "detail": "got \"Sprint MMS | Marilyn Tabay | Data Miner View (Read Only)\", expected \"Sprint MMS | Marilyn Tabay | Data Miner View (Read Only)\""
+    },
+    {
+     "label": "after signing out Marilyn",
+     "outcome": "ok",
+     "detail": "got \"Sprint MMS\", expected \"Sprint MMS\""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/S7/01_picker.png",
+    "e2e/screenshots/S7/02_title_Jess.png",
+    "e2e/screenshots/S7/03_title_Suganya.png",
+    "e2e/screenshots/S7/04_title_Abdulla.png",
+    "e2e/screenshots/S7/05_title_Jan_Albert.png",
+    "e2e/screenshots/S7/06_title_Disantha.png",
+    "e2e/screenshots/S7/07_title_Kamil.png",
+    "e2e/screenshots/S7/08_title_Marilyn.png"
+   ],
+   "date": "2026-11-07T13:53:45.100Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "A1": {
+   "id": "A1",
+   "runner": "claude-code",
+   "title": "Start the first report",
+   "checks": [
+    {
+     "label": "Draft created and the form opens",
+     "outcome": "ok",
+     "detail": "Report #6"
+    },
+    {
+     "label": "template",
+     "outcome": "info",
+     "detail": "the app picks the asset type's active template (PUMP UNIT) itself; there is no separate template choice or Start report button, the component button starts it"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/A1/01_form_opened.png"
+   ],
+   "date": "2026-11-07T13:54:27.735Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "A2": {
+   "id": "A2",
+   "runner": "claude-code",
+   "title": "Starting again reopens the same Draft",
+   "checks": [
+    {
+     "label": "the same Draft opens",
+     "outcome": "ok",
+     "detail": "got 6, expected 6"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/A2/01_reopened.png"
+   ],
+   "date": "2026-11-07T13:54:35.829Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "A3": {
+   "id": "A3",
+   "runner": "claude-code",
+   "title": "Fill in Report 1 and check it is saved",
+   "checks": [
+    {
+     "label": "Maintenance Type shows Preventive (default)",
+     "outcome": "ok",
+     "detail": "got \"Preventive\", expected \"Preventive\""
+    },
+    {
+     "label": "Previous Engine Hours shows 0 (auto)",
+     "outcome": "ok",
+     "detail": "got \"0\", expected \"0\""
+    },
+    {
+     "label": "Engine Hours (This Report) shows 150 by itself",
+     "outcome": "ok",
+     "detail": "got \"150.0\", expected \"150.0\""
+    },
+    {
+     "label": "Date Observed shows today",
+     "outcome": "ok",
+     "detail": "got \"2026-11-07\", expected \"2026-11-07\""
+    },
+    {
+     "label": "Closure Status shows Pending",
+     "outcome": "ok",
+     "detail": "got \"Pending\", expected \"Pending\""
+    },
+    {
+     "label": "Severity shows Minor",
+     "outcome": "ok",
+     "detail": "got \"Minor\", expected \"Minor\""
+    },
+    {
+     "label": "photo added with the + under Attachments",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "A3 data: Distance Travelled Post-Job (KM) 300",
+     "outcome": "MATRIX",
+     "detail": "on a PRE-JOB report the Distance Travelled step offers only \"Distance Travelled Pre-Job (KM)\". The run entered 300 there; the KM trigger uses Post-Job, else Pre-Job, so E4's KM total is unaffected."
+    },
+    {
+     "label": "Compliance Stage kept",
+     "outcome": "ok",
+     "detail": "got \"PRE-JOB\", expected \"PRE-JOB\""
+    },
+    {
+     "label": "Maintenance Type kept",
+     "outcome": "ok",
+     "detail": "got \"Preventive\", expected \"Preventive\""
+    },
+    {
+     "label": "Checklist ID kept",
+     "outcome": "ok",
+     "detail": "got \"PMC-2026-0101\", expected \"PMC-2026-0101\""
+    },
+    {
+     "label": "Client kept",
+     "outcome": "ok",
+     "detail": "got \"Test Client\", expected \"Test Client\""
+    },
+    {
+     "label": "Location kept",
+     "outcome": "ok",
+     "detail": "got \"Test Well TW-21\", expected \"Test Well TW-21\""
+    },
+    {
+     "label": "Engine Hours (This Report) kept",
+     "outcome": "ok",
+     "detail": "got \"150.0\", expected \"150.0\""
+    },
+    {
+     "label": "Fail, issue, action, today, Pending, Minor kept",
+     "outcome": "ok",
+     "detail": "got [\"Fail\",\"Ladder rung paint worn, needs touch-up.\",\"Rungs sanded and repainted, touch-up coat to be re-checked at the next yard visit.\",\"2026-11-07\",\"Pending\",\"Minor\"], expected [\"Fail\",\"Ladder rung paint worn, needs touch-up.\",\"Rungs sanded and repainted, touch-up coat to be re-checked at the next yard visit.\",\"2026-11-07\",\"Pending\",\"Minor\"]"
+    },
+    {
+     "label": "photo thumbnail kept",
+     "outcome": "ok",
+     "detail": "1 image(s) in the row"
+    },
+    {
+     "label": "Distance Travelled kept",
+     "outcome": "ok",
+     "detail": "got \"300\", expected \"300\""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/A3/01_header_filled.png",
+    "e2e/screenshots/A3/02_checklist_fail_filled.png",
+    "e2e/screenshots/A3/03_mid_values.png",
+    "e2e/screenshots/A3/04_header_reopened.png",
+    "e2e/screenshots/A3/05_checklist_reopened.png"
+   ],
+   "date": "2026-11-07T13:54:42.841Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "A3a": {
+   "id": "A3a",
+   "runner": "claude-code+review",
+   "title": "Maintenance Type: Preventive / Breakdown, default and saving",
+   "checks": [
+    {
+     "label": "step 2: new Right draft shows Preventive",
+     "outcome": "ok",
+     "detail": "got \"Preventive\", expected \"Preventive\""
+    },
+    {
+     "label": "no red * on the Maintenance Type label",
+     "outcome": "ok",
+     "detail": "Maintenance Type"
+    },
+    {
+     "label": "choices are — Select —, Preventive, Breakdown (no Corrective)",
+     "outcome": "ok",
+     "detail": "got [\"— Select —\",\"Preventive\",\"Breakdown\"], expected [\"— Select —\",\"Preventive\",\"Breakdown\"]"
+    },
+    {
+     "label": "cannot type your own value (a fixed list, not a text box)",
+     "outcome": "ok",
+     "detail": "SELECT"
+    },
+    {
+     "label": "step 3: Breakdown kept after Next / Previous",
+     "outcome": "ok",
+     "detail": "got \"Breakdown\", expected \"Breakdown\""
+    },
+    {
+     "label": "step 3: Breakdown kept after reopening",
+     "outcome": "ok",
+     "detail": "got \"Breakdown\", expected \"Breakdown\""
+    },
+    {
+     "label": "step 4: Preventive kept after reopening",
+     "outcome": "ok",
+     "detail": "got \"Preventive\", expected \"Preventive\""
+    },
+    {
+     "label": "step 5: deliberate blank stays blank after reopening",
+     "outcome": "ok",
+     "detail": "got \"— Select —\", expected \"— Select —\""
+    },
+    {
+     "label": "step 5: red list does not mention Maintenance Type",
+     "outcome": "ok",
+     "detail": "Footer — \"Operator Date\" is required / Footer — \"Supervisor\" is required / Footer — \"Supervisor Date\" is required / Header — \"Compliance Stage\" is required"
+    },
+    {
+     "label": "step 5: details box shows Maintenance type —",
+     "outcome": "ok",
+     "detail": "got \"—\", expected \"—\""
+    },
+    {
+     "label": "step 6: details box shows Maintenance type Preventive",
+     "outcome": "ok",
+     "detail": "got \"Preventive\", expected \"Preventive\""
+    },
+    {
+     "label": "look and PDF preview",
+     "outcome": "review",
+     "detail": "screens saved for Jess (PDF preview not opened by the run)"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/A3a/01_step2_default.png",
+    "e2e/screenshots/A3a/02_step3_breakdown.png",
+    "e2e/screenshots/A3a/03_step5_review_blank.png",
+    "e2e/screenshots/A3a/04_step6_review_preventive.png"
+   ],
+   "date": "2026-11-07T14:38:06.405Z",
+   "error": null,
+   "status": "Needs review"
+  },
+  "A4": {
+   "id": "A4",
+   "runner": "claude-code",
+   "title": "Compliance Stage is required",
+   "checks": [
+    {
+     "label": "Submit refused: list says Compliance Stage is required, Submit disabled",
+     "outcome": "ok",
+     "detail": "Footer — \"Operator Date\" is required / Footer — \"Supervisor\" is required / Footer — \"Supervisor Date\" is required / Header — \"Compliance Stage\" is required"
+    },
+    {
+     "label": "after setting PRE-JOB the Compliance Stage refusal no longer applies",
+     "outcome": "ok",
+     "detail": "Footer — \"Operator Date\" is required / Footer — \"Supervisor\" is required / Footer — \"Supervisor Date\" is required"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/A4/01_compliance_blank.png",
+    "e2e/screenshots/A4/02_compliance_restored.png"
+   ],
+   "date": "2026-11-07T14:39:15.043Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "A5": {
+   "id": "A5",
+   "runner": "claude-code",
+   "title": "Checklist ID is required for a Pre-Job report",
+   "checks": [
+    {
+     "label": "refused: Pre-Mobilization Checklist ID required for Pre-Mob / Pre-Job (from the JSR)",
+     "outcome": "ok",
+     "detail": "Footer — \"Operator Date\" is required / Footer — \"Supervisor\" is required / Footer — \"Supervisor Date\" is required / Header — \"Pre-Mobilization Checklist ID\" is required for a Pre-Mob or Pre-Job report (from the Job Service Report)"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/A5/01_checklist_id_blank.png"
+   ],
+   "date": "2026-11-07T13:56:47.658Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "A6": {
+   "id": "A6",
+   "runner": "claude-code",
+   "title": "A Fail must have an issue description",
+   "checks": [
+    {
+     "label": "Submit refused: the Fail has no issue details",
+     "outcome": "ok",
+     "detail": "Footer — \"Operator Date\" is required / Footer — \"Supervisor\" is required / Footer — \"Supervisor Date\" is required / Checklist — \"Access Ladders & Handrails\" is marked Fail but has no issue details"
+    },
+    {
+     "label": "after restoring the text the refusal no longer applies",
+     "outcome": "ok",
+     "detail": "Footer — \"Operator Date\" is required / Footer — \"Supervisor\" is required / Footer — \"Supervisor Date\" is required"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/A6/01_no_issue_details.png"
+   ],
+   "date": "2026-11-07T13:57:06.752Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "A6a": {
+   "id": "A6a",
+   "runner": "claude-code",
+   "title": "Action Taken is needed before an item can be closed",
+   "checks": [
+    {
+     "label": "step 2 refused",
+     "outcome": "ok",
+     "detail": "Cannot close this item Cannot close: Action Taken is blank. Closure Status reset to Pending. OK"
+    },
+    {
+     "label": "A6a expects the text \"Add an action taken entry before closing this item\"",
+     "outcome": "MATRIX",
+     "detail": "the screen shows \"Cannot close this item Cannot close: Action Taken is blank. Closure Status reset to Pending. OK\" (A6e's wording); the quoted text is the server message"
+    },
+    {
+     "label": "Closure Status stays Pending",
+     "outcome": "ok",
+     "detail": "got \"Pending\", expected \"Pending\""
+    },
+    {
+     "label": "after step 3 the text is saved and the item is still Pending",
+     "outcome": "ok",
+     "detail": "got [\"Rungs sanded and repainted, touch-up coat to be re-checked at the next yard visit.\",\"Pending\"], expected [\"Rungs sanded and repainted, touch-up coat to be re-checked at the next yard visit.\",\"Pending\"]"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/A6a/01_closed_refused.png"
+   ],
+   "date": "2026-11-07T13:57:41.700Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "A6d": {
+   "id": "A6d",
+   "runner": "claude-code",
+   "title": "A Fail must also have an Action Taken before Submit",
+   "checks": [
+    {
+     "label": "Submit refused (disabled)",
+     "outcome": "ok",
+     "detail": "Submit Report (4 issues)"
+    },
+    {
+     "label": "list says Access Ladders & Handrails is marked Fail but has no action taken",
+     "outcome": "ok",
+     "detail": "Footer — \"Operator Date\" is required / Footer — \"Supervisor\" is required / Footer — \"Supervisor Date\" is required / Checklist — \"Access Ladders & Handrails\" is marked Fail but has no action taken"
+    },
+    {
+     "label": "after restoring the text the refusal no longer applies",
+     "outcome": "ok",
+     "detail": "Footer — \"Operator Date\" is required / Footer — \"Supervisor\" is required / Footer — \"Supervisor Date\" is required"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/A6d/01_no_action_taken.png"
+   ],
+   "date": "2026-11-07T13:57:52.846Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "A6e": {
+   "id": "A6e",
+   "runner": "claude-code",
+   "title": "A Fail cannot be Closed with blank Issue Details or Action Taken",
+   "checks": [
+    {
+     "label": "step 1: popup Issue Details and Action Taken are both blank",
+     "outcome": "ok",
+     "detail": "Cannot close this item Cannot close: Issue Details and Action Taken are both blank. Closure Status reset to Pending. OK"
+    },
+    {
+     "label": "step 1: dropdown back to Pending",
+     "outcome": "ok",
+     "detail": "got \"Pending\", expected \"Pending\""
+    },
+    {
+     "label": "step 2: popup says Issue Details is blank",
+     "outcome": "ok",
+     "detail": "Cannot close this item Cannot close: Issue Details is blank. Closure Status reset to Pending. OK"
+    },
+    {
+     "label": "step 2: dropdown back to Pending",
+     "outcome": "ok",
+     "detail": "got \"Pending\", expected \"Pending\""
+    },
+    {
+     "label": "step 3: popup says Action Taken is blank",
+     "outcome": "ok",
+     "detail": "Cannot close this item Cannot close: Action Taken is blank. Closure Status reset to Pending. OK"
+    },
+    {
+     "label": "step 3: dropdown back to Pending",
+     "outcome": "ok",
+     "detail": "got \"Pending\", expected \"Pending\""
+    },
+    {
+     "label": "step 4: Closed accepted with both filled",
+     "outcome": "ok",
+     "detail": "Closed"
+    },
+    {
+     "label": "step 4: clearing a box puts Closure Status back to Pending",
+     "outcome": "ok",
+     "detail": "got \"Pending\", expected \"Pending\""
+    },
+    {
+     "label": "restored: both texts, Pending",
+     "outcome": "ok",
+     "detail": "got [\"Ladder rung paint worn, needs touch-up.\",\"Rungs sanded and repainted, touch-up coat to be re-checked at the next yard visit.\",\"Pending\"], expected [\"Ladder rung paint worn, needs touch-up.\",\"Rungs sanded and repainted, touch-up coat to be re-checked at the next yard visit.\",\"Pending\"]"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/A6e/01_step1_popup.png",
+    "e2e/screenshots/A6e/02_step4_closed.png"
+   ],
+   "date": "2026-11-07T13:58:16.136Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "A6b": {
+   "id": "A6b",
+   "runner": "claude-code",
+   "title": "Date Observed, Severity and Closure Status on a Fail",
+   "checks": [
+    {
+     "label": "Date Observed keeps yesterday after reopening",
+     "outcome": "ok",
+     "detail": "got \"2026-11-06\", expected \"2026-11-06\""
+    },
+    {
+     "label": "back to today",
+     "outcome": "ok",
+     "detail": "got \"2026-11-07\", expected \"2026-11-07\""
+    },
+    {
+     "label": "Moderate - Required Action panel appears",
+     "outcome": "ok",
+     "detail": "Moderate — Required Action Early-stage abnormality. Plan rectification and monitor closely. Reviewed by Operations Coordinator / Maintenance Supervisor — may reclassify. Maintenance Manager/FSM inform"
+    },
+    {
+     "label": "Repaired on site tick box shows",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Closure Status list disabled for the Operator",
+     "outcome": "ok",
+     "detail": "Moderate faults require Maintenance Supervisor (or higher) review authority to close"
+    },
+    {
+     "label": "hover text: Moderate faults require Maintenance Supervisor review authority to close",
+     "outcome": "ok",
+     "detail": "Moderate faults require Maintenance Supervisor (or higher) review authority to close"
+    },
+    {
+     "label": "Closed cannot be chosen; stays Pending",
+     "outcome": "ok",
+     "detail": "disabled"
+    },
+    {
+     "label": "at Minor the Moderate panel and the Repaired on site tick box go away",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Minor panel",
+     "outcome": "info",
+     "detail": "at Minor the app shows its own \"Minor — Required Action\" panel (no approval required)"
+    },
+    {
+     "label": "Closure Status available again",
+     "outcome": "ok",
+     "detail": "got false, expected false"
+    },
+    {
+     "label": "nothing left changed from A3",
+     "outcome": "ok",
+     "detail": "got [\"Fail\",\"Ladder rung paint worn, needs touch-up.\",\"Rungs sanded and repainted, touch-up coat to be re-checked at the next yard visit.\",\"2026-11-07\",\"Pending\",\"Minor\"], expected [\"Fail\",\"Ladder rung paint worn, needs touch-up.\",\"Rungs sanded and repainted, touch-up coat to be re-checked at the next yard visit.\",\"2026-11-07\",\"Pending\",\"Minor\"]"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/A6b/01_moderate_panel.png"
+   ],
+   "date": "2026-11-07T13:58:38.545Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "A6c": {
+   "id": "A6c",
+   "runner": "claude-code",
+   "title": "Attachments on a Fail",
+   "checks": [
+    {
+     "label": "PDF shows as a small thumbnail next to the photo",
+     "outcome": "ok",
+     "detail": "photo.png, page.pdf"
+    },
+    {
+     "label": "too large refused with File is too large (max 5MB), nothing added",
+     "outcome": "ok",
+     "detail": "images 2 -> 2"
+    },
+    {
+     "label": "photo opens in a larger view",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "larger view closes again",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "only the PDF removed, the photo stays",
+     "outcome": "ok",
+     "detail": "removed=true, left: photo.png"
+    },
+    {
+     "label": "after reopening only the photo is attached",
+     "outcome": "ok",
+     "detail": "got [\"photo.png\"], expected [\"photo.png\"]"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/A6c/01_pdf_added.png",
+    "e2e/screenshots/A6c/02_too_large.png",
+    "e2e/screenshots/A6c/03_photo_large_view.png"
+   ],
+   "date": "2026-11-07T13:58:51.107Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "A7": {
+   "id": "A7",
+   "runner": "claude-code+review",
+   "title": "Submit Report 1",
+   "checks": [
+    {
+     "label": "Compliance Stage is PRE-JOB",
+     "outcome": "ok",
+     "detail": "got \"PRE-JOB\", expected \"PRE-JOB\""
+    },
+    {
+     "label": "Checklist ID is PMC-2026-0101",
+     "outcome": "ok",
+     "detail": "got \"PMC-2026-0101\", expected \"PMC-2026-0101\""
+    },
+    {
+     "label": "step 2 refused: Footer - Operator Date, Supervisor, Supervisor Date required; Submit disabled",
+     "outcome": "ok",
+     "detail": "Footer — \"Operator Date\" is required / Footer — \"Supervisor\" is required / Footer — \"Supervisor Date\" is required"
+    },
+    {
+     "label": "Operator fills itself in",
+     "outcome": "ok",
+     "detail": "got \"Suganya Rajendran\", expected \"Suganya Rajendran\""
+    },
+    {
+     "label": "no issues left",
+     "outcome": "ok",
+     "detail": "got [], expected []"
+    },
+    {
+     "label": "Review shows the Remarks text",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "details box: Maintenance type",
+     "outcome": "ok",
+     "detail": "got \"Preventive\", expected \"Preventive\""
+    },
+    {
+     "label": "details box: Job number",
+     "outcome": "ok",
+     "detail": "got \"—\", expected \"—\""
+    },
+    {
+     "label": "details box: Pre-mobilization checklist ID",
+     "outcome": "ok",
+     "detail": "got \"PMC-2026-0101\", expected \"PMC-2026-0101\""
+    },
+    {
+     "label": "details box: Engine hours (this report)",
+     "outcome": "ok",
+     "detail": "got \"150.0\", expected \"150.0\""
+    },
+    {
+     "label": "step 3: submitted",
+     "outcome": "ok",
+     "detail": "Submit Report"
+    },
+    {
+     "label": "Review layout, five ticked boxes, PDF",
+     "outcome": "review",
+     "detail": "screens saved for Jess"
+    },
+    {
+     "label": "status Submitted and unit tag unchanged",
+     "outcome": "info",
+     "detail": "stored values checked in Phase 1 (A7 ok); A8 confirms Submitted on screen"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/A7/01_empty_footer_review.png",
+    "e2e/screenshots/A7/02_footer_filled.png",
+    "e2e/screenshots/A7/03_review_before_submit.png"
+   ],
+   "date": "2026-11-07T13:59:06.879Z",
+   "error": null,
+   "status": "Needs review"
+  },
+  "A8": {
+   "id": "A8",
+   "runner": "claude-code",
+   "title": "No new report while Report 1 is Submitted",
+   "checks": [
+    {
+     "label": "Left is offered as blocked (Submitted)",
+     "outcome": "ok",
+     "detail": "LeftReport #6 is Submitted — close it first\nRightContinue draft (#7)"
+    },
+    {
+     "label": "refused: Left cannot be started while Report 1 is Submitted (close it first)",
+     "outcome": "ok",
+     "detail": "LeftReport #6 is Submitted — close it first"
+    },
+    {
+     "label": "wording",
+     "outcome": "info",
+     "detail": "the screen says \"LeftReport #6 is Submitted — close it first\"; the matrix expects \"still Submitted and must be endorsed and closed first\" (the server message)"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/A8/01_component_choice.png",
+    "e2e/screenshots/A8/02_refused.png"
+   ],
+   "date": "2026-11-07T13:59:30.756Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "A9": {
+   "id": "A9",
+   "runner": "claude-code",
+   "title": "A submitted report cannot be edited by the Operator",
+   "checks": [
+    {
+     "label": "report opens on Review & Submit",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Review says This report is locked and read-only",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "all header fields read-only",
+     "outcome": "ok",
+     "detail": "15/15 disabled"
+    },
+    {
+     "label": "Location stays Test Well TW-21",
+     "outcome": "ok",
+     "detail": "got \"Test Well TW-21\", expected \"Test Well TW-21\""
+    },
+    {
+     "label": "Maintenance Type stays Preventive",
+     "outcome": "ok",
+     "detail": "got \"Preventive\", expected \"Preventive\""
+    },
+    {
+     "label": "no Endorse, Close or decision control",
+     "outcome": "ok",
+     "detail": "← Back to main menu, ← Back, Show flow, ← Previous, Next →"
+    },
+    {
+     "label": "Date Observed, Severity, Closure and the photo are shown",
+     "outcome": "ok",
+     "detail": "[\"2026-11-07\",\"Minor\",\"Pending\",1]"
+    },
+    {
+     "label": "+ and × on Attachments not offered",
+     "outcome": "ok",
+     "detail": "got 0, expected 0"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/A9/01_attention_tab.png",
+    "e2e/screenshots/A9/02_my_reports.png",
+    "e2e/screenshots/A9/03_review_locked.png",
+    "e2e/screenshots/A9/04_header_locked.png",
+    "e2e/screenshots/A9/05_checklist_locked.png"
+   ],
+   "date": "2026-11-07T13:59:37.717Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "A10": {
+   "id": "A10",
+   "runner": "claude-code",
+   "title": "Pre-Mob report needs the Checklist ID",
+   "checks": [
+    {
+     "label": "every item starts as Pass (required items assessed)",
+     "outcome": "ok",
+     "detail": "got 0, expected 0"
+    },
+    {
+     "label": "step 4: red list shows the Checklist ID as required for Pre-Mob; Submit disabled",
+     "outcome": "ok",
+     "detail": "Header — \"Pre-Mobilization Checklist ID\" is required for a Pre-Mob or Pre-Job report (from the Job Service Report)"
+    },
+    {
+     "label": "nothing else in the red list",
+     "outcome": "ok",
+     "detail": "Header — \"Pre-Mobilization Checklist ID\" is required for a Pre-Mob or Pre-Job report (from the Job Service Report)"
+    },
+    {
+     "label": "step 5: list empty",
+     "outcome": "ok",
+     "detail": "got [], expected []"
+    },
+    {
+     "label": "details: Pre-mobilization checklist ID",
+     "outcome": "ok",
+     "detail": "got \"PMC-2026-0087\", expected \"PMC-2026-0087\""
+    },
+    {
+     "label": "details: Job number",
+     "outcome": "ok",
+     "detail": "got \"—\", expected \"—\""
+    },
+    {
+     "label": "Submit works",
+     "outcome": "ok",
+     "detail": "Submit Report"
+    },
+    {
+     "label": "Select Asset shows ASSET1 as Submitted – pending closure",
+     "outcome": "ok",
+     "detail": "ASSET1 CTU COILED TUBING UNIT PAKISTAN 0/700 0/1000 0/300 0/1400 0/2000 0/600 Submitted — pending closure"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/A10/01_step4_review.png",
+    "e2e/screenshots/A10/02_step5_review.png",
+    "e2e/screenshots/A10/03_select_asset_after.png"
+   ],
+   "date": "2026-11-07T13:59:56.161Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "B1": {
+   "id": "B1",
+   "runner": "claude-code",
+   "title": "Who sees what on a Submitted report",
+   "checks": [
+    {
+     "label": "Suganya has no Close or Endorse control",
+     "outcome": "ok",
+     "detail": "← Back to main menu, ← Back, Show flow, Print / Export PDF, ← Previous, Already submitted"
+    },
+    {
+     "label": "ASSET2 Report 1 card \"Awaiting endorsement\" with Endorse",
+     "outcome": "ok",
+     "detail": "ASSET2 Awaiting endorsement PUMPING UNIT Report #6 1 issue Suganya Rajendran 7 Nov 2026, 5:59 PM"
+    },
+    {
+     "label": "ASSET1 Pre-Mob card \"Awaiting endorsement\" with Endorse",
+     "outcome": "ok",
+     "detail": "ASSET1 Awaiting endorsement CTU Report #8 0 issues Suganya Rajendran 7 Nov 2026, 6:00 PM"
+    },
+    {
+     "label": "pressing Endorse on ASSET2 opens the MR-I report",
+     "outcome": "ok",
+     "detail": ""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/B1/01_suganya_view.png",
+    "e2e/screenshots/B1/02_reports_to_review.png",
+    "e2e/screenshots/B1/03_report_opened.png"
+   ],
+   "date": "2026-11-07T14:00:46.131Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "B2": {
+   "id": "B2",
+   "runner": "claude-code",
+   "title": "Endorse is not offered on a Minor-only report",
+   "checks": [
+    {
+     "label": "Next step bar says close and approve, with Close & Approve Report",
+     "outcome": "ok",
+     "detail": "Next step: close and approve"
+    },
+    {
+     "label": "Endorse Report not shown",
+     "outcome": "ok",
+     "detail": ""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/B2/01_next_step_bar.png"
+   ],
+   "date": "2026-11-07T14:01:01.912Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "B3": {
+   "id": "B3",
+   "runner": "claude-code",
+   "title": "Close & Approve Report 1",
+   "checks": [
+    {
+     "label": "report leaves Reports to Review (closed)",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "ASSET2 Left is free again (report no longer pending)",
+     "outcome": "ok",
+     "detail": "LeftStart new report"
+    },
+    {
+     "label": "ASSET2 status dot on Select asset",
+     "outcome": "info",
+     "detail": "Has pending issue"
+    },
+    {
+     "label": "status Approved, unit untagged, Minor fault stays Pending",
+     "outcome": "info",
+     "detail": "stored values checked in Phase 1 (B3 ok); the carry-forward is seen on screen in B5"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/B3/01_after_close.png",
+    "e2e/screenshots/B3/02_asset2_free.png"
+   ],
+   "date": "2026-11-07T14:01:02.043Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "B4": {
+   "id": "B4",
+   "runner": "claude-code",
+   "title": "Close & Approve the ASSET1 Pre-Mob report",
+   "checks": [
+    {
+     "label": "Close & Approve offered",
+     "outcome": "ok",
+     "detail": "Next step: close and approve"
+    },
+    {
+     "label": "ASSET1 report closed (left the queue)",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "status Approved, ASSET1 untagged",
+     "outcome": "info",
+     "detail": "stored values checked in Phase 1 (B4 ok)"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/B4/01_after_close.png"
+   ],
+   "date": "2026-11-07T14:01:09.533Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "B5": {
+   "id": "B5",
+   "runner": "claude-code",
+   "title": "Create and submit Report 2 with five Moderate faults",
+   "checks": [
+    {
+     "label": "Report 2 number in the app",
+     "outcome": "info",
+     "detail": "#9"
+    },
+    {
+     "label": "Previous Engine Hours 150 (auto)",
+     "outcome": "ok",
+     "detail": "got \"150\", expected \"150\""
+    },
+    {
+     "label": "Engine Hours (This Report) 70",
+     "outcome": "ok",
+     "detail": "got \"70.0\", expected \"70.0\""
+    },
+    {
+     "label": "Access Ladders & Handrails already Fail with Report 1 text, greyed out",
+     "outcome": "ok",
+     "detail": "[\"Fail\",\"Ladder rung paint worn, needs touch-up.\",true]"
+    },
+    {
+     "label": "Air Filter: Fail / Moderate / Pending",
+     "outcome": "ok",
+     "detail": "[\"Fail\",\"Moderate\",\"Pending\"]"
+    },
+    {
+     "label": "Agitator: Fail / Moderate / Pending",
+     "outcome": "ok",
+     "detail": "[\"Fail\",\"Moderate\",\"Pending\"]"
+    },
+    {
+     "label": "Actuators on Control Panel: Fail / Moderate / Pending",
+     "outcome": "ok",
+     "detail": "[\"Fail\",\"Moderate\",\"Pending\"]"
+    },
+    {
+     "label": "Breather: Fail / Moderate / Pending",
+     "outcome": "ok",
+     "detail": "[\"Fail\",\"Moderate\",\"Pending\"]"
+    },
+    {
+     "label": "Brass Bushing Condition Within Tolerance Limits: Fail / Moderate / Pending",
+     "outcome": "ok",
+     "detail": "[\"Fail\",\"Moderate\",\"Pending\"]"
+    },
+    {
+     "label": "after adding Action taken Suganya can set Access Ladders & Handrails to Closed",
+     "outcome": "ok",
+     "detail": "Closed"
+    },
+    {
+     "label": "Air Filter Closed refused for the Operator (list disabled)",
+     "outcome": "ok",
+     "detail": "disabled / Moderate faults require Maintenance Supervisor (or higher) review authority to close"
+    },
+    {
+     "label": "Green Tagged greyed out (report has Moderate faults)",
+     "outcome": "ok",
+     "detail": "Set automatically once the Moderate/Critical fault on this report is reviewed — not hand-editable"
+    },
+    {
+     "label": "Job Ready greyed out (report has Moderate faults)",
+     "outcome": "ok",
+     "detail": "Set automatically once the Moderate/Critical fault on this report is reviewed — not hand-editable"
+    },
+    {
+     "label": "no issues before submit",
+     "outcome": "ok",
+     "detail": "got [], expected []"
+    },
+    {
+     "label": "Status Submitted",
+     "outcome": "ok",
+     "detail": "Submit Report"
+    },
+    {
+     "label": "Air Filter: Action Taken read-only with date, time and Suganya Rajendran",
+     "outcome": "ok",
+     "detail": "Air Filter * Pass Fail 2026-11-07 18:01:37 by Suganya Rajendran: Filter element removed and cleaned, replacement element ordered. Pending — Minor Moderate Major"
+    },
+    {
+     "label": "Air Filter: date observed",
+     "outcome": "ok",
+     "detail": "got \"2026-11-07\", expected \"2026-11-07\""
+    },
+    {
+     "label": "Air Filter: photo",
+     "outcome": "ok",
+     "detail": "got 1, expected 1"
+    },
+    {
+     "label": "Agitator: Action Taken read-only with date, time and Suganya Rajendran",
+     "outcome": "ok",
+     "detail": "Agitator * Pass Fail 2026-11-07 18:01:42 by Suganya Rajendran: Shaft lubricated, still stiff; bearing and seal inspection requested. Pending — Minor Moderate Ma"
+    },
+    {
+     "label": "Agitator: date observed",
+     "outcome": "ok",
+     "detail": "got \"2026-11-07\", expected \"2026-11-07\""
+    },
+    {
+     "label": "Agitator: photo",
+     "outcome": "ok",
+     "detail": "got 0, expected 0"
+    },
+    {
+     "label": "Actuators on Control Panel: Action Taken read-only with date, time and Suganya Rajendran",
+     "outcome": "ok",
+     "detail": "Actuators on Control Panel * Pass Fail 2026-11-07 18:01:45 by Suganya Rajendran: Linkage cleaned and greased, response still slow. Pending — Minor Moderate Majo"
+    },
+    {
+     "label": "Actuators on Control Panel: date observed",
+     "outcome": "ok",
+     "detail": "got \"2026-11-06\", expected \"2026-11-06\""
+    },
+    {
+     "label": "Actuators on Control Panel: photo",
+     "outcome": "ok",
+     "detail": "got 0, expected 0"
+    },
+    {
+     "label": "Breather: Action Taken read-only with date, time and Suganya Rajendran",
+     "outcome": "ok",
+     "detail": "Breather * Pass Fail 2026-11-07 18:01:49 by Suganya Rajendran: Temporary cap fitted, correct breather cap ordered. Pending — Minor Moderate Major / Critical"
+    },
+    {
+     "label": "Breather: date observed",
+     "outcome": "ok",
+     "detail": "got \"2026-11-07\", expected \"2026-11-07\""
+    },
+    {
+     "label": "Breather: photo",
+     "outcome": "ok",
+     "detail": "got 1, expected 1"
+    },
+    {
+     "label": "Brass Bushing Condition Within Tolerance Limits: Action Taken read-only with date, time and Suganya Rajendran",
+     "outcome": "ok",
+     "detail": "Brass Bushing Condition Within Tolerance Limits * Pass Fail 2026-11-07 18:01:53 by Suganya Rajendran: Measured and recorded as within the wear limit; to be moni"
+    },
+    {
+     "label": "Brass Bushing Condition Within Tolerance Limits: date observed",
+     "outcome": "ok",
+     "detail": "got \"2026-11-05\", expected \"2026-11-05\""
+    },
+    {
+     "label": "Brass Bushing Condition Within Tolerance Limits: photo",
+     "outcome": "ok",
+     "detail": "got 0, expected 0"
+    },
+    {
+     "label": "unit stays untagged",
+     "outcome": "info",
+     "detail": "stored value checked in Phase 1 (B5 ok)"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/B5/01_header.png",
+    "e2e/screenshots/B5/02_carried_forward.png",
+    "e2e/screenshots/B5/03_fails_entered.png",
+    "e2e/screenshots/B5/04_footer.png",
+    "e2e/screenshots/B5/05_submitted_checklist.png"
+   ],
+   "date": "2026-11-07T14:01:18.354Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "B6": {
+   "id": "B6",
+   "runner": "claude-code",
+   "title": "Moderate faults cannot be closed directly",
+   "checks": [
+    {
+     "label": "Next step bar says endorse this report, with Endorse Report",
+     "outcome": "ok",
+     "detail": "Next step: endorse this report"
+    },
+    {
+     "label": "Close & Approve not offered",
+     "outcome": "ok",
+     "detail": ""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/B6/01_next_step_bar.png"
+   ],
+   "date": "2026-11-07T14:02:26.294Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "B7": {
+   "id": "B7",
+   "runner": "claude-code",
+   "title": "Endorse needs a named reviewer",
+   "checks": [
+    {
+     "label": "step 1: Confirm & Endorse greyed out; window says select who first",
+     "outcome": "ok",
+     "detail": "Escalate to Pick the Maintenance Supervisor or FSM this report's Moderate fault(s) will be escalated to for review. Maintenance Supervisor / FSM Select who this is for… Disantha Perera (Maintenance Su"
+    },
+    {
+     "label": "hover on the button says the same",
+     "outcome": "ok",
+     "detail": "Select a Maintenance Supervisor / FSM first"
+    },
+    {
+     "label": "list has reviewers (Disantha, Jan-Albert, Kamil)",
+     "outcome": "ok",
+     "detail": "Select who this is for… | Disantha Perera (Maintenance Supervisor) | Jan-Albert Victorino (Operations Coordinator) | Kamil Shahzad (Maintenance Manager / FSM)"
+    },
+    {
+     "label": "Administrator, Operator, Data Miner not listed",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "screen after endorse",
+     "outcome": "info",
+     "detail": "← Back to main menu / Abdulla Qais | Job Supervisor (Tier 2) / ← Back / Show flow / ASSET2 · Left — MR-I / Report #9 / Parent asset ASSET2 / Component Left / Template PUMP UNIT"
+    },
+    {
+     "label": "status Escalated, five Pending approvals assigned to Disantha",
+     "outcome": "info",
+     "detail": "stored values checked in Phase 1 (B7 ok); C1 sees them in Disantha's Pending Approvals"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/B7/01_escalate_window.png",
+    "e2e/screenshots/B7/02_after_endorse.png"
+   ],
+   "date": "2026-11-07T14:02:36.893Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "B8": {
+   "id": "B8",
+   "runner": "claude-code",
+   "title": "Closing is not offered while decisions are pending",
+   "checks": [
+    {
+     "label": "step 1: ASSET2 report not waiting for Abdulla (no Attention Required tab)",
+     "outcome": "ok",
+     "detail": "tab absent"
+    },
+    {
+     "label": "step 2: no new report; says the Left report is still Escalated and must be closed first",
+     "outcome": "ok",
+     "detail": "LeftReport #9 is Escalated — close it first"
+    },
+    {
+     "label": "step 3 (optional read-only view)",
+     "outcome": "info",
+     "detail": "not run"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/B8/01_step1.png",
+    "e2e/screenshots/B8/02_step2.png"
+   ],
+   "date": "2026-11-07T14:02:41.891Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "C1": {
+   "id": "C1",
+   "runner": "claude-code",
+   "title": "Approve a Moderate fault",
+   "checks": [
+    {
+     "label": "Air Filter card shows Issue and Action Taken from B5",
+     "outcome": "ok",
+     "detail": "Air Filter Moderate ASSET2 Report #9 Reported 07/Nov/2026 ISSUE Air filter element clogged, restriction indicator in the red. ACTION TAKEN Filter element removed and cleaned, replacement element order"
+    },
+    {
+     "label": "Review Method defaults to In-Person and offers In-Person and Phone",
+     "outcome": "ok",
+     "detail": "{\"tag\":\"SELECT\",\"value\":\"In-Person\",\"options\":[\"In-Person\",\"Phone\"],\"disabled\":false}"
+    },
+    {
+     "label": "Approve, Reclassify, Reject, Carryforward greyed out until Notes has text",
+     "outcome": "ok",
+     "detail": "{\"Approve\":{\"disabled\":true,\"title\":\"Enter notes before recording a decision\"},\"Reclassify\":{\"disabled\":true,\"title\":\"Enter notes before recording a decision\"},\"Reject\":{\"disabled\":true,\"title\":\"Enter notes before recording a decision\"},\"Carryforward\":{\"disabled\":true,\"title\":\"Enter notes before recording a decision\"},\"Cancel\":{\"disabled\":false,\"title\":\"\"}}"
+    },
+    {
+     "label": "Inform default",
+     "outcome": "info",
+     "detail": "Anyone who can acknowledge"
+    },
+    {
+     "label": "buttons enabled once Notes has text",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "green message Approved — Air Filter on ASSET2",
+     "outcome": "ok",
+     "detail": "Approved — Air Filter on ASSET2"
+    },
+    {
+     "label": "Air Filter card leaves the list",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "decision log method In-Person, Planned follow-up created",
+     "outcome": "info",
+     "detail": "stored values checked in Phase 1 (C1); the Planned row is checked on screen in D1"
+    },
+    {
+     "label": "C1 \"The unit tag does not change\"",
+     "outcome": "MATRIX",
+     "detail": "the untagged unit becomes Green after the Moderate decision (Manual 8.1 / Table 3, see Phase 1); this is the expected app behaviour"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/C1/01_pending_approvals.png",
+    "e2e/screenshots/C1/02_review_dialog.png",
+    "e2e/screenshots/C1/03_after_approve.png"
+   ],
+   "date": "2026-11-07T14:02:47.044Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "C2": {
+   "id": "C2",
+   "runner": "claude-code",
+   "title": "Reject a Moderate fault",
+   "checks": [
+    {
+     "label": "C2 gives no Notes",
+     "outcome": "MATRIX",
+     "detail": "Notes are required by the app; the run typed \"Not a fault: actuator response within limits.\""
+    },
+    {
+     "label": "Rejected",
+     "outcome": "ok",
+     "detail": "Rejected — Actuators on Control Panel on ASSET2"
+    },
+    {
+     "label": "card leaves the list (item closed)",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "final severity Minor, no repair / follow-up row",
+     "outcome": "info",
+     "detail": "stored values checked in Phase 1 (C2 ok); D1 shows no Actuators row"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/C2/01_after_reject.png"
+   ],
+   "date": "2026-11-07T14:02:58.087Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "C3": {
+   "id": "C3",
+   "runner": "claude-code",
+   "title": "Reclassify always has a new severity",
+   "checks": [
+    {
+     "label": "Reclassify To starts on Minor and offers only Minor, Moderate, Major / Critical (no empty choice)",
+     "outcome": "ok",
+     "detail": "{\"tag\":\"SELECT\",\"value\":\"Minor\",\"options\":[\"Minor\",\"Moderate\",\"Major / Critical\"],\"disabled\":false}"
+    },
+    {
+     "label": "decision buttons greyed out while Notes is empty",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "window closes; Breather still in Pending Approvals, unchanged",
+     "outcome": "ok",
+     "detail": ""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/C3/01_reclassify_options.png"
+   ],
+   "date": "2026-11-07T14:03:01.124Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "C4": {
+   "id": "C4",
+   "runner": "claude-code",
+   "title": "Carry a Moderate fault forward",
+   "checks": [
+    {
+     "label": "C4 gives no Notes",
+     "outcome": "MATRIX",
+     "detail": "Notes are required by the app; the run typed \"Within wear limit; re-check at the next report.\""
+    },
+    {
+     "label": "decision saved",
+     "outcome": "ok",
+     "detail": "Carryforward — Brass Bushing Condition Within Tolerance Limits on ASSET2"
+    },
+    {
+     "label": "no repair, tag unchanged by this step",
+     "outcome": "info",
+     "detail": "stored values checked in Phase 1 (C4 ok)"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/C4/01_after_carryforward.png"
+   ],
+   "date": "2026-11-07T14:03:03.705Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "C5": {
+   "id": "C5",
+   "runner": "claude-code",
+   "title": "Raise a Moderate fault to Critical: only the FSM can receive it",
+   "checks": [
+    {
+     "label": "Agitator card: orange Moderate, assigned to Disantha Perera",
+     "outcome": "ok",
+     "detail": "Agitator Moderate ASSET2 Report #9 Reported 07/Nov/2026 ISSUE Agitator paddle shaft stiff, cannot confirm it turns freely. ACTION TAKEN Shaft lubricated, still "
+    },
+    {
+     "label": "Send Critical fault to (Maintenance Manager / FSM) list appears",
+     "outcome": "ok",
+     "detail": "Review Method | Reclassify To (if applicable) | Send Critical fault to (Maintenance Manager / FSM) — required when reclassifying to Major / Critical | Notes (required)"
+    },
+    {
+     "label": "step 3: only Kamil Shahzad offered",
+     "outcome": "ok",
+     "detail": "got [\"Kamil Shahzad\"], expected [\"Kamil Shahzad\"]"
+    },
+    {
+     "label": "Reclassify greyed out until Notes has text",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "error dialog: Cannot continue: Select the Maintenance Manager / FSM this Critical fault goes to.",
+     "outcome": "ok",
+     "detail": "Cannot continue Select the Maintenance Manager / FSM this Critical fault goes to. OK"
+    },
+    {
+     "label": "nothing else can be clicked or tabbed to (app inert)",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Tab keeps focus on OK",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Escape does not close it",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "OK closes it and focus returns to the Reclassify button",
+     "outcome": "ok",
+     "detail": "Reclassify"
+    },
+    {
+     "label": "step 5: green message",
+     "outcome": "ok",
+     "detail": "Reclassified — Agitator on ASSET2"
+    },
+    {
+     "label": "Agitator leaves Disantha's actionable list (may stay read-only waiting on Kamil)",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "ASSET2 status dot",
+     "outcome": "info",
+     "detail": "{\"title\":\"Has pending issue\",\"bg\":\"rgb(163, 45, 45)\",\"cls\":\"asset-status-dot\"}"
+    },
+    {
+     "label": "Kamil sees Agitator: red Critical, assigned to Kamil Shahzad",
+     "outcome": "ok",
+     "detail": "Agitator Critical ASSET2 Report #9 Reported 07/Nov/2026 ISSUE Agitator paddle shaft stiff, cannot confirm it turns freely. ACTION TAKEN Shaft lubricated, still "
+    },
+    {
+     "label": "ASSET2 Red, decision log Escalated",
+     "outcome": "info",
+     "detail": "stored values checked in Phase 1 (C5 ok)"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/C5/01_send_critical_list.png",
+    "e2e/screenshots/C5/02_error_dialog.png",
+    "e2e/screenshots/C5/03_after_reclassify.png",
+    "e2e/screenshots/C5/04_kamil_pending.png"
+   ],
+   "date": "2026-11-07T14:03:06.717Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "C6": {
+   "id": "C6",
+   "runner": "claude-code",
+   "title": "Raise a second Moderate fault to Critical",
+   "checks": [
+    {
+     "label": "Breather reclassified to Critical for Kamil",
+     "outcome": "ok",
+     "detail": "Reclassified — Breather on ASSET2"
+    },
+    {
+     "label": "Pending Critical assigned to Kamil, unit stays Red",
+     "outcome": "info",
+     "detail": "stored values checked in Phase 1 (C6 ok); C7 sees it as Kamil"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/C6/01_after.png"
+   ],
+   "date": "2026-11-07T14:03:29.157Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "C7": {
+   "id": "C7",
+   "runner": "claude-code",
+   "title": "Approve both Critical faults (after C5 and C6)",
+   "checks": [
+    {
+     "label": "top-right shows Kamil Shahzad | Maintenance Manager / FSM (Tier 3)",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "STOP CHECK Agitator: red Critical badge and Kamil Shahzad",
+     "outcome": "ok",
+     "detail": "Agitator Critical ASSET2 Report #9 Reported 07/Nov/2026 ISSUE Agitator paddle shaft stiff, cannot confirm it turns freely. ACTION TAKEN Shaf"
+    },
+    {
+     "label": "Agitator: Review Method In-Person",
+     "outcome": "ok",
+     "detail": "got \"In-Person\", expected \"In-Person\""
+    },
+    {
+     "label": "Agitator: Approve greyed out until Notes",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Agitator: green message Approved — Agitator on ASSET2",
+     "outcome": "ok",
+     "detail": "Approved — Agitator on ASSET2"
+    },
+    {
+     "label": "Agitator: card leaves Pending Approvals",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "STOP CHECK Breather: red Critical badge and Kamil Shahzad",
+     "outcome": "ok",
+     "detail": "Breather Critical ASSET2 Report #9 Reported 07/Nov/2026 ISSUE Breather cap missing, vent open to dust. ACTION TAKEN Temporary cap fitted, co"
+    },
+    {
+     "label": "Breather: Review Method In-Person",
+     "outcome": "ok",
+     "detail": "got \"In-Person\", expected \"In-Person\""
+    },
+    {
+     "label": "Breather: Approve greyed out until Notes",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Breather: green message Approved — Breather on ASSET2",
+     "outcome": "ok",
+     "detail": "Approved — Breather on ASSET2"
+    },
+    {
+     "label": "Breather: card leaves Pending Approvals",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "step 6: Rectification Queue has ASSET2 Agitator and Breather",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Air Filter also there as Planned",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "step 7: Green Tagged not ticked",
+     "outcome": "ok",
+     "detail": "{\"checked\":false,\"disabled\":true,\"title\":\"Set automatically once the Moderate/Critical fault on this report is reviewed — not hand-editable\"}"
+    },
+    {
+     "label": "report status still Escalated (Close Report offered, not done)",
+     "outcome": "ok",
+     "detail": "Next step: close the report"
+    },
+    {
+     "label": "two Red rows parts Awaiting no technician; decision log Approved by Kamil In-Person",
+     "outcome": "info",
+     "detail": "stored values checked in Phase 1 (C7 ok)"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/C7/01_after_approvals.png",
+    "e2e/screenshots/C7/02_rectification_queue.png",
+    "e2e/screenshots/C7/03_report_footer.png"
+   ],
+   "date": "2026-11-07T14:03:41.785Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "C8": {
+   "id": "C8",
+   "runner": "claude-code",
+   "title": "Close Report 2 while repairs are open",
+   "checks": [
+    {
+     "label": "ASSET2 card \"Resolved — awaiting close\"",
+     "outcome": "ok",
+     "detail": "ASSET2 Resolved — awaiting close PUMPING UNIT Report #9 6 issues Suganya Rajendran 7 Nov 2026, 6:02 PM"
+    },
+    {
+     "label": "two round icon buttons and no text buttons",
+     "outcome": "ok",
+     "detail": "[\"Show flow\",\"Close report #9\"]"
+    },
+    {
+     "label": "tooltips Show flow and Close report #N",
+     "outcome": "ok",
+     "detail": "Show flow, Close report #9"
+    },
+    {
+     "label": "step 3: report closed (left Reports to Review)",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Agitator and Breather still in the queue with the Red Tag icon (tooltip Red Tag)",
+     "outcome": "ok",
+     "detail": "[[\"Field team not yet informed of the equipment's limitations\",\"Red Tag\"],[\"Field team not yet informed of the equipment's limitations\",\"Red Tag\"]]"
+    },
+    {
+     "label": "Air Filter as a Moderate follow-up",
+     "outcome": "ok",
+     "detail": "Field team not yet informed of the equipment's limitations, Moderate — plan & monitor"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/C8/01_card.png",
+    "e2e/screenshots/C8/02_closed.png",
+    "e2e/screenshots/C8/03_rectification_queue.png"
+   ],
+   "date": "2026-11-07T14:04:08.368Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "C9": {
+   "id": "C9",
+   "runner": "claude-code",
+   "title": "Submit the first Critical report on ASSET1 (Critical and Moderate faults)",
+   "checks": [
+    {
+     "label": "Maintenance Type Preventive (default)",
+     "outcome": "ok",
+     "detail": "got \"Preventive\", expected \"Preventive\""
+    },
+    {
+     "label": "step 2: red list says Checklist ID required for Pre-Mob / Pre-Job; Submit disabled",
+     "outcome": "ok",
+     "detail": "Header — \"Pre-Mobilization Checklist ID\" is required for a Pre-Mob or Pre-Job report (from the Job Service Report)"
+    },
+    {
+     "label": "Ball Valves: severity Major / Critical (template default), Pending, today",
+     "outcome": "ok",
+     "detail": "[\"Major / Critical\",\"Pending\",\"2026-11-07\"]"
+    },
+    {
+     "label": "Agitator: severity Moderate (template default), Pending, today",
+     "outcome": "ok",
+     "detail": "[\"Moderate\",\"Pending\",\"2026-11-07\"]"
+    },
+    {
+     "label": "Status Submitted",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "ASSET1 status dot after submit",
+     "outcome": "info",
+     "detail": "{\"title\":\"Has pending issue\",\"bg\":\"rgb(163, 45, 45)\",\"cls\":\"asset-status-dot\"}"
+    },
+    {
+     "label": "ASSET1 Red at once, tag reason Critical fault reported (report #N)",
+     "outcome": "info",
+     "detail": "stored values checked in Phase 1 (C9 ok); tag history on screen in D10 / J2"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/C9/01_step2.png",
+    "e2e/screenshots/C9/02_fails.png"
+   ],
+   "date": "2026-11-07T14:04:29.260Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "C10": {
+   "id": "C10",
+   "runner": "claude-code",
+   "title": "Endorse picker for a report with a Critical fault",
+   "checks": [
+    {
+     "label": "only Kamil Shahzad listed",
+     "outcome": "ok",
+     "detail": "got [\"Kamil Shahzad\"], expected [\"Kamil Shahzad\"]"
+    },
+    {
+     "label": "endorsed (report left Awaiting endorsement)",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "status Escalated, two Pending assigned to Kamil",
+     "outcome": "info",
+     "detail": "stored values checked in Phase 1 (C10 ok); seen as Kamil in C10a / C11"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/C10/01_picker.png",
+    "e2e/screenshots/C10/02_after.png"
+   ],
+   "date": "2026-11-07T14:05:28.473Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "C10a": {
+   "id": "C10a",
+   "runner": "claude-code",
+   "title": "Show flow from Pending Approvals (before the decisions)",
+   "checks": [
+    {
+     "label": "flow of report #10 opens",
+     "outcome": "ok",
+     "detail": "← Back to main menu / Kamil Shahzad | Maintenance Manager / FSM (Tier 3) / ← Back / ASSET1 — Document flow / Report #10 · Escalated · select a box to see details and op"
+    },
+    {
+     "label": "Critical fault Decision box reads Pending",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "red border on the Critical fault box",
+     "outcome": "review",
+     "detail": "see screenshot"
+    },
+    {
+     "label": "Back returns to Pending Approvals",
+     "outcome": "ok",
+     "detail": ""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/C10a/01_flow.png"
+   ],
+   "date": "2026-11-07T14:05:42.437Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "C11": {
+   "id": "C11",
+   "runner": "claude-code",
+   "title": "A Critical fault cannot be carried forward or lowered to Minor",
+   "checks": [
+    {
+     "label": "Carryforward refused",
+     "outcome": "ok",
+     "detail": "Cannot continue A Critical fault cannot be carried forward; approve it (stays Red until repaired) or lower it to Moderate. OK"
+    },
+    {
+     "label": "Reclassify to Minor refused",
+     "outcome": "ok",
+     "detail": "Cannot continue A Critical fault can only be lowered to Moderate, not straight to Minor (Table 3). OK"
+    },
+    {
+     "label": "fault stays Pending",
+     "outcome": "ok",
+     "detail": ""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/C11/01_carryforward_refused.png",
+    "e2e/screenshots/C11/02_minor_refused.png"
+   ],
+   "date": "2026-11-07T14:05:55.662Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "C12": {
+   "id": "C12",
+   "runner": "claude-code",
+   "title": "Lower the Critical to Moderate",
+   "checks": [
+    {
+     "label": "Ball Valves reclassified to Moderate",
+     "outcome": "ok",
+     "detail": "Reclassified — Ball Valves on ASSET1"
+    },
+    {
+     "label": "Planned follow-up row, ASSET1 Green",
+     "outcome": "info",
+     "detail": "stored values checked in Phase 1 (C12 ok); queue on screen in D1"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/C12/01_after.png"
+   ],
+   "date": "2026-11-07T14:06:08.336Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "C13": {
+   "id": "C13",
+   "runner": "claude-code",
+   "title": "Lower the Moderate to Minor",
+   "checks": [
+    {
+     "label": "Agitator reclassified to Minor",
+     "outcome": "ok",
+     "detail": "Reclassified — Agitator on ASSET1"
+    },
+    {
+     "label": "item closed, no tag change, no follow-up",
+     "outcome": "info",
+     "detail": "stored values checked in Phase 1 (C13 ok)"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/C13/01_after.png"
+   ],
+   "date": "2026-11-07T14:06:15.002Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "C14": {
+   "id": "C14",
+   "runner": "claude-code",
+   "title": "Close Report C9 on ASSET1",
+   "checks": [
+    {
+     "label": "report closed (left Reports to Review)",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "ASSET1 status dot",
+     "outcome": "info",
+     "detail": "{\"title\":\"No pending issues\",\"bg\":\"rgb(15, 110, 86)\",\"cls\":\"asset-status-dot\"}"
+    },
+    {
+     "label": "status Approved, ASSET1 Green, Ball Valves Planned stays",
+     "outcome": "info",
+     "detail": "stored values checked in Phase 1 (C14 ok); queue on screen in D1"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/C14/01_closed.png"
+   ],
+   "date": "2026-11-07T14:06:21.581Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "D1": {
+   "id": "D1",
+   "runner": "claude-code",
+   "title": "Rectification Queue contents",
+   "checks": [
+    {
+     "label": "Open Defects shows 4",
+     "outcome": "ok",
+     "detail": "got \"4\", expected \"4\""
+    },
+    {
+     "label": "red circle counts at least 4",
+     "outcome": "ok",
+     "detail": "4"
+    },
+    {
+     "label": "four rows listed",
+     "outcome": "ok",
+     "detail": "got [\"ASSET1 Ball Valves\",\"ASSET2 Agitator\",\"ASSET2 Air Filter\",\"ASSET2 Breather\"], expected [\"ASSET1 Ball Valves\",\"ASSET2 Agitator\",\"ASSET2 Air Filter\",\"ASSET2 Breather\"]"
+    },
+    {
+     "label": "the two Red rows show no technician",
+     "outcome": "ok",
+     "detail": "[[\"Breather\",\"Unassigned\"],[\"Agitator\",\"Unassigned\"]]"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/D1/01_main_menu.png",
+    "e2e/screenshots/D1/02_queue.png"
+   ],
+   "date": "2026-11-07T14:06:39.567Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "D2": {
+   "id": "D2",
+   "runner": "claude-code",
+   "title": "One technician does not make the unit Yellow",
+   "checks": [
+    {
+     "label": "plan saved",
+     "outcome": "ok",
+     "detail": "Repair plan updated — Breather on ASSET2"
+    },
+    {
+     "label": "ASSET2 stays Red",
+     "outcome": "ok",
+     "detail": "got \"Red\", expected \"Red\""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/D2/01_breather_tech.png"
+   ],
+   "date": "2026-11-07T14:06:47.199Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "D3": {
+   "id": "D3",
+   "runner": "claude-code",
+   "title": "Both repairs assigned makes the unit Yellow",
+   "checks": [
+    {
+     "label": "Agitator pill: amber wrench, hover Yellow Tag — repair in progress",
+     "outcome": "ok",
+     "detail": "Field team not yet informed of the equipment's limitations, Yellow Tag — repair in progress"
+    },
+    {
+     "label": "summary: Repair in progress +1, Red tag — not started −1",
+     "outcome": "ok",
+     "detail": "1 Red tag — not started / 1 Repair in progress / 2 Moderate follow-up / 4 Field team not informed -> 0 Red tag — not started / 2 Repair in progress / 2 Moderate follow-up / 4 Field team not informed"
+    },
+    {
+     "label": "ASSET2 turns Yellow",
+     "outcome": "ok",
+     "detail": "got \"Yellow\", expected \"Yellow\""
+    },
+    {
+     "label": "tag reason names the technician",
+     "outcome": "ok",
+     "detail": "Repair in progress (technician: Ahmed Khan) -- unit not ready until verified (report #9)"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/D3/01_agitator_tech.png"
+   ],
+   "date": "2026-11-07T14:06:57.348Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "D3a": {
+   "id": "D3a",
+   "runner": "claude-code",
+   "title": "Show flow from the Rectification Queue (repairs still open)",
+   "checks": [
+    {
+     "label": "flow opens; Repair box shows Repair open with technician and parts",
+     "outcome": "ok",
+     "detail": "Repair\nOpen\nTechnician: Ahmed Khan"
+    },
+    {
+     "label": "Back returns to the Rectification Queue",
+     "outcome": "ok",
+     "detail": ""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/D3a/01_flow.png"
+   ],
+   "date": "2026-11-07T14:07:06.681Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "D4": {
+   "id": "D4",
+   "runner": "claude-code",
+   "title": "Clearing a technician returns the unit to Red",
+   "checks": [
+    {
+     "label": "step 1: ASSET2 back to Red",
+     "outcome": "ok",
+     "detail": "got \"Red\", expected \"Red\""
+    },
+    {
+     "label": "step 2: Yellow again",
+     "outcome": "ok",
+     "detail": "got \"Yellow\", expected \"Yellow\""
+    }
+   ],
+   "screenshots": [],
+   "date": "2026-11-07T14:07:13.370Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "D5": {
+   "id": "D5",
+   "runner": "claude-code",
+   "title": "Start Report 3 on ASSET2 and see the carried-forward fault",
+   "checks": [
+    {
+     "label": "carried-forward faults list Brass Bushing, linked to Report #9",
+     "outcome": "ok",
+     "detail": "Carried forward to this report\n1\nBrass Bushing Condition Within Tolerance Limits"
+    },
+    {
+     "label": "Issue Details read-only text from Report 2",
+     "outcome": "ok",
+     "detail": "[\"Light scoring on the brass bushing, still inside the wear limit.\",true]"
+    },
+    {
+     "label": "Action Taken lists the earlier entry (date/time, by Suganya Rajendran) and an empty box for this report",
+     "outcome": "ok",
+     "detail": "Brass Bushing Condition Within Tolerance Limits * Pass Fail PREVIOUS ACTIONS (MOST RECENT FIRST) 2026-11-07 18:01:53 by Suganya Rajendran: Measured and recorded as within the wear limit; to be monitored at the next report. Repaired on site — function test perf"
+    },
+    {
+     "label": "defaults: Fail, Moderate, Pending, today",
+     "outcome": "ok",
+     "detail": "got [\"Fail\",\"Moderate\",\"Pending\",\"2026-11-07\"], expected [\"Fail\",\"Moderate\",\"Pending\",\"2026-11-07\"]"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/D5/01_report3_top.png",
+    "e2e/screenshots/D5/02_carried_row.png"
+   ],
+   "date": "2026-11-07T14:07:32.640Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "D6": {
+   "id": "D6",
+   "runner": "claude-code",
+   "title": "Yellow unit: Pre-Job report is refused without an exemption",
+   "checks": [
+    {
+     "label": "no form issues listed",
+     "outcome": "ok",
+     "detail": "got [], expected []"
+    },
+    {
+     "label": "refused: unit Red / Yellow tagged with no valid MOC exemption",
+     "outcome": "ok",
+     "detail": "This unit is Red/Yellow-tagged (not ready) and has no valid MOC exemption, so a Pre-Mob or Pre-Job inspection cannot be submitted (Manual 6.1.5). Record the approved exemption in the Asset Registry first."
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/D6/01_refused.png"
+   ],
+   "date": "2026-11-07T14:07:47.204Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "D7": {
+   "id": "D7",
+   "runner": "claude-code",
+   "title": "Record equipment limitations",
+   "checks": [
+    {
+     "label": "D7 data: Informed by Abdulla Qais",
+     "outcome": "MATRIX",
+     "detail": "the app has no \"informed by\" field: it records the signed-in user (Disantha Perera) as the person who informed the field team"
+    },
+    {
+     "label": "saved",
+     "outcome": "ok",
+     "detail": "Equipment limitations recorded for ASSET2"
+    },
+    {
+     "label": "note, who informed the team and the date shown on the repair",
+     "outcome": "ok",
+     "detail": "Field team told: Do not run unit above 50% pump rate. Agitator isolated and locked out. — Disantha Perera, 07/Nov/2026 Update limitations"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/D7/01_limitations.png"
+   ],
+   "date": "2026-11-07T14:08:08.187Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "D8": {
+   "id": "D8",
+   "runner": "claude-code",
+   "title": "Verify rules: function test, repair date, technician",
+   "checks": [
+    {
+     "label": "Parts status \"Received\"",
+     "outcome": "MATRIX",
+     "detail": "the app offers Awaiting / Ordered / Available; the run uses Available"
+    },
+    {
+     "label": "step 1: Confirm disabled with the function test empty",
+     "outcome": "ok",
+     "detail": "{\"text\":\"Confirm — Remove Tag\",\"disabled\":true}"
+    },
+    {
+     "label": "step 2: refused, a repair date is required for a Red repair",
+     "outcome": "ok",
+     "detail": "Record the repair date before verifying the repair."
+    },
+    {
+     "label": "step 3: repair verified (turns Green, leaves the queue)",
+     "outcome": "ok",
+     "detail": "Verified — tag removed for Breather on ASSET2"
+    },
+    {
+     "label": "unit stays Yellow (other repair open)",
+     "outcome": "ok",
+     "detail": "got \"Yellow\", expected \"Yellow\""
+    },
+    {
+     "label": "verifier and date on the repair",
+     "outcome": "info",
+     "detail": "stored values checked in Phase 1 (D8 ok)"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/D8/01_step1.png",
+    "e2e/screenshots/D8/02_step2.png",
+    "e2e/screenshots/D8/03_step3.png"
+   ],
+   "date": "2026-11-07T14:08:18.745Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "D9": {
+   "id": "D9",
+   "runner": "claude-code",
+   "title": "Verify the second repair: unit turns Green",
+   "checks": [
+    {
+     "label": "repair verified",
+     "outcome": "ok",
+     "detail": "Verified — tag removed for Agitator on ASSET2"
+    },
+    {
+     "label": "ASSET2 turns Green",
+     "outcome": "ok",
+     "detail": "got \"Green\", expected \"Green\""
+    },
+    {
+     "label": "Green Tagged footer value true",
+     "outcome": "info",
+     "detail": "stored value checked in Phase 1 (D9 ok)"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/D9/01_verified.png"
+   ],
+   "date": "2026-11-07T14:08:46.471Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "D10": {
+   "id": "D10",
+   "runner": "claude-code",
+   "title": "Tag history",
+   "checks": [
+    {
+     "label": "entries in order (first Green from the C1 Moderate decision)",
+     "outcome": "ok",
+     "detail": "got [\"Green\",\"Red\",\"Yellow\",\"Red\",\"Yellow\",\"Green\"], expected [\"Green\",\"Red\",\"Yellow\",\"Red\",\"Yellow\",\"Green\"]"
+    },
+    {
+     "label": "D10 expects Red, Yellow, Red, Yellow, Green",
+     "outcome": "MATRIX",
+     "detail": "the list starts with the Green set by C1 (Manual 8.1; see Phase 1)"
+    },
+    {
+     "label": "every change listed with reason, report number and user",
+     "outcome": "ok",
+     "detail": "1794060176: Not tagged → Green — No open Critical faults remain (report #9) (by Disantha Perera) | 1794060195: Green → Red — Critical fault still open on this unit (report #9) (by Disantha Perera) | 1794060420: Red → Yellow — Repair in progress (technician: Ahmed Khan) -- unit not ready until verified (report #9) (by Disantha Perera) | 1794060437: Yellow → Red — Critical fault still open on this u"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/D10/01_tag_history.png"
+   ],
+   "date": "2026-11-07T14:09:00.606Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "D11": {
+   "id": "D11",
+   "runner": "claude-code",
+   "title": "Close a Planned (Moderate) follow-up",
+   "checks": [
+    {
+     "label": "Update Plan saved",
+     "outcome": "ok",
+     "detail": "Repair plan updated — Air Filter on ASSET2"
+    },
+    {
+     "label": "tag stays Green after the plan (no Yellow)",
+     "outcome": "ok",
+     "detail": "got \"Green\", expected \"Green\""
+    },
+    {
+     "label": "Verify & Close Follow-up: verified, row leaves the queue",
+     "outcome": "ok",
+     "detail": "Verified — follow-up closed for Air Filter on ASSET2"
+    },
+    {
+     "label": "tag never changed (no tag-history rows added)",
+     "outcome": "ok",
+     "detail": "got 6, expected 6"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/D11/01_closed.png"
+   ],
+   "date": "2026-11-07T14:09:04.872Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "D12": {
+   "id": "D12",
+   "runner": "claude-code",
+   "title": "Planned follow-up never changes the tag on a Green unit",
+   "checks": [
+    {
+     "label": "ASSET1 Green before",
+     "outcome": "ok",
+     "detail": "got \"Green\", expected \"Green\""
+    },
+    {
+     "label": "plan saved",
+     "outcome": "ok",
+     "detail": "Repair plan updated — Ball Valves on ASSET1"
+    },
+    {
+     "label": "ASSET1 stays Green",
+     "outcome": "ok",
+     "detail": "got \"Green\", expected \"Green\""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/D12/01_planned.png"
+   ],
+   "date": "2026-11-07T14:09:28.282Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "D13": {
+   "id": "D13",
+   "runner": "claude-code",
+   "title": "Submit and close Report 3 on a Green unit",
+   "checks": [
+    {
+     "label": "Submit succeeds now that ASSET2 is Green",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Close & Approve not offered: Report 3 carries the Moderate Brass Bushing, so Endorse is required (Manual Table 3)",
+     "outcome": "ok",
+     "detail": "← Back to main menu, ← Back, Show flow, Endorse Report, Print / Export PDF, ← Previous, Already submitted"
+    },
+    {
+     "label": "D13 step 2 says press Close & Approve",
+     "outcome": "MATRIX",
+     "detail": "Report 3 carries the Brass Bushing Fail (Moderate) as D5/D6 require; Manual Table 3 / Clarification: Moderate faults need review. The run endorsed to Disantha, Disantha approved, Abdulla closed."
+    },
+    {
+     "label": "Disantha approves Brass Bushing",
+     "outcome": "ok",
+     "detail": "Approved — Brass Bushing Condition Within Tolerance Limits on ASSET2"
+    },
+    {
+     "label": "Report 3 closed (Approved)",
+     "outcome": "ok",
+     "detail": ""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/D13/01_next_step.png",
+    "e2e/screenshots/D13/02_closed.png"
+   ],
+   "date": "2026-11-07T14:09:40.446Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "E1": {
+   "id": "E1",
+   "runner": "claude-code",
+   "title": "Load a cached open-job list",
+   "checks": [
+    {
+     "label": "IT SQL ran",
+     "outcome": "ok",
+     "detail": "1 row"
+    },
+    {
+     "label": "the list holds one job number, JSR-2026-0900",
+     "outcome": "ok",
+     "detail": "got [\"JSR-2026-0900\"], expected [\"JSR-2026-0900\"]"
+    }
+   ],
+   "screenshots": [],
+   "date": "2026-11-07T14:10:45.494Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "E2": {
+   "id": "E2",
+   "runner": "claude-code",
+   "title": "Post Job report with a Critical fault",
+   "checks": [
+    {
+     "label": "Previous Engine Hours 220 (auto)",
+     "outcome": "ok",
+     "detail": "220"
+    },
+    {
+     "label": "Air Supply Line Fail / Major / Critical / Pending",
+     "outcome": "ok",
+     "detail": "got [\"Fail\",\"Major / Critical\",\"Pending\"], expected [\"Fail\",\"Major / Critical\",\"Pending\"]"
+    },
+    {
+     "label": "Engine Hours (This Report) reads 150",
+     "outcome": "ok",
+     "detail": "got \"150.0\", expected \"150.0\""
+    },
+    {
+     "label": "step 2: refused, Job Number is required for POST JOB",
+     "outcome": "ok",
+     "detail": "Header — \"Job Number\" is required for a Post-Job report (from the Job Service Report)"
+    },
+    {
+     "label": "step 3: Submitted",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "ASSET2 turns Red at once",
+     "outcome": "ok",
+     "detail": "got \"Red\", expected \"Red\""
+    },
+    {
+     "label": "reason Critical fault reported",
+     "outcome": "ok",
+     "detail": "Critical fault reported (report #12)"
+    },
+    {
+     "label": "IT check: job_number_status",
+     "outcome": "ok",
+     "detail": "got \"Not on open-job list - supervisor to check\", expected \"Not on open-job list - supervisor to check\""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/E2/01_job_number_refused.png"
+   ],
+   "date": "2026-11-07T14:10:46.174Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "E3": {
+   "id": "E3",
+   "runner": "claude-code",
+   "title": "Escalate and approve the Critical fault",
+   "checks": [
+    {
+     "label": "Kamil approves Air Supply Line",
+     "outcome": "ok",
+     "detail": "Approved — Air Supply Line on ASSET2"
+    },
+    {
+     "label": "a Red repair is created",
+     "outcome": "ok",
+     "detail": "Field team not yet informed of the equipment's limitations, Red Tag"
+    },
+    {
+     "label": "ASSET2 stays Red",
+     "outcome": "ok",
+     "detail": "got \"Red\", expected \"Red\""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/E3/01_red_repair.png"
+   ],
+   "date": "2026-11-07T14:12:09.902Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "E4": {
+   "id": "E4",
+   "runner": "claude-code",
+   "title": "Close the Post Job report and check the MR-II triggers",
+   "checks": [
+    {
+     "label": "Status Approved (closed)",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "EH 370 of 400",
+     "outcome": "ok",
+     "detail": "got [370,400], expected [370,400]"
+    },
+    {
+     "label": "EH in warning (>= 350)",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "KM 600 of 1000",
+     "outcome": "ok",
+     "detail": "got [600,1000], expected [600,1000]"
+    },
+    {
+     "label": "OH 0 -> 12",
+     "outcome": "ok",
+     "detail": "got 12, expected 12"
+    },
+    {
+     "label": "CA unchanged",
+     "outcome": "ok",
+     "detail": "got 0, expected 0"
+    },
+    {
+     "label": "triggers shown on the ASSET2 card",
+     "outcome": "info",
+     "detail": "Calendar days 0/500 | Engine hours 370/400 | Distance (KM) 600/1000 | Operating hours 12/600 | Calendar days 0/700 | Engine hours 370/800 | Distance (KM) 600/2000 | Operating hours 12/1000"
+    },
+    {
+     "label": "ASSET2 stays Red",
+     "outcome": "ok",
+     "detail": "got \"Red\", expected \"Red\""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/E4/01_trigger_chips.png"
+   ],
+   "date": "2026-11-07T14:12:41.082Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "E5": {
+   "id": "E5",
+   "runner": "claude-code",
+   "title": "Red unit: Pre-Mob is refused without an exemption",
+   "checks": [
+    {
+     "label": "refused: no valid MOC exemption (Manual 6.1.5)",
+     "outcome": "ok",
+     "detail": "This unit is Red/Yellow-tagged (not ready) and has no valid MOC exemption, so a Pre-Mob or Pre-Job inspection cannot be submitted (Manual 6.1.5). Record the approved exemption in the Asset Registry first."
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/E5/01_refused.png"
+   ],
+   "date": "2026-11-07T14:13:01.595Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "E6": {
+   "id": "E6",
+   "runner": "claude-code",
+   "title": "Red unit: Pre-Job is refused too",
+   "checks": [
+    {
+     "label": "refused for the same reason",
+     "outcome": "ok",
+     "detail": "This unit is Red/Yellow-tagged (not ready) and has no valid MOC exemption, so a Pre-Mob or Pre-Job inspection cannot be submitted (Manual 6.1.5). Record the approved exemption in the Asset Registry first."
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/E6/01_refused.png"
+   ],
+   "date": "2026-11-07T14:13:33.953Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "E7": {
+   "id": "E7",
+   "runner": "claude-code",
+   "title": "Record a MOC exemption and submit",
+   "checks": [
+    {
+     "label": "exemption area shows No valid exemption and Record exemption",
+     "outcome": "ok",
+     "detail": "Red-tag exemption (MOC) No valid exemption A Red-tagged unit shall not be deployed without an approved MOC exemption (Manual 6.1.5).Record exemption"
+    },
+    {
+     "label": "E7 gives no \"Conditions for return to service\"",
+     "outcome": "MATRIX",
+     "detail": "the app requires it; the run typed \"Air supply line repaired and verified.\""
+    },
+    {
+     "label": "exemption saved and shown Active (valid)",
+     "outcome": "ok",
+     "detail": "Red-tag exemption (MOC) Exemption valid until 2026-11-14 A Red-tagged unit shall not be deployed without an approved MOC exemption (Manual 6.1.5). MOC-2026-014 — Active (valid), 2026-11-07 to 2026-11-14, approved by Kamil Shahzad Limitations: Operate"
+    },
+    {
+     "label": "Checklist ID kept",
+     "outcome": "ok",
+     "detail": "got \"PMC-2026-0090\", expected \"PMC-2026-0090\""
+    },
+    {
+     "label": "the Pre-Mob report submits",
+     "outcome": "ok",
+     "detail": "Rectification required"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/E7/01_exemption_form.png",
+    "e2e/screenshots/E7/02_exemption_saved.png"
+   ],
+   "date": "2026-11-07T14:13:53.398Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "E8": {
+   "id": "E8",
+   "runner": "claude-code",
+   "title": "Close the Pre-Mob report",
+   "checks": [
+    {
+     "label": "Status Approved (closed)",
+     "outcome": "ok",
+     "detail": ""
+    }
+   ],
+   "screenshots": [],
+   "date": "2026-11-07T14:14:33.480Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "E9": {
+   "id": "E9",
+   "runner": "claude-code",
+   "title": "Revoke the exemption: Yard and Post Job stay allowed",
+   "checks": [
+    {
+     "label": "E9 gives no revoke reason",
+     "outcome": "MATRIX",
+     "detail": "the app asks for one; the run typed \"Test E9: exemption no longer needed\""
+    },
+    {
+     "label": "revoke reason prompt",
+     "outcome": "info",
+     "detail": "WebDriver could not reach the reason prompt; the run supplied the reason to the page's prompt and pressed Revoke again. Jess may want to check the prompt by hand."
+    },
+    {
+     "label": "registry shows Revoked",
+     "outcome": "ok",
+     "detail": "Red-tag exemption (MOC) No valid exemption A Red-tagged unit shall not be deployed without an approved MOC exemption (Manual 6.1.5). MOC-2026-014 — Revoked, 2026-11-07 to 2026-11-14, approved by Kamil"
+    },
+    {
+     "label": "step 2: Pre-Mob refused (no exemption)",
+     "outcome": "ok",
+     "detail": "This unit is Red/Yellow-tagged (not ready) and has no valid MOC exemption, so a Pre-Mob or Pre-Job inspection cannot be submitted (Manual 6.1.5). Record the approved exemption in the Asset Registry first."
+    },
+    {
+     "label": "Yard submits",
+     "outcome": "ok",
+     "detail": "Rectification required"
+    },
+    {
+     "label": "Abdulla closes Report A",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Report B Previous Engine Hours 370 (auto)",
+     "outcome": "ok",
+     "detail": "370"
+    },
+    {
+     "label": "Post Job submits",
+     "outcome": "ok",
+     "detail": "Rectification required"
+    },
+    {
+     "label": "Abdulla closes Report B",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "triggers EH 380, KM 620, OH 20",
+     "outcome": "ok",
+     "detail": "got [380,620,20], expected [380,620,20]"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/E9/01_revoked.png"
+   ],
+   "date": "2026-11-07T14:14:46.503Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "E10": {
+   "id": "E10",
+   "runner": "claude-code",
+   "title": "Repair and verify the ASSET2 Critical",
+   "checks": [
+    {
+     "label": "step 1: ASSET2 Yellow",
+     "outcome": "ok",
+     "detail": "got \"Yellow\", expected \"Yellow\""
+    },
+    {
+     "label": "verified",
+     "outcome": "ok",
+     "detail": "Verified — tag removed for Air Supply Line on ASSET2"
+    },
+    {
+     "label": "step 2: ASSET2 Green",
+     "outcome": "ok",
+     "detail": "got \"Green\", expected \"Green\""
+    }
+   ],
+   "screenshots": [],
+   "date": "2026-11-07T14:16:53.193Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "E11": {
+   "id": "E11",
+   "runner": "claude-code",
+   "title": "Copy last Post-Job report (within 72 hours)",
+   "checks": [
+    {
+     "label": "the dialog offers both options",
+     "outcome": "ok",
+     "detail": "Copy last Post-Job report, Start a new report, Cancel"
+    },
+    {
+     "label": "Client copied",
+     "outcome": "ok",
+     "detail": "got \"Test Client\", expected \"Test Client\""
+    },
+    {
+     "label": "Location copied",
+     "outcome": "ok",
+     "detail": "got \"Test Well TW-21\", expected \"Test Well TW-21\""
+    },
+    {
+     "label": "Compliance Stage set to PREMOB",
+     "outcome": "ok",
+     "detail": "got \"PREMOB\", expected \"PREMOB\""
+    },
+    {
+     "label": "Job Number not copied",
+     "outcome": "ok",
+     "detail": "got \"\", expected \"\""
+    },
+    {
+     "label": "Checklist ID not copied",
+     "outcome": "ok",
+     "detail": "got \"\", expected \"\""
+    },
+    {
+     "label": "Maintenance Type same as Report B",
+     "outcome": "ok",
+     "detail": "got \"Preventive\", expected \"Preventive\""
+    },
+    {
+     "label": "header values on the copy (incl. the wizard's own defaults: MR Initization Date = today, Current Engine Hours = previous reading)",
+     "outcome": "info",
+     "detail": "Asset No=ASSET2; Client=Test Client; Compliance Stage=PREMOB; Country=PAKISTAN; Current Engine Hours=380; Location=Test Well TW-21; MR II Due Date=2028-03-21; MR Initization Date=2026-11-07; Maintenance Type=Preventive; Service Line=STIMULATION"
+    },
+    {
+     "label": "engine hours / MR initiation date",
+     "outcome": "info",
+     "detail": "not copied from Report B; the wizard itself fills MR Initization Date (today) and Current Engine Hours (the previous reading, 380) on every new report"
+    },
+    {
+     "label": "Pass on Access Ladders & Handrails",
+     "outcome": "ok",
+     "detail": "got \"Pass\", expected \"Pass\""
+    },
+    {
+     "label": "Pass on Air Hoses",
+     "outcome": "ok",
+     "detail": "got \"Pass\", expected \"Pass\""
+    },
+    {
+     "label": "Pass on Alternator",
+     "outcome": "ok",
+     "detail": "got \"Pass\", expected \"Pass\""
+    },
+    {
+     "label": "IT delete SQL fails as written",
+     "outcome": "MATRIX",
+     "detail": "\"DELETE FROM mri_reports WHERE status='Draft' AND asset_id=(SELECT id FROM assets WHERE asset_code='ASSET2')\" -> FOREIGN KEY constraint failed. The run deleted the Draft's child rows first."
+    },
+    {
+     "label": "corrected cleanup",
+     "outcome": "info",
+     "detail": "[17,48,0,1,0,0,2]"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/E11/01_dialog.png",
+    "e2e/screenshots/E11/02_copy_header.png"
+   ],
+   "date": "2026-11-07T14:17:21.707Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "E12": {
+   "id": "E12",
+   "runner": "claude-code",
+   "title": "Over 72 hours: no copy option",
+   "checks": [
+    {
+     "label": "IT SQL ran (1 row)",
+     "outcome": "ok",
+     "detail": "1"
+    },
+    {
+     "label": "only Start a new report is offered",
+     "outcome": "ok",
+     "detail": "Start a new report, Cancel"
+    },
+    {
+     "label": "step 3",
+     "outcome": "info",
+     "detail": "the run cancelled the dialog instead of starting a Draft, so there was nothing for IT to delete"
+    },
+    {
+     "label": "IT deletes the Draft (matrix SQL)",
+     "outcome": "info",
+     "detail": "0 row(s)"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/E12/01_dialog.png"
+   ],
+   "date": "2026-11-07T14:17:41.332Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "E13": {
+   "id": "E13",
+   "runner": "claude-code",
+   "title": "Day-8 stand-by reminder",
+   "checks": [
+    {
+     "label": "IT SQL ran (1 row)",
+     "outcome": "ok",
+     "detail": "1"
+    },
+    {
+     "label": "banner: Pre-Job MR-I due, lists ASSET2, day 8 since its Post-Job report",
+     "outcome": "ok",
+     "detail": "Pre-Job MR-I due (stand-by equipment reached day 8):\nASSET2 (Left) — day 8 since its Post-Job report"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/E13/01_banner.png"
+   ],
+   "date": "2026-11-07T14:17:48.811Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "F1": {
+   "id": "F1",
+   "runner": "claude-code",
+   "title": "Submit Report F1 (ASSET1) with two Moderate faults",
+   "checks": [
+    {
+     "label": "Air Hose & Coupling Connection: Moderate (template default), Pending",
+     "outcome": "ok",
+     "detail": "got [\"Moderate\",\"Pending\",\"2026-11-06\"], expected [\"Moderate\",\"Pending\",\"2026-11-06\"]"
+    },
+    {
+     "label": "Chain & Drive System: Moderate (template default), Pending",
+     "outcome": "ok",
+     "detail": "got [\"Moderate\",\"Pending\",\"2026-11-07\"], expected [\"Moderate\",\"Pending\",\"2026-11-07\"]"
+    },
+    {
+     "label": "submitted",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Escalated with two Pending approvals for Disantha",
+     "outcome": "info",
+     "detail": "seen in Disantha's Pending Approvals in F3 / F4; stored values checked in Phase 1 (F1 ok)"
+    },
+    {
+     "label": "ASSET1 stays Green",
+     "outcome": "ok",
+     "detail": "got \"Green\", expected \"Green\""
+    }
+   ],
+   "screenshots": [],
+   "date": "2026-11-07T14:17:53.648Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "F2": {
+   "id": "F2",
+   "runner": "claude-code",
+   "title": "Send a reminder on a Pending fault",
+   "checks": [
+    {
+     "label": "reminder sent",
+     "outcome": "ok",
+     "detail": "Reminder sent to Disantha Perera"
+    },
+    {
+     "label": "row shows Reminder from Kamil Shahzad with the time",
+     "outcome": "ok",
+     "detail": "Air Hose & Coupling Connection Moderate ASSET1 Report #17 Reported 07/Nov/2026 ISSUE Coupling connection leaking at the 3,000 psi test. ACTION TAKEN Coupling retightened, leak persists at 3,000 psi; hose replacement requested. Reminder from Kamil Shahzad · 179"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/F2/01_reminder.png"
+   ],
+   "date": "2026-11-07T14:18:39.945Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "F3": {
+   "id": "F3",
+   "runner": "claude-code",
+   "title": "Approve and name a person to be informed",
+   "checks": [
+    {
+     "label": "Decision Approved",
+     "outcome": "ok",
+     "detail": "Approved — Chain & Drive System on ASSET1"
+    },
+    {
+     "label": "an acknowledgement is queued for Kamil Shahzad",
+     "outcome": "ok",
+     "detail": "Chain & Drive System ASSET1 Report #17 DECISION Approved by Disantha Perera on 07/Nov/2026 NOTES Approved: replace chain at next planned maintenance. Show flow "
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/F3/01_approved.png",
+    "e2e/screenshots/F3/02_kamil_needs_ack.png"
+   ],
+   "date": "2026-11-07T14:18:48.888Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "F4": {
+   "id": "F4",
+   "runner": "claude-code",
+   "title": "Phone relay is recorded as Provisional",
+   "checks": [
+    {
+     "label": "Abdulla can open Pending Approvals from the main menu",
+     "outcome": "FAIL",
+     "detail": "no Attention Required tab"
+    },
+    {
+     "label": "cause",
+     "outcome": "info",
+     "detail": "MainMenu.tsx:203 shows the Pending Approvals card only for mri.close_defect or mri.approve; the Job Supervisor holds mri.record_provisional (phone relay) only. Proposed fix (not applied): add effectivePermissions.includes(\"mri.record_provisional\") to canReviewApprovals."
+    },
+    {
+     "label": "route used to continue",
+     "outcome": "info",
+     "detail": "Asset Registry > ASSET1 Show history flow > Report box > Show flow of this report > Air Hose fault box > Open Pending Approvals"
+    },
+    {
+     "label": "Abdulla is offered Record (Phone Relay), not Approve / Reject buttons",
+     "outcome": "ok",
+     "detail": "Show flow, Record (Phone Relay)"
+    },
+    {
+     "label": "Review Method fixed to Phone",
+     "outcome": "ok",
+     "detail": "{\"tag\":\"INPUT\",\"value\":\"Phone\",\"options\":null,\"disabled\":true}"
+    },
+    {
+     "label": "relay recorded",
+     "outcome": "ok",
+     "detail": "Approved — Air Hose & Coupling Connection on ASSET1"
+    },
+    {
+     "label": "decision shows Provisional (Phone, for Disantha, recorded by Abdulla)",
+     "outcome": "ok",
+     "detail": "got [\"Provisional\",\"Disantha Perera\",\"Abdulla Qais\"], expected [\"Provisional\",\"Disantha Perera\",\"Abdulla Qais\"]"
+    },
+    {
+     "label": "close refused while a decision is Provisional",
+     "outcome": "ok",
+     "detail": "1 escalated fault(s) on this report are still awaiting a review decision or confirmation — a phoned-in decision must be confirmed by the real authority before the report can be closed."
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/F4/01_no_pending_approvals_entry.png",
+    "e2e/screenshots/F4/02_relay_dialog.png",
+    "e2e/screenshots/F4/03_close_check.png"
+   ],
+   "date": "2026-11-07T14:19:09.645Z",
+   "error": null,
+   "status": "Fail"
+  },
+  "F5": {
+   "id": "F5",
+   "runner": "claude-code",
+   "title": "Confirm the provisional decision",
+   "checks": [
+    {
+     "label": "provisional decision listed under Awaiting Confirmation",
+     "outcome": "ok",
+     "detail": "Air Hose & Coupling Connection ASSET1 Report #17 DECISION Approved by Disantha Perera RECORDED by Abdulla Qais on 07/Nov/2026 Show flow Confirm"
+    },
+    {
+     "label": "Confirmed",
+     "outcome": "ok",
+     "detail": "Confirmed — Air Hose & Coupling Connection on ASSET1"
+    },
+    {
+     "label": "status Confirmed with name and date",
+     "outcome": "ok",
+     "detail": "{\"confirmed_by\":\"Disantha Perera\",\"confirmed_date\":\"1794061185\",\"provisional_status\":\"Confirmed\"}"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/F5/01_confirmed.png"
+   ],
+   "date": "2026-11-07T14:19:37.671Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "F6": {
+   "id": "F6",
+   "runner": "claude-code",
+   "title": "Close without waiting for the acknowledgement",
+   "checks": [
+    {
+     "label": "Status Approved (closed) although Kamil has not acknowledged",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "stored status",
+     "outcome": "ok",
+     "detail": "got \"Approved\", expected \"Approved\""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/F6/01_closed.png"
+   ],
+   "date": "2026-11-07T14:19:46.697Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "F7": {
+   "id": "F7",
+   "runner": "claude-code",
+   "title": "Acknowledge the decision",
+   "checks": [
+    {
+     "label": "acknowledged",
+     "outcome": "ok",
+     "detail": "Acknowledged — Chain & Drive System on ASSET1"
+    },
+    {
+     "label": "name and date recorded",
+     "outcome": "ok",
+     "detail": "{\"acknowledged_by\":\"Kamil Shahzad\",\"acknowledged_date\":\"1794061210\"}"
+    },
+    {
+     "label": "a second attempt is not possible (entry leaves Needs Acknowledgment)",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "server refusal \"already acknowledged\"",
+     "outcome": "info",
+     "detail": "checked in Phase 1 (F7 ok); the screen no longer offers the button"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/F7/01_acknowledged.png"
+   ],
+   "date": "2026-11-07T14:20:01.794Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "F8": {
+   "id": "F8",
+   "runner": "claude-code",
+   "title": "Decision log",
+   "checks": [
+    {
+     "label": "log lists the decisions in order (Escalated, then Approved)",
+     "outcome": "ok",
+     "detail": "Audit 1: Escalated | Audit 2: Approved"
+    },
+    {
+     "label": "each row: reviewer, method, provisional flag, recorder",
+     "outcome": "ok",
+     "detail": "Moderate → Critical · Disantha Perera (In-Person) · recorded by Disantha Perera · 07/Nov/2026 18:03 · Open vent: raise to Critical for FSM review. | Critical · Kamil Shahzad (In-Person) · recorded by Kamil Shahzad · 07/Nov/2026 18:03 · Critical confirmed: open vent lets dust into the system, repair "
+    },
+    {
+     "label": "F8 expects Pending, Escalated, Approved",
+     "outcome": "MATRIX",
+     "detail": "the log starts at Escalated: endorsing creates the Pending approval but does not log it (also seen in Phase 1)"
+    },
+    {
+     "label": "cannot be edited (no edit control)",
+     "outcome": "ok",
+     "detail": "Open Pending Approvals"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/F8/01_breather_decision.png"
+   ],
+   "date": "2026-11-07T14:20:11.837Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "F9": {
+   "id": "F9",
+   "runner": "claude-code",
+   "title": "Critical repaired on site: no Red tag, no review",
+   "checks": [
+    {
+     "label": "tick refused: Add issue details before marking this fault as repaired on site",
+     "outcome": "ok",
+     "detail": "Add issue details before marking this fault as repaired on site"
+    },
+    {
+     "label": "tick refused: Describe the repair in Action Taken first",
+     "outcome": "ok",
+     "detail": "Describe the repair in Action Taken first"
+    },
+    {
+     "label": "tick accepted and the item shows Closed",
+     "outcome": "ok",
+     "detail": "[\"Closed\",null]"
+    },
+    {
+     "label": "step 2: Submitted",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "ASSET1 stays Green",
+     "outcome": "ok",
+     "detail": "got \"Green\", expected \"Green\""
+    },
+    {
+     "label": "photo still attached, Date Observed today",
+     "outcome": "ok",
+     "detail": "{\"date_observed\":\"2026-11-07\",\"photos\":1}"
+    },
+    {
+     "label": "step 3: Close & Approve available without escalation (not pressed)",
+     "outcome": "ok",
+     "detail": "← Back to main menu, ← Back, Show flow, Close & Approve Report, Print / Export PDF, ← Previous, Already submitted"
+    },
+    {
+     "label": "IT check: mri_onsite_repair_log has one row",
+     "outcome": "ok",
+     "detail": "got 1, expected 1"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/F9/01_repaired_on_site.png",
+    "e2e/screenshots/F9/02_close_and_approve_offered.png"
+   ],
+   "date": "2026-11-07T14:20:25.608Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "G1": {
+   "id": "G1",
+   "runner": "claude-code",
+   "title": "Submit Report G1 (ASSET2) for the permission tests",
+   "checks": [
+    {
+     "label": "all items Pass (no carried Fails)",
+     "outcome": "ok",
+     "detail": "got 0, expected 0"
+    },
+    {
+     "label": "Report G1 is Submitted",
+     "outcome": "ok",
+     "detail": ""
+    }
+   ],
+   "screenshots": [],
+   "date": "2026-11-07T14:21:27.776Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "G2": {
+   "id": "G2",
+   "runner": "claude-code",
+   "title": "View only",
+   "checks": [
+    {
+     "label": "she can view the report",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "no Submit, Endorse, Close or decision control",
+     "outcome": "ok",
+     "detail": "← Back to main menu, ← Back, Show flow, Print / Export PDF"
+    },
+    {
+     "label": "no cost control",
+     "outcome": "ok",
+     "detail": "null"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/G2/01_report_view.png"
+   ],
+   "date": "2026-11-07T14:22:02.019Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "G3": {
+   "id": "G3",
+   "runner": "claude-code",
+   "title": "Override: edit after submit",
+   "checks": [
+    {
+     "label": "override set",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Location editable while the override exists",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Location saved as Test Well TW-22",
+     "outcome": "ok",
+     "detail": "got \"Test Well TW-22\", expected \"Test Well TW-22\""
+    },
+    {
+     "label": "locked again after the override is removed",
+     "outcome": "ok",
+     "detail": ""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/G3/01_override_on.png",
+    "e2e/screenshots/G3/02_edited.png",
+    "e2e/screenshots/G3/03_locked_again.png"
+   ],
+   "date": "2026-11-07T14:22:16.200Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "G4": {
+   "id": "G4",
+   "runner": "claude-code",
+   "title": "Override: endorse",
+   "checks": [
+    {
+     "label": "Endorse control appears with the override",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Endorse control disappears when the override is removed",
+     "outcome": "ok",
+     "detail": ""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/G4/01_endorse_shown.png"
+   ],
+   "date": "2026-11-07T14:23:19.221Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "G5": {
+   "id": "G5",
+   "runner": "claude-code",
+   "title": "Country restriction",
+   "checks": [
+    {
+     "label": "Abdulla limited to UAE (saved)",
+     "outcome": "ok",
+     "detail": "{\"c\":\"UAE\"}"
+    },
+    {
+     "label": "no PAKISTAN assets in the asset list",
+     "outcome": "FAIL",
+     "detail": "ASSET1, ASSET2"
+    },
+    {
+     "label": "cause",
+     "outcome": "info",
+     "detail": "the Asset Registry lists every asset: neither get_assets nor AssetRegistry.tsx applies the user's country access (only the review queues and flows do). Proposed fix (not applied): filter the asset list by the signed-in user's country access unless they are an Administrator or have no country rows."
+    },
+    {
+     "label": "no PAKISTAN reports in the report list",
+     "outcome": "ok",
+     "detail": "no Reports to Review entry"
+    },
+    {
+     "label": "all return afterwards",
+     "outcome": "ok",
+     "detail": "ASSET1, ASSET2"
+    },
+    {
+     "label": "restriction removed",
+     "outcome": "ok",
+     "detail": "got 0, expected 0"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/G5/01_restricted.png",
+    "e2e/screenshots/G5/02_asset_list.png"
+   ],
+   "date": "2026-11-07T14:24:02.967Z",
+   "error": null,
+   "status": "Fail"
+  },
+  "G6": {
+   "id": "G6",
+   "runner": "claude-code",
+   "title": "Administrator is not a workflow actor",
+   "checks": [
+    {
+     "label": "no Endorse, Close or decision control on Report G1",
+     "outcome": "ok",
+     "detail": "← Back to main menu, ← Back, Show flow, Print / Export PDF"
+    },
+    {
+     "label": "no exemption control (no Record exemption / Revoke)",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Jess has no Attention Required tab",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "absent from reviewer lists",
+     "outcome": "info",
+     "detail": "checked on screen in B7 / C5 / C10 (pickers never list Jess) and in Phase 1 (G6)"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/G6/01_report.png"
+   ],
+   "date": "2026-11-07T14:24:42.752Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "G7": {
+   "id": "G7",
+   "runner": "claude-code",
+   "title": "Who and when stamps",
+   "checks": [
+    {
+     "label": "IT query ran",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "the last editor and time are recorded",
+     "outcome": "ok",
+     "detail": "[{\"updated_at\":\"1794061300\",\"updated_by\":\"Suganya Rajendran\"},{\"updated_at\":\"1794061300\",\"updated_by\":\"Suganya Rajendran\"},{\"updated_at\":\"1794061300\",\"updated_by\":\"Suganya Rajendran\"},{\"updated_at\":\"1794061303\",\"updated_by\":\"Suganya Rajendran\"}]"
+    }
+   ],
+   "screenshots": [],
+   "date": "2026-11-07T14:25:00.875Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "H1": {
+   "id": "H1",
+   "runner": "claude-code",
+   "title": "Cost panel is read-only for the Operator and Job Supervisor",
+   "checks": [
+    {
+     "label": "Suganya: Not yet entered, no input",
+     "outcome": "ok",
+     "detail": "Cost to perform the MR Not yet entered. The operations supervisor inserts this cost."
+    },
+    {
+     "label": "Abdulla: Not yet entered, no input",
+     "outcome": "ok",
+     "detail": "Cost to perform the MR Not yet entered. The operations supervisor inserts this cost."
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/H1/01_suganya.png",
+    "e2e/screenshots/H1/02_abdulla.png"
+   ],
+   "date": "2026-11-07T14:25:01.133Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "H2": {
+   "id": "H2",
+   "runner": "claude-code",
+   "title": "Awaiting MR cost list",
+   "checks": [
+    {
+     "label": "Report G1 (ASSET2) and Report F9 (ASSET1) listed under Awaiting MR cost with Enter cost",
+     "outcome": "ok",
+     "detail": "Awaiting MR cost / Open reports where the cost to perform the MR has not been inserted yet. / ASSET1 / CTU / Report #18 / Suganya Rajendran / Enter cost / ASSET2 / PUMPING UNIT / Report #19 / Suganya Rajendran / Enter cost"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/H2/01_awaiting_cost.png"
+   ],
+   "date": "2026-11-07T14:25:21.826Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "H3": {
+   "id": "H3",
+   "runner": "claude-code",
+   "title": "Enter the cost",
+   "checks": [
+    {
+     "label": "Enter cost opens Report G1 (#19)",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "2500 saved",
+     "outcome": "ok",
+     "detail": "Cost to perform the MR Recorded: 2,500 · by Jan-Albert Victorino · 1794061535 Update cost MR cost saved."
+    },
+    {
+     "label": "changed to 2650: panel shows amount and name",
+     "outcome": "ok",
+     "detail": "Cost to perform the MR Recorded: 2,650 · by Jan-Albert Victorino · 1794061536 Update cost MR cost saved."
+    },
+    {
+     "label": "panel shows the date",
+     "outcome": "FAIL",
+     "detail": "shown: 1794061536"
+    },
+    {
+     "label": "date display",
+     "outcome": "info",
+     "detail": "the panel prints the stored Unix seconds; proposed fix: format mr_cost_date as a date (ReportWizard.tsx:5928)"
+    },
+    {
+     "label": "Report G1 leaves the awaiting list",
+     "outcome": "ok",
+     "detail": "Awaiting MR cost / Open reports where the cost to perform the MR has not been inserted yet. / ASSET1 / CTU / Report #18 / Suganya Rajendran / Enter cost"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/H3/01_cost_saved.png"
+   ],
+   "date": "2026-11-07T14:25:29.991Z",
+   "error": null,
+   "status": "Fail"
+  },
+  "H4": {
+   "id": "H4",
+   "runner": "claude-code",
+   "title": "Invalid costs are refused",
+   "checks": [
+    {
+     "label": "\"blank\" refused with Enter a valid cost (0 or more)",
+     "outcome": "ok",
+     "detail": "Cost to perform the MR Save cost Enter a valid cost (0 or more)."
+    },
+    {
+     "label": "\"-100\" refused with Enter a valid cost (0 or more)",
+     "outcome": "ok",
+     "detail": "Cost to perform the MR Save cost Enter a valid cost (0 or more)."
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/H4/01_refused.png"
+   ],
+   "date": "2026-11-07T14:25:41.505Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "H5": {
+   "id": "H5",
+   "runner": "claude-code",
+   "title": "Closing never depends on cost",
+   "checks": [
+    {
+     "label": "report #18 Approved (cost null)",
+     "outcome": "ok",
+     "detail": "{\"mr_cost\":null,\"status\":\"Approved\"}"
+    },
+    {
+     "label": "report #19 Approved (cost 2650)",
+     "outcome": "ok",
+     "detail": "{\"mr_cost\":2650,\"status\":\"Approved\"}"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/H5/01_closed.png"
+   ],
+   "date": "2026-11-07T14:25:48.831Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "H6": {
+   "id": "H6",
+   "runner": "claude-code",
+   "title": "No cost panel on a Draft",
+   "checks": [
+    {
+     "label": "Jan-Albert opens the Draft",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "the cost panel is not shown",
+     "outcome": "ok",
+     "detail": "got null, expected null"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/H6/01_draft.png"
+   ],
+   "date": "2026-11-07T14:26:12.323Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "H7": {
+   "id": "H7",
+   "runner": "claude-code",
+   "title": "Login-screen tier labels",
+   "checks": [
+    {
+     "label": "Marilyn Tabay: READ ONLY",
+     "outcome": "ok",
+     "detail": "got \"READ ONLY\", expected \"READ ONLY\""
+    },
+    {
+     "label": "Suganya Rajendran: TIER 1",
+     "outcome": "ok",
+     "detail": "got \"TIER 1\", expected \"TIER 1\""
+    },
+    {
+     "label": "Abdulla Qais: TIER 2",
+     "outcome": "ok",
+     "detail": "got \"TIER 2\", expected \"TIER 2\""
+    },
+    {
+     "label": "Jan-Albert Victorino: TIER 2",
+     "outcome": "ok",
+     "detail": "got \"TIER 2\", expected \"TIER 2\""
+    },
+    {
+     "label": "Disantha Perera: TIER 2",
+     "outcome": "ok",
+     "detail": "got \"TIER 2\", expected \"TIER 2\""
+    },
+    {
+     "label": "Kamil Shahzad: TIER 3",
+     "outcome": "ok",
+     "detail": "got \"TIER 3\", expected \"TIER 3\""
+    },
+    {
+     "label": "Jess Britanico: IT / ADMIN (NO TIER)",
+     "outcome": "ok",
+     "detail": "got \"IT / ADMIN (NO TIER)\", expected \"IT / ADMIN (NO TIER)\""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/H7/01_picker.png"
+   ],
+   "date": "2026-11-07T14:26:39.333Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "H8": {
+   "id": "H8",
+   "runner": "claude-code",
+   "title": "Migration state",
+   "checks": [
+    {
+     "label": "mri1_audit_permissions present",
+     "outcome": "ok",
+     "detail": "[{\"name\":\"mri1_audit_permissions\"}]"
+    },
+    {
+     "label": "nothing changes on later launches (two more app-code launches of the database)",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "restart",
+     "outcome": "info",
+     "detail": "each IT query opens the database through the app's own open-and-migrate code; Phase 1 H8 also ran the migration twice"
+    }
+   ],
+   "screenshots": [],
+   "date": "2026-11-07T14:26:46.697Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "J1": {
+   "id": "J1",
+   "runner": "claude-code",
+   "title": "Show flow on the Asset Registry cards",
+   "checks": [
+    {
+     "label": "a flow icon button on every asset card, next to Edit and Delete",
+     "outcome": "ok",
+     "detail": "[{\"code\":\"ASSET1\",\"buttons\":[\"Show history flow\",\"Edit\",\"Delete\"]},{\"code\":\"ASSET2\",\"buttons\":[\"Show history flow\",\"Edit\",\"Delete\"]}]"
+    },
+    {
+     "label": "click opens the Asset history flow for ASSET2 (not the edit form)",
+     "outcome": "ok",
+     "detail": "ASSET2 — Asset history flow"
+    },
+    {
+     "label": "Back returns to Asset Registry",
+     "outcome": "ok",
+     "detail": ""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/J1/01_registry.png",
+    "e2e/screenshots/J1/02_asset_flow.png"
+   ],
+   "date": "2026-11-07T14:26:47.475Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "J2": {
+   "id": "J2",
+   "runner": "claude-code",
+   "title": "Asset history flow shows the whole life of ASSET2",
+   "checks": [
+    {
+     "label": "top row: the asset, then every report on ASSET2",
+     "outcome": "ok",
+     "detail": "Report #15, Report #6, Report #9, Report #11, Report #12, Report #13, Report #14, Report #19"
+    },
+    {
+     "label": "Report 2 box shows status, date and fault counts (5 faults, 0 open)",
+     "outcome": "ok",
+     "detail": "Report #9Approved · 17940601285 faults, 0 open"
+    },
+    {
+     "label": "report and tag boxes show readable dates",
+     "outcome": "FAIL",
+     "detail": "Tag: none → GreenNo open Critical faults remain …Disantha Perera 1794060176 | Tag: Green → RedCritical fault still open on th…Disantha Perera 1794060195 | Tag: Red → YellowRepair in progress (technician:…Disantha Perera 1794060420"
+    },
+    {
+     "label": "date display bug",
+     "outcome": "info",
+     "detail": "AssetFlow.tsx:72 shortDate() expects an ISO date but receives Unix seconds (\"1794048477\"), so boxes and detail rows print raw numbers. Proposed fix (not applied): treat an all-digit value as seconds since 1970 and format it (e.g. new Date(+raw * 1000))."
+    },
+    {
+     "label": "one Tag box per tag change",
+     "outcome": "ok",
+     "detail": "9 tag boxes"
+    },
+    {
+     "label": "MOC exemption box and enabled trigger boxes under the asset",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "carried-forward fault drawn as a dashed arc",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "boxes with open faults",
+     "outcome": "info",
+     "detail": "Report #11 (var(--danger)), Tag: none → Green (var(--success)), Tag: Green → Red (var(--danger)), Tag: Yellow → Red (var(--danger)), Tag: Yellow → Green (var(--success)), Tag: Yellow → Green (var(--success))"
+    },
+    {
+     "label": "select a report box: detail list shown",
+     "outcome": "ok",
+     "detail": "REPORT #9 Status Approved Template PUMP UNIT Submitted by Suganya Rajendran Submitted 1794060128 Closed 1794060258 MR cost — Faults 5 Open faults 0 Show flow of"
+    },
+    {
+     "label": "select a tag box: detail list shown",
+     "outcome": "ok",
+     "detail": "TAG: NONE → GREEN Change Not tagged → Green Reason No open Critical faults remain (report #9) Caused by report #9 Changed by Disantha Perera Changed 1794060176 "
+    },
+    {
+     "label": "select a exemption box: detail list shown",
+     "outcome": "ok",
+     "detail": "MOC MOC-2026-014 Reference MOC-2026-014 Status Revoked Valid 2026-11-07 to 2026-11-14 Approved by Kamil Shahzad Open Asset Registry"
+    },
+    {
+     "label": "select a trigger box: detail list shown",
+     "outcome": "ok",
+     "detail": "MR-II EH Level MR-II Trigger EH Running 380 Warning at 350 Interval 400 Last reset 2026-10-28 Open triggers"
+    },
+    {
+     "label": "trigger box MR-II EH",
+     "outcome": "info",
+     "detail": "MR-II EH380 / 400reset 2026-10-28 stroke var(--warn)"
+    },
+    {
+     "label": "box colours (amber at warning, red at interval, red border on open faults)",
+     "outcome": "review",
+     "detail": "see screenshot"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/J2/01_flow.png"
+   ],
+   "date": "2026-11-07T14:26:57.717Z",
+   "error": null,
+   "status": "Fail"
+  },
+  "J3": {
+   "id": "J3",
+   "runner": "claude-code",
+   "title": "Moving between the asset flow and report flows",
+   "checks": [
+    {
+     "label": "Show flow of this report opens Report 2's document flow",
+     "outcome": "ok",
+     "detail": "ASSET2 — Document flow"
+    },
+    {
+     "label": "Show asset history flow opens the asset flow",
+     "outcome": "ok",
+     "detail": "ASSET2 — Asset history flow"
+    },
+    {
+     "label": "Back 1: report flow",
+     "outcome": "ok",
+     "detail": "ASSET2 — Document flow"
+    },
+    {
+     "label": "Back 2: asset flow",
+     "outcome": "ok",
+     "detail": "ASSET2 — Asset history flow"
+    },
+    {
+     "label": "Back 3: Asset Registry",
+     "outcome": "ok",
+     "detail": "← Back to main menu / Asset registry / local · sqlite · tanstack query / NEW ASSET / Asset code / Description / Asset type / Country / Service line / Last action by / Last action / Active / Service asset / Vehicle / 2 of 2 / ASSET"
+    }
+   ],
+   "screenshots": [],
+   "date": "2026-11-07T14:27:05.078Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "J4": {
+   "id": "J4",
+   "runner": "claude-code",
+   "title": "Open report and Open triggers from the asset flow",
+   "checks": [
+    {
+     "label": "the report opens read-only",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Back returns to the asset flow",
+     "outcome": "ok",
+     "detail": "ASSET2 — Asset history flow"
+    },
+    {
+     "label": "the Triggers screen for ASSET2 opens",
+     "outcome": "ok",
+     "detail": "← Back to main menu / Maintenance triggers / ASSET2 · running & tally update via Maintenance Report / MR-II TRIGGERS / TYPE / ENABLED / INTERVAL / WARNING / RUNNING / TALLY / Calen"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/J4/01_report.png",
+    "e2e/screenshots/J4/02_triggers.png"
+   ],
+   "date": "2026-11-07T14:27:24.074Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "J6": {
+   "id": "J6",
+   "runner": "claude-code",
+   "title": "Audit trail inside the document flow",
+   "checks": [
+    {
+     "label": "Decision, Reviewer and Provisional status shown",
+     "outcome": "ok",
+     "detail": "Decision | Reviewer | Review method | Assigned to | Provisional status | Acknowledged by | Reminders sent | Audit 1: Approved"
+    },
+    {
+     "label": "Reminders sent shown",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "one Audit row per logged decision (action, severity, reviewer and method, recorded by, time, note)",
+     "outcome": "ok",
+     "detail": "Audit 1: Approved: Moderate · Disantha Perera (In-Person) · recorded by Disantha Perera · 07/Nov/2026 18:02 · Checked filter on site; cleaning and replacement order are adequate."
+    },
+    {
+     "label": "Actuators decision box: rows agree with the decision log (Rejected)",
+     "outcome": "ok",
+     "detail": "Decision: Rejected Rejected Decision Rejected Reviewer Disantha Perera Review method In-Person Assigned to Disantha Perera Provisional status — Acknowledged by — Reminders sent 0 Audit 1: Rejected Moderate → Minor · Disantha Perera (In-Person) · recorded by Disantha Perera · 07/Nov/2026 18:02 · Not "
+    },
+    {
+     "label": "No decisions logged yet",
+     "outcome": "info",
+     "detail": "every fault on Report 2 has a logged decision, so this text is not reachable here"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/J6/01_air_filter_decision.png"
+   ],
+   "date": "2026-11-07T14:27:36.907Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "J7": {
+   "id": "J7",
+   "runner": "claude-code",
+   "title": "Carried-in box links to the earlier report's flow",
+   "checks": [
+    {
+     "label": "the flow of Report 2 opens",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Brass Bushing fault box: Carried forward to report #11",
+     "outcome": "ok",
+     "detail": "Brass Bushing Condition Within Tolerance Limits Moderate Fault Brass Bushing Condition Within Tolerance Limits Original severity Moderate Final severity — Carried forward to report #11 Open Pending Approvals Show flow of report #11"
+    },
+    {
+     "label": "Show flow of report #11 button returns to the later report",
+     "outcome": "ok",
+     "detail": "Open Pending Approvals, Show flow of report #11"
+    },
+    {
+     "label": "Back goes to the flow of Report 3",
+     "outcome": "ok",
+     "detail": ""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/J7/01_carried_in.png",
+    "e2e/screenshots/J7/02_report2_brass_bushing.png"
+   ],
+   "date": "2026-11-07T14:27:51.721Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "J8": {
+   "id": "J8",
+   "runner": "claude-code",
+   "title": "Show flow from the dashboard asset history",
+   "checks": [
+    {
+     "label": "a Show flow button sits beside Back to assets",
+     "outcome": "ok",
+     "detail": "← Back to main menu, ← Back to assets, Show flow, View Report, View Report, View Report, View Report, View Report, View Report, View Report, View Report"
+    },
+    {
+     "label": "opens the asset history flow",
+     "outcome": "ok",
+     "detail": "ASSET2 — Asset history flow"
+    },
+    {
+     "label": "Open button for a screen Marilyn may not have",
+     "outcome": "info",
+     "detail": "[{\"text\":\"Open triggers\",\"disabled\":false,\"title\":\"\"}]"
+    },
+    {
+     "label": "report box buttons for Marilyn",
+     "outcome": "info",
+     "detail": "[{\"text\":\"Show flow of this report\",\"disabled\":false,\"title\":\"\"},{\"text\":\"Open report\",\"disabled\":false,\"title\":\"\"}]"
+    },
+    {
+     "label": "Back returns to the asset history panel",
+     "outcome": "FAIL",
+     "detail": "landed on \"Dashboard\"; buttons: ← Back to main menu"
+    },
+    {
+     "label": "Open buttons disabled where Marilyn has no permission",
+     "outcome": "review",
+     "detail": "see the info rows and screenshot"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/J8/01_asset_list.png",
+    "e2e/screenshots/J8/02_asset_history.png",
+    "e2e/screenshots/J8/03_flow.png",
+    "e2e/screenshots/J8/04_after_back.png"
+   ],
+   "date": "2026-11-07T14:31:58.485Z",
+   "error": null,
+   "status": "Fail"
+  },
+  "J9": {
+   "id": "J9",
+   "runner": "claude-code",
+   "title": "Country access limits the flows",
+   "checks": [
+    {
+     "label": "flows show the outside-country-access message (or the asset is not offered at all); no boxes drawn",
+     "outcome": "ok",
+     "detail": "ASSET2 not listed for Disantha (asset list filtered by country): flow box not found"
+    },
+    {
+     "label": "after restoring access both flows open normally",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Administrators and users with no country rows",
+     "outcome": "info",
+     "detail": "Phase 1 J9: never blocked"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/J9/01_restricted.png",
+    "e2e/screenshots/J9/02_restored.png"
+   ],
+   "date": "2026-11-07T14:28:22.557Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "I1": {
+   "id": "I1",
+   "runner": "claude-code+review",
+   "title": "Asset Registry shows assets as cards",
+   "checks": [
+    {
+     "label": "ASSET1 and ASSET2 shown as cards with Active pill, Edit and Delete",
+     "outcome": "ok",
+     "detail": "[[\"ASSET1\",[\"Show history flow\",\"Edit\",\"Delete\"]],[\"ASSET2\",[\"Show history flow\",\"Edit\",\"Delete\"]]]"
+    },
+    {
+     "label": "search filters the cards; count shows 1 of 2",
+     "outcome": "ok",
+     "detail": "1 of 2"
+    },
+    {
+     "label": "then 2 of 2",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "card look (icon, pills, trigger chips)",
+     "outcome": "review",
+     "detail": "see screenshots"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/I1/01_cards.png",
+    "e2e/screenshots/I1/02_search.png"
+   ],
+   "date": "2026-11-07T14:46:51.918Z",
+   "error": null,
+   "status": "Needs review"
+  },
+  "I2": {
+   "id": "I2",
+   "runner": "claude-code",
+   "title": "Asset card actions and opening an asset",
+   "checks": [
+    {
+     "label": "step 1: the asset opens in the panel in view mode",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "step 2: Edit opens it in edit mode",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "step 3: delete confirmation appears",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Cancel leaves the asset in place",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "step 4: Edit and Delete disabled for Suganya with a no-permission tooltip",
+     "outcome": "ok",
+     "detail": "[{\"l\":\"Edit\",\"d\":true,\"title\":\"Your role doesn't have permission to edit assets\"},{\"l\":\"Delete\",\"d\":true,\"title\":\"Your role doesn't have permission to delete assets\"}]"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/I2/01_view.png",
+    "e2e/screenshots/I2/02_edit.png",
+    "e2e/screenshots/I2/03_delete_confirm.png",
+    "e2e/screenshots/I2/04_suganya_card.png"
+   ],
+   "date": "2026-11-07T14:46:58.558Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "I3": {
+   "id": "I3",
+   "runner": "claude-code",
+   "title": "MR-I Templates shown as cards",
+   "checks": [
+    {
+     "label": "COILED TUBING UNIT and PUMP UNIT cards with status pill and icon buttons",
+     "outcome": "ok",
+     "detail": "[[\"COILED TUBING UNIT COILED TUBING UNIT Ac\",[\"View this template's structure\",\"Click to cycle Draft → Active → Inactive\",\"Rename\",\"Delete\"]],[\"PUMP UNIT PUMPING UNIT Active\",[\"View this template's structure\",\"Click to cycle Draft → Active → Inactive\",\"Rename\",\"Delete\"]]]"
+    },
+    {
+     "label": "PUMP UNIT buttons",
+     "outcome": "info",
+     "detail": "View this template's structure, Click to cycle Draft → Active → Inactive, Rename, Delete"
+    },
+    {
+     "label": "Rename turns the name into a text box with Save and Cancel",
+     "outcome": "ok",
+     "detail": "[\"Save\",\"Cancel\"]"
+    },
+    {
+     "label": "Cancel restores the name",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Delete (cancelled) keeps the template",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Structure and card-click opening",
+     "outcome": "info",
+     "detail": "see screenshots; not opened by the run"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/I3/01_templates.png",
+    "e2e/screenshots/I3/02_rename.png",
+    "e2e/screenshots/I3/03_delete_confirm.png"
+   ],
+   "date": "2026-11-07T14:47:19.236Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "I4": {
+   "id": "I4",
+   "runner": "claude-code+review",
+   "title": "Text boxes use the neumorphic style everywhere",
+   "checks": [
+    {
+     "label": "neumorphic text boxes, focus glow, dimmer disabled boxes",
+     "outcome": "review",
+     "detail": "screens saved for Jess"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/I4/01_asset_form.png",
+    "e2e/screenshots/I4/02_users.png",
+    "e2e/screenshots/I4/03_roles.png"
+   ],
+   "date": "2026-11-07T14:47:32.942Z",
+   "error": null,
+   "status": "Needs review"
+  },
+  "I5": {
+   "id": "I5",
+   "runner": "claude-code",
+   "title": "Show flow is not offered on a Draft",
+   "checks": [
+    {
+     "label": "no Show flow button on a Draft report",
+     "outcome": "ok",
+     "detail": "← Back to main menu, ← Back, ← Previous, Next →"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/I5/01_draft.png"
+   ],
+   "date": "2026-11-07T14:47:41.761Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "I6": {
+   "id": "I6",
+   "runner": "claude-code",
+   "title": "Show flow on My Reports",
+   "checks": [
+    {
+     "label": "Compliance Stage after choosing YARD INSPECTION",
+     "outcome": "info",
+     "detail": "screen \"— Select —\", stored {\"value\":\"\"}"
+    },
+    {
+     "label": "report used",
+     "outcome": "info",
+     "detail": "#20: Minor-only (no faults) Yard Inspection on ASSET1, submitted for I6 / I7 / I12"
+    },
+    {
+     "label": "report submitted (not closed)",
+     "outcome": "FAIL",
+     "detail": "Header — \"Compliance Stage\" is required"
+    },
+    {
+     "label": "the card has a Show flow button",
+     "outcome": "FAIL",
+     "detail": ""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/I6/01_header.png",
+    "e2e/screenshots/I6/02_my_reports.png",
+    "e2e/screenshots/I6/03_error.png"
+   ],
+   "date": "2026-11-07T14:47:51.450Z",
+   "error": "TypeError: Cannot read properties of undefined (reading 'querySelectorAll')",
+   "status": "Blocked"
+  },
+  "I12": {
+   "id": "I12",
+   "runner": "claude-code",
+   "title": "Flow respects role permissions",
+   "checks": [
+    {
+     "label": "asset box: Open Asset Registry enabled",
+     "outcome": "ok",
+     "detail": "[{\"text\":\"Open Asset Registry\",\"disabled\":false,\"title\":\"\"},{\"text\":\"Show asset history flow\",\"disabled\":false,\"title\":\"\"}]"
+    },
+    {
+     "label": "Decision box: Open button disabled with the no-access note",
+     "outcome": "ok",
+     "detail": "{\"text\":\"Open Pending Approvals\",\"disabled\":true,\"title\":\"Your role doesn't have access to that screen\"}"
+    },
+    {
+     "label": "Repair box: Open button disabled with the no-access note",
+     "outcome": "ok",
+     "detail": "{\"text\":\"Open Rectification Queue\",\"disabled\":true,\"title\":\"Your role doesn't have access to that screen\"}"
+    },
+    {
+     "label": "selecting boxes and reading details still works",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "report used",
+     "outcome": "info",
+     "detail": "Report 2 (#9, submitted by Suganya), opened through the asset flow since it is closed; the My Reports route is checked in I6"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/I12/01_decision_disabled.png"
+   ],
+   "date": "2026-11-07T14:48:13.109Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "I7": {
+   "id": "I7",
+   "runner": "claude-code",
+   "title": "Show flow on Reports to Review and on an open report",
+   "checks": [],
+   "screenshots": [
+    "e2e/screenshots/I7/01_error.png"
+   ],
+   "date": "2026-11-07T14:48:21.931Z",
+   "error": "nothing clickable matching \"Show flow\"",
+   "status": "Blocked"
+  },
+  "I8": {
+   "id": "I8",
+   "runner": "claude-code",
+   "title": "Flow of a report with five faults",
+   "checks": [
+    {
+     "label": "five fault boxes",
+     "outcome": "ok",
+     "detail": "ASSET2, Green Tag | Report #9, Approved | Agitator, Critical | Decision, Approved | Repair, Verified | Actuators on Control Pane | Decision, Rejected | Air Filter, Moderate | Decision, Approved | Repair, Verified | Breather, Critical | Decision, Approved | Repair, Verified | Brass Bushing Condition W | Decision, Carryforward | Tag: Green → Red → Yellow | MOC MOC-2026-014"
+    },
+    {
+     "label": "Agitator row ends in a Repair verified box",
+     "outcome": "ok",
+     "detail": "ASSET2Green TagPUMPING UNIT > Report #9ApprovedPUMP UNIT > AgitatorCritical > DecisionApprovedKamil ShahzadMethod: In-Person > RepairVerifiedTechnician: Ahmed KhanParts: Available"
+    },
+    {
+     "label": "Breather row ends in a Repair verified box",
+     "outcome": "ok",
+     "detail": "BreatherCritical > DecisionApprovedKamil ShahzadMethod: In-Person > RepairVerifiedTechnician: Ahmed KhanParts: Available"
+    },
+    {
+     "label": "Air Filter row has no Red repair box",
+     "outcome": "ok",
+     "detail": "MOC MOC-2026-014Revokeduntil 2026-11-14 > Air FilterModerate > DecisionApprovedDisantha PereraMethod: In-Person > RepairVerifiedTechnician: Ahmed KhanParts: Available"
+    },
+    {
+     "label": "Actuators on Control Panel row has no Red repair box",
+     "outcome": "ok",
+     "detail": "Actuators onControl PanelModerate > DecisionRejectedDisantha PereraMethod: In-Person"
+    },
+    {
+     "label": "Brass Bushing Condition Within Tolerance Limits row has no Red repair box",
+     "outcome": "ok",
+     "detail": "Brass Bushing ConditionWithin Tolerance LimitsModerate > DecisionCarryforwardDisantha PereraMethod: In-Person"
+    },
+    {
+     "label": "a Tag box lists the tag changes of this report",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "red border on Critical, amber on Moderate",
+     "outcome": "review",
+     "detail": "see screenshot"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/I8/01_flow.png"
+   ],
+   "date": "2026-11-07T14:48:27.880Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "I9": {
+   "id": "I9",
+   "runner": "claude-code",
+   "title": "Carried-forward fault appears on the next report",
+   "checks": [
+    {
+     "label": "Carried in box names Report 2 as the source",
+     "outcome": "ok",
+     "detail": "Carried in: Brass Bushing Condition Within Tolerance Limits Fault Brass Bushing Condition Within Tolerance Limits From report #9 Open report #9 Show flow of report #9"
+    },
+    {
+     "label": "Open report opens Report 2 read-only",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Back returns to the flow of Report 3",
+     "outcome": "ok",
+     "detail": ""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/I9/01_carried_in.png"
+   ],
+   "date": "2026-11-07T14:48:39.062Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "I10": {
+   "id": "I10",
+   "runner": "claude-code",
+   "title": "Flow of a Critical report and an on-site repair on ASSET1",
+   "checks": [
+    {
+     "label": "C9: Ball Valves Critical becoming Moderate",
+     "outcome": "ok",
+     "detail": "Ball Valves Moderate Fault Ball Valves Original severity Critical Final severity Moderate Carried forward to report — Open Pending Approvals"
+    },
+    {
+     "label": "C9: Tag box present (Red then Green)",
+     "outcome": "ok",
+     "detail": "Tag: Red → GreenNo open Critical faults rem…"
+    },
+    {
+     "label": "F9: a Repaired on site box for Ball Valves",
+     "outcome": "ok",
+     "detail": "ASSET1, Green Tag | Report #18, Approved | Repaired on site: Ball Valves"
+    },
+    {
+     "label": "F9: no decision or repair boxes for it",
+     "outcome": "ok",
+     "detail": ""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/I10/01_c9.png",
+    "e2e/screenshots/I10/02_f9.png"
+   ],
+   "date": "2026-11-07T14:48:51.692Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "I11": {
+   "id": "I11",
+   "runner": "claude-code",
+   "title": "Boxes open the screen that owns them",
+   "checks": [
+    {
+     "label": "selecting a Fault box lists its details",
+     "outcome": "ok",
+     "detail": "Air Filter Moderate Fault Air Filter Original severity Moderate Final severity — Carried forward to report — Open Pending Approvals"
+    },
+    {
+     "label": "selected box highlighted with a blue border",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Open Pending Approvals opens it",
+     "outcome": "ok",
+     "detail": "Pending Approvals"
+    },
+    {
+     "label": "Open Rectification Queue opens it",
+     "outcome": "ok",
+     "detail": "Rectification Queue"
+    },
+    {
+     "label": "Open Asset Registry opens it",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "double-clicking a Decision box opens its screen directly",
+     "outcome": "ok",
+     "detail": "Pending Approvals"
+    },
+    {
+     "label": "read-only flow",
+     "outcome": "info",
+     "detail": "no control on the flow screen changes a decision, repair or tag (only Open / Show buttons)"
+    }
+   ],
+   "screenshots": [],
+   "date": "2026-11-07T14:49:07.334Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "I13": {
+   "id": "I13",
+   "runner": "claude-code",
+   "title": "Flow shows the MOC exemption",
+   "checks": [
+    {
+     "label": "an MOC box for MOC-2026-014 is shown",
+     "outcome": "ok",
+     "detail": "ASSET2, Green Tag | Report #9, Approved | Agitator, Critical | Decision, Approved | Repair, Verified | Actuators on Control | Decision, Rejected | Air Filter, Moderate | Decision, Approved | Repair, Verified | Breather, Critical | Decision, Approved | Repair, Verified | Brass Bushing Condit | Decision, Carryforwa | Tag: Green → Red → Y | MOC MOC-2026-014"
+    },
+    {
+     "label": "MOC box shows reference, Revoked, validity dates and approver",
+     "outcome": "ok",
+     "detail": "MOC MOC-2026-014 Reference MOC-2026-014 Status Revoked Valid 2026-11-07 to 2026-11-14 Approved by Kamil Shahzad Open Asset Registry"
+    },
+    {
+     "label": "its button opens the Asset Registry",
+     "outcome": "ok",
+     "detail": "[{\"text\":\"Open Asset Registry\",\"disabled\":false,\"title\":\"\"}]"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/I13/01_moc.png"
+   ],
+   "date": "2026-11-07T14:49:45.803Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "K1": {
+   "id": "K1",
+   "runner": "claude-code",
+   "title": "Theme picker offers three themes",
+   "checks": [
+    {
+     "label": "exactly three themes: Light, Dark, macOS Light",
+     "outcome": "ok",
+     "detail": "got [\"Light\",\"Dark\",\"macOS Light\"], expected [\"Light\",\"Dark\",\"macOS Light\"]"
+    },
+    {
+     "label": "picking each one changes the whole app at once (no restart)",
+     "outcome": "ok",
+     "detail": "dark | macos | light"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/K1/01_theme_list.png",
+    "e2e/screenshots/K1/02_after_Dark.png",
+    "e2e/screenshots/K1/03_after_macOS_Light.png",
+    "e2e/screenshots/K1/04_after_Light.png"
+   ],
+   "date": "2026-11-07T14:49:59.173Z",
+   "error": null,
+   "status": "Pass"
+  },
+  "K2": {
+   "id": "K2",
+   "runner": "claude-code+review",
+   "title": "Light theme looks the same as before the colour clean-up",
+   "checks": [
+    {
+     "label": "look",
+     "outcome": "review",
+     "detail": "screens saved for Jess"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/K2/01_Light_main_menu.png",
+    "e2e/screenshots/K2/02_Light_asset_registry.png",
+    "e2e/screenshots/K2/03_Light_select_asset.png",
+    "e2e/screenshots/K2/04_Light_dashboard.png",
+    "e2e/screenshots/K2/05_Light_admin_users.png"
+   ],
+   "date": "2026-11-07T14:50:17.143Z",
+   "error": null,
+   "status": "Needs review"
+  },
+  "K3": {
+   "id": "K3",
+   "runner": "claude-code+review",
+   "title": "Dark theme still works",
+   "checks": [
+    {
+     "label": "look",
+     "outcome": "review",
+     "detail": "screens saved for Jess"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/K3/01_Dark_main_menu.png",
+    "e2e/screenshots/K3/02_Dark_asset_registry.png",
+    "e2e/screenshots/K3/03_Dark_select_asset.png",
+    "e2e/screenshots/K3/04_Dark_dashboard.png",
+    "e2e/screenshots/K3/05_Dark_admin_users.png"
+   ],
+   "date": "2026-11-07T14:50:31.762Z",
+   "error": null,
+   "status": "Needs review"
+  },
+  "K4": {
+   "id": "K4",
+   "runner": "claude-code+review",
+   "title": "macOS Light: text boxes have a visible border",
+   "checks": [
+    {
+     "label": "text box borders",
+     "outcome": "review",
+     "detail": "screen saved for Jess"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/K4/01_asset_form.png"
+   ],
+   "date": "2026-11-07T14:50:50.436Z",
+   "error": null,
+   "status": "Needs review"
+  },
+  "K5": {
+   "id": "K5",
+   "runner": "claude-code+review",
+   "title": "macOS Light: icon buttons are visible",
+   "checks": [
+    {
+     "label": "icon buttons",
+     "outcome": "review",
+     "detail": "screen saved for Jess"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/K5/01_registry_icons.png"
+   ],
+   "date": "2026-11-07T14:50:56.101Z",
+   "error": null,
+   "status": "Needs review"
+  },
+  "K6": {
+   "id": "K6",
+   "runner": "claude-code+review",
+   "title": "macOS Light: switches, checkboxes and dropdowns",
+   "checks": [],
+   "screenshots": [
+    "e2e/screenshots/K6/01_error.png"
+   ],
+   "date": "2026-11-07T14:50:59.050Z",
+   "error": "waitUntil condition timed out after 10000ms",
+   "status": "Blocked"
+  },
+  "K7": {
+   "id": "K7",
+   "runner": "claude-code+review",
+   "title": "macOS Light: tables and dialogs",
+   "checks": [
+    {
+     "label": "tables and dialogs",
+     "outcome": "review",
+     "detail": "screen saved for Jess"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/K7/01_dialog.png"
+   ],
+   "date": "2026-11-07T14:51:10.790Z",
+   "error": null,
+   "status": "Needs review"
+  },
+  "K8": {
+   "id": "K8",
+   "runner": "claude-code+review",
+   "title": "macOS Light: screens not yet converted (observation only)",
+   "checks": [
+    {
+     "label": "observation",
+     "outcome": "review",
+     "detail": "screens saved for Jess"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/K8/01_macOS_Light_main_menu.png",
+    "e2e/screenshots/K8/02_macOS_Light_asset_registry.png",
+    "e2e/screenshots/K8/03_macOS_Light_select_asset.png",
+    "e2e/screenshots/K8/04_macOS_Light_dashboard.png",
+    "e2e/screenshots/K8/05_macOS_Light_admin_users.png"
+   ],
+   "date": "2026-11-07T14:51:15.223Z",
+   "error": null,
+   "status": "Needs review"
+  },
+  "K9": {
+   "id": "K9",
+   "runner": "claude-code+review",
+   "title": "Switching themes back and forth",
+   "checks": [
+    {
+     "label": "no leftovers after switching",
+     "outcome": "review",
+     "detail": "screens saved for Jess"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/K9/01_switch_Light.png",
+    "e2e/screenshots/K9/02_switch_Dark.png",
+    "e2e/screenshots/K9/03_switch_macOS_Light.png",
+    "e2e/screenshots/K9/04_switch_Dark.png",
+    "e2e/screenshots/K9/05_switch_Light.png"
+   ],
+   "date": "2026-11-07T14:51:28.320Z",
+   "error": null,
+   "status": "Needs review"
+  },
+  "K10": {
+   "id": "K10",
+   "runner": "claude-code+review",
+   "title": "Theme picker on the user selection screen",
+   "checks": [
+    {
+     "label": "theme picker on the sign-in screen",
+     "outcome": "review",
+     "detail": "screens saved for Jess"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/K10/01_picker.png",
+    "e2e/screenshots/K10/02_picker_Dark.png",
+    "e2e/screenshots/K10/03_picker_macOS_Light.png",
+    "e2e/screenshots/K10/04_picker_Light.png"
+   ],
+   "date": "2026-11-07T14:51:43.516Z",
+   "error": null,
+   "status": "Needs review"
+  },
+  "K11": {
+   "id": "K11",
+   "runner": "claude-code+review",
+   "title": "macOS Light: Fail button has a pale red fill",
+   "checks": [
+    {
+     "label": "Fail button fill",
+     "outcome": "review",
+     "detail": "screen saved for Jess"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/K11/01_checklist_fail_buttons.png"
+   ],
+   "date": "2026-11-07T14:51:51.789Z",
+   "error": null,
+   "status": "Needs review"
+  },
+  "L1": {
+   "id": "L1",
+   "runner": "claude-code+review",
+   "title": "Tag lamps in the Asset Registry",
+   "checks": [
+    {
+     "label": "lamps",
+     "outcome": "info",
+     "detail": "{\"label\":\"Green tag\",\"title\":\"Green tag: No open Critical faults remain (report #17)\"} {\"label\":\"Green tag\",\"title\":\"Green tag: No open Critical faults remain (report #12)\"}"
+    },
+    {
+     "label": "lamp look",
+     "outcome": "review",
+     "detail": "screen saved for Jess"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/L1/01_lamps.png"
+   ],
+   "date": "2026-11-07T14:52:09.894Z",
+   "error": null,
+   "status": "Needs review"
+  },
+  "L2": {
+   "id": "L2",
+   "runner": "claude-code+review",
+   "title": "Tag lamps on Select Asset For Report and Dashboard cards",
+   "checks": [
+    {
+     "label": "lamps",
+     "outcome": "review",
+     "detail": "screens saved for Jess"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/L2/01_select_asset.png",
+    "e2e/screenshots/L2/02_dashboard.png"
+   ],
+   "date": "2026-11-07T14:52:17.592Z",
+   "error": null,
+   "status": "Needs review"
+  },
+  "L3": {
+   "id": "L3",
+   "runner": "claude-code+review",
+   "title": "Dashboard stat cards",
+   "checks": [
+    {
+     "label": "stat cards",
+     "outcome": "review",
+     "detail": "screen saved for Jess"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/L3/01_asset_stats.png"
+   ],
+   "date": "2026-11-07T14:52:24.576Z",
+   "error": null,
+   "status": "Needs review"
+  },
+  "L4": {
+   "id": "L4",
+   "runner": "claude-code+review",
+   "title": "Main Menu KPIs (unchanged look)",
+   "checks": [
+    {
+     "label": "KPIs",
+     "outcome": "review",
+     "detail": "screen saved for Jess"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/L4/01_main_menu.png"
+   ],
+   "date": "2026-11-07T14:52:29.181Z",
+   "error": null,
+   "status": "Needs review"
+  },
+  "L5": {
+   "id": "L5",
+   "runner": "claude-code+review",
+   "title": "Lamps and dashboard cards in Light, Dark and macOS Light",
+   "checks": [
+    {
+     "label": "lamps and cards in each theme",
+     "outcome": "review",
+     "detail": "screens saved for Jess"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/L5/01_Light_registry.png",
+    "e2e/screenshots/L5/02_Light_dashboard.png",
+    "e2e/screenshots/L5/03_Dark_registry.png",
+    "e2e/screenshots/L5/04_Dark_dashboard.png",
+    "e2e/screenshots/L5/05_macOS_Light_registry.png",
+    "e2e/screenshots/L5/06_macOS_Light_dashboard.png"
+   ],
+   "date": "2026-11-07T14:52:30.577Z",
+   "error": null,
+   "status": "Needs review"
+  },
+  "L6": {
+   "id": "L6",
+   "runner": "claude-code+review",
+   "title": "Gauges at small window size",
+   "checks": [
+    {
+     "label": "gauges at small size",
+     "outcome": "review",
+     "detail": "screens saved for Jess"
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/L6/01_small_main_menu.png",
+    "e2e/screenshots/L6/02_small_dashboard.png"
+   ],
+   "date": "2026-11-07T14:52:59.255Z",
+   "error": null,
+   "status": "Needs review"
+  }
+ },
+ "reports": {
+  "r1": 6,
+  "rA10": 8,
+  "r2": 9,
+  "rC9": 10,
+  "r3": 11,
+  "rE2": 12,
+  "rE5": 13,
+  "rE9A": 14,
+  "rE9B": 15,
+  "rF1": 17,
+  "rF9": 18,
+  "rG1": 19,
+  "rH6": 20,
+  "rI": 20
+ }
+}

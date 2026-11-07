@@ -202,7 +202,9 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
   );
   const canReviewApprovals =
     effectivePermissions.includes("mri.close_defect") ||
-    effectivePermissions.includes("mri.approve");
+    effectivePermissions.includes("mri.approve") ||
+    // Job Supervisor: records phone-relayed decisions on Pending Approvals (Record (Phone Relay)).
+    effectivePermissions.includes("mri.record_provisional");
   const { data: pendingApprovals = [] } = usePendingMriFaultApprovals(
     currentUser?.id ?? 0,
   );

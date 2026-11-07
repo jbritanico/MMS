@@ -1,0 +1,25 @@
+﻿start state: e2e\run\snapshots\before_A3a.db
+
+== A3a Maintenance Type: Preventive / Breakdown, default and saving
+   [ok] step 2: new Right draft shows Preventive -- got "Preventive", expected "Preventive"
+   [ok] no red * on the Maintenance Type label -- Maintenance Type
+   [ok] choices are — Select —, Preventive, Breakdown (no Corrective) -- got ["— Select —","Preventive","Breakdown"], expected ["— Select —","Preventive","Breakdown"]
+   [ok] cannot type your own value (a fixed list, not a text box) -- SELECT
+   [ok] step 3: Breakdown kept after Next / Previous -- got "Breakdown", expected "Breakdown"
+   [ok] step 3: Breakdown kept after reopening -- got "Breakdown", expected "Breakdown"
+   [ok] step 4: Preventive kept after reopening -- got "Preventive", expected "Preventive"
+   [ok] step 5: deliberate blank stays blank after reopening -- got "— Select —", expected "— Select —"
+   [ok] step 5: red list does not mention Maintenance Type -- Footer — "Operator Date" is required / Footer — "Supervisor" is required / Footer — "Supervisor Date" is required / Header — "Compliance Stage" is required
+   [ok] step 5: details box shows Maintenance type — -- got "—", expected "—"
+   [ok] step 6: details box shows Maintenance type Preventive -- got "Preventive", expected "Preventive"
+   [review] look and PDF preview -- screens saved for Jess (PDF preview not opened by the run)
+   => Needs review
+
+== A4 Compliance Stage is required
+   [ok] Submit refused: list says Compliance Stage is required, Submit disabled -- Footer — "Operator Date" is required / Footer — "Supervisor" is required / Footer — "Supervisor Date" is required / Header — "Compliance Stage" is required
+   [ok] after setting PRE-JOB the Compliance Stage refusal no longer applies -- Footer — "Operator Date" is required / Footer — "Supervisor" is required / Footer — "Supervisor Date" is required
+   => Pass
+real assets.db: before 11829248 bytes, 2026-11-07T08:52:05.446Z | after 11829248 bytes, 2026-11-07T08:52:05.446Z | UNCHANGED
+test assets.db: before 11829248 bytes, 2026-11-07T10:19:52.206Z | after 11829248 bytes, 2026-11-07T14:39:41.197Z
+
+snapshot saved: after_A4.db (= before_A5.db)

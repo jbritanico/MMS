@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ErrorDialog from "../../components/ErrorDialog";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { invoke } from "../../lib/ipc";
 import { useCurrentUser } from "../../lib/currentUser";
@@ -148,7 +149,13 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
         }
     }
 
+    // Errors open a modal dialog the user must acknowledge; confirmations stay a short toast.
+    const [errorDialog, setErrorDialog] = useState<string | null>(null);
     function flash(msg: string, kind: "ok" | "err") {
+        if (kind === "err") {
+            setErrorDialog(msg.replace(/^Error:\s*/, ""));
+            return;
+        }
         setStatus({ msg, kind });
         setTimeout(() => setStatus(null), 5000);
     }
@@ -247,6 +254,7 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
             </div>
 
             {status && <div className={`toast ${status.kind}`} style={{ maxWidth: 600, marginBottom: 16 }}>{status.msg}</div>}
+            {errorDialog && <ErrorDialog message={errorDialog} onClose={() => setErrorDialog(null)} />}
 
             {isLoading ? (
                 <p style={{ color: "var(--text-soft)", fontSize: 13 }}>Loading...</p>
@@ -281,7 +289,7 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
 
                                 {row.last_reminder_at && (
                                     <div className="pa-note pa-remind">
-                                        Reminder from {row.last_reminder_by ?? "a manager"} · {row.last_reminder_at}
+                                        Reminder from {row.last_reminder_by ?? "a manager"} · {formatDate(row.last_reminder_at)}
                                     </div>
                                 )}
                                 {!allowed && (

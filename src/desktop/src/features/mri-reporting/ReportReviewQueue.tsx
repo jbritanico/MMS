@@ -1,5 +1,6 @@
 import { useReportsNeedingSupervisorAction, useReportsAwaitingCost } from "./hooks/useMriReports";
 import { useCurrentUser } from "../../lib/currentUser";
+import { QueueIconButton, QUEUE_ICON_CSS } from "./QueueIconButton";
 import { useEffectivePermissions } from "../administration/hooks/useUserAdmin";
 
 const STATUS_LABEL: Record<string, { label: string; action: string; color: string }> = {
@@ -29,6 +30,7 @@ function ReportReviewQueue({ onOpenReport, onOpenFlow }: ReportReviewQueueProps)
 
     return (
         <div>
+            <style>{QUEUE_ICON_CSS}</style>
             <div className="header">
                 <h1>Reports to Review</h1>
                 <span className="sub">MR-I reports awaiting your endorsement or closure</span>
@@ -70,15 +72,16 @@ function ReportReviewQueue({ onOpenReport, onOpenFlow }: ReportReviewQueueProps)
                                     <span>{formatSubmittedDate(row.submitted_date)}</span>
                                 </div>
 
-                                <div className="actions" style={{ marginTop: 4 }}>
-                                    <button className="primary" onClick={() => onOpenReport(row.id)} style={{ width: "100%" }}>
-                                        {meta.action}
-                                    </button>
+                                <div className="queue-icon-row">
                                     {onOpenFlow && (
-                                        <button className="ghost" onClick={() => onOpenFlow(row.id)} style={{ width: "100%", marginTop: 6 }}>
-                                            Show flow
-                                        </button>
+                                        <QueueIconButton icon="flow" label="Show flow" onClick={() => onOpenFlow(row.id)} />
                                     )}
+                                    <QueueIconButton
+                                        icon={meta.action === "Endorse" ? "endorse" : meta.action === "Close" ? "close" : "view"}
+                                        label={`${meta.action} report #${row.id}`}
+                                        onClick={() => onOpenReport(row.id)}
+                                        primary
+                                    />
                                 </div>
                             </div>
                         );

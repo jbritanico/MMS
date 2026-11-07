@@ -1,5 +1,5 @@
 import { useState, type ReactElement } from "react";
-import { useAssets } from "../asset-registry/hooks/useAssets";
+import { useAssetsForViewer } from "../asset-registry/hooks/useAssets";
 import { useAssetTypes } from "../administration/hooks/useAssetTypes";
 import { useMriTemplates } from "../administration/hooks/useMriTemplates";
 import { useAssetTriggers } from "../asset-registry/hooks/useTriggers";
@@ -180,7 +180,7 @@ interface SelectAssetForReportProps {
   onReportCreated: (reportId: number) => void;
 }
 function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
-  const { data: assets = [] } = useAssets();
+  const { data: assets = [] } = useAssetsForViewer();
   const { data: assetTypes = [] } = useAssetTypes();
   const { data: templates = [] } = useMriTemplates();
   const { data: existingReports = [] } = useMriReports();

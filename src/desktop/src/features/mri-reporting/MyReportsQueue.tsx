@@ -1,5 +1,6 @@
 import { useCurrentUser } from "../../lib/currentUser";
 import { useMyOpenMriReports } from "./hooks/useMriReports";
+import { QueueIconButton, QUEUE_ICON_CSS } from "./QueueIconButton";
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
     Submitted: { label: "Awaiting Supervisor endorsement", color: "var(--st-amber)" },
@@ -31,6 +32,7 @@ function MyReportsQueue({ onOpenReport, onOpenFlow }: MyReportsQueueProps) {
 
     return (
         <div>
+            <style>{QUEUE_ICON_CSS}</style>
             <div className="header">
                 <h1>My Reports</h1>
                 <span className="sub">MR-I reports you submitted that aren't closed yet</span>
@@ -64,11 +66,11 @@ function MyReportsQueue({ onOpenReport, onOpenFlow }: MyReportsQueueProps) {
                                 <div style={{ fontSize: 12.5, color: "var(--text-soft)" }}>
                                     Submitted {formatDate(row.submitted_date)}
                                 </div>
-                                <div style={{ marginTop: 8 }}>
-                                    <button className="ghost" onClick={(e) => { e.stopPropagation(); onOpenReport(row.id); }}>View report</button>
+                                <div className="queue-icon-row">
                                     {onOpenFlow && (
-                                        <button className="ghost" style={{ marginLeft: 8 }} onClick={(e) => { e.stopPropagation(); onOpenFlow(row.id); }}>Show flow</button>
+                                        <QueueIconButton icon="flow" label="Show flow" onClick={(e) => { e.stopPropagation(); onOpenFlow(row.id); }} />
                                     )}
+                                    <QueueIconButton icon="view" label={`View report #${row.id}`} onClick={(e) => { e.stopPropagation(); onOpenReport(row.id); }} primary />
                                 </div>
                             </div>
                         );

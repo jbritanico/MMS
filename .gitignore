@@ -18,3 +18,15 @@ src-tauri/target/
 # Environment secrets
 .env.local
 .env
+
+# MR-I end-to-end testing (local only)
+e2e/app/
+e2e/run/
+e2e/node_modules/
+e2e/drivers/
+e2e/screenshots/
+
+# Local Claude settings and scratch files
+.claude/settings.local.json
+Claude outputs/_fe_src.tgz
+Claude outputs/_cd_data.json

@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import MainMenu from "./features/main-menu/MainMenu";
 import AssetRegistry from "./features/asset-registry/AssetRegistry";
 import MaintenanceReport from "./features/maintenance-report/MaintenanceReport";
-import Dashboard from "./features/dashboard/Dashboard";
+import Dashboard, { type DashboardNav } from "./features/dashboard/Dashboard";
 import Administration, {
   type AdminSection,
   type GroupId,
@@ -93,6 +93,8 @@ function App() {
   type FlowEntry = { type: "report" | "asset"; id: number };
   const [flowStack, setFlowStack] = useState<FlowEntry[]>([]);
   const [flowOrigin, setFlowOrigin] = useState<Screen>("my-reports-queue");
+  // Dashboard view and chosen asset live here so Back from a flow returns to the same panel.
+  const [dashboardNav, setDashboardNav] = useState<DashboardNav>({ view: "hub", asset: null });
   const currentFlow = flowStack.length > 0 ? flowStack[flowStack.length - 1] : null;
 
   function openFlow(entry: FlowEntry) {
@@ -132,6 +134,8 @@ function App() {
 
   function handleNavigate(target: Screen, level?: MrLevel) {
     if (level) setMrLevel(level);
+    // Opening the Dashboard from the main menu still starts at its hub, as before.
+    if (target === "dashboard") setDashboardNav({ view: "hub", asset: null });
     setScreen(target);
   }
 
@@ -2554,6 +2558,8 @@ function App() {
                     onOpenReport={(id) => handleReportCreated(id, true)}
                     onShowAssetFlow={handleOpenAssetFlow}
                     theme={theme}
+                    nav={dashboardNav}
+                    onNavChange={setDashboardNav}
                   />
                 )}
                 {screen === "admin" && (

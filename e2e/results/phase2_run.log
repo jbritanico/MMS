@@ -1,0 +1,330 @@
+﻿start state: e2e\run\assets.start.db
+
+== S5 Starting state of the two assets (main menu as Disantha)
+   [ok] Fleet Availability tile shows 100.0% -- Fleet Availability
+100.0%
+Open Defects
+   [ok] Open Defects tile shows 0 -- Open Defects
+0
+Disantha Perera
+   [ok] no Attention Required tab on clean data
+   [info] assets, triggers, no reports / exemptions / tag history -- stored data checked in Phase 1 (S5: all ok)
+   => Pass
+
+== S7 Title bar shows the signed-in user and level
+   [ok] picker title -- got "Sprint MMS", expected "Sprint MMS"
+   [ok] title for Jess Britanico -- got "Sprint MMS | Jess Britanico | Administrator", expected "Sprint MMS | Jess Britanico | Administrator"
+   [ok] after signing out Jess -- got "Sprint MMS", expected "Sprint MMS"
+   [ok] title for Suganya Rajendran -- got "Sprint MMS | Suganya Rajendran | Operator (Tier 1)", expected "Sprint MMS | Suganya Rajendran | Operator (Tier 1)"
+   [ok] after signing out Suganya -- got "Sprint MMS", expected "Sprint MMS"
+   [ok] title for Abdulla Qais -- got "Sprint MMS | Abdulla Qais | Job Supervisor (Tier 2)", expected "Sprint MMS | Abdulla Qais | Job Supervisor (Tier 2)"
+   [ok] after signing out Abdulla -- got "Sprint MMS", expected "Sprint MMS"
+   [ok] title for Jan-Albert Victorino -- got "Sprint MMS | Jan-Albert Victorino | Operations Coordinator (Tier 2)", expected "Sprint MMS | Jan-Albert Victorino | Operations Coordinator (Tier 2)"
+   [ok] after signing out Jan-Albert -- got "Sprint MMS", expected "Sprint MMS"
+   [ok] title for Disantha Perera -- got "Sprint MMS | Disantha Perera | Maintenance Supervisor (Tier 2)", expected "Sprint MMS | Disantha Perera | Maintenance Supervisor (Tier 2)"
+   [ok] after signing out Disantha -- got "Sprint MMS", expected "Sprint MMS"
+   [ok] title for Kamil Shahzad -- got "Sprint MMS | Kamil Shahzad | Maintenance Manager / FSM (Tier 3)", expected "Sprint MMS | Kamil Shahzad | Maintenance Manager / FSM (Tier 3)"
+   [ok] after signing out Kamil -- got "Sprint MMS", expected "Sprint MMS"
+   [ok] title for Marilyn Tabay -- got "Sprint MMS | Marilyn Tabay | Data Miner View (Read Only)", expected "Sprint MMS | Marilyn Tabay | Data Miner View (Read Only)"
+   [ok] after signing out Marilyn -- got "Sprint MMS", expected "Sprint MMS"
+   => Pass
+
+== A1 Start the first report
+   [ok] Draft created and the form opens -- Report #6
+   [info] template -- the app picks the asset type's active template (PUMP UNIT) itself; there is no separate template choice or Start report button, the component button starts it
+   => Pass
+
+== A2 Starting again reopens the same Draft
+   [ok] the same Draft opens -- got 6, expected 6
+   => Pass
+
+== A3 Fill in Report 1 and check it is saved
+   [ok] Maintenance Type shows Preventive (default) -- got "Preventive", expected "Preventive"
+   [ok] Previous Engine Hours shows 0 (auto) -- got "0", expected "0"
+   [ok] Engine Hours (This Report) shows 150 by itself -- got "150.0", expected "150.0"
+   [ok] Date Observed shows today -- got "2026-11-07", expected "2026-11-07"
+   [ok] Closure Status shows Pending -- got "Pending", expected "Pending"
+   [ok] Severity shows Minor -- got "Minor", expected "Minor"
+   [ok] photo added with the + under Attachments
+   [MATRIX] A3 data: Distance Travelled Post-Job (KM) 300 -- on a PRE-JOB report the Distance Travelled step offers only "Distance Travelled Pre-Job (KM)". The run entered 300 there; the KM trigger uses Post-Job, else Pre-Job, so E4's KM total is unaffected.
+   [ok] Compliance Stage kept -- got "PRE-JOB", expected "PRE-JOB"
+   [ok] Maintenance Type kept -- got "Preventive", expected "Preventive"
+   [ok] Checklist ID kept -- got "PMC-2026-0101", expected "PMC-2026-0101"
+   [ok] Client kept -- got "Test Client", expected "Test Client"
+   [ok] Location kept -- got "Test Well TW-21", expected "Test Well TW-21"
+   [ok] Engine Hours (This Report) kept -- got "150.0", expected "150.0"
+   [ok] Fail, issue, action, today, Pending, Minor kept -- got ["Fail","Ladder rung paint worn, needs touch-up.","Rungs sanded and repainted, touch-up coat to be re-checked at the next yard visit.","2026-11-07","Pending","Minor"], expected ["Fail","Ladder rung paint worn, needs touch-up.","Rungs sanded and repainted, touch-up coat to be re-checked at the next yard visit.","2026-11-07","Pending","Minor"]
+   [ok] photo thumbnail kept -- 1 image(s) in the row
+   [ok] Distance Travelled kept -- got "300", expected "300"
+   [info] dropdown value did not stick, re-selected -- Compliance Stage = "PRE-JOB" (attempt 1, screen showed "— Select —"). Possible race: the header resets unsaved values when saved values are re-read.
+   => Pass
+
+== A3a Maintenance Type: Preventive / Breakdown, default and saving
+   [ok] step 2: new Right draft shows Preventive -- got "Preventive", expected "Preventive"
+   [ok] no red * on the Maintenance Type label -- Maintenance Type
+   [ok] choices are — Select —, Preventive, Breakdown (no Corrective) -- got ["— Select —","Preventive","Breakdown"], expected ["— Select —","Preventive","Breakdown"]
+   [ok] cannot type your own value (a fixed list, not a text box) -- SELECT
+   [ok] step 3: Breakdown kept after Next / Previous -- got "Breakdown", expected "Breakdown"
+   [ok] step 3: Breakdown kept after reopening -- got "Breakdown", expected "Breakdown"
+   [ok] step 4: Preventive kept after reopening -- got "Preventive", expected "Preventive"
+   [ok] step 5: deliberate blank stays blank after reopening -- got "— Select —", expected "— Select —"
+   [ok] step 5: red list does not mention Maintenance Type -- Footer — "Operator Date" is required / Footer — "Supervisor" is required / Footer — "Supervisor Date" is required / Header — "Compliance Stage" is required
+   [ok] step 5: details box shows Maintenance type — -- got "—", expected "—"
+   [ok] step 6: details box shows Maintenance type Preventive -- got "Preventive", expected "Preventive"
+   [review] look and PDF preview -- screens saved for Jess (PDF preview not opened by the run)
+   => Needs review
+
+== A4 Compliance Stage is required
+   [ok] Submit refused: list says Compliance Stage is required, Submit disabled -- Footer — "Operator Date" is required / Footer — "Supervisor" is required / Footer — "Supervisor Date" is required / Header — "Compliance Stage" is required
+   [ok] after setting PRE-JOB the Compliance Stage refusal no longer applies -- Footer — "Operator Date" is required / Footer — "Supervisor" is required / Footer — "Supervisor Date" is required
+   => Pass
+
+== A5 Checklist ID is required for a Pre-Job report
+   [ok] refused: Pre-Mobilization Checklist ID required for Pre-Mob / Pre-Job (from the JSR) -- Footer — "Operator Date" is required / Footer — "Supervisor" is required / Footer — "Supervisor Date" is required / Header — "Pre-Mobilization Checklist ID" is required for a Pre-Mob or Pre-Job report (from the Job Service Report)
+   => Pass
+
+== A6 A Fail must have an issue description
+   [ok] Submit refused: the Fail has no issue details -- Footer — "Operator Date" is required / Footer — "Supervisor" is required / Footer — "Supervisor Date" is required / Checklist — "Access Ladders & Handrails" is marked Fail but has no issue details
+   [ok] after restoring the text the refusal no longer applies -- Footer — "Operator Date" is required / Footer — "Supervisor" is required / Footer — "Supervisor Date" is required
+   => Pass
+
+== A6a Action Taken is needed before an item can be closed
+   [ok] step 2 refused -- Cannot close this item Cannot close: Action Taken is blank. Closure Status reset to Pending. OK
+   [MATRIX] A6a expects the text "Add an action taken entry before closing this item" -- the screen shows "Cannot close this item Cannot close: Action Taken is blank. Closure Status reset to Pending. OK" (A6e's wording); the quoted text is the server message
+   [ok] Closure Status stays Pending -- got "Pending", expected "Pending"
+   [ok] after step 3 the text is saved and the item is still Pending -- got ["Rungs sanded and repainted, touch-up coat to be re-checked at the next yard visit.","Pending"], expected ["Rungs sanded and repainted, touch-up coat to be re-checked at the next yard visit.","Pending"]
+   => Pass
+
+== A6d A Fail must also have an Action Taken before Submit
+   [ok] Submit refused (disabled) -- Submit Report (4 issues)
+   [ok] list says Access Ladders & Handrails is marked Fail but has no action taken -- Footer — "Operator Date" is required / Footer — "Supervisor" is required / Footer — "Supervisor Date" is required / Checklist — "Access Ladders & Handrails" is marked Fail but has no action taken
+   [ok] after restoring the text the refusal no longer applies -- Footer — "Operator Date" is required / Footer — "Supervisor" is required / Footer — "Supervisor Date" is required
+   => Pass
+
+== A6e A Fail cannot be Closed with blank Issue Details or Action Taken
+   [ok] step 1: popup Issue Details and Action Taken are both blank -- Cannot close this item Cannot close: Issue Details and Action Taken are both blank. Closure Status reset to Pending. OK
+   [ok] step 1: dropdown back to Pending -- got "Pending", expected "Pending"
+   [ok] step 2: popup says Issue Details is blank -- Cannot close this item Cannot close: Issue Details is blank. Closure Status reset to Pending. OK
+   [ok] step 2: dropdown back to Pending -- got "Pending", expected "Pending"
+   [ok] step 3: popup says Action Taken is blank -- Cannot close this item Cannot close: Action Taken is blank. Closure Status reset to Pending. OK
+   [ok] step 3: dropdown back to Pending -- got "Pending", expected "Pending"
+   [ok] step 4: Closed accepted with both filled -- Closed
+   [ok] step 4: clearing a box puts Closure Status back to Pending -- got "Pending", expected "Pending"
+   [ok] restored: both texts, Pending -- got ["Ladder rung paint worn, needs touch-up.","Rungs sanded and repainted, touch-up coat to be re-checked at the next yard visit.","Pending"], expected ["Ladder rung paint worn, needs touch-up.","Rungs sanded and repainted, touch-up coat to be re-checked at the next yard visit.","Pending"]
+   => Pass
+
+== A6b Date Observed, Severity and Closure Status on a Fail
+   [ok] Date Observed keeps yesterday after reopening -- got "2026-11-06", expected "2026-11-06"
+   [ok] back to today -- got "2026-11-07", expected "2026-11-07"
+   [ok] Moderate - Required Action panel appears -- Moderate — Required Action Early-stage abnormality. Plan rectification and monitor closely. Reviewed by Operations Coordinator / Maintenance Supervisor — may reclassify. Maintenance Manager/FSM inform
+   [ok] Repaired on site tick box shows
+   [ok] Closure Status list disabled for the Operator -- Moderate faults require Maintenance Supervisor (or higher) review authority to close
+   [ok] hover text: Moderate faults require Maintenance Supervisor review authority to close -- Moderate faults require Maintenance Supervisor (or higher) review authority to close
+   [ok] Closed cannot be chosen; stays Pending -- disabled
+   [ok] at Minor the Moderate panel and the Repaired on site tick box go away
+   [info] Minor panel -- at Minor the app shows its own "Minor — Required Action" panel (no approval required)
+   [ok] Closure Status available again -- got false, expected false
+   [ok] nothing left changed from A3 -- got ["Fail","Ladder rung paint worn, needs touch-up.","Rungs sanded and repainted, touch-up coat to be re-checked at the next yard visit.","2026-11-07","Pending","Minor"], expected ["Fail","Ladder rung paint worn, needs touch-up.","Rungs sanded and repainted, touch-up coat to be re-checked at the next yard visit.","2026-11-07","Pending","Minor"]
+   => Pass
+
+== A6c Attachments on a Fail
+   [ok] PDF shows as a small thumbnail next to the photo -- photo.png, page.pdf
+   [ok] too large refused with File is too large (max 5MB), nothing added -- images 2 -> 2
+   [ok] photo opens in a larger view
+   [ok] larger view closes again
+   [ok] only the PDF removed, the photo stays -- removed=true, left: photo.png
+   [ok] after reopening only the photo is attached -- got ["photo.png"], expected ["photo.png"]
+   => Pass
+
+== A7 Submit Report 1
+   [ok] Compliance Stage is PRE-JOB -- got "PRE-JOB", expected "PRE-JOB"
+   [ok] Checklist ID is PMC-2026-0101 -- got "PMC-2026-0101", expected "PMC-2026-0101"
+   [ok] step 2 refused: Footer - Operator Date, Supervisor, Supervisor Date required; Submit disabled -- Footer — "Operator Date" is required / Footer — "Supervisor" is required / Footer — "Supervisor Date" is required
+   [ok] Operator fills itself in -- got "Suganya Rajendran", expected "Suganya Rajendran"
+   [ok] no issues left -- got [], expected []
+   [ok] Review shows the Remarks text
+   [ok] details box: Maintenance type -- got "Preventive", expected "Preventive"
+   [ok] details box: Job number -- got "—", expected "—"
+   [ok] details box: Pre-mobilization checklist ID -- got "PMC-2026-0101", expected "PMC-2026-0101"
+   [ok] details box: Engine hours (this report) -- got "150.0", expected "150.0"
+   [ok] step 3: submitted -- Submit Report
+   [review] Review layout, five ticked boxes, PDF -- screens saved for Jess
+   [info] status Submitted and unit tag unchanged -- stored values checked in Phase 1 (A7 ok); A8 confirms Submitted on screen
+   => Needs review
+
+== A8 No new report while Report 1 is Submitted
+   [ok] Left is offered as blocked (Submitted) -- LeftReport #6 is Submitted — close it first
+RightContinue draft (#7)
+   [ok] refused: Left cannot be started while Report 1 is Submitted (close it first) -- LeftReport #6 is Submitted — close it first
+   [info] wording -- the screen says "LeftReport #6 is Submitted — close it first"; the matrix expects "still Submitted and must be endorsed and closed first" (the server message)
+   => Pass
+
+== A9 A submitted report cannot be edited by the Operator
+   [ok] report opens on Review & Submit
+   [ok] Review says This report is locked and read-only
+   [ok] all header fields read-only -- 15/15 disabled
+   [ok] Location stays Test Well TW-21 -- got "Test Well TW-21", expected "Test Well TW-21"
+   [ok] Maintenance Type stays Preventive -- got "Preventive", expected "Preventive"
+   [ok] no Endorse, Close or decision control -- ← Back to main menu, ← Back, Show flow, ← Previous, Next →
+   [ok] Date Observed, Severity, Closure and the photo are shown -- ["2026-11-07","Minor","Pending",1]
+   [ok] + and × on Attachments not offered -- got 0, expected 0
+   => Pass
+
+== A10 Pre-Mob report needs the Checklist ID
+   [ok] every item starts as Pass (required items assessed) -- got 0, expected 0
+   [ok] step 4: red list shows the Checklist ID as required for Pre-Mob; Submit disabled -- Header — "Pre-Mobilization Checklist ID" is required for a Pre-Mob or Pre-Job report (from the Job Service Report)
+   [ok] nothing else in the red list -- Header — "Pre-Mobilization Checklist ID" is required for a Pre-Mob or Pre-Job report (from the Job Service Report)
+   [ok] step 5: list empty -- got [], expected []
+   [ok] details: Pre-mobilization checklist ID -- got "PMC-2026-0087", expected "PMC-2026-0087"
+   [ok] details: Job number -- got "—", expected "—"
+   [ok] Submit works -- Submit Report
+   [ok] Select Asset shows ASSET1 as Submitted – pending closure -- ASSET1 CTU COILED TUBING UNIT PAKISTAN 0/700 0/1000 0/300 0/1400 0/2000 0/600 Submitted — pending closure
+   => Pass
+
+== B1 Who sees what on a Submitted report
+   [ok] Suganya has no Close or Endorse control -- ← Back to main menu, ← Back, Show flow, Print / Export PDF, ← Previous, Already submitted
+   [ok] ASSET2 Report 1 card "Awaiting endorsement" with Endorse -- ASSET2 Awaiting endorsement PUMPING UNIT Report #6 1 issue Suganya Rajendran 7 Nov 2026, 6:59 PM
+   [ok] ASSET1 Pre-Mob card "Awaiting endorsement" with Endorse -- ASSET1 Awaiting endorsement CTU Report #8 0 issues Suganya Rajendran 7 Nov 2026, 7:00 PM
+   [ok] pressing Endorse on ASSET2 opens the MR-I report
+   => Pass
+
+== B2 Endorse is not offered on a Minor-only report
+   [ok] Next step bar says close and approve, with Close & Approve Report -- Next step: close and approve
+   [ok] Endorse Report not shown
+   => Pass
+
+== B3 Close & Approve Report 1
+   [ok] report leaves Reports to Review (closed)
+   [ok] ASSET2 Left is free again (report no longer pending) -- LeftStart new report
+   [info] ASSET2 status dot on Select asset -- Has pending issue
+   [info] status Approved, unit untagged, Minor fault stays Pending -- stored values checked in Phase 1 (B3 ok); the carry-forward is seen on screen in B5
+   => Pass
+
+== B4 Close & Approve the ASSET1 Pre-Mob report
+   [ok] Close & Approve offered -- Next step: close and approve
+   [ok] ASSET1 report closed (left the queue)
+   [info] status Approved, ASSET1 untagged -- stored values checked in Phase 1 (B4 ok)
+   => Pass
+
+== B5 Create and submit Report 2 with five Moderate faults
+   [info] Report 2 number in the app -- #9
+   [ok] Previous Engine Hours 150 (auto) -- got "150", expected "150"
+   [ok] Engine Hours (This Report) 70 -- got "70.0", expected "70.0"
+   [ok] Access Ladders & Handrails already Fail with Report 1 text, greyed out -- ["Fail","Ladder rung paint worn, needs touch-up.",true]
+   [ok] Air Filter: Fail / Moderate / Pending -- ["Fail","Moderate","Pending"]
+   [ok] Agitator: Fail / Moderate / Pending -- ["Fail","Moderate","Pending"]
+   [ok] Actuators on Control Panel: Fail / Moderate / Pending -- ["Fail","Moderate","Pending"]
+   [ok] Breather: Fail / Moderate / Pending -- ["Fail","Moderate","Pending"]
+   [ok] Brass Bushing Condition Within Tolerance Limits: Fail / Moderate / Pending -- ["Fail","Moderate","Pending"]
+   [ok] after adding Action taken Suganya can set Access Ladders & Handrails to Closed -- Closed
+   [ok] Air Filter Closed refused for the Operator (list disabled) -- disabled / Moderate faults require Maintenance Supervisor (or higher) review authority to close
+   [ok] Green Tagged greyed out (report has Moderate faults) -- Set automatically once the Moderate/Critical fault on this report is reviewed — not hand-editable
+   [ok] Job Ready greyed out (report has Moderate faults) -- Set automatically once the Moderate/Critical fault on this report is reviewed — not hand-editable
+   [ok] no issues before submit -- got [], expected []
+   [ok] Status Submitted -- Submit Report
+   [ok] Air Filter: Action Taken read-only with date, time and Suganya Rajendran -- Air Filter * Pass Fail 2026-11-07 19:01:50 by Suganya Rajendran: Filter element removed and cleaned, replacement element ordered. Pending — Minor Moderate Major
+   [ok] Air Filter: date observed -- got "2026-11-07", expected "2026-11-07"
+   [ok] Air Filter: photo -- got 1, expected 1
+   [ok] Agitator: Action Taken read-only with date, time and Suganya Rajendran -- Agitator * Pass Fail 2026-11-07 19:01:55 by Suganya Rajendran: Shaft lubricated, still stiff; bearing and seal inspection requested. Pending — Minor Moderate Ma
+   [ok] Agitator: date observed -- got "2026-11-07", expected "2026-11-07"
+   [ok] Agitator: photo -- got 0, expected 0
+   [ok] Actuators on Control Panel: Action Taken read-only with date, time and Suganya Rajendran -- Actuators on Control Panel * Pass Fail 2026-11-07 19:01:59 by Suganya Rajendran: Linkage cleaned and greased, response still slow. Pending — Minor Moderate Majo
+   [ok] Actuators on Control Panel: date observed -- got "2026-11-06", expected "2026-11-06"
+   [ok] Actuators on Control Panel: photo -- got 0, expected 0
+   [ok] Breather: Action Taken read-only with date, time and Suganya Rajendran -- Breather * Pass Fail 2026-11-07 19:02:02 by Suganya Rajendran: Temporary cap fitted, correct breather cap ordered. Pending — Minor Moderate Major / Critical
+   [ok] Breather: date observed -- got "2026-11-07", expected "2026-11-07"
+   [ok] Breather: photo -- got 1, expected 1
+   [ok] Brass Bushing Condition Within Tolerance Limits: Action Taken read-only with date, time and Suganya Rajendran -- Brass Bushing Condition Within Tolerance Limits * Pass Fail 2026-11-07 19:02:07 by Suganya Rajendran: Measured and recorded as within the wear limit; to be moni
+   [ok] Brass Bushing Condition Within Tolerance Limits: date observed -- got "2026-11-05", expected "2026-11-05"
+   [ok] Brass Bushing Condition Within Tolerance Limits: photo -- got 0, expected 0
+   [info] unit stays untagged -- stored value checked in Phase 1 (B5 ok)
+   [info] dropdown value did not stick, re-selected -- Compliance Stage = "PRE-JOB" (attempt 1, screen showed "— Select —"). Possible race: the header resets unsaved values when saved values are re-read.
+   => Pass
+
+== B6 Moderate faults cannot be closed directly
+   [ok] Next step bar says endorse this report, with Endorse Report -- Next step: endorse this report
+   [ok] Close & Approve not offered
+   => Pass
+
+== B7 Endorse needs a named reviewer
+   [ok] step 1: Confirm & Endorse greyed out; window says select who first -- Escalate to Pick the Maintenance Supervisor or FSM this report's Moderate fault(s) will be escalated to for review. Maintenance Supervisor / FSM Select who this is for… Disantha Perera (Maintenance Su
+   [ok] hover on the button says the same -- Select a Maintenance Supervisor / FSM first
+   [ok] list has reviewers (Disantha, Jan-Albert, Kamil) -- Select who this is for… | Disantha Perera (Maintenance Supervisor) | Jan-Albert Victorino (Operations Coordinator) | Kamil Shahzad (Maintenance Manager / FSM)
+   [ok] Administrator, Operator, Data Miner not listed
+   [info] screen after endorse -- ← Back to main menu / Abdulla Qais | Job Supervisor (Tier 2) / ← Back / Show flow / ASSET2 · Left — MR-I / Report #9 / Parent asset ASSET2 / Component Left / Template PUMP UNIT
+   [info] status Escalated, five Pending approvals assigned to Disantha -- stored values checked in Phase 1 (B7 ok); C1 sees them in Disantha's Pending Approvals
+   => Pass
+
+== B8 Closing is not offered while decisions are pending
+   [ok] step 1: ASSET2 report not waiting for Abdulla (no Attention Required tab) -- tab absent
+   [ok] step 2: no new report; says the Left report is still Escalated and must be closed first -- LeftReport #9 is Escalated — close it first
+   [info] step 3 (optional read-only view) -- not run
+   => Pass
+
+== C1 Approve a Moderate fault
+   [ok] Air Filter card shows Issue and Action Taken from B5 -- Air Filter Moderate ASSET2 Report #9 Reported 07/Nov/2026 ISSUE Air filter element clogged, restriction indicator in the red. ACTION TAKEN Filter element removed and cleaned, replacement element order
+   [ok] Review Method defaults to In-Person and offers In-Person and Phone -- {"tag":"SELECT","value":"In-Person","options":["In-Person","Phone"],"disabled":false}
+   [ok] Approve, Reclassify, Reject, Carryforward greyed out until Notes has text -- {"Approve":{"disabled":true,"title":"Enter notes before recording a decision"},"Reclassify":{"disabled":true,"title":"Enter notes before recording a decision"},"Reject":{"disabled":true,"title":"Enter notes before recording a decision"},"Carryforward":{"disabled":true,"title":"Enter notes before recording a decision"},"Cancel":{"disabled":false,"title":""}}
+   [info] Inform default -- Anyone who can acknowledge
+   [ok] buttons enabled once Notes has text
+   [ok] green message Approved — Air Filter on ASSET2 -- Approved — Air Filter on ASSET2
+   [ok] Air Filter card leaves the list
+   [info] decision log method In-Person, Planned follow-up created -- stored values checked in Phase 1 (C1); the Planned row is checked on screen in D1
+   [MATRIX] C1 "The unit tag does not change" -- the untagged unit becomes Green after the Moderate decision (Manual 8.1 / Table 3, see Phase 1); this is the expected app behaviour
+   => Pass
+
+== C2 Reject a Moderate fault
+   [MATRIX] C2 gives no Notes -- Notes are required by the app; the run typed "Not a fault: actuator response within limits."
+   [ok] Rejected -- Rejected — Actuators on Control Panel on ASSET2
+   [ok] card leaves the list (item closed)
+   [info] final severity Minor, no repair / follow-up row -- stored values checked in Phase 1 (C2 ok); D1 shows no Actuators row
+   => Pass
+
+== C3 Reclassify always has a new severity
+   [ok] Reclassify To starts on Minor and offers only Minor, Moderate, Major / Critical (no empty choice) -- {"tag":"SELECT","value":"Minor","options":["Minor","Moderate","Major / Critical"],"disabled":false}
+   [ok] decision buttons greyed out while Notes is empty
+   [ok] window closes; Breather still in Pending Approvals, unchanged
+   => Pass
+
+== C4 Carry a Moderate fault forward
+   [MATRIX] C4 gives no Notes -- Notes are required by the app; the run typed "Within wear limit; re-check at the next report."
+   [ok] decision saved -- Carryforward — Brass Bushing Condition Within Tolerance Limits on ASSET2
+   [info] no repair, tag unchanged by this step -- stored values checked in Phase 1 (C4 ok)
+   => Pass
+
+== C5 Raise a Moderate fault to Critical: only the FSM can receive it
+   [ok] Agitator card: orange Moderate, assigned to Disantha Perera -- Agitator Moderate ASSET2 Report #9 Reported 07/Nov/2026 ISSUE Agitator paddle shaft stiff, cannot confirm it turns freely. ACTION TAKEN Shaft lubricated, still 
+   [ok] Send Critical fault to (Maintenance Manager / FSM) list appears -- Review Method | Reclassify To (if applicable) | Send Critical fault to (Maintenance Manager / FSM) — required when reclassifying to Major / Critical | Notes (required)
+   [ok] step 3: only Kamil Shahzad offered -- got ["Kamil Shahzad"], expected ["Kamil Shahzad"]
+   [ok] Reclassify greyed out until Notes has text
+   [ok] error dialog: Cannot continue: Select the Maintenance Manager / FSM this Critical fault goes to. -- Cannot continue Select the Maintenance Manager / FSM this Critical fault goes to. OK
+   [ok] nothing else can be clicked or tabbed to (app inert)
+   [ok] Tab keeps focus on OK
+   [ok] Escape does not close it
+   [ok] OK closes it and focus returns to the Reclassify button -- Reclassify
+   [ok] step 5: green message -- Reclassified — Agitator on ASSET2
+   [ok] Agitator leaves Disantha's actionable list (may stay read-only waiting on Kamil)
+   [info] ASSET2 status dot -- {"title":"Has pending issue","bg":"rgb(163, 45, 45)","cls":"asset-status-dot"}
+   [ok] Kamil sees Agitator: red Critical, assigned to Kamil Shahzad -- Agitator Critical ASSET2 Report #9 Reported 07/Nov/2026 ISSUE Agitator paddle shaft stiff, cannot confirm it turns freely. ACTION TAKEN Shaft lubricated, still 
+   [info] ASSET2 Red, decision log Escalated -- stored values checked in Phase 1 (C5 ok)
+   => Pass
+
+== C6 Raise a second Moderate fault to Critical
+   [ok] Breather reclassified to Critical for Kamil -- Reclassified — Breather on ASSET2
+   [info] Pending Critical assigned to Kamil, unit stays Red -- stored values checked in Phase 1 (C6 ok); C7 sees it as Kamil
+   => Pass
+
+== C7 Approve both Critical faults (after C5 and C6)
+   [ok] top-right shows Kamil Shahzad | Maintenance Manager / FSM (Tier 3)
+   [ok] STOP CHECK Agitator: red Critical badge and Kamil Shahzad -- Agitator Critical ASSET2 Report #9 Reported 07/Nov/2026 ISSUE Agitator paddle shaft stiff, cannot confirm it turns freely. ACTION TAKEN Shaf
+   [ok] Agitator: Review Method In-Person -- got "In-Person", expected "In-Person"
+   [ok] Agitator: Approve greyed out until Notes
+   [ok] Agitator: green message Approved — Agitator on ASSET2 -- Approved — Agitator on ASSET2
+   [ok] Agitator: card leaves Pending Approvals
+   [ok] STOP CHECK Breather: red Critical badge and Kamil Shahzad -- Breather Critical ASSET2 Report #9 Reported 07/Nov/2026 ISSUE Breather cap missing, vent open to dust. ACTION TAKEN Temporary cap fitted, co
+   [ok] Breather: Review Method In-Person -- got "In-Person", expected "In-Person"
+   [ok] Breather: Approve greyed out until Notes
+   [ok] Breather: green message Approved — Breather on ASSET2 -- Approved — Breather on ASSET2
+   [ok] Breather: card leaves Pending Approvals
+   [ok] step 6: Rectification Queue has ASSET2 Agitator and Breather
+   [ok] Air Filter also there as Planned

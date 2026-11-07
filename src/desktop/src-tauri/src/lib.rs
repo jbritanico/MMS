@@ -1476,9 +1476,27 @@ fn create_asset(asset: Asset) -> Result<String, String> {
     Ok("Asset created".to_string())
 }
 
+// viewer_user_id: when given, only assets in the countries that user may see are returned.
+// The Maintenance Manager / FSM and the Administrator always see every asset; so do users
+// with no country rows. Without viewer_user_id (admin data tools, dashboard, menu KPIs)
+// every asset is returned, as before.
 #[tauri::command]
-fn get_assets() -> Result<Vec<Asset>, String> {
+fn get_assets(viewer_user_id: Option<i64>) -> Result<Vec<Asset>, String> {
     let conn = get_connection()?;
+    let restriction = match viewer_user_id {
+        Some(id) => {
+            let role: String = conn
+                .query_row("SELECT role FROM app_users WHERE id = ?1", [id], |row| row.get(0))
+                .map_err(|e| e.to_string())?;
+            if role == "Maintenance Manager / FSM" {
+                None
+            } else {
+                // Administrator and users without country rows -> None (see user_country_restriction).
+                user_country_restriction(&conn, id)?
+            }
+        }
+        None => None,
+    };
     let mut stmt = conn.prepare("SELECT id, asset_code, asset_description, country, service_line, active, service_asset, vehicle, mr_last_action, last_action_by, last_action_dt, asset_type_id, client, tag_status, tag_reason FROM assets")
         .map_err(|e| e.to_string())?;
     let assets = stmt
@@ -1504,7 +1522,10 @@ fn get_assets() -> Result<Vec<Asset>, String> {
         .map_err(|e| e.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
-    Ok(assets)
+    Ok(match restriction {
+        None => assets,
+        Some(allowed) => assets.into_iter().filter(|a| allowed.iter().any(|c| c == &a.country)).collect(),
+    })
 }
 
 #[tauri::command]

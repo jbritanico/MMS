@@ -69,8 +69,17 @@ function tagTone(tag: string | null | undefined): Tone {
   return "neutral";
 }
 
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// The backend stores most dates as Unix seconds (an all-digit string); show those in the
+// same DD/Mon/YYYY format as Pending Approvals. ISO-style values keep their first 10 characters.
 function shortDate(raw: string | null | undefined): string {
   if (!raw) return "";
+  if (/^\d{9,13}$/.test(raw.trim())) {
+    const n = Number(raw);
+    const d = new Date(n < 1e12 ? n * 1000 : n);
+    if (!isNaN(d.getTime())) return `${String(d.getDate()).padStart(2, "0")}/${MONTH_ABBR[d.getMonth()]}/${d.getFullYear()}`;
+  }
   return raw.length >= 10 ? raw.slice(0, 10) : raw;
 }
 
@@ -124,8 +133,8 @@ function AssetFlow({ assetId, onBack, onOpenReport, onShowReportFlow, onOpenAsse
       tone: r.open_fault_count > 0 ? "danger" : r.status === "Approved" ? "success" : r.status === "Escalated" ? "warn" : "neutral",
       details: [
         ["Status", r.status], ["Template", r.template_name ?? "—"],
-        ["Submitted by", r.submitted_by ?? "—"], ["Submitted", r.submitted_date ?? "—"],
-        ["Closed", r.approved_date ?? "—"], ["MR cost", r.mr_cost != null ? String(r.mr_cost) : "—"],
+        ["Submitted by", r.submitted_by ?? "—"], ["Submitted", shortDate(r.submitted_date) || "—"],
+        ["Closed", shortDate(r.approved_date) || "—"], ["MR cost", r.mr_cost != null ? String(r.mr_cost) : "—"],
         ["Faults", String(r.fault_count)], ["Open faults", String(r.open_fault_count)],
       ],
       open: { label: "Show flow of this report", run: () => onShowReportFlow(r.id) },
@@ -159,7 +168,7 @@ function AssetFlow({ assetId, onBack, onOpenReport, onShowReportFlow, onOpenAsse
       tone: tagTone(t.tag_status),
       details: [
         ["Change", `${t.previous_tag_status ?? "Not tagged"} → ${t.tag_status}`], ["Reason", t.reason ?? "—"],
-        ["Caused by report", t.report_id != null ? `#${t.report_id}` : "—"], ["Changed by", t.changed_by ?? "—"], ["Changed", t.changed_at ?? "—"],
+        ["Caused by report", t.report_id != null ? `#${t.report_id}` : "—"], ["Changed by", t.changed_by ?? "—"], ["Changed", shortDate(t.changed_at) || "—"],
       ],
       open: { label: "Open Asset Registry", run: onOpenAssets, needs: ["assets.view"] },
       also: t.report_id != null ? { label: `Show flow of report #${t.report_id}`, run: () => onShowReportFlow(t.report_id as number) } : undefined,

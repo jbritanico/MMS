@@ -696,8 +696,12 @@ const MR_INITIATION_DATE = "mr initization date";
 const COMPLIANCE_STAGE_FIELD = "compliance stage";
 const MAINTENANCE_TYPE_FIELD = "maintenance type";
 
-// Maintenance Type header field: why this inspection / work is being recorded.
-const MAINTENANCE_TYPE_OPTIONS = ["Corrective", "Preventive"];
+// Maintenance Type header field, per the Maintenance Management Manual Rev 02 section 5:
+// Preventive (PM) = planned work before failure; MR-I/II/III and the correction of defects
+// they find before functional failure are all PM. Breakdown (BM) = unplanned work after
+// equipment failure. An MR-I report therefore defaults to Preventive.
+const MAINTENANCE_TYPE_OPTIONS = ["Preventive", "Breakdown"];
+const MAINTENANCE_TYPE_DEFAULT = "Preventive";
 
 const COMPLIANCE_STAGE_OPTIONS = [
   "PREMOB",
@@ -723,7 +727,7 @@ function HeaderEntryStep({
 }) {
   const { data: templateFields = [] } = useTemplateHeaderFields(templateId);
   const { data: catalog = [] } = useHeaderFieldCatalog();
-  const { data: savedValues = [] } = useMriReportHeaderValues(reportId);
+  const { data: savedValues = [], isSuccess: savedValuesLoaded } = useMriReportHeaderValues(reportId);
   const setValue = useSetMriReportHeaderValue(reportId);
   const { data: previousEngineHours } = usePreviousEngineHours(
     asset?.id ?? 0,
@@ -733,9 +737,13 @@ function HeaderEntryStep({
   const { data: triggers = [] } = useAssetTriggers(asset?.id ?? 0);
 
   const [localValues, setLocalValues] = useState<Record<number, string>>({});
+  // Fields the user has changed but not yet saved (the header saves on blur). A refresh of
+  // the saved values must not overwrite them, or a quick choice can be lost before it is saved.
+  const unsavedEdits = useRef(new Set<number>());
   const persistedInherited = useState(() => new Set<number>())[0];
   const autoSavedDates = useState(() => new Set<number>())[0];
   const engineHoursPrefilled = useState(() => new Set<number>())[0];
+  const maintenanceTypeDefaulted = useState(() => new Set<number>())[0];
 
   function fieldLabel(headerFieldId: number) {
     return catalog.find((c) => c.id === headerFieldId)?.label ?? "—";
@@ -763,7 +771,13 @@ function HeaderEntryStep({
     savedValues.forEach((v) => {
       initial[v.template_header_field_id] = v.value ?? "";
     });
-    setLocalValues(initial);
+    setLocalValues((prev) => {
+      const merged = { ...initial };
+      unsavedEdits.current.forEach((id) => {
+        if (id in prev) merged[id] = prev[id];
+      });
+      return merged;
+    });
   }, [savedValues]);
 
   useEffect(() => {
@@ -830,11 +844,31 @@ function HeaderEntryStep({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templateFields.length, previousEngineHours, locked, savedValues.length]);
 
+  // Maintenance Type starts on Preventive for a new MR-I report (Manual Rev 02 section 5.1).
+  // Only fills in once the saved values have loaded, and only when the report has no saved
+  // Maintenance Type row yet, so an operator's choice (including a deliberate blank) is
+  // never overwritten.
+  useEffect(() => {
+    if (locked || !savedValuesLoaded || templateFields.length === 0 || catalog.length === 0) return;
+    templateFields.forEach((tf) => {
+      const label = fieldLabel(tf.header_field_id).trim().toLowerCase();
+      if (label !== MAINTENANCE_TYPE_FIELD) return;
+      if (maintenanceTypeDefaulted.has(tf.id)) return;
+      maintenanceTypeDefaulted.add(tf.id);
+      const alreadySaved = savedValues.find((v) => v.template_header_field_id === tf.id);
+      if (alreadySaved) return;
+      setLocalValues((prev) => ({ ...prev, [tf.id]: MAINTENANCE_TYPE_DEFAULT }));
+      setValue.mutate({ templateHeaderFieldId: tf.id, value: MAINTENANCE_TYPE_DEFAULT });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateFields.length, catalog.length, savedValuesLoaded, locked]);
+
   const sortedFields = [...templateFields].sort(
     (a, b) => a.display_order - b.display_order,
   );
 
   function handleChange(fieldId: number, value: string) {
+    unsavedEdits.current.add(fieldId);
     setLocalValues((prev) => ({ ...prev, [fieldId]: value }));
   }
 
@@ -844,6 +878,7 @@ function HeaderEntryStep({
       templateHeaderFieldId: fieldId,
       value: localValues[fieldId] ?? "",
     });
+    unsavedEdits.current.delete(fieldId);
 
     const changedLabel = fieldLabel(
       templateFields.find((f) => f.id === fieldId)?.header_field_id ?? -1,
@@ -978,6 +1013,11 @@ function HeaderEntryStep({
                       {opt}
                     </option>
                   ))}
+                  {/* A value saved before the list changed (e.g. "Corrective") stays visible. */}
+                  {(localValues[tf.id] ?? "") !== "" &&
+                    !MAINTENANCE_TYPE_OPTIONS.includes(localValues[tf.id]) && (
+                      <option value={localValues[tf.id]}>{localValues[tf.id]} (old value)</option>
+                    )}
                 </select>
               </div>
             );
@@ -2951,6 +2991,12 @@ function ReviewStep({
   }
   function fmtDate(raw: string): string {
     if (!raw) return "—";
+    // Report dates (submitted_date / created_date) are stored as Unix seconds.
+    if (/^\d{9,13}$/.test(raw.trim())) {
+      const n = Number(raw);
+      const s = new Date(n < 1e12 ? n * 1000 : n);
+      if (!isNaN(s.getTime())) return formatDdMmmYyyy(s);
+    }
     const d = new Date(
       raw.includes("T") || raw.includes(" ") ? raw : `${raw}T00:00:00`,
     );
@@ -5859,6 +5905,16 @@ function AttachmentGallery({
   );
 }
 
+// MR cost date: stored as Unix seconds; same DD/Mon/YYYY format as Pending Approvals.
+function formatCostDate(raw: string): string {
+  const n = Number(raw);
+  if (!raw.trim() || isNaN(n)) return raw;
+  const d = new Date(n < 1e12 ? n * 1000 : n);
+  if (isNaN(d.getTime())) return raw;
+  const m = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${String(d.getDate()).padStart(2, "0")}/${m[d.getMonth()]}/${d.getFullYear()}`;
+}
+
 // Figure 3: after the JSR job code is shown, the report is directed to the operations
 // supervisor to insert the cost to perform the MR. Optional; does not block closure.
 function MrCostPanel({
@@ -5896,7 +5952,7 @@ function MrCostPanel({
         <div style={{ fontSize: 12.5, color: "var(--text-soft)", marginBottom: 8 }}>
           Recorded: <strong>{cost.toLocaleString()}</strong>
           {costBy && <> · by {costBy}</>}
-          {costDate && <> · {costDate}</>}
+          {costDate && <> · {formatCostDate(costDate)}</>}
         </div>
       )}
       {cost === null && !canEnter && (
