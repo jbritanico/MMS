@@ -9,6 +9,41 @@ const back = async (b) => { await click(b, '← Back', { exact: true }); await b
 
 module.exports = [
   {
+    id: 'J5', runner: 'you', who: 'Jess Britanico', title: 'Full data backup now lives under Data Tools (automated part)',
+    async run(t) {
+      const b = t.browser;
+      const { clickText } = require('../lib/ui');
+      const { itSql } = require('../lib/it');
+      await W.toMainMenu(b);
+      await W.tile(b, 'Administration');
+      await b.pause(1000);
+      await clickText(b, 'Data Tools');
+      await b.pause(600);
+      const nav = await t.text(3000);
+      const i = nav.indexOf('Data Tools');
+      const block = i >= 0 ? nav.slice(i, i + 120) : '';
+      t.check('step 1: Data Tools lists Browser, Removal, Purging and Backup', ['Browser', 'Removal', 'Purging', 'Backup'].every((x) => block.includes(x)), block.replace(/\n/g, ' / '));
+      await t.shot('data_tools');
+      await b.execute(() => { const els = [...document.querySelectorAll('body *')].filter((e) => e.getClientRects().length && (e.innerText || '').trim() === 'Backup'); els[els.length - 1].click(); });
+      await b.pause(1000);
+      const btns = await b.execute(() => [...document.querySelectorAll('button')].filter((x) => x.getClientRects().length).map((x) => x.innerText.trim()));
+      t.check('Backup screen opens (Full data backup)', /Full data backup/i.test(await t.text(20000)), '');
+      t.check('Export and Import buttons shown for Jess', btns.some((x) => /Export full backup/.test(x)) && btns.some((x) => /Import full backup/.test(x)), btns.filter((x) => /backup/i.test(x)).join(', '));
+      const [p] = itSql("SELECT permission_code FROM role_permissions WHERE role='Administrator' AND permission_code IN ('backups.export','backups.import') ORDER BY permission_code");
+      t.eq('buttons follow permission: Administrator holds backups.export and backups.import', p.rows.map((r) => r.permission_code), ['backups.export', 'backups.import']);
+      await t.shot('backup_screen');
+      t.info('step 2: Export full backup', 'not pressed by the run: the download / Save dialog is Jess\'s step. Backend check: export_full_backup() returns all 40 database tables (none missing), about 5.6 MB, as one JSON file.');
+      await b.execute(() => { const els = [...document.querySelectorAll('body *')].filter((e) => e.getClientRects().length && (e.innerText || '').trim() === 'Users'); els[els.length - 1].click(); });
+      await b.pause(1200);
+      const users = await t.text(8000);
+      t.check('step 3: Users has no Full data backup panel', !/Full data backup|Export full backup/.test(users), '');
+      t.check('Users still has Clear all users', /Clear all users/.test(users), '');
+      await b.execute(() => { const x = [...document.querySelectorAll('body *')].find((e) => (e.innerText || '').trim() === 'Clear all users'); x && x.scrollIntoView({ block: 'center' }); });
+      await b.pause(500);
+      await t.shot('users_bottom');
+    },
+  },
+  {
     id: 'J1', who: 'Jess Britanico', title: 'Show flow on the Asset Registry cards',
     async run(t) {
       const b = t.browser;

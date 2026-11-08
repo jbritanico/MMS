@@ -142,12 +142,12 @@ for (const x of matrixIssues) {
   const k = `${x.id}|${x.label}`; if (seen.has(k)) continue; seen.add(k);
   md += `- **${x.id}** — ${x.label}: ${x.detail}\r\n`;
 }
-md += '- **F4/F5** — phone relay: the manual does not mention phone decisions and Kamil\'s written reply (Clarification.docx) does not answer question 3; the app records them as Provisional until confirmed. Needs Kamil\'s written confirmation.\r\n';
+md += '- **F4/F5** — phone relay: resolved. K. Shahzad confirmed phone approval is part of the existing (legacy) MMS and stays: allowed for Moderate and Major/Critical faults (not for Minor), recorded as Provisional and confirmed later by the reviewer. The app already does this (F4 and F5 pass); only the Test Matrix gets a basis line.\r\n';
 md += '- **A3** — confirmed by Jess: the app is right (PRE-JOB records Distance Travelled Pre-Job; POST JOB, and a Yard inspection right after it, record Post-Job). Matrix to read "Distance Travelled Pre-Job (KM): 300".\r\n';
 md += '- **C1/D10** — basis: Manual Rev 02 §8.1 (every item Green / Yellow / Red; a Moderate-only unit is ready for service) and Table 3; Table 3\'s Moderate row itself says nothing about tags.\r\n\r\n';
 md += '## Cases for Jess\r\n\r\n### claude-code+review (look not judged; screenshots)\r\n\r\n| case | screenshots |\r\n|---|---|\r\n';
 for (const r of rows.filter((x) => x.runner === 'claude-code+review')) md += `| ${r.id} | e2e/screenshots/${r.id}/ |\r\n`;
-md += '\r\n### runner "you"\r\n\r\n- **S1** — backup: the run took its backup by copying the database to e2e/run/assets.source.db (brief section 3); the in-app Save / Open dialog step is left for Jess.\r\n- **J5** — Data Tools backup Save / Open dialog: not run.\r\n\r\n';
+md += '\r\n### runner "you"\r\n\r\n- **S1** — backup: the run took its backup by copying the database to e2e/run/assets.source.db (brief section 3); the in-app Save / Open dialog step is left for Jess.\r\n- **J5** — automated part Pass (e2e/run/retest_J5.db, copy of final_after_J9.db): Data Tools lists Browser, Removal, Purging, Backup; Backup shows Export and Import for Jess (Administrator holds backups.export and backups.import); Users has no backup panel and still has Clear all users; export_full_backup() returns all 40 tables. Left for Jess: press Export full backup in her own app, check the file is saved (Downloads or the Save dialog) and mark J5. Screenshots: e2e/screenshots/J5/.\r\n\r\n';
 md += '## Real database\r\n\r\n';
 md += `src/desktop/src-tauri/assets.db was never opened by any test: size ${p1.real_db_size} bytes and modified time 2026-11-07 12:52:05 (+04:00) were checked before and after every Phase 1 run and every Phase 2 session, and were unchanged each time (${realDb ? 'confirmed' : 'NOT confirmed'} in the last Phase 1 run; see phase2_run.log for the UI sessions).\r\n\r\n`;
 md += '## Code changed (none committed)\r\n\r\n';
@@ -158,6 +158,7 @@ md += '- Fix 3 J8 (Dashboard view kept): `src/desktop/src/App.tsx`, `src/desktop
 md += '- Fix 4 I6 / I7 (header choice kept): `src/desktop/src/features/mri-reporting/ReportWizard.tsx` (HeaderEntryStep)\r\n';
 md += '- Fix 5 build (file-name casing): `src/desktop/src/features/administration/hooks/useMRiTemplates.ts` renamed to `useMriTemplates.ts` (record with `git mv -f` at commit time)\r\n';
 md += '- Fix 6 G5 (asset lists by country): `src/desktop/src-tauri/src/lib.rs` (get_assets), `src/desktop/src/features/asset-registry/hooks/useAssets.ts`, `src/desktop/src/features/asset-registry/AssetRegistry.tsx`, `src/desktop/src/features/mri-reporting/SelectAssetForReport.tsx`\r\n';
+md += '- Previous Engine Hours on Review & Submit / print (Jess: show 0 when there is no earlier reading): `src/desktop/src/features/mri-reporting/ReportWizard.tsx` (ReviewStep uses the same previous reading as the Header step, else 0). Re-tested in A7.\r\n';
 md += '- Test-only files: `src/desktop/src-tauri/tests/{db_inspect,prep_clean_db,mri_matrix_backend,it_sql}.rs`, everything under `e2e/`.\r\n\r\n';
 md += '## Not changed (by decision)\r\n\r\n- F8: no "Pending" entry in the decision log (Jess to decide).\r\n- Everything under "Matrix cases that are wrong or unclear" (to be fixed in the Test Matrix).\r\n';
 fs.writeFileSync(path.join(OUT, 'SUMMARY.md'), md);

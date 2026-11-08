@@ -2749,6 +2749,9 @@ function ReviewStep({
   const { data: headerFields = [] } = useTemplateHeaderFields(templateId);
   const { data: headerCatalog = [] } = useHeaderFieldCatalog();
   const { data: headerValues = [] } = useMriReportHeaderValues(reportId);
+  // Previous Engine Hours is shown, never saved: use the same reading as the Header step
+  // (the last approved report's Current Engine Hours), or 0 when there is none.
+  const { data: previousEngineHours } = usePreviousEngineHours(asset?.id ?? 0, reportId);
 
   const { data: templateItems = [] } = useTemplateChecklistItems(templateId);
   const { data: databank = [] } = useChecklistItems();
@@ -3133,7 +3136,7 @@ function ReviewStep({
     },
     {
       label: "Previous engine hours",
-      value: findHeaderValue("Previous Engine Hours") || "—",
+      value: findHeaderValue("Previous Engine Hours") || previousEngineHours || "0",
     },
     {
       label: "Current engine hours",

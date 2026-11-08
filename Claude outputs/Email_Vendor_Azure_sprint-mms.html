@@ -1,0 +1,73 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Azure resource group sprint-mms: setup and pricing request</title></head>
+<body style="font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#1a1a1a;">
+<p><b>Subject:</b> Request: Azure resource group <i>sprint-mms</i> &ndash; setup and pricing options</p>
+<p>Dear [Vendor contact],</p>
+<p>Good day.</p>
+<p>Sprint is introducing an offline-first platform that lets field users keep working without an internet connection and synchronises their data when they are back online. The data will be stored on SharePoint Online in our Microsoft 365 tenant. A small API hosted in Azure will sit between the desktop app and SharePoint. It verifies each user&rsquo;s sign-in and permissions, and it is the only component that writes to SharePoint.</p>
+<p>I would appreciate your help with the Azure side. All Azure resources for this platform, now and in the future, will be kept in one resource group, tentatively named <b>sprint-mms</b>. The details are below.</p>
+
+<p><b>1. Subscription and resource group</b></p>
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;border-color:#999;font-size:10.5pt;">
+<tr style="background:#dde6ef;"><th align="left" width="200">Item</th><th align="left" width="440">Request</th></tr>
+<tr><td>Subscription</td><td>Please advise whether to use an existing Sprint subscription or set up a new one (pay-as-you-go or CSP).</td></tr>
+<tr><td>Resource group</td><td><b>sprint-mms</b> &ndash; all resources for this platform go here.</td></tr>
+<tr><td>Region</td><td>To be decided from your pricing options (section 5). Candidates: <b>UAE North</b>, <b>Central India</b>, <b>West India / South India</b>.</td></tr>
+<tr><td>Tags</td><td>project = sprint-mms, owner = Jess Britanico, environment = production</td></tr>
+<tr><td>Budget alert</td><td>Monthly budget on the resource group (for example USD 25), with an e-mail alert to me at 80% and 100%.</td></tr>
+</table>
+
+<p><b>2. Resources required</b></p>
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;border-color:#999;font-size:10.5pt;">
+<tr style="background:#dde6ef;"><th align="left" width="170">Resource</th><th align="left" width="160">Suggested name</th><th align="left" width="310">Settings</th></tr>
+<tr><td>Function App (the API)</td><td>func-sprint-mms-api</td><td>Flex Consumption plan (usage-based), Linux. Runtime to be confirmed by Sprint (.NET 8 isolated or Node.js). HTTPS only, TLS 1.2 or higher. System-assigned managed identity enabled.</td></tr>
+<tr><td>Storage account (required by the Function App)</td><td>stsprintmms</td><td>Standard, LRS. Public blob access disabled.</td></tr>
+<tr><td>Key Vault</td><td>kv-sprint-mms</td><td>Standard. RBAC permission model. Soft delete and purge protection enabled. Function App identity assigned <i>Key Vault Secrets User</i> and <i>Key Vault Certificate User</i>.</td></tr>
+<tr><td>Log Analytics workspace</td><td>log-sprint-mms</td><td>Pay-as-you-go, 30-day retention, daily cap (for example 1 GB). An existing Sprint workspace may be used instead (see section 5).</td></tr>
+<tr><td>Application Insights</td><td>appi-sprint-mms</td><td>Workspace-based, connected to the Function App.</td></tr>
+</table>
+<p style="font-size:10pt;color:#555;">Names are suggestions; please adjust them to any naming policy you apply. Storage account and Key Vault names must be globally unique.</p>
+
+<p><b>3. Access</b></p>
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;border-color:#999;font-size:10.5pt;">
+<tr style="background:#dde6ef;"><th align="left" width="200">Who</th><th align="left" width="440">Role on sprint-mms</th></tr>
+<tr><td>Jess Britanico (jbritanico@sprint-ae.com)</td><td><b>Owner</b>, so the application can be deployed and maintained in-house.</td></tr>
+<tr><td>Vendor</td><td>As needed for the setup. Please let me know what access you will keep afterwards.</td></tr>
+</table>
+
+<p><b>4. Handled by Sprint (for your information)</b></p>
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;border-color:#999;font-size:10.5pt;">
+<tr style="background:#dde6ef;"><th align="left" width="200">Item</th><th align="left" width="440">Detail</th></tr>
+<tr><td>Entra ID app registrations</td><td>One for the desktop app (user sign-in) and one for the API (SharePoint access using a certificate stored in kv-sprint-mms). Created by me as tenant administrator.</td></tr>
+<tr><td>SharePoint site and lists</td><td>Created in our tenant. The API is given access to that site only (Sites.Selected).</td></tr>
+<tr><td>API code and deployment</td><td>Developed in-house and deployed to func-sprint-mms-api.</td></tr>
+</table>
+
+<p><b>5. What I need from you</b></p>
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;border-color:#999;font-size:10.5pt;">
+<tr style="background:#dde6ef;"><th align="left" width="30">#</th><th align="left" width="610">Request</th></tr>
+<tr><td>1</td><td>Your recommendation on the subscription.</td></tr>
+<tr><td>2</td><td>Pricing options for each candidate region, using the table below. Expected use: about 50 devices and 30,000&ndash;60,000 API calls per month.</td></tr>
+<tr><td>3</td><td>Whether Sprint already has a Log Analytics workspace, or an App Service plan with spare capacity, in any of these regions that could be reused to reduce cost.</td></tr>
+<tr><td>4</td><td>Where our Microsoft 365 / SharePoint data is stored, and any data-residency point to consider when hosting outside the UAE.</td></tr>
+<tr><td>5</td><td>Any Azure policies, naming rules or security baselines already applied to Sprint subscriptions that I should follow.</td></tr>
+<tr><td>6</td><td>A quote and timeline for the setup work.</td></tr>
+</table>
+
+<p><b>Pricing options (estimated monthly cost)</b></p>
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;border-color:#999;font-size:10.5pt;">
+<tr style="background:#dde6ef;"><th align="left" width="200">Resource</th><th align="left" width="140">UAE North</th><th align="left" width="140">Central India</th><th align="left" width="140">West India / South India</th></tr>
+<tr><td>Function App (Flex Consumption)</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+<tr><td>Always-on alternative (App Service Basic B1, Linux)</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+<tr><td>Storage account</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+<tr><td>Key Vault</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+<tr><td>Log Analytics / Application Insights</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+<tr style="background:#f2f5f8;"><td><b>Total (usage-based)</b></td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+<tr style="background:#f2f5f8;"><td><b>Total (always-on)</b></td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+<tr><td>All services available?</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+<tr><td>Notes / recommendation</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+</table>
+
+<p>Please let me know if you need any further information.</p>
+<p>Best regards,<br>Jess Britanico<br>IT, Sprint Oil and Gas Services<br>jbritanico@sprint-ae.com</p>
+</body></html>

@@ -666,6 +666,11 @@
      "detail": "Footer — \"Operator Date\" is required / Footer — \"Supervisor\" is required / Footer — \"Supervisor Date\" is required"
     },
     {
+     "label": "tick boxes are optional: no issues and Submit enabled before any box is ticked",
+     "outcome": "ok",
+     "detail": "Submit Report"
+    },
+    {
      "label": "Operator fills itself in",
      "outcome": "ok",
      "detail": "got \"Suganya Rajendran\", expected \"Suganya Rajendran\""
@@ -701,6 +706,26 @@
      "detail": "got \"150.0\", expected \"150.0\""
     },
     {
+     "label": "details box lists every PUMP UNIT header field (15)",
+     "outcome": "ok",
+     "detail": "Country=PAKISTAN; Service line=STIMULATION; Asset no=ASSET2; Client=Test Client; Location=Test Well TW-21; Previous engine hours=0; Current engine hours=150; Engine hours (this report)=150.0; Job operating hours=—; MR-II due date=21-Mar-2028; Compliance stage=PRE-JOB; MR initialization date=08-Nov-2026; Maintenance type=Preventive; Pre-mobilization checklist ID=PMC-2026-0101; Job number=—"
+    },
+    {
+     "label": "empty field shows —: Job operating hours",
+     "outcome": "ok",
+     "detail": "got \"—\", expected \"—\""
+    },
+    {
+     "label": "Previous engine hours shows 0 (no earlier reading), as on the Header step",
+     "outcome": "ok",
+     "detail": "got \"0\", expected \"0\""
+    },
+    {
+     "label": "Review shows all five tick boxes ticked",
+     "outcome": "ok",
+     "detail": "[[\"Cleaned\",true],[\"Green Tagged\",true],[\"Job Ready\",true],[\"Pressure Tested\",true],[\"Function Tested\",true]]"
+    },
+    {
      "label": "step 3: submitted",
      "outcome": "ok",
      "detail": "Submit Report"
@@ -718,10 +743,11 @@
    ],
    "screenshots": [
     "e2e/screenshots/A7/01_empty_footer_review.png",
-    "e2e/screenshots/A7/02_footer_filled.png",
-    "e2e/screenshots/A7/03_review_before_submit.png"
+    "e2e/screenshots/A7/02_required_footer_only.png",
+    "e2e/screenshots/A7/03_footer_filled.png",
+    "e2e/screenshots/A7/04_review_before_submit.png"
    ],
-   "date": "2026-11-07T13:59:06.879Z",
+   "date": "2026-11-08T03:08:21.706Z",
    "error": null,
    "status": "Needs review"
   },
@@ -4640,6 +4666,56 @@
    "date": "2026-11-07T14:52:59.255Z",
    "error": null,
    "status": "Needs review"
+  },
+  "J5": {
+   "id": "J5",
+   "runner": "you",
+   "title": "Full data backup now lives under Data Tools (automated part)",
+   "checks": [
+    {
+     "label": "step 1: Data Tools lists Browser, Removal, Purging and Backup",
+     "outcome": "ok",
+     "detail": "Data Tools / Browser / Removal / Purging / Backup / MR Templates / I / MR-I / II / MR-II / III / MR-III / USERS / Local user records with role-bas"
+    },
+    {
+     "label": "Backup screen opens (Full data backup)",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Export and Import buttons shown for Jess",
+     "outcome": "ok",
+     "detail": "Backup, ⤓ Export full backup, ⤒ Import full backup"
+    },
+    {
+     "label": "buttons follow permission: Administrator holds backups.export and backups.import",
+     "outcome": "ok",
+     "detail": "got [\"backups.export\",\"backups.import\"], expected [\"backups.export\",\"backups.import\"]"
+    },
+    {
+     "label": "step 2: Export full backup",
+     "outcome": "info",
+     "detail": "not pressed by the run: the download / Save dialog is Jess's step. Backend check: export_full_backup() returns all 40 database tables (none missing), about 5.6 MB, as one JSON file."
+    },
+    {
+     "label": "step 3: Users has no Full data backup panel",
+     "outcome": "ok",
+     "detail": ""
+    },
+    {
+     "label": "Users still has Clear all users",
+     "outcome": "ok",
+     "detail": ""
+    }
+   ],
+   "screenshots": [
+    "e2e/screenshots/J5/01_data_tools.png",
+    "e2e/screenshots/J5/02_backup_screen.png",
+    "e2e/screenshots/J5/03_users_bottom.png"
+   ],
+   "date": "2026-11-08T03:13:31.279Z",
+   "error": null,
+   "status": "Pass"
   }
  },
  "reports": {

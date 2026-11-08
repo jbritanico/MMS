@@ -16,6 +16,26 @@ fn it_runs_sql_on_test_db() {
     let target = dir.join("assets.db").canonicalize().expect("test assets.db must exist");
     assert_ne!(real, target, "refusing to run against the real database");
     std::env::set_current_dir(&dir).unwrap();
+    // MMS_IT_EXPORT=1: call the app's export_full_backup() and compare its tables with the
+    // database's tables. Prints table names and row counts only, never the data.
+    if std::env::var("MMS_IT_EXPORT").as_deref() == Ok("1") {
+        let json = export_full_backup().expect("export_full_backup failed");
+        let v: serde_json::Value = serde_json::from_str(&json).expect("export is not JSON");
+        let tables_obj = v.get("tables").and_then(|t| t.as_object()).cloned()
+            .or_else(|| v.as_object().cloned()).unwrap_or_default();
+        let mut exported: Vec<(String, usize)> = tables_obj.iter()
+            .filter_map(|(k, val)| val.get("rows").and_then(|r| r.as_array()).or(val.as_array()).map(|a| (k.clone(), a.len()))).collect();
+        exported.sort();
+        let conn = get_connection().unwrap();
+        let mut st = conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").unwrap();
+        let db_tables: Vec<String> = st.query_map([], |r| r.get(0)).unwrap().map(|r| r.unwrap()).collect();
+        let top_keys: Vec<String> = v.as_object().map(|o| o.keys().cloned().collect()).unwrap_or_default();
+        println!("IT_EXPORT {}", serde_json::json!({
+            "bytes": json.len(), "top_level_keys": top_keys,
+            "exported": exported, "db_tables": db_tables,
+        }));
+        return;
+    }
     let sql_all = std::env::var("MMS_IT_SQL").unwrap_or_default();
     let conn = get_connection().unwrap();
     let _ = conn.busy_timeout(std::time::Duration::from_secs(10));

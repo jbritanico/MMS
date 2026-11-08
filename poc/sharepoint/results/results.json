@@ -1,0 +1,833 @@
+{
+  "scenarios": {
+    "S1": {
+      "when": "2026-11-08T09:53:18.912Z",
+      "ok": true,
+      "durationMs": 184487,
+      "http": {
+        "calls": 501,
+        "p50ms": 333,
+        "p95ms": 639,
+        "maxms": 1051,
+        "bytesIn": 1999808,
+        "byStatus": {
+          "200": 51,
+          "201": 450
+        },
+        "throttled": 0
+      },
+      "betaCalls": [],
+      "result": {
+        "itemByItem": {
+          "runs": 10,
+          "itemsPerReport": 43,
+          "photoPerReport": 1,
+          "totalMs": {
+            "p50": 15430,
+            "p95": 16522,
+            "min": 14798,
+            "max": 16522
+          },
+          "httpCallsPerReport": 45,
+          "perCall": {
+            "calls": 450,
+            "p50ms": 330,
+            "p95ms": 443,
+            "maxms": 809,
+            "bytesIn": 884137,
+            "byStatus": {
+              "200": 10,
+              "201": 440
+            },
+            "throttled": 0
+          },
+          "perCallByKind": {
+            "listItemPost": {
+              "calls": 430,
+              "p50ms": 329,
+              "p95ms": 396,
+              "maxms": 624,
+              "bytesIn": 847984,
+              "byStatus": {
+                "201": 430
+              },
+              "throttled": 0
+            },
+            "batchPost": {
+              "calls": 0,
+              "p50ms": 0,
+              "p95ms": 0,
+              "maxms": 0,
+              "bytesIn": 0,
+              "byStatus": {},
+              "throttled": 0
+            },
+            "photoPut": {
+              "calls": 10,
+              "p50ms": 635,
+              "p95ms": 809,
+              "maxms": 809,
+              "bytesIn": 25250,
+              "byStatus": {
+                "201": 10
+              },
+              "throttled": 0
+            },
+            "photoMetadataPatch": {
+              "calls": 10,
+              "p50ms": 380,
+              "p95ms": 652,
+              "maxms": 652,
+              "bytesIn": 10903,
+              "byStatus": {
+                "200": 10
+              },
+              "throttled": 0
+            }
+          },
+          "failedSubRequests": 0
+        },
+        "batch": {
+          "runs": 10,
+          "itemsPerReport": 43,
+          "photoPerReport": 1,
+          "totalMs": {
+            "p50": 2897,
+            "p95": 3165,
+            "min": 2494,
+            "max": 3165
+          },
+          "httpCallsPerReport": 5,
+          "perCall": {
+            "calls": 50,
+            "p50ms": 594,
+            "p95ms": 825,
+            "maxms": 1051,
+            "bytesIn": 1115360,
+            "byStatus": {
+              "200": 40,
+              "201": 10
+            },
+            "throttled": 0
+          },
+          "perCallByKind": {
+            "listItemPost": {
+              "calls": 0,
+              "p50ms": 0,
+              "p95ms": 0,
+              "maxms": 0,
+              "bytesIn": 0,
+              "byStatus": {},
+              "throttled": 0
+            },
+            "batchPost": {
+              "calls": 30,
+              "p50ms": 602,
+              "p95ms": 829,
+              "maxms": 1051,
+              "bytesIn": 1079180,
+              "byStatus": {
+                "200": 30
+              },
+              "throttled": 0
+            },
+            "photoPut": {
+              "calls": 10,
+              "p50ms": 641,
+              "p95ms": 722,
+              "maxms": 722,
+              "bytesIn": 25250,
+              "byStatus": {
+                "201": 10
+              },
+              "throttled": 0
+            },
+            "photoMetadataPatch": {
+              "calls": 10,
+              "p50ms": 386,
+              "p95ms": 626,
+              "maxms": 626,
+              "bytesIn": 10930,
+              "byStatus": {
+                "200": 10
+              },
+              "throttled": 0
+            }
+          },
+          "failedSubRequests": 0
+        }
+      }
+    },
+    "S2": {
+      "when": "2026-11-08T09:53:59.112Z",
+      "ok": true,
+      "durationMs": 40197,
+      "http": {
+        "calls": 114,
+        "p50ms": 320,
+        "p95ms": 564,
+        "maxms": 1509,
+        "bytesIn": 605359,
+        "byStatus": {
+          "200": 34,
+          "201": 80
+        },
+        "throttled": 0
+      },
+      "betaCalls": [],
+      "result": {
+        "cases": {
+          "complete": {
+            "reportKey": "PoC-S2c-ab56e013",
+            "failure": "Simulated network loss after checklist results, before faults",
+            "afterFailure": {
+              "reportKey": "PoC-S2c-ab56e013",
+              "reportItemId": "21",
+              "expected": {
+                "headers": 15,
+                "checklist": 24,
+                "faults": 3
+              },
+              "online": {
+                "MriReports": 1,
+                "ReportHeaderValues": 15,
+                "ChecklistResults": 24,
+                "FaultApprovals": 0
+              },
+              "complete": false
+            },
+            "action": {
+              "rowsSent": 3,
+              "rowsSentOnSecondRun": 0
+            },
+            "recoveryMs": 2964,
+            "recoveryCalls": 9,
+            "afterRecovery": {
+              "reportKey": "PoC-S2c-ab56e013",
+              "reportItemId": "21",
+              "expected": {
+                "headers": 15,
+                "checklist": 24,
+                "faults": 3
+              },
+              "online": {
+                "MriReports": 1,
+                "ReportHeaderValues": 15,
+                "ChecklistResults": 24,
+                "FaultApprovals": 3
+              },
+              "complete": true
+            },
+            "consistent": true
+          },
+          "rollback": {
+            "reportKey": "PoC-S2r-8543b0ab",
+            "failure": "Simulated network loss after checklist results, before faults",
+            "afterFailure": {
+              "reportKey": "PoC-S2r-8543b0ab",
+              "reportItemId": "22",
+              "expected": {
+                "headers": 15,
+                "checklist": 24,
+                "faults": 3
+              },
+              "online": {
+                "MriReports": 1,
+                "ReportHeaderValues": 15,
+                "ChecklistResults": 24,
+                "FaultApprovals": 0
+              },
+              "complete": false
+            },
+            "action": {
+              "rowsDeleted": 40
+            },
+            "recoveryMs": 5717,
+            "recoveryCalls": 8,
+            "afterRecovery": {
+              "reportKey": "PoC-S2r-8543b0ab",
+              "online": {
+                "MriReports": 0,
+                "ReportHeaderValues": 0,
+                "ChecklistResults": 0,
+                "FaultApprovals": 0
+              },
+              "complete": false
+            },
+            "consistent": true
+          }
+        },
+        "recoveryCodeLines": 54,
+        "note": "Report row is written first with a manifest of expected child counts; completeness = counts match."
+      }
+    },
+    "S3": {
+      "when": "2026-11-08T09:54:03.312Z",
+      "ok": true,
+      "durationMs": 4196,
+      "http": {
+        "calls": 14,
+        "p50ms": 264,
+        "p95ms": 439,
+        "maxms": 439,
+        "bytesIn": 18477,
+        "byStatus": {
+          "200": 11,
+          "201": 1,
+          "412": 2
+        },
+        "throttled": 0
+      },
+      "betaCalls": [],
+      "result": {
+        "reportKey": "PoC-S3-061dcea9",
+        "steps": [
+          {
+            "label": "initial (A and B both read)",
+            "etagA": "\"0dfe8f24-584c-4330-8fed-94e05f18d27e,1\"",
+            "etagB": "\"0dfe8f24-584c-4330-8fed-94e05f18d27e,1\"",
+            "eTag": "\"0dfe8f24-584c-4330-8fed-94e05f18d27e,1\"",
+            "Status": "Submitted",
+            "ComplianceStage": "POST JOB"
+          },
+          {
+            "label": "A saves Status=Approved (If-Match A etag, /fields)",
+            "status": 200,
+            "error": "",
+            "after": {
+              "eTag": "\"0dfe8f24-584c-4330-8fed-94e05f18d27e,2\"",
+              "Status": "Approved",
+              "ComplianceStage": "POST JOB"
+            }
+          },
+          {
+            "label": "B saves ComplianceStage=YARD with OLD etag (/fields)",
+            "status": 412,
+            "error": "The resource has changed since the caller last read it; usually an eTag mismatch",
+            "after": {
+              "eTag": "\"0dfe8f24-584c-4330-8fed-94e05f18d27e,2\"",
+              "Status": "Approved",
+              "ComplianceStage": "POST JOB"
+            }
+          },
+          {
+            "label": "B saves ComplianceStage=YARD with OLD etag (/items/{id})",
+            "status": 412,
+            "error": "The resource has changed since the caller last read it; usually an eTag mismatch",
+            "after": {
+              "eTag": "\"0dfe8f24-584c-4330-8fed-94e05f18d27e,2\"",
+              "Status": "Approved",
+              "ComplianceStage": "POST JOB"
+            }
+          },
+          {
+            "label": "B merge: re-read, re-apply ComplianceStage=YARD with fresh etag",
+            "status": 200,
+            "error": "",
+            "after": {
+              "eTag": "\"0dfe8f24-584c-4330-8fed-94e05f18d27e,3\"",
+              "Status": "Approved",
+              "ComplianceStage": "YARD"
+            }
+          },
+          {
+            "label": "B last-writer-wins: Status=Rejected, no If-Match",
+            "status": 200,
+            "error": "",
+            "after": {
+              "eTag": "\"0dfe8f24-584c-4330-8fed-94e05f18d27e,4\"",
+              "Status": "Rejected",
+              "ComplianceStage": "YARD"
+            }
+          }
+        ],
+        "staleWriteRejectedWith412": true,
+        "rejectedSteps": [
+          "B saves ComplianceStage=YARD with OLD etag (/fields)",
+          "B saves ComplianceStage=YARD with OLD etag (/items/{id})"
+        ]
+      }
+    },
+    "S4": {
+      "when": "2026-11-08T09:59:35.390Z",
+      "ok": true,
+      "durationMs": 332074,
+      "http": {
+        "calls": 311,
+        "p50ms": 669,
+        "p95ms": 972,
+        "maxms": 3102,
+        "bytesIn": 35458126,
+        "byStatus": {
+          "200": 308,
+          "400": 2,
+          "422": 1
+        },
+        "throttled": 0
+      },
+      "betaCalls": [],
+      "result": {
+        "before": {
+          "count": 504,
+          "pages": 1,
+          "ms": 386,
+          "ok": true
+        },
+        "after": {
+          "count": 5520,
+          "pages": 2,
+          "ms": 1652,
+          "ok": true
+        },
+        "filled": {
+          "reports": 209,
+          "checklistRows": 5016,
+          "ms": 307499,
+          "batchCalls": 263,
+          "failed": 0,
+          "errors": [],
+          "throttled": 16
+        },
+        "queries": [
+          {
+            "label": "a1 filter indexed Severity eq Critical",
+            "ok": true,
+            "ms": 429,
+            "items": 240,
+            "pages": 1,
+            "calls": 1
+          },
+          {
+            "label": "a2 filter indexed ReportKey eq <one report>",
+            "ok": true,
+            "ms": 265,
+            "items": 24,
+            "pages": 1,
+            "calls": 1
+          },
+          {
+            "label": "b1 filter NON-indexed ItemName (no Prefer header)",
+            "ok": false,
+            "ms": 296,
+            "status": 400,
+            "error": "400 invalidRequest: Field 'ItemName' cannot be referenced in filter or orderby as it is not indexed. Provide the 'Prefer: HonorNonIndexedQueriesWarningMayFailRandomly' header to allow this, but be warned that such queries may fail on large lists.",
+            "calls": 1
+          },
+          {
+            "label": "b2 filter NON-indexed ItemName (Prefer HonorNonIndexed)",
+            "ok": true,
+            "ms": 903,
+            "items": 230,
+            "pages": 2,
+            "calls": 2
+          },
+          {
+            "label": "c1 orderby NON-indexed ItemName (no Prefer)",
+            "ok": false,
+            "ms": 270,
+            "status": 400,
+            "error": "400 invalidRequest: Field 'ItemName' cannot be referenced in filter or orderby as it is not indexed. Provide the 'Prefer: HonorNonIndexedQueriesWarningMayFailRandomly' header to allow this, but be warned that such queries may fail on large lists.",
+            "calls": 1
+          },
+          {
+            "label": "c2 orderby NON-indexed ItemName (Prefer HonorNonIndexed)",
+            "ok": false,
+            "ms": 216,
+            "status": 422,
+            "error": "422 notSupported: The attempted operation is prohibited because it exceeds the list view threshold.",
+            "calls": 1
+          },
+          {
+            "label": "c3 orderby indexed Severity (no Prefer)",
+            "ok": true,
+            "ms": 5148,
+            "items": 5520,
+            "pages": 6,
+            "calls": 6
+          },
+          {
+            "label": "e  read ALL rows, no filter, $top=5000 (paging)",
+            "ok": true,
+            "ms": 3739,
+            "items": 5520,
+            "pages": 2,
+            "calls": 2
+          },
+          {
+            "label": "e2 read ALL rows, no filter, default page size",
+            "ok": true,
+            "ms": 10487,
+            "items": 5520,
+            "pages": 28,
+            "calls": 28
+          }
+        ],
+        "dOpenCriticalByCountry": {
+          "ms": 779,
+          "calls": 2,
+          "openCriticalByCountry": {
+            "Oman": 43,
+            "Qatar": 21,
+            "UAE": 13,
+            "Kuwait": 18,
+            "Saudi Arabia": 20
+          },
+          "parts": [
+            {
+              "label": "d1 Severity eq Critical and ClosureStatus eq Pending",
+              "ok": true,
+              "ms": 366,
+              "items": 115,
+              "pages": 1,
+              "calls": 1
+            },
+            {
+              "label": "d2 all MriReports (ReportKey, Country)",
+              "ok": true,
+              "ms": 412,
+              "items": 231,
+              "pages": 1,
+              "calls": 1
+            }
+          ]
+        }
+      }
+    },
+    "S6": {
+      "when": "2026-11-08T10:00:16.118Z",
+      "ok": true,
+      "durationMs": 40734,
+      "http": {
+        "calls": 87,
+        "p50ms": 407,
+        "p95ms": 753,
+        "maxms": 933,
+        "bytesIn": 3813138,
+        "byStatus": {
+          "200": 65,
+          "201": 20,
+          "400": 2
+        },
+        "throttled": 0
+      },
+      "betaCalls": [
+        "POST /sites/{site}/lists/05e7b29d-a563-42ee-80da-b41a13310c1d/items/5545/attachments"
+      ],
+      "result": {
+        "reportKey": "PoC-S6-549d1a14",
+        "photos": 20,
+        "avgBytes": 177098,
+        "uploadMsPerPhoto": {
+          "p50": 1091,
+          "p95": 1194,
+          "max": 1268,
+          "note": "PUT content + PATCH metadata (2 calls)"
+        },
+        "downloadMsPerPhoto": {
+          "p50": 420,
+          "p95": 629
+        },
+        "foundByReportKeyMetadata": 20,
+        "downloadedAndHashVerified": 20,
+        "listItemAttachmentAttempts": [
+          {
+            "api": "v1.0",
+            "status": 400,
+            "error": "Resource not found for the segment 'attachments'."
+          },
+          {
+            "api": "beta",
+            "status": 400,
+            "error": "Resource not found for the segment 'attachments'."
+          }
+        ],
+        "listItemAttachmentsWorkThroughGraph": false
+      }
+    },
+    "S7": {
+      "when": "2026-11-08T10:00:17.100Z",
+      "ok": true,
+      "durationMs": 977,
+      "http": {
+        "calls": 2,
+        "p50ms": 409,
+        "p95ms": 563,
+        "maxms": 563,
+        "bytesIn": 950681,
+        "byStatus": {
+          "200": 2
+        },
+        "throttled": 0
+      },
+      "betaCalls": [
+        "POST /sites/{site}/lists/05e7b29d-a563-42ee-80da-b41a13310c1d/items/5545/attachments"
+      ],
+      "result": {
+        "ms": 977,
+        "calls": 2,
+        "bytesTransferred": 950681,
+        "rowsFetched": {
+          "checklistFails": 504,
+          "reports": 232
+        },
+        "fetchOk": true,
+        "errors": [],
+        "openBySeverity": {
+          "Critical": 116,
+          "Moderate": 87,
+          "Minor": 61
+        },
+        "agingBuckets": {
+          "0-30d": 89,
+          "31-90d": 33,
+          "91-180d": 28,
+          "181-365d": 57,
+          ">365d": 57
+        },
+        "bmerInputsLast12Months": [
+          {
+            "month": "2025-12",
+            "reports": 12,
+            "breakdownEvents": 1,
+            "operatingHours": 455
+          },
+          {
+            "month": "2026-01",
+            "reports": 16,
+            "breakdownEvents": 4,
+            "operatingHours": 555
+          },
+          {
+            "month": "2026-02",
+            "reports": 7,
+            "breakdownEvents": 1,
+            "operatingHours": 244
+          },
+          {
+            "month": "2026-03",
+            "reports": 17,
+            "breakdownEvents": 2,
+            "operatingHours": 595
+          },
+          {
+            "month": "2026-04",
+            "reports": 8,
+            "breakdownEvents": 2,
+            "operatingHours": 275
+          },
+          {
+            "month": "2026-05",
+            "reports": 14,
+            "breakdownEvents": 2,
+            "operatingHours": 473
+          },
+          {
+            "month": "2026-06",
+            "reports": 16,
+            "breakdownEvents": 3,
+            "operatingHours": 543
+          },
+          {
+            "month": "2026-07",
+            "reports": 7,
+            "breakdownEvents": 0,
+            "operatingHours": 234
+          },
+          {
+            "month": "2026-08",
+            "reports": 8,
+            "breakdownEvents": 2,
+            "operatingHours": 291
+          },
+          {
+            "month": "2026-09",
+            "reports": 12,
+            "breakdownEvents": 2,
+            "operatingHours": 401
+          },
+          {
+            "month": "2026-10",
+            "reports": 10,
+            "breakdownEvents": 0,
+            "operatingHours": 345
+          },
+          {
+            "month": "2026-11",
+            "reports": 26,
+            "breakdownEvents": 1,
+            "operatingHours": 899
+          }
+        ]
+      }
+    },
+    "S8": {
+      "when": "2026-11-08T10:00:36.183Z",
+      "ok": true,
+      "durationMs": 19080,
+      "http": {
+        "calls": 28,
+        "p50ms": 405,
+        "p95ms": 1700,
+        "maxms": 3446,
+        "bytesIn": 7295483,
+        "byStatus": {
+          "200": 25,
+          "201": 1,
+          "204": 2
+        },
+        "throttled": 0
+      },
+      "betaCalls": [
+        "POST /sites/{site}/lists/05e7b29d-a563-42ee-80da-b41a13310c1d/items/5545/attachments"
+      ],
+      "result": {
+        "reportKey": "PoC-S8-74c604b7",
+        "reportDeleteStatus": 204,
+        "reportGone": true,
+        "orphansAfterReportDelete": {
+          "ReportHeaderValues": 15,
+          "ChecklistResults": 24,
+          "FaultApprovals": 3
+        },
+        "targetedCleanup": {
+          "ms": 6025,
+          "calls": 7,
+          "remaining": {
+            "ReportHeaderValues": 0,
+            "ChecklistResults": 0,
+            "FaultApprovals": 0
+          }
+        },
+        "sweepCleanup": {
+          "ms": 5265,
+          "calls": 5,
+          "bytes": 7026378,
+          "orphansFound": {
+            "ReportHeaderValues": 0,
+            "ChecklistResults": 0,
+            "FaultApprovals": 0
+          },
+          "errors": []
+        },
+        "lookupColumn": {
+          "assetDeleteStatus": 204,
+          "reportStillExists": true,
+          "reportAssetLookupIdAfterDelete": "11",
+          "reportAssetLookupValueAfterDelete": null
+        }
+      }
+    },
+    "S5": {
+      "when": "2026-11-08T10:13:03.228Z",
+      "ok": true,
+      "durationMs": 96497,
+      "http": {
+        "calls": 333,
+        "p50ms": 423,
+        "p95ms": 11737,
+        "maxms": 12707,
+        "bytesIn": 6951991,
+        "byStatus": {
+          "200": 296,
+          "201": 37
+        },
+        "throttled": 0
+      },
+      "throttling": {
+        "topLevel429or503": 0,
+        "insideBatch429or503": 0,
+        "retryAfterSeconds": [],
+        "detail": []
+      },
+      "betaCalls": [],
+      "result": {
+        "caps": {
+          "maxRequests": 2000,
+          "maxMinutes": 10,
+          "perReportRequests": 45,
+          "stages": [
+            2,
+            5,
+            10,
+            20
+          ]
+        },
+        "stopReason": "all stages completed within the caps",
+        "totalRequests": 1813,
+        "totalMinutes": 1.6,
+        "stages": [
+          {
+            "devices": 2,
+            "requests": 90,
+            "durationS": 4.6,
+            "requestsPerMinute": 1171,
+            "throttled": 0,
+            "retryAfterSeconds": [],
+            "savesOk": 2,
+            "savesWithFailures": 0,
+            "saveMs": {
+              "p50": 4446,
+              "p95": 4612,
+              "max": 4612
+            },
+            "errors": []
+          },
+          {
+            "devices": 5,
+            "requests": 225,
+            "durationS": 7.4,
+            "requestsPerMinute": 1820,
+            "throttled": 0,
+            "retryAfterSeconds": [],
+            "savesOk": 5,
+            "savesWithFailures": 0,
+            "saveMs": {
+              "p50": 7366,
+              "p95": 7416,
+              "max": 7416
+            },
+            "errors": []
+          },
+          {
+            "devices": 10,
+            "requests": 450,
+            "durationS": 12.6,
+            "requestsPerMinute": 2144,
+            "throttled": 0,
+            "retryAfterSeconds": [],
+            "savesOk": 10,
+            "savesWithFailures": 0,
+            "saveMs": {
+              "p50": 12131,
+              "p95": 12592,
+              "max": 12592
+            },
+            "errors": []
+          },
+          {
+            "devices": 20,
+            "requests": 900,
+            "durationS": 27.2,
+            "requestsPerMinute": 1986,
+            "throttled": 0,
+            "retryAfterSeconds": [],
+            "savesOk": 20,
+            "savesWithFailures": 0,
+            "saveMs": {
+              "p50": 26581,
+              "p95": 27138,
+              "max": 27191
+            },
+            "errors": []
+          }
+        ],
+        "firstThrottledStage": null,
+        "highestUnthrottledRate": 2144,
+        "reports": 37,
+        "reportsCompleteAfterBackoff": 37,
+        "incomplete": [],
+        "throttleDetail": []
+      }
+    }
+  }
+}

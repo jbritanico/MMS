@@ -196,7 +196,7 @@ async function reviewState(browser) {
     const sub = [...document.querySelectorAll('button')].find((b) => b.offsetParent !== null && /^(Submit Report|Already submitted)/.test(b.innerText.trim()));
     const body = document.body.innerText;
     const i = body.indexOf('Asset and job details');
-    return { issues, submitText: sub ? sub.innerText.trim() : null, submitDisabled: sub ? sub.disabled : null, details: i >= 0 ? body.slice(i, i + 900).replace(/\n+/g, ' | ') : '' };
+    return { issues, submitText: sub ? sub.innerText.trim() : null, submitDisabled: sub ? sub.disabled : null, details: i >= 0 ? body.slice(i, i + 2500).replace(/\n+/g, ' | ') : '' };
   });
 }
 

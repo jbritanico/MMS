@@ -1,6 +1,6 @@
 # MR-I Test Matrix Rev 6.8 — Claude Code run
 
-Run date: 2026-11-07. Cases in results.csv: 134 (Pass 114, Fail 0, Blocked 0, Needs review 20).
+Run date: 2026-11-08. Cases in results.csv: 134 (Pass 114, Fail 0, Blocked 0, Needs review 20).
 
 Phase 1 ran the backend rules through the app's own Rust commands (src-tauri/tests/mri_matrix_backend.rs). Phase 2 drove the real app (debug build, tauri-driver + msedgedriver 157) through every case in matrix order from a clean database (e2e/run/assets.start.db). Status combines both; [DB] verdicts come from Phase 1.
 
@@ -64,7 +64,7 @@ Phase 1 ran the backend rules through the app's own Rust commands (src-tauri/tes
 - **E9** — E9 gives no revoke reason: the app asks for one; the run typed "Test E9: exemption no longer needed"
 - **E11** — IT delete SQL fails as written: "DELETE FROM mri_reports WHERE status='Draft' AND asset_id=(SELECT id FROM assets WHERE asset_code='ASSET2')" -> FOREIGN KEY constraint failed. The Draft has child rows (header values, checklist results...) and the app enables foreign keys, so the matrix SQL cannot delete it. The run deleted the child rows first, then the Draft.
 - **F8** — F8 expects Pending, Escalated, Approved: the log starts at Escalated: endorsing creates the Pending approval but does not log it (also seen in Phase 1)
-- **F4/F5** — phone relay: the manual does not mention phone decisions and Kamil's written reply (Clarification.docx) does not answer question 3; the app records them as Provisional until confirmed. Needs Kamil's written confirmation.
+- **F4/F5** — phone relay: resolved. K. Shahzad confirmed phone approval is part of the existing (legacy) MMS and stays: allowed for Moderate and Major/Critical faults (not for Minor), recorded as Provisional and confirmed later by the reviewer. The app already does this (F4 and F5 pass); only the Test Matrix gets a basis line.
 - **A3** — confirmed by Jess: the app is right (PRE-JOB records Distance Travelled Pre-Job; POST JOB, and a Yard inspection right after it, record Post-Job). Matrix to read "Distance Travelled Pre-Job (KM): 300".
 - **C1/D10** — basis: Manual Rev 02 §8.1 (every item Green / Yellow / Red; a Moderate-only unit is ready for service) and Table 3; Table 3's Moderate row itself says nothing about tags.
 
@@ -98,7 +98,7 @@ Phase 1 ran the backend rules through the app's own Rust commands (src-tauri/tes
 ### runner "you"
 
 - **S1** — backup: the run took its backup by copying the database to e2e/run/assets.source.db (brief section 3); the in-app Save / Open dialog step is left for Jess.
-- **J5** — Data Tools backup Save / Open dialog: not run.
+- **J5** — automated part Pass (e2e/run/retest_J5.db, copy of final_after_J9.db): Data Tools lists Browser, Removal, Purging, Backup; Backup shows Export and Import for Jess (Administrator holds backups.export and backups.import); Users has no backup panel and still has Clear all users; export_full_backup() returns all 40 tables. Left for Jess: press Export full backup in her own app, check the file is saved (Downloads or the Save dialog) and mark J5. Screenshots: e2e/screenshots/J5/.
 
 ## Real database
 
@@ -113,6 +113,7 @@ src/desktop/src-tauri/assets.db was never opened by any test: size 11829248 byte
 - Fix 4 I6 / I7 (header choice kept): `src/desktop/src/features/mri-reporting/ReportWizard.tsx` (HeaderEntryStep)
 - Fix 5 build (file-name casing): `src/desktop/src/features/administration/hooks/useMRiTemplates.ts` renamed to `useMriTemplates.ts` (record with `git mv -f` at commit time)
 - Fix 6 G5 (asset lists by country): `src/desktop/src-tauri/src/lib.rs` (get_assets), `src/desktop/src/features/asset-registry/hooks/useAssets.ts`, `src/desktop/src/features/asset-registry/AssetRegistry.tsx`, `src/desktop/src/features/mri-reporting/SelectAssetForReport.tsx`
+- Previous Engine Hours on Review & Submit / print (Jess: show 0 when there is no earlier reading): `src/desktop/src/features/mri-reporting/ReportWizard.tsx` (ReviewStep uses the same previous reading as the Header step, else 0). Re-tested in A7.
 - Test-only files: `src/desktop/src-tauri/tests/{db_inspect,prep_clean_db,mri_matrix_backend,it_sql}.rs`, everything under `e2e/`.
 
 ## Not changed (by decision)

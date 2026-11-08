@@ -1,0 +1,25 @@
+{
+  "name": "mms-sharepoint-poc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MMS SharePoint storage proof-of-concept (PoC_ lists on the MMS site; deleted after the test)",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "phase0": "node --env-file=.env src/phase0.ts",
+    "setup": "node --env-file=.env src/setup.ts",
+    "scenario": "node --env-file=.env src/scenario.ts",
+    "all": "node --env-file=.env src/scenario.ts all",
+    "cleanup": "node --env-file=.env src/cleanup.ts"
+  },
+  "dependencies": {
+    "@azure/identity": "^4.14.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "^7.0.2"
+  }
+}

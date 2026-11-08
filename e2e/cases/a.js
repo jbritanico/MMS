@@ -150,6 +150,8 @@ module.exports = [
     id: 'A5', who: 'Suganya Rajendran', title: 'Checklist ID is required for a Pre-Job report',
     async run(t) {
       const b = t.browser;
+      // In a full run A4 leaves Report 1 open; when starting here from a snapshot, open it.
+      if (!(await b.execute(() => [...document.querySelectorAll('button')].some((x) => x.innerText.trim() === 'Next →' || x.innerText.trim() === '← Previous')))) await W.openMR1(b, 'ASSET2', 'Left');
       await W.stepTo(b, 'header');
       await typeInto(b, 'Pre-Mobilization Checklist ID', '');
       await W.stepTo(b, 'review');
@@ -331,6 +333,12 @@ module.exports = [
       const want = ['Operator Date', 'Supervisor', 'Supervisor Date'];
       t.check('step 2 refused: Footer - Operator Date, Supervisor, Supervisor Date required; Submit disabled', rv.submitDisabled && want.every((w) => rv.issues.some((i) => /Footer/.test(i) && i.includes(w))), rv.issues.join(' / '));
       await t.shot('empty_footer_review');
+      // Tick boxes are optional: with only the required footer fields filled, Submit is enabled.
+      await W.fillFooter(b, t.today());
+      await W.stepTo(b, 'review');
+      rv = await W.reviewState(b);
+      t.check('tick boxes are optional: no issues and Submit enabled before any box is ticked', rv.issues.length === 0 && rv.submitDisabled === false, rv.issues.join(' / ') || rv.submitText);
+      await t.shot('required_footer_only');
       await W.fillFooter(b, t.today(), { ticks: ['Cleaned', 'Pressure Tested', 'Function Tested', 'Green Tagged', 'Job Ready'], remarks: 'Unit cleaned and pressure tested at Karachi Yard.' });
       t.eq('Operator fills itself in', await valueOf(b, 'Operator'), 'Suganya Rajendran');
       await t.shot('footer_filled');
@@ -342,6 +350,19 @@ module.exports = [
       for (const [l, v] of [['Maintenance type', 'Preventive'], ['Job number', '—'], ['Pre-mobilization checklist ID', 'PMC-2026-0101'], ['Engine hours (this report)', '150.0']]) {
         t.eq(`details box: ${l}`, W.detail(rv.details, l), v);
       }
+      // Every header field of the PUMP UNIT template appears in the box ("—" when empty).
+      const headerLabels = ['Country', 'Service line', 'Asset no', 'Client', 'Location', 'Previous engine hours', 'Current engine hours', 'Engine hours (this report)', 'Job operating hours', 'MR-II due date', 'Compliance stage', 'MR initialization date', 'Maintenance type', 'Pre-mobilization checklist ID', 'Job number'];
+      const shownVals = headerLabels.map((l) => [l, W.detail(rv.details, l)]);
+      const missing = shownVals.filter(([, v]) => v === null).map(([l]) => l);
+      t.check('details box lists every PUMP UNIT header field (15)', missing.length === 0, missing.length ? `missing: ${missing.join(', ')}` : shownVals.map(([l, v]) => `${l}=${v}`).join('; '));
+      t.eq('empty field shows —: Job operating hours', W.detail(rv.details, 'Job operating hours'), '—');
+      t.eq('Previous engine hours shows 0 (no earlier reading), as on the Header step', W.detail(rv.details, 'Previous engine hours'), '0');
+      // The five tick boxes show ticked on the Review.
+      const ticks = await b.execute((labels) => labels.map((l) => {
+        const el = [...document.querySelectorAll('div')].find((d) => d.children.length === 1 && d.firstElementChild.tagName === 'SPAN' && d.innerText.replace(/\s+/g, ' ').trim().endsWith(l) && d.innerText.trim().length <= l.length + 3);
+        return [l, el ? el.firstElementChild.innerText.trim() === '✓' : null];
+      }), ['Cleaned', 'Green Tagged', 'Job Ready', 'Pressure Tested', 'Function Tested']);
+      t.check('Review shows all five tick boxes ticked', ticks.every(([, v]) => v === true), JSON.stringify(ticks));
       await t.shot('review_before_submit');
       const res = await W.submit(b);
       t.check('step 3: submitted', res.ok, res.st.submitText);

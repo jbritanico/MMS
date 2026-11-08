@@ -5,7 +5,7 @@ RULES
 - Keep each case's existing structure and style: Data rows, Steps (with sub-steps), Expected results and the copy-and-paste value tables.
 - Where a change also affects a value table (grid), update the table to match.
 - Do not renumber cases. Do not add or remove cases.
-- Raise the revision to 6.9 and add one change-log line: "Rev 6.9: wording aligned with the app after the Claude Code test run (cases A3, A6a, A8, C2, C4, D7, D8, D9, D11, D13, E7, E9, E10, E11, E12)."
+- Raise the revision to 6.9 and add one change-log line: "Rev 6.9: wording aligned with the app after the Claude Code test run (cases A3, A6a, A8, C2, C4, D7, D8, D9, D11, D13, E7, E9, E10, E11, E12, F4, F5)."
 - When done, list every case you changed and, per case, the field you changed.
 
 CORRECTIONS
@@ -67,6 +67,9 @@ E12 — Over 72 hours: no copy option
 - Steps: change "Suganya starts a new report for ASSET2." to "Suganya opens Main Menu > Maintenance Report > MR-I > ASSET2 > Left, reads the window, then presses Cancel (no Draft is started)."
 - Steps: remove "IT deletes the Draft again (same SQL as E11)."
 
+F4, F5 — phone relay
+- Data: add a row "Basis: K. Shahzad — phone approval is part of the existing (legacy) MMS and is kept: allowed for Moderate and Major/Critical faults (not applicable to Minor), recorded as Provisional and confirmed later by the reviewer in MMS. Not covered by Manual Rev 02."
+
 Test Client (data pack, S group)
 - In the S-group starting data, add "Test Client" to the CLIENT reference list (Administration > Lookups > CLIENT), so cases that say "Client: Test Client (pick from the list)" can pick it.
 
@@ -77,9 +80,6 @@ C1 — Approve a Moderate fault
 
 D10 — Tag history
 - Data: change "Expected entries in order: Red, Yellow, Red, Yellow, Green" to "Expected entries in order: Green (from C1), Red, Yellow, Red, Yellow, Green".
-
-F4, F5 — phone relay
-- Data: add a row "Basis: written confirmation from K. Shahzad (<date>) that a decision relayed by phone is Provisional until the reviewing authority confirms it in MMS."
 
 ADD ONLY IF I CHOOSE THE MATRIX OPTION FOR F8 (leave out until I decide)
 

@@ -3,14 +3,13 @@
 Draft for Jess. Nothing here changes the Test Matrix itself; apply the wording you agree with in the matrix.
 Basis: the Claude Code run (e2e/results/SUMMARY.md), Maintenance Management Manual Rev 02, and Clarification.docx (K. Shahzad).
 
-## 1. Waiting on Kamil's written confirmation (see the message draft at the end)
+## 1. Waiting on Kamil's written confirmation (C1 / D10 only; see the message draft at the end)
 
 | Case | Field | Current text | Proposed text |
 |---|---|---|---|
 | C1 | Expected | A Planned follow-up row is created (see D11). The unit tag does not change. | A Planned follow-up row is created (see D11). The unit, untagged at the start, becomes Green (ready for service, Manual 8.1). |
 | D10 | Data | Expected entries in order: Red, Yellow, Red, Yellow, Green | Expected entries in order: Green (C1), Red, Yellow, Red, Yellow, Green |
-| F4 | Data / Expected | (no source given for phone approval) | Add: "Basis: written confirmation from K. Shahzad (date) that a phoned decision is Provisional until the reviewing authority confirms it in MMS." |
-| F5 | Data | Needs: F4 done first | Needs: F4 done first. Same basis as F4. |
+| F4, F5 | Data | (no source given for phone approval) | RESOLVED: K. Shahzad confirmed phone approval stays as in the legacy MMS. Add: "Basis: phone approval kept from the existing MMS — Moderate and Major/Critical only, Provisional until the reviewer confirms." (already in test_matrix_update_prompt.md) |
 
 ## 2. Contradicts the manual or the app's rules — rewrite the step
 
@@ -57,11 +56,21 @@ Re-run only the changed cases: C1, C2, C4, D7, D8, D10, D13, E7, E9, E11, E12 (p
 
 ## Draft message to Kamil Shahzad
 
+> **Subject:** MR-I testing: tag status after a Moderate fault is reviewed
+>
 > Dear Kamil,
 >
-> While testing MR-I against Manual Rev 02 and your clarification, two points need your written confirmation before we finalise the Test Matrix:
+> Good day.
 >
-> 1. **Decisions given by phone.** The manual does not cover them. The system records a decision relayed by phone (for example by the Job Supervisor on behalf of the Maintenance Supervisor) as *Provisional*; it takes effect at once, but the report cannot be closed until the reviewing authority confirms it in MMS. Please confirm this is acceptable.
-> 2. **Tag after a Moderate fault is reviewed.** Table 3's Moderate row does not mention the tag. Following section 8.1 (every unit shows Green, Yellow or Red), the system shows a unit with only a Moderate fault as Green (ready for service) once the fault is reviewed, while the repair is planned and monitored. Please confirm.
+> Thank you for confirming that phone approval stays as in the existing MMS (Moderate and Major/Critical faults, recorded as provisional and confirmed later by the reviewer). The new system already works that way.
+>
+> One point remains before we finalise the MR-I Test Matrix:
+>
+> **Tag after a Moderate fault is reviewed.** Table 3 (page 12) does not state the equipment tag for a Moderate fault; it says only to plan the rectification and monitor the condition until repaired. Section 8.1 requires every unit to show Green (ready for service), Yellow (under maintenance) or Red (not ready for service). The system therefore shows a unit with only a Moderate fault as **Green** once the Operations Coordinator / Maintenance Supervisor has reviewed it, while the repair is planned and monitored. A Critical fault keeps the unit Red until it is repaired and verified, or Green if you lower it to Moderate, as Table 3 states.
+>
+> Please confirm that a reviewed Moderate fault leaves the unit Green-tagged.
 >
 > Thank you.
+>
+> Best regards,
+> Jess
