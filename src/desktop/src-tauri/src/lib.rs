@@ -1818,6 +1818,79 @@ fn reset_trigger_running_values(asset_id: Option<i64>) -> Result<String, String>
     Ok(format!("{} trigger running total(s) reset to zero", count))
 }
 
+// Beta "Clean slate" (Administrator, Data Purging): removes every MR-I report and everything
+// hung off it (faults, decisions, repairs, reminders, on-site repairs, attachments, action
+// log), clears MOC exemptions and tag history, zeroes the trigger running totals and returns
+// every asset to Green, so MR-I can be tested again from a clean start. Templates, assets,
+// trigger thresholds, users and reference data are kept. One transaction: all or nothing.
+#[tauri::command]
+fn clean_slate_mri(changed_by: String) -> Result<String, String> {
+    let changed_by = changed_by.trim();
+    if changed_by.is_empty() {
+        return Err("Your name is required to run Clean slate".to_string());
+    }
+    let conn = get_connection()?;
+    let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+    let report_count: i64 = tx
+        .query_row("SELECT COUNT(*) FROM mri_reports", [], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    // Children first, so no row is left pointing at a deleted parent.
+    for table in [
+        "mri_fault_reminders",
+        "mri_fault_decision_log",
+        "mri_fault_rectifications",
+        "mri_onsite_repair_log",
+        "mri_fault_approvals",
+        "mri_checklist_action_log",
+        "mri_report_attachments",
+        "mri_report_header_values",
+        "mri_report_checklist_results",
+        "mri_report_mid_values",
+        "mri_report_footer_values",
+        "mri_reports",
+        "asset_moc_exemptions",
+        "asset_tag_history",
+    ] {
+        tx.execute(&format!("DELETE FROM {}", table), [])
+            .map_err(|e| format!("Could not clear {}: {}", table, e))?;
+    }
+    let trigger_count = tx
+        .execute("UPDATE maintenance_triggers SET running_value = 0", [])
+        .map_err(|e| e.to_string())?;
+    // CA is recomputed from last_reset_date on every read (see reset_trigger_running_values).
+    tx.execute(
+        "UPDATE maintenance_triggers SET last_reset_date = date('now') WHERE trigger_type = 'CA'",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+    let asset_ids: Vec<i64> = {
+        let mut stmt = tx.prepare("SELECT id FROM assets").map_err(|e| e.to_string())?;
+        let ids = stmt
+            .query_map([], |row| row.get(0))
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        ids
+    };
+    for asset_id in &asset_ids {
+        set_asset_tag(
+            &tx,
+            *asset_id,
+            "Green",
+            "Clean slate by Administrator: all MR-I reports cleared",
+            None,
+            changed_by,
+        )?;
+    }
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(format!(
+        "Clean slate done: {} MR-I report(s) removed, {} trigger running total(s) reset, {} asset(s) set to Green",
+        report_count,
+        trigger_count,
+        asset_ids.len()
+    ))
+}
+
 #[derive(Serialize, Deserialize)]
 struct ChecklistItem {
     id: i64,
@@ -9005,6 +9078,7 @@ pub fn run() {
             get_asset_triggers,
             update_trigger,
             reset_trigger_running_values,
+            clean_slate_mri,
             get_checklist_items,
             create_checklist_item,
             update_checklist_item,

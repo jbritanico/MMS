@@ -7,8 +7,10 @@ import {
   usePreviewMriReportPurge,
   usePurgeMriReports,
   useResetTriggerRunningValues,
+  useCleanSlateMri,
   type MriReportPurgeFilter,
 } from "./hooks/usePurging";
+import { useCurrentUser } from "../../lib/currentUser";
 import { useLookupCriteria, useLookups } from "./hooks/useLookups";
 import { useAssets } from "../asset-registry/hooks/useAssets";
 import { useAssetTypes } from "./hooks/useAssetTypes";
@@ -17,6 +19,8 @@ type PendingPurge = {
   label: string;
   description: string;
   run: () => Promise<string>;
+  title?: string;
+  confirmLabel?: string;
 };
 
 function DataPurging() {
@@ -34,6 +38,8 @@ function DataPurging() {
   const previewPurge = usePreviewMriReportPurge();
   const runPurge = usePurgeMriReports();
   const resetTriggerRunningValues = useResetTriggerRunningValues();
+  const cleanSlate = useCleanSlateMri();
+  const { user: currentUser } = useCurrentUser();
 
   const [filterAsset, setFilterAsset] = useState("");
   const [filterCountry, setFilterCountry] = useState("");
@@ -107,6 +113,31 @@ function DataPurging() {
       </p>
 
       {status && <div className={`toast ${status.kind}`} style={{ maxWidth: 600, marginBottom: 16 }}>{status.msg}</div>}
+
+      <div className="mri-preview-section-label">Clean Slate (MR-I Testing)</div>
+      <p style={{ fontSize: 12.5, color: "var(--text-soft)", marginBottom: 14 }}>
+        Starts MR-I from scratch: deletes every MR-I report with its faults, decisions, repairs and photos, clears MOC exemptions and tag history,
+        resets every trigger running total to zero and sets every asset to <strong>Green</strong>. Assets, templates, trigger thresholds, users and
+        reference data are kept. Take a backup first.
+      </p>
+      <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
+        <button
+          className="danger"
+          disabled={!currentUser || cleanSlate.isPending}
+          onClick={() =>
+            setPendingPurge({
+              label: "Clean slate",
+              title: "Start MR-I from a clean slate?",
+              confirmLabel: "Clean slate",
+              description:
+                "This permanently deletes every MR-I report and all linked fault, repair, decision, exemption and tag history records, resets all trigger running totals to zero and sets every asset to Green. This cannot be undone.",
+              run: () => cleanSlate.mutateAsync(currentUser?.name ?? ""),
+            })
+          }
+        >
+          Clean Slate: Clear All MR-I Data
+        </button>
+      </div>
 
       <div className="mri-preview-section-label">Reference Data</div>
       <div className="cards" style={{ marginBottom: 24 }}>
@@ -307,11 +338,11 @@ function DataPurging() {
                   stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            <h3>Purge {pendingPurge.label}?</h3>
+            <h3>{pendingPurge.title ?? `Purge ${pendingPurge.label}?`}</h3>
             <p>{pendingPurge.description}</p>
             <div className="modal-actions">
               <button className="ghost" onClick={() => setPendingPurge(null)}>Cancel</button>
-              <button className="danger" onClick={confirmPurge}>Purge</button>
+              <button className="danger" onClick={confirmPurge}>{pendingPurge.confirmLabel ?? "Purge"}</button>
             </div>
           </div>
         </div>

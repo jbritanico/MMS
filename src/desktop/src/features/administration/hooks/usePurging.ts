@@ -66,6 +66,19 @@ export function usePurgeMriReports() {
   });
 }
 
+// Clean slate for MR-I testing: removes every MR-I report and everything linked to it,
+// clears MOC exemptions and tag history, zeroes trigger running totals and sets every
+// asset to Green. Almost every screen shows something it touches, so refresh everything.
+export function useCleanSlateMri() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (changedBy: string) => invoke<string>("clean_slate_mri", { changedBy }),
+    onSuccess: () => {
+      qc.invalidateQueries();
+    },
+  });
+}
+
 // Zeroes out maintenance trigger running totals (e.g. Engine Hours, Distance Travelled)
 // -- assetId null resets every asset's triggers, a specific id resets just that asset's.
 export function useResetTriggerRunningValues() {
