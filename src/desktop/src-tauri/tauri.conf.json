@@ -27,9 +27,10 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "resources": [
-      "resources/beta-start.db"
-    ],
+    "resources": {
+      "resources/beta-start.db": "resources/beta-start.db",
+      "libs/libcrypto-3-x64.dll": "libcrypto-3-x64.dll"
+    },
     "windows": {
       "nsis": {
         "installMode": "currentUser"
