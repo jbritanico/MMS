@@ -99,8 +99,48 @@ const DB_ENCRYPTION_KEY: &str = "sprint-mms-dev-key-change-before-production-834
 // derives the SQLCipher encryption key (deliberately slow, by design), and runs the
 // full schema migration below. This now only runs ONCE per app run; see the cached
 // get_connection() wrapper right after this function's closing brace.
+// Where the database file lives. Set once at start-up (see resolve_db_path, called from run()).
+// Anything that runs without that start-up step, such as the Rust tests, falls back to
+// "assets.db" in the current folder, exactly as before.
+static DB_PATH: OnceLock<std::path::PathBuf> = OnceLock::new();
+
+fn db_path() -> std::path::PathBuf {
+    DB_PATH
+        .get()
+        .cloned()
+        .unwrap_or_else(|| std::path::PathBuf::from("assets.db"))
+}
+
+// Installed (release) builds keep the database in the user's local app-data folder,
+// e.g. %LOCALAPPDATA%\com.sprintogs.mms\assets.db, so it survives updates and uninstall.
+// On the very first start, the starting database bundled with the installer
+// (resources/beta-start.db) is copied there; an existing database is never overwritten.
+// Development builds (cargo tauri dev) keep using assets.db in the folder the app is
+// started from, so the developer's own database is unchanged.
+fn resolve_db_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    use tauri::Manager;
+    if cfg!(debug_assertions) {
+        return Ok(std::path::PathBuf::from("assets.db"));
+    }
+    let dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| format!("Could not create the data folder: {e}"))?;
+    let target = dir.join("assets.db");
+    if !target.exists() {
+        if let Ok(src) = app
+            .path()
+            .resolve("resources/beta-start.db", tauri::path::BaseDirectory::Resource)
+        {
+            if src.exists() {
+                std::fs::copy(&src, &target)
+                    .map_err(|e| format!("Could not copy the starting database: {e}"))?;
+            }
+        }
+    }
+    Ok(target)
+}
+
 fn open_and_migrate_connection() -> Result<Connection, String> {
-    let conn = Connection::open("assets.db").map_err(|e| e.to_string())?;
+    let conn = Connection::open(db_path()).map_err(|e| e.to_string())?;
     conn.pragma_update(None, "key", DB_ENCRYPTION_KEY)
         .map_err(|e| e.to_string())?;
 
@@ -9126,6 +9166,12 @@ pub fn run() {
             get_mri_fault_decisions_pending_acknowledgment,
             acknowledge_mri_fault_decision
         ])
+        .setup(|app| {
+            // Decide where the database lives before any command opens it.
+            let path = resolve_db_path(app.handle())?;
+            let _ = DB_PATH.set(path);
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
