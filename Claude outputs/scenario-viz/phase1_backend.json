@@ -1,0 +1,3237 @@
+{
+  "cases": [
+    {
+      "checks": [
+        {
+          "detail": "got 7, expected 7",
+          "label": "seven users registered",
+          "outcome": "ok"
+        },
+        {
+          "detail": "role Administrator, active true",
+          "label": "Jess Britanico is an active Administrator",
+          "outcome": "ok"
+        },
+        {
+          "detail": "role Data Miner View, active true",
+          "label": "Marilyn Tabay is an active Data Miner View",
+          "outcome": "ok"
+        },
+        {
+          "detail": "role Operator, active true",
+          "label": "Suganya Rajendran is an active Operator",
+          "outcome": "ok"
+        },
+        {
+          "detail": "role Job Supervisor, active true",
+          "label": "Abdulla Qais is an active Job Supervisor",
+          "outcome": "ok"
+        },
+        {
+          "detail": "role Operations Coordinator, active true",
+          "label": "Jan-Albert Victorino is an active Operations Coordinator",
+          "outcome": "ok"
+        },
+        {
+          "detail": "role Maintenance Supervisor, active true",
+          "label": "Disantha Perera is an active Maintenance Supervisor",
+          "outcome": "ok"
+        },
+        {
+          "detail": "role Maintenance Manager / FSM, active true",
+          "label": "Kamil Shahzad is an active Maintenance Manager / FSM",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 0, expected 0",
+          "label": "no permission overrides",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 0, expected 0",
+          "label": "no country restrictions",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "S2",
+      "status": "Pass",
+      "title": "Seven users and roles"
+    },
+    {
+      "checks": [
+        {
+          "detail": "missing: []",
+          "label": "COILED TUBING UNIT header fields present",
+          "outcome": "ok"
+        },
+        {
+          "detail": "[\"Distance Travelled Pre-Job (KM)\", \"Distance Travelled Post-Job (KM)\"]",
+          "label": "COILED TUBING UNIT mid fields present",
+          "outcome": "ok"
+        },
+        {
+          "detail": "missing: []",
+          "label": "COILED TUBING UNIT footer fields present",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Active\", expected \"Active\"",
+          "label": "COILED TUBING UNIT is Active",
+          "outcome": "ok"
+        },
+        {
+          "detail": "missing: []",
+          "label": "PUMP UNIT header fields present",
+          "outcome": "ok"
+        },
+        {
+          "detail": "[\"Distance Travelled Pre-Job (KM)\", \"Distance Travelled Post-Job (KM)\"]",
+          "label": "PUMP UNIT mid fields present",
+          "outcome": "ok"
+        },
+        {
+          "detail": "missing: []",
+          "label": "PUMP UNIT footer fields present",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Active\", expected \"Active\"",
+          "label": "PUMP UNIT is Active",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 19, expected 19",
+          "label": "COILED TUBING UNIT has 19 checklist items",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 24, expected 24",
+          "label": "PUMP UNIT has 24 checklist items",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"COILED TUBING UNIT\", expected \"COILED TUBING UNIT\"",
+          "label": "COILED TUBING UNIT template asset type",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"PUMPING UNIT\", expected \"PUMPING UNIT\"",
+          "label": "PUMP UNIT template asset type",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "S3",
+      "status": "Pass",
+      "title": "Template header fields"
+    },
+    {
+      "checks": [
+        {
+          "detail": "",
+          "label": "Administrator holds mri.submit",
+          "outcome": "ok"
+        },
+        {
+          "detail": "missing: []",
+          "label": "Administrator holds admin / template / backup / reference / trigger functions",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds: []",
+          "label": "Administrator has no review / approval / closure / rectification permission",
+          "outcome": "ok"
+        },
+        {
+          "detail": "missing: []",
+          "label": "FSM holds the listed permissions (incl. Rectify and Approve)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "FSM does not hold Record provisional",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "S4",
+      "status": "Pass",
+      "title": "Administrator and FSM permissions"
+    },
+    {
+      "checks": [
+        {
+          "detail": "got [\"CTU\", \"COILED TUBING UNIT\", \"COILED TUBING\", \"PAKISTAN\", \"1\", \"NULL\"], expected [\"CTU\", \"COILED TUBING UNIT\", \"COILED TUBING\", \"PAKISTAN\", \"1\", \"NULL\"]",
+          "label": "ASSET1 description / type / service line / country / active / no tag",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got [\"PUMPING UNIT\", \"PUMPING UNIT\", \"STIMULATION\", \"PAKISTAN\", \"1\", \"NULL\"], expected [\"PUMPING UNIT\", \"PUMPING UNIT\", \"STIMULATION\", \"PAKISTAN\", \"1\", \"NULL\"]",
+          "label": "ASSET2 description / type / service line / country / active / no tag",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some((true, 700, 650, 0)), expected Some((true, 700, 650, 0))",
+          "label": "ASSET1 MR-II CA enabled 700/650 running 0",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some((true, 1000, 950, 0)), expected Some((true, 1000, 950, 0))",
+          "label": "ASSET1 MR-II KM enabled 1000/950 running 0",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some((true, 300, 260, 0)), expected Some((true, 300, 260, 0))",
+          "label": "ASSET1 MR-II OH enabled 300/260 running 0",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some((true, 500, 450, 0)), expected Some((true, 500, 450, 0))",
+          "label": "ASSET2 MR-II CA enabled 500/450 running 0",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some((true, 400, 350, 0)), expected Some((true, 400, 350, 0))",
+          "label": "ASSET2 MR-II EH enabled 400/350 running 0",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some((true, 1000, 950, 0)), expected Some((true, 1000, 950, 0))",
+          "label": "ASSET2 MR-II KM enabled 1000/950 running 0",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some((true, 600, 550, 0)), expected Some((true, 600, 550, 0))",
+          "label": "ASSET2 MR-II OH enabled 600/550 running 0",
+          "outcome": "ok"
+        },
+        {
+          "detail": "Some((false, 0, 0, 0))",
+          "label": "ASSET1 MR-II EH disabled",
+          "outcome": "ok"
+        },
+        {
+          "detail": "Some((false, 0, 0, 0))",
+          "label": "ASSET2 MR-II RIF disabled",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 0, expected 0",
+          "label": "no MR-I reports",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 0, expected 0",
+          "label": "no MOC exemptions",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 0, expected 0",
+          "label": "no tag history",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 0, expected 0",
+          "label": "Open Defects source (Rectification Queue) is empty for Disantha",
+          "outcome": "ok"
+        },
+        {
+          "detail": "screen check, Phase 2",
+          "label": "Main-menu tiles (Fleet Availability 100.0 %, no Attention Required tab)",
+          "outcome": "info"
+        }
+      ],
+      "error": null,
+      "id": "S5",
+      "status": "Pass",
+      "title": "Starting state of the two assets"
+    },
+    {
+      "checks": [
+        {
+          "detail": "holds = false",
+          "label": "Job Supervisor lacks mri.approve",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = false",
+          "label": "Operations Coordinator lacks mri.approve",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = false",
+          "label": "Maintenance Supervisor lacks mri.approve",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = true",
+          "label": "FSM holds mri.approve",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = false",
+          "label": "Job Supervisor lacks mri.close_defect",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = true",
+          "label": "Operations Coordinator holds mri.close_defect",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = true",
+          "label": "Maintenance Supervisor holds mri.close_defect",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = true",
+          "label": "FSM holds mri.close_defect",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = false",
+          "label": "Job Supervisor lacks mri.enter_cost",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = true",
+          "label": "Operations Coordinator holds mri.enter_cost",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = true",
+          "label": "Maintenance Supervisor holds mri.enter_cost",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = true",
+          "label": "FSM holds mri.enter_cost",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = true",
+          "label": "Job Supervisor holds mri.record_provisional",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = false",
+          "label": "Operations Coordinator lacks mri.record_provisional",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = false",
+          "label": "Maintenance Supervisor lacks mri.record_provisional",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = false",
+          "label": "FSM lacks mri.record_provisional",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = false",
+          "label": "Job Supervisor lacks mri.confirm_provisional",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = true",
+          "label": "Operations Coordinator holds mri.confirm_provisional",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = true",
+          "label": "Maintenance Supervisor holds mri.confirm_provisional",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = true",
+          "label": "FSM holds mri.confirm_provisional",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = true",
+          "label": "Job Supervisor holds mri.endorse_report",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = true",
+          "label": "Operations Coordinator holds mri.endorse_report",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = true",
+          "label": "Maintenance Supervisor holds mri.endorse_report",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = true",
+          "label": "FSM holds mri.endorse_report",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = true",
+          "label": "Job Supervisor holds mri.edit_after_submit",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = true",
+          "label": "Operations Coordinator holds mri.edit_after_submit",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = true",
+          "label": "Maintenance Supervisor holds mri.edit_after_submit",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = true",
+          "label": "FSM holds mri.edit_after_submit",
+          "outcome": "ok"
+        },
+        {
+          "detail": "holds = false",
+          "label": "Operator lacks mri.edit_after_submit",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "S6",
+      "status": "Pass",
+      "title": "Permission seed"
+    },
+    {
+      "checks": [
+        {
+          "detail": "no backend rule to test; covered in Phase 2",
+          "label": "screen-only case",
+          "outcome": "info"
+        }
+      ],
+      "error": null,
+      "id": "S7",
+      "status": "UI only",
+      "title": "Title bar"
+    },
+    {
+      "checks": [
+        {
+          "detail": "6",
+          "label": "Draft created for ASSET2 / PUMP UNIT / Left",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Draft\", expected \"Draft\"",
+          "label": "status Draft",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"This template has components — choose which component (for example Left or Right) this report is for.\"",
+          "label": "PUMP UNIT report without a component is refused",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "A1",
+      "status": "Pass",
+      "title": "Start the first report"
+    },
+    {
+      "checks": [
+        {
+          "detail": "got Ok(6), expected Ok(6)",
+          "label": "starting again returns the same Draft",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 1, expected 1",
+          "label": "only one Left Draft on ASSET2",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "A2",
+      "status": "Pass",
+      "title": "Starting again reopens the same Draft"
+    },
+    {
+      "checks": [
+        {
+          "detail": "got Ok(None), expected Ok(None)",
+          "label": "Previous Engine Hours lookup is empty (shown as 0)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Minor\", expected \"Minor\"",
+          "label": "Access Ladders & Handrails default severity",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Checklist result saved\"",
+          "label": "Fail saved",
+          "outcome": "ok"
+        },
+        {
+          "detail": "7",
+          "label": "photo attached",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"150.0\"), expected Some(\"150.0\")",
+          "label": "Engine Hours (This Report)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"PRE-JOB\"), expected Some(\"PRE-JOB\")",
+          "label": "Compliance Stage kept",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Preventive\"), expected Some(\"Preventive\")",
+          "label": "Maintenance Type kept (default)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"PMC-2026-0101\"), expected Some(\"PMC-2026-0101\")",
+          "label": "Checklist ID kept",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Test Client\"), expected Some(\"Test Client\")",
+          "label": "Client kept",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Test Well TW-21\"), expected Some(\"Test Well TW-21\")",
+          "label": "Location kept",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some((Some(\"Fail\"), Some(\"Minor\"), Some(\"2026-11-07\"), \"Pending\", true, true)), expected Some((Some(\"Fail\"), Some(\"Minor\"), Some(\"2026-11-07\"), \"Pending\", true, true))",
+          "label": "Fail / Minor / today / Pending / issue / action kept",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 1, expected 1",
+          "label": "one attachment kept",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "A3",
+      "status": "Pass",
+      "title": "Fill in Report 1"
+    },
+    {
+      "checks": [
+        {
+          "detail": "7",
+          "label": "Right Draft created",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Preventive\"), expected Some(\"Preventive\")",
+          "label": "new Right draft starts on Preventive (wizard default saved)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Breakdown\"), expected Some(\"Breakdown\")",
+          "label": "'Breakdown' kept after reopening",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Preventive\"), expected Some(\"Preventive\")",
+          "label": "'Preventive' kept after reopening",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"\"), expected Some(\"\")",
+          "label": "'' kept after reopening",
+          "outcome": "ok"
+        },
+        {
+          "detail": "screen check, Phase 2 (claude-code+review)",
+          "label": "Choices / no red * / no Corrective / PDF preview",
+          "outcome": "info"
+        }
+      ],
+      "error": null,
+      "id": "A3a",
+      "status": "Pass",
+      "title": "Maintenance Type"
+    },
+    {
+      "checks": [
+        {
+          "detail": "refused: \"Compliance Stage is required (Pre-Mob, Pre-Job, Post Job or Yard Inspection) before a report can be submitted.\"",
+          "label": "Submit refused with Compliance Stage empty",
+          "outcome": "ok"
+        },
+        {
+          "detail": "Err(\"The Footer section must be completed before submitting. Missing: Operator, Operator Date, Supervisor, Supervisor Date\")",
+          "label": "after restoring PRE-JOB the Compliance Stage refusal no longer applies",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "A4",
+      "status": "Pass",
+      "title": "Compliance Stage is required"
+    },
+    {
+      "checks": [
+        {
+          "detail": "refused: \"Pre-Mobilization Checklist ID is required for a Pre-Mob or Pre-Job report (take it from the Job Service Report).\"",
+          "label": "Submit refused with the Checklist ID empty on PRE-JOB",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "A5",
+      "status": "Pass",
+      "title": "Checklist ID required (Pre-Job)"
+    },
+    {
+      "checks": [
+        {
+          "detail": "refused: \"1 failed checklist item(s) are missing issue details or a severity.\"",
+          "label": "Submit refused: Fail without issue details",
+          "outcome": "ok"
+        },
+        {
+          "detail": "Ok(\"Report submitted\")",
+          "label": "after restoring the text the issue-details refusal no longer applies",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "A6",
+      "status": "Pass",
+      "title": "Fail must have an issue description"
+    },
+    {
+      "checks": [
+        {
+          "detail": "refused: \"Add an action taken entry before closing this item.\"",
+          "label": "Closed refused with Action Taken empty",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Pending\"), expected Some(\"Pending\")",
+          "label": "Closure Status stays Pending",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "action saved and item still Pending",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "A6a",
+      "status": "Pass",
+      "title": "Action Taken needed to close"
+    },
+    {
+      "checks": [
+        {
+          "detail": "ACCEPTED by the backend (rolled back). Only the wizard's Review step enforces Action Taken (code comment in set_mri_report_checklist_result says so). Phase 2 checks the screen refusal.",
+          "label": "backend submit with a blank Action Taken",
+          "outcome": "info"
+        }
+      ],
+      "error": null,
+      "id": "A6d",
+      "status": "UI only",
+      "title": "Action Taken needed to submit"
+    },
+    {
+      "checks": [
+        {
+          "detail": "refused: \"Add issue details before closing this item.\"",
+          "label": "Closed refused with both blank (issue details first)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"Add issue details before closing this item.\"",
+          "label": "Closed refused with Action Taken only",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"Add an action taken entry before closing this item.\"",
+          "label": "Closed refused with issue details only",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Checklist result saved\"",
+          "label": "Closed accepted with both filled",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"Add an action taken entry before closing this item.\"",
+          "label": "clearing Action Taken while Closed is refused by the backend",
+          "outcome": "ok"
+        },
+        {
+          "detail": "screen check, Phase 2",
+          "label": "popup text and dropdown snapping back to Pending",
+          "outcome": "info"
+        },
+        {
+          "detail": "got Some(\"Pending\"), expected Some(\"Pending\")",
+          "label": "restored to Pending",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "A6e",
+      "status": "Pass",
+      "title": "Closed needs issue and action"
+    },
+    {
+      "checks": [
+        {
+          "detail": "got Some(\"2026-11-06\"), expected Some(\"2026-11-06\")",
+          "label": "Date Observed keeps yesterday",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"2026-11-07\"), expected Some(\"2026-11-07\")",
+          "label": "Date Observed back to today",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Moderate\"), expected Some(\"Moderate\")",
+          "label": "severity Moderate saved",
+          "outcome": "ok"
+        },
+        {
+          "detail": "Ok(\"Checklist result saved\") (rolled back). The Operator block is in the wizard (disabled list); Phase 2 checks it.",
+          "label": "backend Closed on a Moderate Fail",
+          "outcome": "info"
+        },
+        {
+          "detail": "",
+          "label": "nothing left changed from A3 (Fail, Minor, today, Pending)",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "A6b",
+      "status": "Pass",
+      "title": "Date / severity / closure"
+    },
+    {
+      "checks": [
+        {
+          "detail": "8",
+          "label": "PDF attached",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Ok(2), expected Ok(2)",
+          "label": "two attachments",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Attachment deleted\"",
+          "label": "PDF removed",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got [\"ladder.png\"], expected [\"ladder.png\"]",
+          "label": "only the photo remains",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"File data cannot be empty\"",
+          "label": "empty file refused",
+          "outcome": "ok"
+        },
+        {
+          "detail": "enforced only in the wizard (backend has no size check); Phase 2 checks the message",
+          "label": "5 MB limit",
+          "outcome": "info"
+        }
+      ],
+      "error": null,
+      "id": "A6c",
+      "status": "Pass",
+      "title": "Attachments"
+    },
+    {
+      "checks": [
+        {
+          "detail": "refused: \"The Footer section must be completed before submitting. Missing: Operator Date, Supervisor, Supervisor Date\"",
+          "label": "Submit refused with empty footer",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Report submitted\"",
+          "label": "Submit accepted",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Submitted\", expected \"Submitted\"",
+          "label": "status Submitted",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got None, expected None",
+          "label": "unit tag unchanged (Minor fault only)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Preventive\"), expected Some(\"Preventive\")",
+          "label": "Maintenance Type Preventive on the submitted report",
+          "outcome": "ok"
+        },
+        {
+          "detail": "screen check, Phase 2 (claude-code+review)",
+          "label": "Review / PDF layout",
+          "outcome": "info"
+        }
+      ],
+      "error": null,
+      "id": "A7",
+      "status": "Pass",
+      "title": "Submit Report 1"
+    },
+    {
+      "checks": [
+        {
+          "detail": "refused: \"Report #6 for this asset (or component) is still Submitted — it must be endorsed and closed before a new MR-I report can be started for it.\"",
+          "label": "new report on ASSET2 Left refused",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "A8",
+      "status": "Pass",
+      "title": "No new report while Submitted"
+    },
+    {
+      "checks": [
+        {
+          "detail": "Ok(\"Header value saved\") (rolled back). There is no backend lock on edits after submit: the lock is in the wizard (mri.edit_after_submit). Phase 2 checks the screen.",
+          "label": "backend header write on a Submitted report",
+          "outcome": "info"
+        },
+        {
+          "detail": "",
+          "label": "Operator lacks mri.edit_after_submit / endorse / close",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "A9",
+      "status": "Pass",
+      "title": "Operator cannot edit after submit"
+    },
+    {
+      "checks": [
+        {
+          "detail": "8",
+          "label": "ASSET1 Draft created",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"Pre-Mobilization Checklist ID is required for a Pre-Mob or Pre-Job report (take it from the Job Service Report).\"",
+          "label": "Submit refused without the Checklist ID",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Report submitted\"",
+          "label": "Submit accepted with PMC-2026-0087",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Submitted\", expected \"Submitted\"",
+          "label": "status Submitted",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got None, expected None",
+          "label": "ASSET1 stays untagged",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got None, expected None",
+          "label": "Job Number empty",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "A10",
+      "status": "Pass",
+      "title": "Pre-Mob needs the Checklist ID"
+    },
+    {
+      "checks": [
+        {
+          "detail": "[(6, \"Submitted\"), (8, \"Submitted\")]",
+          "label": "Reports to Review (Abdulla) lists Report 1 and the ASSET1 Pre-Mob as Submitted",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "Operator has no Close or Endorse permission",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "B1",
+      "status": "Pass",
+      "title": "Who sees what"
+    },
+    {
+      "checks": [
+        {
+          "detail": "refused: \"This report has no Moderate/Critical faults to escalate -- use Close & Approve Report instead.\"",
+          "label": "endorse refused on a Minor-only report (server rule; screen hides the button)",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "B2",
+      "status": "Pass",
+      "title": "No Endorse on Minor-only"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Report reviewed and closed\"",
+          "label": "Close & Approve",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Approved\", expected \"Approved\"",
+          "label": "status Approved",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got None, expected None",
+          "label": "ASSET2 stays untagged",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Pending\"), expected Some(\"Pending\")",
+          "label": "Minor fault stays Pending",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "B3",
+      "status": "Pass",
+      "title": "Close & Approve Report 1"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Report reviewed and closed\"",
+          "label": "Close & Approve",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Approved\", expected \"Approved\"",
+          "label": "status Approved",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got None, expected None",
+          "label": "ASSET1 stays untagged",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "B4",
+      "status": "Pass",
+      "title": "Close & Approve ASSET1 Pre-Mob"
+    },
+    {
+      "checks": [
+        {
+          "detail": "9",
+          "label": "Report 2 Draft created (Left)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "[1]",
+          "label": "Access Ladders & Handrails is carried forward (defaults to Fail)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Ladder rung paint worn, needs touch-up.\"), expected Some(\"Ladder rung paint worn, needs touch-up.\")",
+          "label": "carried issue text is Report 1's (not blank)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(150.0), expected Some(150.0)",
+          "label": "Previous Engine Hours = 150",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(150.0), expected Some(150.0)",
+          "label": "Current Engine Hours pre-filled with 150",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some((Some(\"Fail\"), Some(\"Ladder rung paint worn, needs touch-up.\"))), expected Some((Some(\"Fail\"), Some(\"Ladder rung paint worn, needs touch-up.\")))",
+          "label": "carried item saved as Fail with Report 1 text",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"70.0\"), expected Some(\"70.0\")",
+          "label": "Engine Hours (This Report) = 70",
+          "outcome": "ok"
+        },
+        {
+          "detail": "Moderate",
+          "label": "Air Filter template default is Moderate",
+          "outcome": "ok"
+        },
+        {
+          "detail": "Moderate",
+          "label": "Agitator template default is Moderate",
+          "outcome": "ok"
+        },
+        {
+          "detail": "Moderate",
+          "label": "Actuators on Control Panel template default is Moderate",
+          "outcome": "ok"
+        },
+        {
+          "detail": "Moderate",
+          "label": "Breather template default is Moderate",
+          "outcome": "ok"
+        },
+        {
+          "detail": "Moderate",
+          "label": "Brass Bushing Condition Within Tolerance Limits template default is Moderate",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Checklist result saved\"",
+          "label": "Access Ladders & Handrails closed by the Operator with action",
+          "outcome": "ok"
+        },
+        {
+          "detail": "Ok(\"Checklist result saved\") (rolled back). Operator block is the wizard's disabled list; Phase 2 checks it.",
+          "label": "backend Closed on the Moderate Air Filter",
+          "outcome": "info"
+        },
+        {
+          "detail": "\"Report submitted\"",
+          "label": "Submit",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Submitted\", expected \"Submitted\"",
+          "label": "status Submitted",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got None, expected None",
+          "label": "ASSET2 stays untagged (Moderate faults do not tag)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 5, expected 5",
+          "label": "five Moderate fails",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "each Fail stamped reported_by Suganya with a time",
+          "outcome": "ok"
+        },
+        {
+          "detail": "[\"Air Filter.png\", \"Breather.png\"]",
+          "label": "photos only on Air Filter and Breather",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"2026-11-06\"), expected Some(\"2026-11-06\")",
+          "label": "Actuators date observed = yesterday",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"2026-11-05\"), expected Some(\"2026-11-05\")",
+          "label": "Brass Bushing date observed = two days ago",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "B5",
+      "status": "Pass",
+      "title": "Report 2 with five Moderates"
+    },
+    {
+      "checks": [
+        {
+          "detail": "refused: \"This report has 5 Moderate/Critical fault(s) -- use Endorse Report to escalate them instead.\"",
+          "label": "Close & Approve refused (Moderate faults)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Submitted\", expected \"Submitted\"",
+          "label": "still Submitted",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "B6",
+      "status": "Pass",
+      "title": "Moderates cannot be closed directly"
+    },
+    {
+      "checks": [
+        {
+          "detail": "refused: \"Select which Maintenance Supervisor/FSM this is being escalated to.\"",
+          "label": "endorse with no reviewer refused",
+          "outcome": "ok"
+        },
+        {
+          "detail": "[\"Disantha Perera\", \"Jan-Albert Victorino\", \"Kamil Shahzad\"]",
+          "label": "reviewer list has Disantha, Jan-Albert, Kamil",
+          "outcome": "ok"
+        },
+        {
+          "detail": "[\"Disantha Perera\", \"Jan-Albert Victorino\", \"Kamil Shahzad\"]",
+          "label": "Administrator, Operator, Data Miner not listed",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Report endorsed — 5 fault(s) escalated for review. The report stays open until every escalated fault is resolved and someone closes it.\"",
+          "label": "endorse to Disantha",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Escalated\", expected \"Escalated\"",
+          "label": "status Escalated",
+          "outcome": "ok"
+        },
+        {
+          "detail": "[[\"Pending\", \"6\"], [\"Pending\", \"6\"], [\"Pending\", \"6\"], [\"Pending\", \"6\"], [\"Pending\", \"6\"]]",
+          "label": "five Pending approvals assigned to Disantha",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "B7",
+      "status": "Pass",
+      "title": "Endorse needs a named reviewer"
+    },
+    {
+      "checks": [
+        {
+          "detail": "[]",
+          "label": "Report 2 is not in Abdulla's Reports to Review",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"Report #9 for this asset (or component) is still Escalated — it must be endorsed and closed before a new MR-I report can be started for it.\"",
+          "label": "new Left report refused (still Escalated)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"5 escalated fault(s) on this report are still awaiting a review decision or confirmation — a phoned-in decision must be confirmed by the real authority before the report can be closed.\"",
+          "label": "close refused while decisions pending (server rule)",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "B8",
+      "status": "Pass",
+      "title": "No close while pending"
+    },
+    {
+      "checks": [
+        {
+          "detail": "got Some((Some(\"Air filter element clogged, restriction indicator in the red.\"), Some(\"Filter element removed and cleaned, replacement element ordered.\"), true)), expected Some((Some(\"Air filter element clogged, restriction indicator in the red.\"), Some(\"Filter element removed and cleaned, replacement element ordered.\"), true))",
+          "label": "card Issue and Action Taken from B5",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Fault approval decision saved\"",
+          "label": "Approve (In-Person)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Approved\"), expected Some(\"Approved\")",
+          "label": "decision Approved",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "card leaves Pending Approvals",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "decision log row with method In-Person",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Planned\"), expected Some(\"Planned\")",
+          "label": "Planned follow-up created",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Green\"), expected Some(\"Green\")",
+          "label": "unit shows Green (Ready for Service, Manual 8.1)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "After the Moderate decision the untagged unit becomes Green (one tag-history row). Manual Table 3's Moderate row says nothing about tags (its 'closed and Green-Tagged' wording is only for a Critical reclassified to Moderate), but Manual 8.1 requires every item to show Green / Yellow / Red, and a Moderate-only unit is ready for service = Green. The Clarification (Table 3 summary agreed with K. Shahzad) gives the same picture: Minor 'Unit stays Green', Moderate 'Plan the repair and keep an eye on it until fixed' (no Red/Yellow), Critical lowered to Moderate 'the unit goes Green'. The app is consistent with the manual; the matrix should expect Green.",
+          "label": "C1 expects 'The unit tag does not change'",
+          "outcome": "MATRIX"
+        }
+      ],
+      "error": null,
+      "id": "C1",
+      "status": "Pass",
+      "title": "Approve a Moderate"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Fault approval decision saved\"",
+          "label": "Reject",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Rejected\"), expected Some(\"Rejected\")",
+          "label": "decision Rejected",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "final severity Minor",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Closed\"), expected Some(\"Closed\")",
+          "label": "item closed",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got None, expected None",
+          "label": "no repair / follow-up row",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "C2",
+      "status": "Pass",
+      "title": "Reject a Moderate"
+    },
+    {
+      "checks": [
+        {
+          "detail": "refused: \"A valid new severity is required when reclassifying\"",
+          "label": "reclassify without a new severity refused (server rule)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Pending\"), expected Some(\"Pending\")",
+          "label": "Breather still Pending",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "C3",
+      "status": "Pass",
+      "title": "Reclassify needs a severity"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Fault carried forward to next cycle\"",
+          "label": "Carryforward",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Carryforward\"), expected Some(\"Carryforward\")",
+          "label": "decision Carryforward",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got None, expected None",
+          "label": "no repair created",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Green\"), expected Some(\"Green\")",
+          "label": "unit tag unchanged by this step",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "C4",
+      "status": "Pass",
+      "title": "Carry a Moderate forward"
+    },
+    {
+      "checks": [
+        {
+          "detail": "got [\"Kamil Shahzad\"], expected [\"Kamil Shahzad\"]",
+          "label": "Send Critical fault to offers only Kamil Shahzad",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"A fault raised to Critical must be passed to the FSM / Maintenance Manager.\"",
+          "label": "raising to Critical for a non-FSM (Abdulla) is refused",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Fault escalated to Critical review\"",
+          "label": "Reclassify to Critical, next reviewer Kamil",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some((\"Pending\", \"Critical\", Some(7))), expected Some((\"Pending\", \"Critical\", Some(7)))",
+          "label": "Pending, original Critical, assigned to Kamil",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "Agitator not actionable for Disantha",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "Agitator in Kamil's Pending Approvals",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Red\"), expected Some(\"Red\")",
+          "label": "ASSET2 Red",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "decision log shows Escalated Moderate -> Critical",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "C5",
+      "status": "Pass",
+      "title": "Raise to Critical (FSM only)"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Fault escalated to Critical review\"",
+          "label": "Reclassify Breather to Critical, Kamil",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some((\"Pending\", \"Critical\", Some(7))), expected Some((\"Pending\", \"Critical\", Some(7)))",
+          "label": "Pending Critical for Kamil",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Red\"), expected Some(\"Red\")",
+          "label": "unit stays Red",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "C6",
+      "status": "Pass",
+      "title": "Raise a second to Critical"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Fault approval decision saved\"",
+          "label": "Kamil approves Agitator",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some((\"Red\", \"Awaiting\", None)), expected Some((\"Red\", \"Awaiting\", None))",
+          "label": "Agitator Red repair, parts Awaiting, no technician",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Fault approval decision saved\"",
+          "label": "Kamil approves Breather",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some((\"Red\", \"Awaiting\", None)), expected Some((\"Red\", \"Awaiting\", None))",
+          "label": "Breather Red repair, parts Awaiting, no technician",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "Air Filter also in the queue as Planned",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Red\"), expected Some(\"Red\")",
+          "label": "ASSET2 stays Red",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"false\"), expected Some(\"false\")",
+          "label": "Green Tagged footer false",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Escalated\", expected \"Escalated\"",
+          "label": "report still Escalated",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 2, expected 2",
+          "label": "two Approved by Kamil In-Person",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "C7",
+      "status": "Pass",
+      "title": "FSM approves both Criticals"
+    },
+    {
+      "checks": [
+        {
+          "detail": "",
+          "label": "Report 2 back in Reports to Review (resolved, awaiting close)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Report closed\"",
+          "label": "Close Report",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Approved\", expected \"Approved\"",
+          "label": "status Approved",
+          "outcome": "ok"
+        },
+        {
+          "detail": "[(\"Air Filter\", \"Planned\"), (\"Agitator\", \"Red\"), (\"Breather\", \"Red\")]",
+          "label": "queue still has Agitator Red, Breather Red, Air Filter Planned",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Red\"), expected Some(\"Red\")",
+          "label": "ASSET2 stays Red",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "C8",
+      "status": "Pass",
+      "title": "Close Report 2 with repairs open"
+    },
+    {
+      "checks": [
+        {
+          "detail": "10",
+          "label": "ASSET1 Draft created",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got (\"Critical\", \"Moderate\"), expected (\"Critical\", \"Moderate\")",
+          "label": "template defaults Ball Valves Critical / Agitator Moderate",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"Pre-Mobilization Checklist ID is required for a Pre-Mob or Pre-Job report (take it from the Job Service Report).\"",
+          "label": "Submit refused without the Checklist ID",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Report submitted\"",
+          "label": "Submit",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Submitted\", expected \"Submitted\"",
+          "label": "status Submitted",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Red\"), expected Some(\"Red\")",
+          "label": "ASSET1 Red at once",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Critical fault reported (report #10)\"), expected Some(\"Critical fault reported (report #10)\")",
+          "label": "tag history reason",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "C9",
+      "status": "Pass",
+      "title": "First Critical on ASSET1"
+    },
+    {
+      "checks": [
+        {
+          "detail": "got [\"Kamil Shahzad\"], expected [\"Kamil Shahzad\"]",
+          "label": "only Kamil Shahzad listed",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"This report has a Critical fault: it must be escalated to the FSM / Maintenance Manager.\"",
+          "label": "endorsing a Critical report to Disantha is refused",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Report endorsed — 2 fault(s) escalated for review. The report stays open until every escalated fault is resolved and someone closes it.\"",
+          "label": "endorse to Kamil",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Escalated\", expected \"Escalated\"",
+          "label": "status Escalated",
+          "outcome": "ok"
+        },
+        {
+          "detail": "[[\"Pending\", \"7\"], [\"Pending\", \"7\"]]",
+          "label": "two Pending approvals assigned to Kamil",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "C10",
+      "status": "Pass",
+      "title": "Endorse picker for Critical"
+    },
+    {
+      "checks": [
+        {
+          "detail": "got Some((\"Critical\", \"Pending\")), expected Some((\"Critical\", \"Pending\"))",
+          "label": "flow: Ball Valves Critical, decision Pending",
+          "outcome": "ok"
+        },
+        {
+          "detail": "screen check, Phase 2",
+          "label": "red border, Back button",
+          "outcome": "info"
+        }
+      ],
+      "error": null,
+      "id": "C10a",
+      "status": "Pass",
+      "title": "Flow from Pending Approvals"
+    },
+    {
+      "checks": [
+        {
+          "detail": "refused: \"A Critical fault cannot be carried forward; approve it (stays Red until repaired) or lower it to Moderate.\"",
+          "label": "Carryforward refused",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"A Critical fault can only be lowered to Moderate, not straight to Minor (Table 3).\"",
+          "label": "Reclassify to Minor refused",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Pending\"), expected Some(\"Pending\")",
+          "label": "fault stays Pending",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "C11",
+      "status": "Pass",
+      "title": "Critical: no carry / no Minor"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Fault approval decision saved\"",
+          "label": "Reclassify to Moderate",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Planned\"), expected Some(\"Planned\")",
+          "label": "Planned follow-up row",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Green\"), expected Some(\"Green\")",
+          "label": "ASSET1 returns to Green",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "C12",
+      "status": "Pass",
+      "title": "Critical lowered to Moderate"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Fault approval decision saved\"",
+          "label": "Reclassify Agitator to Minor",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Reclassified\"), expected Some(\"Reclassified\")",
+          "label": "decision Reclassified",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Closed\"), expected Some(\"Closed\")",
+          "label": "item closed",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got None, expected None",
+          "label": "no follow-up row",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Green\"), expected Some(\"Green\")",
+          "label": "no tag change",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "C13",
+      "status": "Pass",
+      "title": "Moderate lowered to Minor"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Report closed\"",
+          "label": "Close",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Approved\", expected \"Approved\"",
+          "label": "status Approved",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Green\"), expected Some(\"Green\")",
+          "label": "ASSET1 Green",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "Ball Valves Planned follow-up stays in the queue",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "C14",
+      "status": "Pass",
+      "title": "Close Report C9"
+    },
+    {
+      "checks": [
+        {
+          "detail": "got [(\"ASSET1\", \"Ball Valves\", \"Planned\", false), (\"ASSET2\", \"Agitator\", \"Red\", false), (\"ASSET2\", \"Air Filter\", \"Planned\", false), (\"ASSET2\", \"Breather\", \"Red\", false)], expected [(\"ASSET1\", \"Ball Valves\", \"Planned\", false), (\"ASSET2\", \"Agitator\", \"Red\", false), (\"ASSET2\", \"Air Filter\", \"Planned\", false), (\"ASSET2\", \"Breather\", \"Red\", false)]",
+          "label": "four rows, Red ones without technician",
+          "outcome": "ok"
+        },
+        {
+          "detail": "screen check, Phase 2",
+          "label": "Open Defects tile = 4 / red circle count",
+          "outcome": "info"
+        }
+      ],
+      "error": null,
+      "id": "D1",
+      "status": "Pass",
+      "title": "Rectification Queue contents"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Rectification updated\"",
+          "label": "technician on Breather",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Red\"), expected Some(\"Red\")",
+          "label": "ASSET2 stays Red",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "D2",
+      "status": "Pass",
+      "title": "One technician: not Yellow"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Rectification updated\"",
+          "label": "technician on Agitator",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Yellow\"), expected Some(\"Yellow\")",
+          "label": "ASSET2 Yellow",
+          "outcome": "ok"
+        },
+        {
+          "detail": "Repair in progress (technician: Ahmed Khan) -- unit not ready until verified (report #9)",
+          "label": "tag reason names the technician",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "D3",
+      "status": "Pass",
+      "title": "Both assigned: Yellow"
+    },
+    {
+      "checks": [
+        {
+          "detail": "{\"assigned_technician\":\"Ahmed Khan\",\"function_test_passed\":null,\"parts_status\":\"Awaiting\",\"repair_date\":null,\"tag_status\":\"Red\",\"verified_by\":null,\"verified_date\":null}",
+          "label": "flow Repair box carries technician and parts status",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "D3a",
+      "status": "Pass",
+      "title": "Flow from the Rectification Queue"
+    },
+    {
+      "checks": [
+        {
+          "detail": "got Some(\"Red\"), expected Some(\"Red\")",
+          "label": "cleared -> ASSET2 Red",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Yellow\"), expected Some(\"Yellow\")",
+          "label": "re-entered -> Yellow",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "D4",
+      "status": "Pass",
+      "title": "Clearing a technician: Red"
+    },
+    {
+      "checks": [
+        {
+          "detail": "11",
+          "label": "Report 3 Draft created",
+          "outcome": "ok"
+        },
+        {
+          "detail": "[(9, Some(\"Brass Bushing Condition Within Tolerance Limits\"))]",
+          "label": "Brass Bushing listed as carried forward from Report 2",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some((Some(\"Measured and recorded as within the wear limit; to be monitored at the next report.\"), Some(\"Suganya Rajendran\"))), expected Some((Some(\"Measured and recorded as within the wear limit; to be monitored at the next report.\"), Some(\"Suganya Rajendran\")))",
+          "label": "earlier Action Taken entry by Suganya",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some((Some(\"Fail\"), Some(\"Moderate\"), \"Pending\", Some(\"2026-11-07\"))), expected Some((Some(\"Fail\"), Some(\"Moderate\"), \"Pending\", Some(\"2026-11-07\")))",
+          "label": "carried item defaults to Fail / Moderate / Pending / today",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "D5",
+      "status": "Pass",
+      "title": "Report 3 carried-forward fault"
+    },
+    {
+      "checks": [
+        {
+          "detail": "refused: \"This unit is Red/Yellow-tagged (not ready) and has no valid MOC exemption, so a Pre-Mob or Pre-Job inspection cannot be submitted (Manual 6.1.5). Record the approved exemption in the Asset Registry first.\"",
+          "label": "Submit refused (Yellow, no exemption)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Draft\", expected \"Draft\"",
+          "label": "left as Draft",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "D6",
+      "status": "Pass",
+      "title": "Yellow: Pre-Job refused"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Limitations recorded\"",
+          "label": "limitations recorded",
+          "outcome": "ok"
+        },
+        {
+          "detail": "[[\"Do not run unit above 50% pump rate. Agitator isolated and locked out.\", \"Abdulla Qais\", \"1794066716\"]]",
+          "label": "note, informed-by and date saved",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "D7",
+      "status": "Pass",
+      "title": "Equipment limitations"
+    },
+    {
+      "checks": [
+        {
+          "detail": "the app offers Awaiting / Ordered / Available; 'Available' is used",
+          "label": "matrix parts status 'Received'",
+          "outcome": "info"
+        },
+        {
+          "detail": "refused: \"Confirm that the function test was performed and passed before verifying the repair.\"",
+          "label": "verify without function test refused",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"Record the repair date before verifying the repair.\"",
+          "label": "verify without repair date refused",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Rectification verified -- tag removed\"",
+          "label": "verify with repair date",
+          "outcome": "ok"
+        },
+        {
+          "detail": "[[\"Green\", \"Disantha Perera\", \"1794066716\"]]",
+          "label": "repair Green with verifier and date",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Yellow\"), expected Some(\"Yellow\")",
+          "label": "unit stays Yellow",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "D8",
+      "status": "Pass",
+      "title": "Verify rules"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Rectification verified -- tag removed\"",
+          "label": "verify Agitator",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Green\"), expected Some(\"Green\")",
+          "label": "ASSET2 Green",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"true\"), expected Some(\"true\")",
+          "label": "Green Tagged footer true",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "D9",
+      "status": "Pass",
+      "title": "Second repair verified: Green"
+    },
+    {
+      "checks": [
+        {
+          "detail": "got [\"Green\", \"Red\", \"Yellow\", \"Red\", \"Yellow\", \"Green\"], expected [\"Green\", \"Red\", \"Yellow\", \"Red\", \"Yellow\", \"Green\"]",
+          "label": "Green (C1), Red, Yellow, Red, Yellow, Green",
+          "outcome": "ok"
+        },
+        {
+          "detail": "the history starts with the Green status set by the C1 Moderate decision (Manual 8.1: a serviceable unit is Green / Ready for Service), so the matrix list is missing that first Green entry.",
+          "label": "D10 expects Red, Yellow, Red, Yellow, Green",
+          "outcome": "MATRIX"
+        },
+        {
+          "detail": "",
+          "label": "each entry has reason, report number and user",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "D10",
+      "status": "Pass",
+      "title": "Tag history"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Rectification updated\"",
+          "label": "Update Plan",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Green\"), expected Some(\"Green\")",
+          "label": "tag stays Green after plan",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Rectification verified -- tag removed\"",
+          "label": "Verify & Close Follow-up",
+          "outcome": "ok"
+        },
+        {
+          "detail": "[[\"Green\", \"Disantha Perera\", \"1794066716\"]]",
+          "label": "verifier and date recorded",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "row leaves the queue",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 6, expected 6",
+          "label": "tag never changed (no history rows added)",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "D11",
+      "status": "Pass",
+      "title": "Close a Planned follow-up"
+    },
+    {
+      "checks": [
+        {
+          "detail": "got Some(\"Green\"), expected Some(\"Green\")",
+          "label": "ASSET1 Green before",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Rectification updated\"",
+          "label": "plan Ball Valves (Bilal Ahmed)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Green\"), expected Some(\"Green\")",
+          "label": "ASSET1 stays Green",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "D12",
+      "status": "Pass",
+      "title": "Planned follow-up on Green unit"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Report submitted\"",
+          "label": "Submit now that ASSET2 is Green",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"This report has 1 Moderate/Critical fault(s) -- use Endorse Report to escalate them instead.\"",
+          "label": "Close & Approve refused: Report 3 carries a Moderate fault (Table 3 review)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "Report 3 carries the Brass Bushing Fail (Moderate), as D5/D6 require. Manual Table 3, Moderate row: 'Review Authority: Operations Coordinator / Maintenance Supervisor'; Clarification (K. Shahzad, tier table): reports with moderate/major/critical faults cannot be closed independently and Tier 2 'review Moderate faults and confirm their classification', so the report must be endorsed, reviewed and then closed. The run did that: endorse to Disantha, Approve Brass Bushing, Close.",
+          "label": "D13 step 2 says press Close & Approve",
+          "outcome": "MATRIX"
+        },
+        {
+          "detail": "\"Report endorsed — 1 fault(s) escalated for review. The report stays open until every escalated fault is resolved and someone closes it.\"",
+          "label": "endorse to Disantha",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Fault approval decision saved\"",
+          "label": "Disantha approves Brass Bushing",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Report closed\"",
+          "label": "Close",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Approved\", expected \"Approved\"",
+          "label": "Report 3 Approved",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Green\"), expected Some(\"Green\")",
+          "label": "ASSET2 stays Green",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "D13",
+      "status": "Pass",
+      "title": "Submit and close Report 3"
+    },
+    {
+      "checks": [
+        {
+          "detail": "got [[\"JSR-2026-0900\"]], expected [[\"JSR-2026-0900\"]]",
+          "label": "list holds JSR-2026-0900 only",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "E1",
+      "status": "Pass",
+      "title": "Cached open-job list"
+    },
+    {
+      "checks": [
+        {
+          "detail": "12",
+          "label": "Draft created",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(220.0), expected Some(220.0)",
+          "label": "Previous Engine Hours (auto) = 220",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"150.0\"), expected Some(\"150.0\")",
+          "label": "Engine Hours (This Report) = 150",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Critical\", expected \"Critical\"",
+          "label": "Air Supply Line default Critical",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"Job Number is required for a Post-Job report (take it from the Job Service Report).\"",
+          "label": "Submit refused with Job Number empty",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Report submitted\"",
+          "label": "Submit",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Red\"), expected Some(\"Red\")",
+          "label": "ASSET2 Red at once",
+          "outcome": "ok"
+        },
+        {
+          "detail": "Critical fault reported (report #12)",
+          "label": "reason Critical fault reported",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Not on open-job list - supervisor to check\"), expected Some(\"Not on open-job list - supervisor to check\")",
+          "label": "job_number_status",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "E2",
+      "status": "Pass",
+      "title": "Post Job with a Critical"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Report endorsed — 1 fault(s) escalated for review. The report stays open until every escalated fault is resolved and someone closes it.\"",
+          "label": "endorse to Kamil",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Fault approval decision saved\"",
+          "label": "Kamil approves",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Red\"), expected Some(\"Red\")",
+          "label": "Red repair created",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Red\"), expected Some(\"Red\")",
+          "label": "ASSET2 stays Red",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "E3",
+      "status": "Pass",
+      "title": "Escalate and approve"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Report closed\"",
+          "label": "Close",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Approved\", expected \"Approved\"",
+          "label": "status Approved",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 370, expected 370",
+          "label": "EH running 370",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 600, expected 600",
+          "label": "KM running 600",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 12, expected 12",
+          "label": "OH running 12",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "EH in warning (>= 350, < 400)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 0, expected 0",
+          "label": "CA unchanged",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Red\"), expected Some(\"Red\")",
+          "label": "ASSET2 stays Red",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "E4",
+      "status": "Pass",
+      "title": "Close Post Job, MR-II triggers"
+    },
+    {
+      "checks": [
+        {
+          "detail": "13",
+          "label": "Draft created",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"This unit is Red/Yellow-tagged (not ready) and has no valid MOC exemption, so a Pre-Mob or Pre-Job inspection cannot be submitted (Manual 6.1.5). Record the approved exemption in the Asset Registry first.\"",
+          "label": "Pre-Mob refused (Red, no exemption)",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "E5",
+      "status": "Pass",
+      "title": "Red: Pre-Mob refused"
+    },
+    {
+      "checks": [
+        {
+          "detail": "refused: \"This unit is Red/Yellow-tagged (not ready) and has no valid MOC exemption, so a Pre-Mob or Pre-Job inspection cannot be submitted (Manual 6.1.5). Record the approved exemption in the Asset Registry first.\"",
+          "label": "Pre-Job refused too",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "E6",
+      "status": "Pass",
+      "title": "Red: Pre-Job refused"
+    },
+    {
+      "checks": [
+        {
+          "detail": "the app requires it (Err(\"Conditions for return to service is required\")); the run uses 'Air supply line repaired and verified.'",
+          "label": "matrix gives no 'Conditions for return to service'",
+          "outcome": "info"
+        },
+        {
+          "detail": "\"Exemption recorded\"",
+          "label": "exemption recorded",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "shown Active and valid",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Report submitted\"",
+          "label": "Pre-Mob submits",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "E7",
+      "status": "Pass",
+      "title": "MOC exemption and submit"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Report reviewed and closed\"",
+          "label": "Close & Approve",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Approved\", expected \"Approved\"",
+          "label": "status Approved",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "E8",
+      "status": "Pass",
+      "title": "Close the Pre-Mob"
+    },
+    {
+      "checks": [
+        {
+          "detail": "refused: \"A reason is required to revoke an exemption\"",
+          "label": "revoke without a reason refused",
+          "outcome": "ok"
+        },
+        {
+          "detail": "the app requires one; the run uses 'Test E9'",
+          "label": "matrix gives no revoke reason",
+          "outcome": "info"
+        },
+        {
+          "detail": "\"Exemption revoked\"",
+          "label": "revoke",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Revoked\"), expected Some(\"Revoked\")",
+          "label": "registry shows Revoked",
+          "outcome": "ok"
+        },
+        {
+          "detail": "14",
+          "label": "Report A Draft",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"This unit is Red/Yellow-tagged (not ready) and has no valid MOC exemption, so a Pre-Mob or Pre-Job inspection cannot be submitted (Manual 6.1.5). Record the approved exemption in the Asset Registry first.\"",
+          "label": "Pre-Mob refused (no exemption)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Report submitted\"",
+          "label": "Yard Inspection submits",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Report reviewed and closed\"",
+          "label": "Abdulla closes Report A",
+          "outcome": "ok"
+        },
+        {
+          "detail": "15",
+          "label": "Report B Draft",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(370.0), expected Some(370.0)",
+          "label": "Report B Previous Engine Hours (auto) = 370",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Report submitted\"",
+          "label": "Post Job submits (Red, no exemption)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Report reviewed and closed\"",
+          "label": "Abdulla closes Report B",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 380, expected 380",
+          "label": "EH 380",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 620, expected 620",
+          "label": "KM 620",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 20, expected 20",
+          "label": "OH 20",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "E9",
+      "status": "Pass",
+      "title": "Revoke: Yard and Post Job allowed"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Rectification updated\"",
+          "label": "assign Bilal Ahmed",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Yellow\"), expected Some(\"Yellow\")",
+          "label": "ASSET2 Yellow",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Rectification verified -- tag removed\"",
+          "label": "verify",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Green\"), expected Some(\"Green\")",
+          "label": "ASSET2 Green",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "E10",
+      "status": "Pass",
+      "title": "Repair and verify ASSET2"
+    },
+    {
+      "checks": [
+        {
+          "detail": "got Some((15, true)), expected Some((15, true))",
+          "label": "last Post-Job is Report B and within 72 h",
+          "outcome": "ok"
+        },
+        {
+          "detail": "16",
+          "label": "copy created",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Test Client\"), expected Some(\"Test Client\")",
+          "label": "Client copied",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Test Well TW-21\"), expected Some(\"Test Well TW-21\")",
+          "label": "Location copied",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Preventive\"), expected Some(\"Preventive\")",
+          "label": "Maintenance Type same as Report B",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"PREMOB\"), expected Some(\"PREMOB\")",
+          "label": "Compliance Stage set to PREMOB",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got None, expected None",
+          "label": "Job Number not copied",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got None, expected None",
+          "label": "MR Initization Date not copied",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got None, expected None",
+          "label": "Current Engine Hours not copied",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got None, expected None",
+          "label": "Engine Hours (This Report) not copied",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got None, expected None",
+          "label": "Pre-Mobilization Checklist ID not copied",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Pass\"), expected Some(\"Pass\")",
+          "label": "Pass on Access Ladders & Handrails",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Pass\"), expected Some(\"Pass\")",
+          "label": "Pass on Air Hoses",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Pass\"), expected Some(\"Pass\")",
+          "label": "Pass on Alternator",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"DELETE FROM mri_reports WHERE status='Draft' AND asset_id=(SELECT id FROM assets WHERE asset_code='ASSET2')\" -> FOREIGN KEY constraint failed. The Draft has child rows (header values, checklist results...) and the app enables foreign keys, so the matrix SQL cannot delete it. The run deleted the child rows first, then the Draft.",
+          "label": "IT delete SQL fails as written",
+          "outcome": "MATRIX"
+        },
+        {
+          "detail": "Ok(2) Draft(s) deleted",
+          "label": "E11: corrected cleanup",
+          "outcome": "info"
+        }
+      ],
+      "error": null,
+      "id": "E11",
+      "status": "Pass",
+      "title": "Copy last Post-Job (72 h)"
+    },
+    {
+      "checks": [
+        {
+          "detail": "got Ok(1), expected Ok(1)",
+          "label": "IT SQL updated one row",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(false), expected Some(false)",
+          "label": "not within 72 h",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"The last Post-Job report is 96 hours old. Over 72 hours no duplication is permitted — a new Pre-Mob MR-I must be completed.\"",
+          "label": "copy refused over 72 h",
+          "outcome": "ok"
+        },
+        {
+          "detail": "17",
+          "label": "Start a new report",
+          "outcome": "ok"
+        },
+        {
+          "detail": "report #17 (E11 copy was #16), 0 header row(s) present",
+          "label": "it is a fresh empty Draft (not the E11 copy)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "1 row(s) deleted",
+          "label": "IT deletes the Draft (matrix SQL)",
+          "outcome": "info"
+        }
+      ],
+      "error": null,
+      "id": "E12",
+      "status": "Pass",
+      "title": "Over 72 h: no copy"
+    },
+    {
+      "checks": [
+        {
+          "detail": "got Ok(1), expected Ok(1)",
+          "label": "IT SQL updated one row",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(8), expected Some(8)",
+          "label": "ASSET2 listed, day 8",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "E13",
+      "status": "Pass",
+      "title": "Day-8 stand-by reminder"
+    },
+    {
+      "checks": [
+        {
+          "detail": "18",
+          "label": "ASSET1 Draft created",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Report submitted\"",
+          "label": "Submit",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Report endorsed — 2 fault(s) escalated for review. The report stays open until every escalated fault is resolved and someone closes it.\"",
+          "label": "endorse to Disantha",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Escalated\", expected \"Escalated\"",
+          "label": "Escalated",
+          "outcome": "ok"
+        },
+        {
+          "detail": "[[\"Pending\", \"6\"], [\"Pending\", \"6\"]]",
+          "label": "two Pending approvals for Disantha",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Green\"), expected Some(\"Green\")",
+          "label": "ASSET1 stays Green",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "F1",
+      "status": "Pass",
+      "title": "Report F1 with two Moderates"
+    },
+    {
+      "checks": [
+        {
+          "detail": "refused: \"Only a manager or administrator can send a reminder\"",
+          "label": "reminder from a non-manager (Abdulla) refused",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Reminder sent\"",
+          "label": "Kamil sends a reminder",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "row shows reminder from Kamil with time",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "F2",
+      "status": "Pass",
+      "title": "Reminder on a Pending fault"
+    },
+    {
+      "checks": [
+        {
+          "detail": "[\"Kamil Shahzad\"]",
+          "label": "Kamil offered as person to be informed",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Fault approval decision saved\"",
+          "label": "Approve, inform Kamil",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "acknowledgement queued for Kamil",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "not queued for someone else (Jan-Albert)",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "F3",
+      "status": "Pass",
+      "title": "Approve and name who is informed"
+    },
+    {
+      "checks": [
+        {
+          "detail": "",
+          "label": "Abdulla holds Record provisional and not Approve",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "Abdulla sees the fault and can act (relay)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Fault approval decision saved\"",
+          "label": "phone relay recorded",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Provisional\"), expected Some(\"Provisional\")",
+          "label": "Provisional",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"1 escalated fault(s) on this report are still awaiting a review decision or confirmation — a phoned-in decision must be confirmed by the real authority before the report can be closed.\"",
+          "label": "close refused while Provisional",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "F4",
+      "status": "Pass",
+      "title": "Phone relay is Provisional"
+    },
+    {
+      "checks": [
+        {
+          "detail": "",
+          "label": "listed in Awaiting Confirmation for Disantha",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Provisional entry confirmed\"",
+          "label": "confirm",
+          "outcome": "ok"
+        },
+        {
+          "detail": "[[\"Confirmed\", \"Disantha Perera\", \"1794066717\"]]",
+          "label": "Confirmed with name and date",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "F5",
+      "status": "Pass",
+      "title": "Confirm the provisional"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Report closed\"",
+          "label": "Close",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Approved\", expected \"Approved\"",
+          "label": "Approved without the acknowledgement",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "F6",
+      "status": "Pass",
+      "title": "Close without acknowledgement"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Decision acknowledged\"",
+          "label": "acknowledge",
+          "outcome": "ok"
+        },
+        {
+          "detail": "[[\"Kamil Shahzad\", \"1794066717\"]]",
+          "label": "name and date recorded",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"Entry not found or already acknowledged\"",
+          "label": "second attempt refused",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "F7",
+      "status": "Pass",
+      "title": "Acknowledge"
+    },
+    {
+      "checks": [
+        {
+          "detail": "[\"Escalated\", \"Approved\"]",
+          "label": "Escalated then Approved, in order",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "each row has reviewer, method, provisional flag and recorder",
+          "outcome": "ok"
+        },
+        {
+          "detail": "the matrix lists Pending, Escalated, Approved; the stored log starts at Escalated (endorsing does not log). Phase 2 checks whether the screen shows a Pending entry.",
+          "label": "no 'Pending' row in mri_fault_decision_log",
+          "outcome": "info"
+        },
+        {
+          "detail": "no update/delete command exists for mri_fault_decision_log",
+          "label": "log cannot be edited",
+          "outcome": "info"
+        }
+      ],
+      "error": null,
+      "id": "F8",
+      "status": "Pass",
+      "title": "Decision log"
+    },
+    {
+      "checks": [
+        {
+          "detail": "19",
+          "label": "ASSET1 Draft created",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"Add issue details before marking this fault as repaired on site.\"",
+          "label": "tick refused with issue description empty",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"Describe the repair in Action Taken before marking this fault as repaired on site (function test performed).\"",
+          "label": "tick refused with Action Taken empty",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Checklist result saved\"",
+          "label": "tick accepted",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Closed\"), expected Some(\"Closed\")",
+          "label": "item shows Closed",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Report submitted\"",
+          "label": "Submit",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"Green\"), expected Some(\"Green\")",
+          "label": "ASSET1 stays Green",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Ok(1), expected Ok(1)",
+          "label": "photo still attached",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(\"2026-11-07\"), expected Some(\"2026-11-07\")",
+          "label": "Date Observed today",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Report reviewed and closed\"",
+          "label": "Close & Approve available without escalation (probe, rolled back)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got Some(1), expected Some(1)",
+          "label": "mri_onsite_repair_log has one row",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "F9",
+      "status": "Pass",
+      "title": "Critical repaired on site"
+    },
+    {
+      "checks": [
+        {
+          "detail": "20",
+          "label": "Draft created",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 0, expected 0",
+          "label": "no carried Fails (all items Pass)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Report submitted\"",
+          "label": "Submit",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got \"Submitted\", expected \"Submitted\"",
+          "label": "Submitted",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "G1",
+      "status": "Pass",
+      "title": "Report G1"
+    },
+    {
+      "checks": [
+        {
+          "detail": "[]",
+          "label": "Data Miner holds no MR-I action permission",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "G2",
+      "status": "Pass",
+      "title": "View only"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"User override updated\"",
+          "label": "override granted",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "Suganya now holds mri.edit_after_submit",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Header value saved\"",
+          "label": "Location edited",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"User override updated\"",
+          "label": "override removed",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "Suganya no longer holds it",
+          "outcome": "ok"
+        },
+        {
+          "detail": "screen check, Phase 2",
+          "label": "editable / locked on screen",
+          "outcome": "info"
+        }
+      ],
+      "error": null,
+      "id": "G3",
+      "status": "Pass",
+      "title": "Override: edit after submit"
+    },
+    {
+      "checks": [
+        {
+          "detail": "",
+          "label": "Endorse granted by override",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "Endorse gone after removal",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "G4",
+      "status": "Pass",
+      "title": "Override: endorse"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Country access updated\"",
+          "label": "Abdulla limited to UAE",
+          "outcome": "ok"
+        },
+        {
+          "detail": "0 row(s)",
+          "label": "no PAKISTAN reports in Reports to Review",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"This report is on an asset outside your country access.\"",
+          "label": "report flow refused",
+          "outcome": "ok"
+        },
+        {
+          "detail": "get_assets has no viewer filter; the asset list filter is in the UI (Phase 2)",
+          "label": "asset list",
+          "outcome": "info"
+        },
+        {
+          "detail": "",
+          "label": "reports return after removal",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "G5",
+      "status": "Pass",
+      "title": "Country restriction"
+    },
+    {
+      "checks": [
+        {
+          "detail": "[]",
+          "label": "Administrator holds no review permission",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "Jess absent from every reviewer list",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "G6",
+      "status": "Pass",
+      "title": "Administrator not a workflow actor"
+    },
+    {
+      "checks": [
+        {
+          "detail": "[[\"Suganya Rajendran\", \"1794066717\"]]",
+          "label": "last editor and time recorded",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "G7",
+      "status": "Pass",
+      "title": "Who and when stamps"
+    },
+    {
+      "checks": [
+        {
+          "detail": "",
+          "label": "Operator lacks mri.enter_cost",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "Job Supervisor lacks mri.enter_cost",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "H1",
+      "status": "Pass",
+      "title": "Cost read-only for Operator / JS"
+    },
+    {
+      "checks": [
+        {
+          "detail": "[19, 20]",
+          "label": "Report G1 and Report F9 listed",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "H2",
+      "status": "Pass",
+      "title": "Awaiting MR cost list"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Cost saved\"",
+          "label": "2500 saved",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Cost saved\"",
+          "label": "2650 saved",
+          "outcome": "ok"
+        },
+        {
+          "detail": "[[\"2650\", \"Jan-Albert Victorino\", \"1794066717\"]]",
+          "label": "amount, name and date",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "G1 leaves the awaiting list",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "H3",
+      "status": "Pass",
+      "title": "Enter the cost"
+    },
+    {
+      "checks": [
+        {
+          "detail": "refused: \"Cost must be zero or a positive number\"",
+          "label": "-100 refused",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"Cost must be zero or a positive number\"",
+          "label": "blank (NaN) refused",
+          "outcome": "ok"
+        },
+        {
+          "detail": "backend says 'Cost must be zero or a positive number'; the matrix expects the screen text 'Enter a valid cost (0 or more)' (Phase 2)",
+          "label": "message wording",
+          "outcome": "info"
+        }
+      ],
+      "error": null,
+      "id": "H4",
+      "status": "Pass",
+      "title": "Invalid costs refused"
+    },
+    {
+      "checks": [
+        {
+          "detail": "\"Report reviewed and closed\"",
+          "label": "close ASSET1 Post Job (no cost)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "\"Report reviewed and closed\"",
+          "label": "close Report G1 (cost 2650)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got (\"Approved\", \"Approved\"), expected (\"Approved\", \"Approved\")",
+          "label": "both Approved",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "H5",
+      "status": "Pass",
+      "title": "Closing never depends on cost"
+    },
+    {
+      "checks": [
+        {
+          "detail": "21",
+          "label": "ASSET1 Draft started",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"The cost can be entered once the report has been submitted.\"",
+          "label": "cost refused on a Draft",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "H6",
+      "status": "Pass",
+      "title": "No cost on a Draft"
+    },
+    {
+      "checks": [
+        {
+          "detail": "no backend rule to test; covered in Phase 2",
+          "label": "screen-only case",
+          "outcome": "info"
+        }
+      ],
+      "error": null,
+      "id": "H7",
+      "status": "UI only",
+      "title": "Login-screen tier labels"
+    },
+    {
+      "checks": [
+        {
+          "detail": "[[\"mri1_audit_permissions\"]]",
+          "label": "mri1_audit_permissions present",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "relaunch migration runs",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "relaunch migration runs",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got [[\"Administrator\", \"admin.users.manage\"], [\"Administrator\", \"assets.create\"], [\"Administrator\", \"assets.delete\"], [\"Administrator\", \"assets.edit\"], [\"Administrator\", \"assets.view\"], [\"Administrator\", \"backups.export\"], [\"Administrator\", \"backups.import\"], [\"Administrator\", \"data_browser.edit\"], [\"Administrator\", \"data_browser.view\"], [\"Administrator\", \"data_purging.execute\"], [\"Administrator\", \"mri.submit\"], [\"Administrator\", \"mri_templates.delete\"], [\"Administrator\", \"mri_templates.edit\"], [\"Administrator\", \"mri_templates.view\"], [\"Administrator\", \"references.edit\"], [\"Administrator\", \"triggers.edit\"], [\"Data Miner View\", \"assets.view\"], [\"Data Miner View\", \"data_browser.view\"], [\"Data Miner View\", \"mri_templates.view\"], [\"Job Supervisor\", \"assets.view\"], [\"Job Supervisor\", \"data_browser.view\"], [\"Job Supervisor\", \"mri.edit_after_submit\"], [\"Job Supervisor\", \"mri.endorse_report\"], [\"Job Supervisor\", \"mri.record_provisional\"], [\"Job Supervisor\", \"mri.submit\"], [\"Job Supervisor\", \"mri_templates.view\"], [\"Maintenance Manager / FSM\", \"assets.create\"], [\"Maintenance Manager / FSM\", \"assets.delete\"], [\"Maintenance Manager / FSM\", \"assets.edit\"], [\"Maintenance Manager / FSM\", \"assets.view\"], [\"Maintenance Manager / FSM\", \"data_browser.view\"], [\"Maintenance Manager / FSM\", \"mri.acknowledge_critical\"], [\"Maintenance Manager / FSM\", \"mri.approve\"], [\"Maintenance Manager / FSM\", \"mri.close_defect\"], [\"Maintenance Manager / FSM\", \"mri.confirm_provisional\"], [\"Maintenance Manager / FSM\", \"mri.edit_after_submit\"], [\"Maintenance Manager / FSM\", \"mri.endorse_report\"], [\"Maintenance Manager / FSM\", \"mri.enter_cost\"], [\"Maintenance Manager / FSM\", \"mri.rectify\"], [\"Maintenance Manager / FSM\", \"mri.submit\"], [\"Maintenance Manager / FSM\", \"mri_templates.edit\"], [\"Maintenance Manager / FSM\", \"mri_templates.view\"], [\"Maintenance Manager / FSM\", \"triggers.edit\"], [\"Maintenance Supervisor\", \"assets.view\"], [\"Maintenance Supervisor\", \"data_browser.view\"], [\"Maintenance Supervisor\", \"mri.close_defect\"], [\"Maintenance Supervisor\", \"mri.confirm_provisional\"], [\"Maintenance Supervisor\", \"mri.edit_after_submit\"], [\"Maintenance Supervisor\", \"mri.endorse_report\"], [\"Maintenance Supervisor\", \"mri.enter_cost\"], [\"Maintenance Supervisor\", \"mri.rectify\"], [\"Maintenance Supervisor\", \"mri.submit\"], [\"Maintenance Supervisor\", \"mri_templates.view\"], [\"Operations Coordinator\", \"assets.view\"], [\"Operations Coordinator\", \"data_browser.view\"], [\"Operations Coordinator\", \"mri.close_defect\"], [\"Operations Coordinator\", \"mri.confirm_provisional\"], [\"Operations Coordinator\", \"mri.edit_after_submit\"], [\"Operations Coordinator\", \"mri.endorse_report\"], [\"Operations Coordinator\", \"mri.enter_cost\"], [\"Operations Coordinator\", \"mri.rectify\"], [\"Operations Coordinator\", \"mri.submit\"], [\"Operations Coordinator\", \"mri_templates.view\"], [\"Operator\", \"assets.view\"], [\"Operator\", \"data_browser.view\"], [\"Operator\", \"mri.submit\"], [\"Operator\", \"mri_templates.view\"]], expected [[\"Administrator\", \"admin.users.manage\"], [\"Administrator\", \"assets.create\"], [\"Administrator\", \"assets.delete\"], [\"Administrator\", \"assets.edit\"], [\"Administrator\", \"assets.view\"], [\"Administrator\", \"backups.export\"], [\"Administrator\", \"backups.import\"], [\"Administrator\", \"data_browser.edit\"], [\"Administrator\", \"data_browser.view\"], [\"Administrator\", \"data_purging.execute\"], [\"Administrator\", \"mri.submit\"], [\"Administrator\", \"mri_templates.delete\"], [\"Administrator\", \"mri_templates.edit\"], [\"Administrator\", \"mri_templates.view\"], [\"Administrator\", \"references.edit\"], [\"Administrator\", \"triggers.edit\"], [\"Data Miner View\", \"assets.view\"], [\"Data Miner View\", \"data_browser.view\"], [\"Data Miner View\", \"mri_templates.view\"], [\"Job Supervisor\", \"assets.view\"], [\"Job Supervisor\", \"data_browser.view\"], [\"Job Supervisor\", \"mri.edit_after_submit\"], [\"Job Supervisor\", \"mri.endorse_report\"], [\"Job Supervisor\", \"mri.record_provisional\"], [\"Job Supervisor\", \"mri.submit\"], [\"Job Supervisor\", \"mri_templates.view\"], [\"Maintenance Manager / FSM\", \"assets.create\"], [\"Maintenance Manager / FSM\", \"assets.delete\"], [\"Maintenance Manager / FSM\", \"assets.edit\"], [\"Maintenance Manager / FSM\", \"assets.view\"], [\"Maintenance Manager / FSM\", \"data_browser.view\"], [\"Maintenance Manager / FSM\", \"mri.acknowledge_critical\"], [\"Maintenance Manager / FSM\", \"mri.approve\"], [\"Maintenance Manager / FSM\", \"mri.close_defect\"], [\"Maintenance Manager / FSM\", \"mri.confirm_provisional\"], [\"Maintenance Manager / FSM\", \"mri.edit_after_submit\"], [\"Maintenance Manager / FSM\", \"mri.endorse_report\"], [\"Maintenance Manager / FSM\", \"mri.enter_cost\"], [\"Maintenance Manager / FSM\", \"mri.rectify\"], [\"Maintenance Manager / FSM\", \"mri.submit\"], [\"Maintenance Manager / FSM\", \"mri_templates.edit\"], [\"Maintenance Manager / FSM\", \"mri_templates.view\"], [\"Maintenance Manager / FSM\", \"triggers.edit\"], [\"Maintenance Supervisor\", \"assets.view\"], [\"Maintenance Supervisor\", \"data_browser.view\"], [\"Maintenance Supervisor\", \"mri.close_defect\"], [\"Maintenance Supervisor\", \"mri.confirm_provisional\"], [\"Maintenance Supervisor\", \"mri.edit_after_submit\"], [\"Maintenance Supervisor\", \"mri.endorse_report\"], [\"Maintenance Supervisor\", \"mri.enter_cost\"], [\"Maintenance Supervisor\", \"mri.rectify\"], [\"Maintenance Supervisor\", \"mri.submit\"], [\"Maintenance Supervisor\", \"mri_templates.view\"], [\"Operations Coordinator\", \"assets.view\"], [\"Operations Coordinator\", \"data_browser.view\"], [\"Operations Coordinator\", \"mri.close_defect\"], [\"Operations Coordinator\", \"mri.confirm_provisional\"], [\"Operations Coordinator\", \"mri.edit_after_submit\"], [\"Operations Coordinator\", \"mri.endorse_report\"], [\"Operations Coordinator\", \"mri.enter_cost\"], [\"Operations Coordinator\", \"mri.rectify\"], [\"Operations Coordinator\", \"mri.submit\"], [\"Operations Coordinator\", \"mri_templates.view\"], [\"Operator\", \"assets.view\"], [\"Operator\", \"data_browser.view\"], [\"Operator\", \"mri.submit\"], [\"Operator\", \"mri_templates.view\"]]",
+          "label": "roles unchanged after two relaunches",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "H8",
+      "status": "Pass",
+      "title": "Migration state"
+    },
+    {
+      "checks": [
+        {
+          "detail": "no backend rule to test; covered in Phase 2",
+          "label": "screen-only case",
+          "outcome": "info"
+        }
+      ],
+      "error": null,
+      "id": "J1",
+      "status": "UI only",
+      "title": "Show flow on Asset Registry cards"
+    },
+    {
+      "checks": [
+        {
+          "detail": "got Some((5, 0)), expected Some((5, 0))",
+          "label": "Report 2: 5 faults, 0 open",
+          "outcome": "ok"
+        },
+        {
+          "detail": "[(9, 11)]",
+          "label": "carried arc Report 2 -> Report 3",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 9, expected 9",
+          "label": "tag boxes = tag history rows",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "exemption box present",
+          "outcome": "ok"
+        },
+        {
+          "detail": "ids [15, 6, 9, 11, 12, 13, 14, 20]",
+          "label": "reports in date order (drafts last)",
+          "outcome": "ok"
+        },
+        {
+          "detail": "got 8, expected 8",
+          "label": "enabled triggers available for the trigger boxes (screen shows enabled only)",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "J2",
+      "status": "Pass",
+      "title": "Asset history flow of ASSET2"
+    },
+    {
+      "checks": [
+        {
+          "detail": "no backend rule to test; covered in Phase 2",
+          "label": "screen-only case",
+          "outcome": "info"
+        }
+      ],
+      "error": null,
+      "id": "J3",
+      "status": "UI only",
+      "title": "Moving between flows"
+    },
+    {
+      "checks": [
+        {
+          "detail": "no backend rule to test; covered in Phase 2",
+          "label": "screen-only case",
+          "outcome": "info"
+        }
+      ],
+      "error": null,
+      "id": "J4",
+      "status": "UI only",
+      "title": "Open report / triggers from the flow"
+    },
+    {
+      "checks": [
+        {
+          "detail": "Some(1)",
+          "label": "Air Filter decision box has one audit row per logged decision",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "Actuators decision box has its Rejected row",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "J6",
+      "status": "Pass",
+      "title": "Audit trail in the document flow"
+    },
+    {
+      "checks": [
+        {
+          "detail": "",
+          "label": "Report 3 Carried in box from report #2",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "Report 2 Brass Bushing box: carried forward to report #3",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "J7",
+      "status": "Pass",
+      "title": "Carried-in box link"
+    },
+    {
+      "checks": [
+        {
+          "detail": "no backend rule to test; covered in Phase 2",
+          "label": "screen-only case",
+          "outcome": "info"
+        }
+      ],
+      "error": null,
+      "id": "J8",
+      "status": "UI only",
+      "title": "Show flow from the dashboard"
+    },
+    {
+      "checks": [
+        {
+          "detail": "refused: \"This report is on an asset outside your country access.\"",
+          "label": "report flow blocked",
+          "outcome": "ok"
+        },
+        {
+          "detail": "refused: \"This asset is outside your country access.\"",
+          "label": "asset flow blocked",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "report flow opens after restore",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "asset flow opens after restore",
+          "outcome": "ok"
+        },
+        {
+          "detail": "",
+          "label": "Administrator never blocked",
+          "outcome": "ok"
+        }
+      ],
+      "error": null,
+      "id": "J9",
+      "status": "Pass",
+      "title": "Country access limits the flows"
+    }
+  ],
+  "real_db_size": 11829248,
+  "real_db_unchanged": true,
+  "report_ids": {
+    "r1": 6,
+    "r2": 9,
+    "r3": 11,
+    "rA10": 8,
+    "rC9": 10,
+    "rE11": 16,
+    "rE2": 12,
+    "rE5": 13,
+    "rE9A": 14,
+    "rE9B": 15,
+    "rF1": 18,
+    "rF9": 19,
+    "rG1": 20,
+    "rH6": 21,
+    "rRight": 7
+  },
+  "run_at_local": "2026-11-07 19:51:57",
+  "test_database": "\\\\?\\C:\\Users\\JessBritanico\\Documents\\GitHub\\MMS-fresh\\e2e\\run\\rust\\assets.db"
+}

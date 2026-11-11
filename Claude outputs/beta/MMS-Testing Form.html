@@ -141,6 +141,11 @@ details.test summary{grid-template-columns:auto minmax(0,1fr) auto auto}
 .pv-wrap{border:1px solid var(--line);border-radius:8px;background:#e9edf1;overflow:auto;max-height:78vh;padding:10px;display:grid;justify-items:center}
 .pv-wrap canvas{background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.12);max-width:100%;height:auto}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.must{display:flex;gap:14px;align-items:flex-start;background:var(--bad-bg);border:2px solid var(--bad);border-left-width:8px;border-radius:10px;padding:14px 16px;margin:14px 0 16px}
+.must-icon{flex:none;width:38px;height:38px;border-radius:50%;background:var(--bad);color:#fff;font:800 24px/38px system-ui,sans-serif;text-align:center}
+.must-body{min-width:0}.must h2{margin:0 0 6px;font-size:18px;line-height:1.25;color:var(--bad);text-wrap:balance}
+.must p{margin:0 0 8px;font-size:14px}.must ul{margin:0 0 8px;padding-left:20px;display:grid;gap:4px;font-size:13.5px}
+.must-do{background:#fff;border:1px dashed var(--bad);border-radius:8px;padding:8px 10px}
 .confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px dashed var(--line);padding-top:8px}
 </style>
 </head><body>
@@ -159,6 +164,20 @@ details.test summary{grid-template-columns:auto minmax(0,1fr) auto auto}
     <span class="small">Keep this file and use the same browser each time.</span>
   </div>
 
+  <section class="must" role="alert" aria-labelledby="must-h">
+    <div class="must-icon" aria-hidden="true">!</div>
+    <div class="must-body">
+      <h2 id="must-h">IMPORTANT: start with Test 1 and run Clean Slate before anything else</h2>
+      <p class="must-lead">The installer comes with <b>sample data</b>. If you skip Clean Slate, your tests <b>will fail or give wrong results</b>, and your report to Jess cannot be trusted.</p>
+      <ul>
+        <li><b>The sample units are Red-tagged.</b> MMS refuses Pre-Mob and Pre-Job reports on a Red unit without an MOC exemption (Manual 6.1.5), so <b>Test 4 onwards cannot be done</b>.</li>
+        <li><b>Old reports and faults would mix with yours.</b> Pending approvals, carried-forward items and the asset history would show records you did not create.</li>
+        <li><b>The counters would be wrong.</b> Engine hours, distance and operating-hours gauges would start from old values, so the trigger checks in later tests would not add up.</li>
+        <li><b>Everyone starts from the same point.</b> Every tester's results can only be compared if all start from an empty, all-Green MMS.</li>
+      </ul>
+      <p class="must-do">Do it <b>once</b>, at the very start (Test 1, steps 3–6): <b>Administration → Data Tools → Purging → Clean Slate: Clear All MR-I Data</b>. <b>Never run it again</b> during testing: it deletes every MR-I report, including yours.</p>
+    </div>
+  </section>
   <nav class="tabs" id="tabs">
     <a href="#tests" data-v="tests">Tests</a>
     <a href="#workflow" data-v="workflow">Workflow</a>
@@ -328,13 +347,15 @@ const TESTS = [
    'Try '+ui('Confirm & Endorse')+' before choosing anyone, then choose <b>Disantha Perera</b> and confirm.'],
    ['Confirm & Endorse stays disabled until a reviewer is chosen.','After endorsing, the four faults appear in Disantha\'s Pending Approvals.'],
    ['nextstep','escalate','pending'],[['§6.1.5 Table 3 (Moderate)',12],['Figure 1 MR-I Approval Workflow',13]],['submit','endorse']],
- ['W2-2','Approve, Reject, Carry forward, Reclassify',['ms'],[
+ ['W2-2','Approve, Reject, Carry forward, Reclassify',['ms','fsm'],[
    'Sign in as <b>Disantha Perera</b>. Open Attention Required → '+ui('Pending Approvals')+'.',
+   'In each decision below, choose <b>Kamil Shahzad</b> under '+ui('Inform (optional)')+'.',
    'Fault 1: Review Method In-Person, type Notes, press '+ui('Approve')+'.',
    'Fault 2: Notes "Not a fault: within limits", press '+ui('Reject')+'.',
    'Fault 3: Notes "Re-check next report", press '+ui('Carryforward')+'.',
-   'Fault 4: choose Reclassify To <b>Minor</b>, type Notes, press '+ui('Reclassify')+'.'],
-   ['Decision buttons stay grey until Notes is typed.','Approve creates a Moderate follow-up in the Rectification Queue; the unit stays Green.','Reject turns the fault Minor and closes it; no follow-up.','Carryforward saves the decision; the item comes back on the next report.'],
+   'Fault 4: choose Reclassify To <b>Minor</b>, type Notes, press '+ui('Reclassify')+'.',
+   'Sign in as <b>Kamil Shahzad</b>. Open Attention Required → '+ui('Pending Approvals')+'. Under <b>Needs Acknowledgment</b>, press '+ui('Acknowledge')+' on each decision.'],
+   ['Decision buttons stay grey until Notes is typed.','Approve creates a Moderate follow-up in the Rectification Queue; the unit stays Green.','Reject turns the fault Minor and closes it; no follow-up.','Carryforward saves the decision; the item comes back on the next report.','Kamil sees the Approved, Rejected and Reclassified decisions under Needs Acknowledgment (Table 3: the FSM is informed); Carryforward is not listed. After Acknowledge each one leaves the list.'],
    ['pending','moderate'],[['§6.1.5 Table 3 (Moderate, reclassification)',12],['Figure 1 MR-I Approval Workflow',13]],['moderate']],
  ['W2-3','Decision by phone (relay)',['op','js','ms'],[
    'As Suganya, submit a report with one Moderate fault; as Abdulla, endorse it to Disantha.',
@@ -480,12 +501,12 @@ const TESTS = [
    'Administration → '+ui('Data Tools')+' → '+ui('Browser')+'. Choose a table (e.g. assets, mri_reports).',
    'Search all columns, try grouping, and export the table as CSV, Excel and JSON.',
    'Open '+ui('Removal')+' in the menu.'],
-   ['Rows show with search and grouping; each export downloads a file.','Removal shows "Coming soon".'],
+   ['Rows show with search and grouping; each export downloads a file. Only the first six columns of a table are shown on screen.','Removal shows "Coming soon".'],
    ['a_browser'],[['§8.2 Approval and Record Retention',26]],['backup']],
  ['AD11','Data Purging (safe check only)',['adm'],[
    'Make sure the backup from test 23 exists. Administration → Data Tools → '+ui('Purging')+'.',
    'Read every option. Press '+ui('Purge')+' only on <b>Checklist Sections — removes all sections not currently in use</b>, and confirm.',
-   'Do <b>not</b> purge Lookups, Checklist Databank, Asset Types, MR-I Reports or running totals.'],
+   'Do <b>not</b> press <b>Clean Slate</b> here (you used it in test 1; it would delete all your MR-I test reports), and do <b>not</b> purge Lookups, Checklist Databank, Asset Types, MR-I Reports or running totals.'],
    ['A confirmation is asked before purging.','Unused sections (e.g. Beta Section, if not used in your template) are removed; sections in use stay.'],
    ['a_purge'],[['§8.2 Approval and Record Retention',26]],['backup']],
  ['AD12','Clean up the administration test data',['adm'],[
@@ -629,7 +650,10 @@ $('issue-list').addEventListener('click',e=>{
 });
 
 // ---------- export / import ----------
-function download(name,mime,text){const b=new Blob([text],{type:mime});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);}
+let dlNs=null;const dlReady=(async()=>{try{if(window.claude&&claude.use)dlNs=await claude.use('downloads');}catch(e){dlNs=null;}return dlNs;})();
+async function download(name,mime,text){const b=new Blob([text],{type:mime});
+  if(window.claude){const ns=await dlReady; if(ns){try{await ns.save({filename:name,data:b});return true;}catch(e){if(e&&e.code!=='declined')toast('Could not save the file here: '+(e.message||e.code||'unavailable'));return false;}}}
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);return true;}
 const safe=s=>String(s||'tester').replace(/[^A-Za-z0-9_-]+/g,'_');
 const stamp=()=>new Date().toISOString().slice(0,10);
 function csvRow(a){return a.map(x=>{x=String(x??'');return /[",\n\r]/.test(x)?'"'+x.replace(/"/g,'""')+'"':x;}).join(',');}
@@ -638,8 +662,7 @@ function exportJSON(){
   const out={format:'mms-beta-results',version:1,exportedAt:new Date().toISOString(),app:'Sprint MMS 0.9.0',tester:state.tester,site:state.site,
     tests:TESTS.map(([id,t])=>({no:NUM[id],id,title:t,done:!!(state.checks[id]&&state.checks[id].done),doneAt:(state.checks[id]&&state.checks[id].at)||''})),
     issues:state.issues};
-  download(`MMS_Beta_Results_${safe(state.tester)}_${stamp()}.json`,'application/json',JSON.stringify(out,null,1));
-  state.lastExport=new Date().toISOString(); persist(); renderExport();
+  download(`MMS_Beta_Results_${safe(state.tester)}_${stamp()}.json`,'application/json',JSON.stringify(out,null,1)).then(ok=>{if(ok){state.lastExport=new Date().toISOString(); persist(); renderExport();}});
 }
 function exportCSV(){
   if(!state.tester){toast('Type your name at the top first.');$('tester').focus();return;}

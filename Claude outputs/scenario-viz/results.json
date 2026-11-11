@@ -1,0 +1,1342 @@
+[
+ {
+  "id": "S2",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] seven users registered: ok; [DB] Jess Britanico is an active Administrator: ok; [DB] Marilyn Tabay is an active Data Miner View: ok; [DB] Suganya Rajendran is an active Operator: ok; [DB] Abdulla Qais is an active Job Supervisor: ok; [DB] Jan-Albert Victorino is an active Operations Coordinator: ok; [DB] Disantha Perera is an active Maintenance Supervisor: ok; [DB] Kamil Shahzad is an active Maintenance Manager / FSM: ok; [DB] no permission overrides: ok; [DB] no country restrictions: ok",
+  "evidence": "backend test mri_matrix_backend.rs (10 DB checks ok)",
+  "notes": "Checked on stored data (Phase 1); no separate UI run.",
+  "proposed fix": "",
+  "date": "2026-11-07 19:51:57"
+ },
+ {
+  "id": "S3",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] COILED TUBING UNIT header fields present: ok; [DB] COILED TUBING UNIT mid fields present: ok; [DB] COILED TUBING UNIT footer fields present: ok; [DB] COILED TUBING UNIT is Active: ok; [DB] PUMP UNIT header fields present: ok; [DB] PUMP UNIT mid fields present: ok; [DB] PUMP UNIT footer fields present: ok; [DB] PUMP UNIT is Active: ok; [DB] COILED TUBING UNIT has 19 checklist items: ok; [DB] PUMP UNIT has 24 checklist items: ok; [DB] COILED TUBING UNIT template asset type: ok; [DB] PUMP UNIT template asset type: ok",
+  "evidence": "backend test mri_matrix_backend.rs (12 DB checks ok)",
+  "notes": "Checked on stored data (Phase 1); no separate UI run.",
+  "proposed fix": "",
+  "date": "2026-11-07 19:51:57"
+ },
+ {
+  "id": "S4",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Administrator holds mri.submit: ok; [DB] Administrator holds admin / template / backup / reference / trigger functions: ok; [DB] Administrator has no review / approval / closure / rectification permission: ok; [DB] FSM holds the listed permissions (incl. Rectify and Approve): ok; [DB] FSM does not hold Record provisional: ok",
+  "evidence": "backend test mri_matrix_backend.rs (5 DB checks ok)",
+  "notes": "Checked on stored data (Phase 1); no separate UI run.",
+  "proposed fix": "",
+  "date": "2026-11-07 19:51:57"
+ },
+ {
+  "id": "S5",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] ASSET1 description / type / service line / country / active / no tag: ok; [DB] ASSET2 description / type / service line / country / active / no tag: ok; [DB] ASSET1 MR-II CA enabled 700/650 running 0: ok; [DB] ASSET1 MR-II KM enabled 1000/950 running 0: ok; [DB] ASSET1 MR-II OH enabled 300/260 running 0: ok; [DB] ASSET2 MR-II CA enabled 500/450 running 0: ok; [DB] ASSET2 MR-II EH enabled 400/350 running 0: ok; [DB] ASSET2 MR-II KM enabled 1000/950 running 0: ok; [DB] ASSET2 MR-II OH enabled 600/550 running 0: ok; [DB] ASSET1 MR-II EH disabled: ok; [DB] ASSET2 MR-II RIF disabled: ok; [DB] no MR-I reports: ok; [DB] no MOC exemptions: ok; [DB] no tag history: ok; [DB] Open Defects source (Rectification Queue) is empty for Disantha: ok; Fleet Availability tile shows 100.0%: ok; Open Defects tile shows 0: ok; no Attention Required tab on clean data: ok",
+  "evidence": "e2e/screenshots/S5/01_main_menu_disantha.png | backend test mri_matrix_backend.rs (15 DB checks ok)",
+  "notes": "Main-menu tiles (Fleet Availability 100.0 %, no Attention Required tab): screen check, Phase 2 / assets, triggers, no reports / exemptions / tag history: stored data checked in Phase 1 (S5: all ok)",
+  "proposed fix": "",
+  "date": "2026-11-07T13:53:42.552Z"
+ },
+ {
+  "id": "S6",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Job Supervisor lacks mri.approve: ok; [DB] Operations Coordinator lacks mri.approve: ok; [DB] Maintenance Supervisor lacks mri.approve: ok; [DB] FSM holds mri.approve: ok; [DB] Job Supervisor lacks mri.close_defect: ok; [DB] Operations Coordinator holds mri.close_defect: ok; [DB] Maintenance Supervisor holds mri.close_defect: ok; [DB] FSM holds mri.close_defect: ok; [DB] Job Supervisor lacks mri.enter_cost: ok; [DB] Operations Coordinator holds mri.enter_cost: ok; [DB] Maintenance Supervisor holds mri.enter_cost: ok; [DB] FSM holds mri.enter_cost: ok; [DB] Job Supervisor holds mri.record_provisional: ok; [DB] Operations Coordinator lacks mri.record_provisional: ok; [DB] Maintenance Supervisor lacks mri.record_provisional: ok; [DB] FSM lacks mri.record_provisional: ok; [DB] Job Supervisor lacks mri.confirm_provisional: ok; [DB] Operations Coordinator holds mri.confirm_provisional: ok; [DB] Maintenance Supervisor holds mri.confirm_provisional: ok; [DB] FSM holds mri.confirm_provisional: ok; [DB] Job Supervisor holds mri.endorse_report: ok; [DB] Operations Coordinator holds mri.endorse_report: ok; [DB] Maintenance Supervisor holds mri.endorse_report: ok; [DB] FSM holds mri.endorse_report: ok; [DB] Job Supervisor holds mri.edit_after_submit: ok; [DB] Operations Coordinator holds mri.edit_after_submit: ok; [DB] Maintenance Supervisor holds mri.edit_after_submit: ok; [DB] FSM holds mri.edit_after_submit: ok; [DB] Operator lacks mri.edit_after_submit: ok",
+  "evidence": "backend test mri_matrix_backend.rs (29 DB checks ok)",
+  "notes": "Checked on stored data (Phase 1); no separate UI run.",
+  "proposed fix": "",
+  "date": "2026-11-07 19:51:57"
+ },
+ {
+  "id": "S7",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "picker title: ok; title for Jess Britanico: ok; after signing out Jess: ok; title for Suganya Rajendran: ok; after signing out Suganya: ok; title for Abdulla Qais: ok; after signing out Abdulla: ok; title for Jan-Albert Victorino: ok; after signing out Jan-Albert: ok; title for Disantha Perera: ok; after signing out Disantha: ok; title for Kamil Shahzad: ok; after signing out Kamil: ok; title for Marilyn Tabay: ok; after signing out Marilyn: ok",
+  "evidence": "e2e/screenshots/S7/01_picker.png | e2e/screenshots/S7/02_title_Jess.png | e2e/screenshots/S7/03_title_Suganya.png | e2e/screenshots/S7/04_title_Abdulla.png | e2e/screenshots/S7/05_title_Jan_Albert.png | e2e/screenshots/S7/06_title_Disantha.png | e2e/screenshots/S7/07_title_Kamil.png | e2e/screenshots/S7/08_title_Marilyn.png | backend test mri_matrix_backend.rs (0 DB checks ok)",
+  "notes": "screen-only case: no backend rule to test; covered in Phase 2",
+  "proposed fix": "",
+  "date": "2026-11-07T13:53:45.100Z"
+ },
+ {
+  "id": "A1",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Draft created for ASSET2 / PUMP UNIT / Left: ok; [DB] status Draft: ok; [DB] PUMP UNIT report without a component is refused: ok; Draft created and the form opens: ok",
+  "evidence": "e2e/screenshots/A1/01_form_opened.png | backend test mri_matrix_backend.rs (3 DB checks ok)",
+  "notes": "template: the app picks the asset type's active template (PUMP UNIT) itself; there is no separate template choice or Start report button, the compone…",
+  "proposed fix": "",
+  "date": "2026-11-07T13:54:27.735Z"
+ },
+ {
+  "id": "A2",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] starting again returns the same Draft: ok; [DB] only one Left Draft on ASSET2: ok; the same Draft opens: ok",
+  "evidence": "e2e/screenshots/A2/01_reopened.png | backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T13:54:35.829Z"
+ },
+ {
+  "id": "A3",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Previous Engine Hours lookup is empty (shown as 0): ok; [DB] Access Ladders & Handrails default severity: ok; [DB] Fail saved: ok; [DB] photo attached: ok; [DB] Engine Hours (This Report): ok; [DB] Compliance Stage kept: ok; [DB] Maintenance Type kept (default): ok; [DB] Checklist ID kept: ok; [DB] Client kept: ok; [DB] Location kept: ok; [DB] Fail / Minor / today / Pending / issue / action kept: ok; [DB] one attachment kept: ok; Maintenance Type shows Preventive (default): ok; Previous Engine Hours shows 0 (auto): ok; Engine Hours (This Report) shows 150 by itself: ok; Date Observed shows today: ok; Closure Status shows Pending: ok; Severity shows Minor: ok; photo added with the + under Attachments: ok; Compliance Stage kept: ok; Maintenance Type kept: ok; Checklist ID kept: ok; Client kept: ok; Location kept: ok; Engine Hours (This Report) kept: ok; Fail, issue, action, today, Pending, Minor kept: ok; photo thumbnail kept: ok; Distance Travelled kept: ok",
+  "evidence": "e2e/screenshots/A3/01_header_filled.png | e2e/screenshots/A3/02_checklist_fail_filled.png | e2e/screenshots/A3/03_mid_values.png | e2e/screenshots/A3/04_header_reopened.png | e2e/screenshots/A3/05_checklist_reopened.png | backend test mri_matrix_backend.rs (12 DB checks ok)",
+  "notes": "Matrix issue: A3 data: Distance Travelled Post-Job (KM) 300",
+  "proposed fix": "",
+  "date": "2026-11-07T13:54:42.841Z"
+ },
+ {
+  "id": "A3a",
+  "runner": "claude-code+review",
+  "status": "Needs review",
+  "verdicts": "[DB] Right Draft created: ok; [DB] new Right draft starts on Preventive (wizard default saved): ok; [DB] 'Breakdown' kept after reopening: ok; [DB] 'Preventive' kept after reopening: ok; [DB] '' kept after reopening: ok; step 2: new Right draft shows Preventive: ok; no red * on the Maintenance Type label: ok; choices are — Select —, Preventive, Breakdown (no Corrective): ok; cannot type your own value (a fixed list, not a text box): ok; step 3: Breakdown kept after Next / Previous: ok; step 3: Breakdown kept after reopening: ok; step 4: Preventive kept after reopening: ok; step 5: deliberate blank stays blank after reopening: ok; step 5: red list does not mention Maintenance Type: ok; step 5: details box shows Maintenance type —: ok; step 6: details box shows Maintenance type Preventive: ok",
+  "evidence": "e2e/screenshots/A3a/01_step2_default.png | e2e/screenshots/A3a/02_step3_breakdown.png | e2e/screenshots/A3a/03_step5_review_blank.png | e2e/screenshots/A3a/04_step6_review_preventive.png | backend test mri_matrix_backend.rs (5 DB checks ok)",
+  "notes": "Look not judged by Claude Code; screenshots for Jess. Choices / no red * / no Corrective / PDF preview: screen check, Phase 2 (claude-code+review) / look and PDF preview: screens saved for Jess (PDF preview not opened by the run)",
+  "proposed fix": "",
+  "date": "2026-11-07T14:38:06.405Z"
+ },
+ {
+  "id": "A4",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Submit refused with Compliance Stage empty: ok; [DB] after restoring PRE-JOB the Compliance Stage refusal no longer applies: ok; Submit refused: list says Compliance Stage is required, Submit disabled: ok; after setting PRE-JOB the Compliance Stage refusal no longer applies: ok",
+  "evidence": "e2e/screenshots/A4/01_compliance_blank.png | e2e/screenshots/A4/02_compliance_restored.png | backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:39:15.043Z"
+ },
+ {
+  "id": "A5",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Submit refused with the Checklist ID empty on PRE-JOB: ok; refused: Pre-Mobilization Checklist ID required for Pre-Mob / Pre-Job (from the JSR): ok",
+  "evidence": "e2e/screenshots/A5/01_checklist_id_blank.png | backend test mri_matrix_backend.rs (1 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T13:56:47.658Z"
+ },
+ {
+  "id": "A6",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Submit refused: Fail without issue details: ok; [DB] after restoring the text the issue-details refusal no longer applies: ok; Submit refused: the Fail has no issue details: ok; after restoring the text the refusal no longer applies: ok",
+  "evidence": "e2e/screenshots/A6/01_no_issue_details.png | backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T13:57:06.752Z"
+ },
+ {
+  "id": "A6a",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Closed refused with Action Taken empty: ok; [DB] Closure Status stays Pending: ok; [DB] action saved and item still Pending: ok; step 2 refused: ok; Closure Status stays Pending: ok; after step 3 the text is saved and the item is still Pending: ok",
+  "evidence": "e2e/screenshots/A6a/01_closed_refused.png | backend test mri_matrix_backend.rs (3 DB checks ok)",
+  "notes": "Matrix issue: A6a expects the text \"Add an action taken entry before closing this item\"",
+  "proposed fix": "",
+  "date": "2026-11-07T13:57:41.700Z"
+ },
+ {
+  "id": "A6d",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "Submit refused (disabled): ok; list says Access Ladders & Handrails is marked Fail but has no action taken: ok; after restoring the text the refusal no longer applies: ok",
+  "evidence": "e2e/screenshots/A6d/01_no_action_taken.png | backend test mri_matrix_backend.rs (0 DB checks ok)",
+  "notes": "backend submit with a blank Action Taken: ACCEPTED by the backend (rolled back). Only the wizard's Review step enforces Action Taken (code comment in set_mri_report_checklist_result…",
+  "proposed fix": "",
+  "date": "2026-11-07T13:57:52.846Z"
+ },
+ {
+  "id": "A6e",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Closed refused with both blank (issue details first): ok; [DB] Closed refused with Action Taken only: ok; [DB] Closed refused with issue details only: ok; [DB] Closed accepted with both filled: ok; [DB] clearing Action Taken while Closed is refused by the backend: ok; [DB] restored to Pending: ok; step 1: popup Issue Details and Action Taken are both blank: ok; step 1: dropdown back to Pending: ok; step 2: popup says Issue Details is blank: ok; step 2: dropdown back to Pending: ok; step 3: popup says Action Taken is blank: ok; step 3: dropdown back to Pending: ok; step 4: Closed accepted with both filled: ok; step 4: clearing a box puts Closure Status back to Pending: ok; restored: both texts, Pending: ok",
+  "evidence": "e2e/screenshots/A6e/01_step1_popup.png | e2e/screenshots/A6e/02_step4_closed.png | backend test mri_matrix_backend.rs (6 DB checks ok)",
+  "notes": "popup text and dropdown snapping back to Pending: screen check, Phase 2",
+  "proposed fix": "",
+  "date": "2026-11-07T13:58:16.136Z"
+ },
+ {
+  "id": "A6b",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Date Observed keeps yesterday: ok; [DB] Date Observed back to today: ok; [DB] severity Moderate saved: ok; [DB] nothing left changed from A3 (Fail, Minor, today, Pending): ok; Date Observed keeps yesterday after reopening: ok; back to today: ok; Moderate - Required Action panel appears: ok; Repaired on site tick box shows: ok; Closure Status list disabled for the Operator: ok; hover text: Moderate faults require Maintenance Supervisor review authority to close: ok; Closed cannot be chosen; stays Pending: ok; at Minor the Moderate panel and the Repaired on site tick box go away: ok; Closure Status available again: ok; nothing left changed from A3: ok",
+  "evidence": "e2e/screenshots/A6b/01_moderate_panel.png | backend test mri_matrix_backend.rs (4 DB checks ok)",
+  "notes": "backend Closed on a Moderate Fail: Ok(\"Checklist result saved\") (rolled back). The Operator block is in the wizard (disabled list); Phase 2 checks it. / Minor panel: at Minor the app shows its own \"Minor — Required Action\" panel (no approval required)",
+  "proposed fix": "",
+  "date": "2026-11-07T13:58:38.545Z"
+ },
+ {
+  "id": "A6c",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] PDF attached: ok; [DB] two attachments: ok; [DB] PDF removed: ok; [DB] only the photo remains: ok; [DB] empty file refused: ok; PDF shows as a small thumbnail next to the photo: ok; too large refused with File is too large (max 5MB), nothing added: ok; photo opens in a larger view: ok; larger view closes again: ok; only the PDF removed, the photo stays: ok; after reopening only the photo is attached: ok",
+  "evidence": "e2e/screenshots/A6c/01_pdf_added.png | e2e/screenshots/A6c/02_too_large.png | e2e/screenshots/A6c/03_photo_large_view.png | backend test mri_matrix_backend.rs (5 DB checks ok)",
+  "notes": "5 MB limit: enforced only in the wizard (backend has no size check); Phase 2 checks the message",
+  "proposed fix": "",
+  "date": "2026-11-07T13:58:51.107Z"
+ },
+ {
+  "id": "A7",
+  "runner": "claude-code+review",
+  "status": "Needs review",
+  "verdicts": "[DB] Submit refused with empty footer: ok; [DB] Submit accepted: ok; [DB] status Submitted: ok; [DB] unit tag unchanged (Minor fault only): ok; [DB] Maintenance Type Preventive on the submitted report: ok; Compliance Stage is PRE-JOB: ok; Checklist ID is PMC-2026-0101: ok; step 2 refused: Footer - Operator Date, Supervisor, Supervisor Date required; Submit disabled: ok; tick boxes are optional: no issues and Submit enabled before any box is ticked: ok; Operator fills itself in: ok; no issues left: ok; Review shows the Remarks text: ok; details box: Maintenance type: ok; details box: Job number: ok; details box: Pre-mobilization checklist ID: ok; details box: Engine hours (this report): ok; details box lists every PUMP UNIT header field (15): ok; empty field shows —: Job operating hours: ok; Previous engine hours shows 0 (no earlier reading), as on the Header step: ok; Review shows all five tick boxes ticked: ok; step 3: submitted: ok",
+  "evidence": "e2e/screenshots/A7/01_empty_footer_review.png | e2e/screenshots/A7/02_required_footer_only.png | e2e/screenshots/A7/03_footer_filled.png | e2e/screenshots/A7/04_review_before_submit.png | backend test mri_matrix_backend.rs (5 DB checks ok)",
+  "notes": "Look not judged by Claude Code; screenshots for Jess. Review / PDF layout: screen check, Phase 2 (claude-code+review) / Review layout, five ticked boxes, PDF: screens saved for Jess / status Submitted and unit tag unchanged: stored values checked in Phase 1 (A7 ok); A8 confirms Submitted on screen",
+  "proposed fix": "",
+  "date": "2026-11-08T03:08:21.706Z"
+ },
+ {
+  "id": "A8",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] new report on ASSET2 Left refused: ok; Left is offered as blocked (Submitted): ok; refused: Left cannot be started while Report 1 is Submitted (close it first): ok",
+  "evidence": "e2e/screenshots/A8/01_component_choice.png | e2e/screenshots/A8/02_refused.png | backend test mri_matrix_backend.rs (1 DB checks ok)",
+  "notes": "wording: the screen says \"LeftReport #6 is Submitted — close it first\"; the matrix expects \"still Submitted and must be endorsed and closed first\" (…",
+  "proposed fix": "",
+  "date": "2026-11-07T13:59:30.756Z"
+ },
+ {
+  "id": "A9",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Operator lacks mri.edit_after_submit / endorse / close: ok; report opens on Review & Submit: ok; Review says This report is locked and read-only: ok; all header fields read-only: ok; Location stays Test Well TW-21: ok; Maintenance Type stays Preventive: ok; no Endorse, Close or decision control: ok; Date Observed, Severity, Closure and the photo are shown: ok; + and × on Attachments not offered: ok",
+  "evidence": "e2e/screenshots/A9/01_attention_tab.png | e2e/screenshots/A9/02_my_reports.png | e2e/screenshots/A9/03_review_locked.png | e2e/screenshots/A9/04_header_locked.png | e2e/screenshots/A9/05_checklist_locked.png | backend test mri_matrix_backend.rs (1 DB checks ok)",
+  "notes": "backend header write on a Submitted report: Ok(\"Header value saved\") (rolled back). There is no backend lock on edits after submit: the lock is in the wizard (mri.edit_after_submit). …",
+  "proposed fix": "",
+  "date": "2026-11-07T13:59:37.717Z"
+ },
+ {
+  "id": "A10",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] ASSET1 Draft created: ok; [DB] Submit refused without the Checklist ID: ok; [DB] Submit accepted with PMC-2026-0087: ok; [DB] status Submitted: ok; [DB] ASSET1 stays untagged: ok; [DB] Job Number empty: ok; every item starts as Pass (required items assessed): ok; step 4: red list shows the Checklist ID as required for Pre-Mob; Submit disabled: ok; nothing else in the red list: ok; step 5: list empty: ok; details: Pre-mobilization checklist ID: ok; details: Job number: ok; Submit works: ok; Select Asset shows ASSET1 as Submitted – pending closure: ok",
+  "evidence": "e2e/screenshots/A10/01_step4_review.png | e2e/screenshots/A10/02_step5_review.png | e2e/screenshots/A10/03_select_asset_after.png | backend test mri_matrix_backend.rs (6 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T13:59:56.161Z"
+ },
+ {
+  "id": "B1",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Reports to Review (Abdulla) lists Report 1 and the ASSET1 Pre-Mob as Submitted: ok; [DB] Operator has no Close or Endorse permission: ok; Suganya has no Close or Endorse control: ok; ASSET2 Report 1 card \"Awaiting endorsement\" with Endorse: ok; ASSET1 Pre-Mob card \"Awaiting endorsement\" with Endorse: ok; pressing Endorse on ASSET2 opens the MR-I report: ok",
+  "evidence": "e2e/screenshots/B1/01_suganya_view.png | e2e/screenshots/B1/02_reports_to_review.png | e2e/screenshots/B1/03_report_opened.png | backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:00:46.131Z"
+ },
+ {
+  "id": "B2",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] endorse refused on a Minor-only report (server rule; screen hides the button): ok; Next step bar says close and approve, with Close & Approve Report: ok; Endorse Report not shown: ok",
+  "evidence": "e2e/screenshots/B2/01_next_step_bar.png | backend test mri_matrix_backend.rs (1 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:01:01.912Z"
+ },
+ {
+  "id": "B3",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Close & Approve: ok; [DB] status Approved: ok; [DB] ASSET2 stays untagged: ok; [DB] Minor fault stays Pending: ok; report leaves Reports to Review (closed): ok; ASSET2 Left is free again (report no longer pending): ok",
+  "evidence": "e2e/screenshots/B3/01_after_close.png | e2e/screenshots/B3/02_asset2_free.png | backend test mri_matrix_backend.rs (4 DB checks ok)",
+  "notes": "ASSET2 status dot on Select asset: Has pending issue / status Approved, unit untagged, Minor fault stays Pending: stored values checked in Phase 1 (B3 ok); the carry-forward is seen on screen in B5",
+  "proposed fix": "",
+  "date": "2026-11-07T14:01:02.043Z"
+ },
+ {
+  "id": "B4",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Close & Approve: ok; [DB] status Approved: ok; [DB] ASSET1 stays untagged: ok; Close & Approve offered: ok; ASSET1 report closed (left the queue): ok",
+  "evidence": "e2e/screenshots/B4/01_after_close.png | backend test mri_matrix_backend.rs (3 DB checks ok)",
+  "notes": "status Approved, ASSET1 untagged: stored values checked in Phase 1 (B4 ok)",
+  "proposed fix": "",
+  "date": "2026-11-07T14:01:09.533Z"
+ },
+ {
+  "id": "B5",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Report 2 Draft created (Left): ok; [DB] Access Ladders & Handrails is carried forward (defaults to Fail): ok; [DB] carried issue text is Report 1's (not blank): ok; [DB] Previous Engine Hours = 150: ok; [DB] Current Engine Hours pre-filled with 150: ok; [DB] carried item saved as Fail with Report 1 text: ok; [DB] Engine Hours (This Report) = 70: ok; [DB] Air Filter template default is Moderate: ok; [DB] Agitator template default is Moderate: ok; [DB] Actuators on Control Panel template default is Moderate: ok; [DB] Breather template default is Moderate: ok; [DB] Brass Bushing Condition Within Tolerance Limits template default is Moderate: ok; [DB] Access Ladders & Handrails closed by the Operator with action: ok; [DB] Submit: ok; [DB] status Submitted: ok; [DB] ASSET2 stays untagged (Moderate faults do not tag): ok; [DB] five Moderate fails: ok; [DB] each Fail stamped reported_by Suganya with a time: ok; [DB] photos only on Air Filter and Breather: ok; [DB] Actuators date observed = yesterday: ok; [DB] Brass Bushing date observed = two days ago: ok; Previous Engine Hours 150 (auto): ok; Engine Hours (This Report) 70: ok; Access Ladders & Handrails already Fail with Report 1 text, greyed out: ok; Air Filter: Fail / Moderate / Pending: ok; Agitator: Fail / Moderate / Pending: ok; Actuators on Control Panel: Fail / Moderate / Pending: ok; Breather: Fail / Moderate / Pending: ok; Brass Bushing Condition Within Tolerance Limits: Fail / Moderate / Pending: ok; after adding Action taken Suganya can set Access Ladders & Handrails to Closed: ok; Air Filter Closed refused for the Operator (list disabled): ok; Green Tagged greyed out (report has Moderate faults): ok; Job Ready greyed out (report has Moderate faults): ok; no issues before submit: ok; Status Submitted: ok; Air Filter: Action Taken read-only with date, time and Suganya Rajendran: ok; Air Filter: date observed: ok; Air Filter: photo: ok; Agitator: Action Taken read-only with date, time and Suganya Rajendran: ok; Agitator: date observed: ok; Agitator: photo: ok; Actuators on Control Panel: Action Taken read-only with date, time and Suganya Rajendran: ok; Actuators on Control Panel: date observed: ok; Actuators on Control Panel: photo: ok; Breather: Action Taken read-only with date, time and Suganya Rajendran: ok; Breather: date observed: ok; Breather: photo: ok; Brass Bushing Condition Within Tolerance Limits: Action Taken read-only with date, time and Suganya Rajendran: ok; Brass Bushing Condition Within Tolerance Limits: date observed: ok; Brass Bushing Condition Within Tolerance Limits: photo: ok",
+  "evidence": "e2e/screenshots/B5/01_header.png | e2e/screenshots/B5/02_carried_forward.png | e2e/screenshots/B5/03_fails_entered.png | e2e/screenshots/B5/04_footer.png | e2e/screenshots/B5/05_submitted_checklist.png | backend test mri_matrix_backend.rs (21 DB checks ok)",
+  "notes": "backend Closed on the Moderate Air Filter: Ok(\"Checklist result saved\") (rolled back). Operator block is the wizard's disabled list; Phase 2 checks it. / Report 2 number in the app: #9 / unit stays untagged: stored value checked in Phase 1 (B5 ok)",
+  "proposed fix": "",
+  "date": "2026-11-07T14:01:18.354Z"
+ },
+ {
+  "id": "B6",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Close & Approve refused (Moderate faults): ok; [DB] still Submitted: ok; Next step bar says endorse this report, with Endorse Report: ok; Close & Approve not offered: ok",
+  "evidence": "e2e/screenshots/B6/01_next_step_bar.png | backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:02:26.294Z"
+ },
+ {
+  "id": "B7",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] endorse with no reviewer refused: ok; [DB] reviewer list has Disantha, Jan-Albert, Kamil: ok; [DB] Administrator, Operator, Data Miner not listed: ok; [DB] endorse to Disantha: ok; [DB] status Escalated: ok; [DB] five Pending approvals assigned to Disantha: ok; step 1: Confirm & Endorse greyed out; window says select who first: ok; hover on the button says the same: ok; list has reviewers (Disantha, Jan-Albert, Kamil): ok; Administrator, Operator, Data Miner not listed: ok",
+  "evidence": "e2e/screenshots/B7/01_escalate_window.png | e2e/screenshots/B7/02_after_endorse.png | backend test mri_matrix_backend.rs (6 DB checks ok)",
+  "notes": "screen after endorse: ← Back to main menu / Abdulla Qais | Job Supervisor (Tier 2) / ← Back / Show flow / ASSET2 · Left — MR-I / Report #9 / Parent asset ASSET2 … / status Escalated, five Pending approvals assigned to Disantha: stored values checked in Phase 1 (B7 ok); C1 sees them in Disantha's Pending Approvals",
+  "proposed fix": "",
+  "date": "2026-11-07T14:02:36.893Z"
+ },
+ {
+  "id": "B8",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Report 2 is not in Abdulla's Reports to Review: ok; [DB] new Left report refused (still Escalated): ok; [DB] close refused while decisions pending (server rule): ok; step 1: ASSET2 report not waiting for Abdulla (no Attention Required tab): ok; step 2: no new report; says the Left report is still Escalated and must be closed first: ok",
+  "evidence": "e2e/screenshots/B8/01_step1.png | e2e/screenshots/B8/02_step2.png | backend test mri_matrix_backend.rs (3 DB checks ok)",
+  "notes": "step 3 (optional read-only view): not run",
+  "proposed fix": "",
+  "date": "2026-11-07T14:02:41.891Z"
+ },
+ {
+  "id": "C1",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] card Issue and Action Taken from B5: ok; [DB] Approve (In-Person): ok; [DB] decision Approved: ok; [DB] card leaves Pending Approvals: ok; [DB] decision log row with method In-Person: ok; [DB] Planned follow-up created: ok; [DB] unit shows Green (Ready for Service, Manual 8.1): ok; Air Filter card shows Issue and Action Taken from B5: ok; Review Method defaults to In-Person and offers In-Person and Phone: ok; Approve, Reclassify, Reject, Carryforward greyed out until Notes has text: ok; buttons enabled once Notes has text: ok; green message Approved — Air Filter on ASSET2: ok; Air Filter card leaves the list: ok",
+  "evidence": "e2e/screenshots/C1/01_pending_approvals.png | e2e/screenshots/C1/02_review_dialog.png | e2e/screenshots/C1/03_after_approve.png | backend test mri_matrix_backend.rs (7 DB checks ok)",
+  "notes": "Matrix issue: C1 expects 'The unit tag does not change' / C1 \"The unit tag does not change\" Inform default: Anyone who can acknowledge / decision log method In-Person, Planned follow-up created: stored values checked in Phase 1 (C1); the Planned row is checked on screen in D1",
+  "proposed fix": "",
+  "date": "2026-11-07T14:02:47.044Z"
+ },
+ {
+  "id": "C2",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Reject: ok; [DB] decision Rejected: ok; [DB] final severity Minor: ok; [DB] item closed: ok; [DB] no repair / follow-up row: ok; Rejected: ok; card leaves the list (item closed): ok",
+  "evidence": "e2e/screenshots/C2/01_after_reject.png | backend test mri_matrix_backend.rs (5 DB checks ok)",
+  "notes": "Matrix issue: C2 gives no Notes final severity Minor, no repair / follow-up row: stored values checked in Phase 1 (C2 ok); D1 shows no Actuators row",
+  "proposed fix": "",
+  "date": "2026-11-07T14:02:58.087Z"
+ },
+ {
+  "id": "C3",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] reclassify without a new severity refused (server rule): ok; [DB] Breather still Pending: ok; Reclassify To starts on Minor and offers only Minor, Moderate, Major / Critical (no empty choice): ok; decision buttons greyed out while Notes is empty: ok; window closes; Breather still in Pending Approvals, unchanged: ok",
+  "evidence": "e2e/screenshots/C3/01_reclassify_options.png | backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:03:01.124Z"
+ },
+ {
+  "id": "C4",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Carryforward: ok; [DB] decision Carryforward: ok; [DB] no repair created: ok; [DB] unit tag unchanged by this step: ok; decision saved: ok",
+  "evidence": "e2e/screenshots/C4/01_after_carryforward.png | backend test mri_matrix_backend.rs (4 DB checks ok)",
+  "notes": "Matrix issue: C4 gives no Notes no repair, tag unchanged by this step: stored values checked in Phase 1 (C4 ok)",
+  "proposed fix": "",
+  "date": "2026-11-07T14:03:03.705Z"
+ },
+ {
+  "id": "C5",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Send Critical fault to offers only Kamil Shahzad: ok; [DB] raising to Critical for a non-FSM (Abdulla) is refused: ok; [DB] Reclassify to Critical, next reviewer Kamil: ok; [DB] Pending, original Critical, assigned to Kamil: ok; [DB] Agitator not actionable for Disantha: ok; [DB] Agitator in Kamil's Pending Approvals: ok; [DB] ASSET2 Red: ok; [DB] decision log shows Escalated Moderate -> Critical: ok; Agitator card: orange Moderate, assigned to Disantha Perera: ok; Send Critical fault to (Maintenance Manager / FSM) list appears: ok; step 3: only Kamil Shahzad offered: ok; Reclassify greyed out until Notes has text: ok; error dialog: Cannot continue: Select the Maintenance Manager / FSM this Critical fault goes to.: ok; nothing else can be clicked or tabbed to (app inert): ok; Tab keeps focus on OK: ok; Escape does not close it: ok; OK closes it and focus returns to the Reclassify button: ok; step 5: green message: ok; Agitator leaves Disantha's actionable list (may stay read-only waiting on Kamil): ok; Kamil sees Agitator: red Critical, assigned to Kamil Shahzad: ok",
+  "evidence": "e2e/screenshots/C5/01_send_critical_list.png | e2e/screenshots/C5/02_error_dialog.png | e2e/screenshots/C5/03_after_reclassify.png | e2e/screenshots/C5/04_kamil_pending.png | backend test mri_matrix_backend.rs (8 DB checks ok)",
+  "notes": "ASSET2 status dot: {\"title\":\"Has pending issue\",\"bg\":\"rgb(163, 45, 45)\",\"cls\":\"asset-status-dot\"} / ASSET2 Red, decision log Escalated: stored values checked in Phase 1 (C5 ok)",
+  "proposed fix": "",
+  "date": "2026-11-07T14:03:06.717Z"
+ },
+ {
+  "id": "C6",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Reclassify Breather to Critical, Kamil: ok; [DB] Pending Critical for Kamil: ok; [DB] unit stays Red: ok; Breather reclassified to Critical for Kamil: ok",
+  "evidence": "e2e/screenshots/C6/01_after.png | backend test mri_matrix_backend.rs (3 DB checks ok)",
+  "notes": "Pending Critical assigned to Kamil, unit stays Red: stored values checked in Phase 1 (C6 ok); C7 sees it as Kamil",
+  "proposed fix": "",
+  "date": "2026-11-07T14:03:29.157Z"
+ },
+ {
+  "id": "C7",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Kamil approves Agitator: ok; [DB] Agitator Red repair, parts Awaiting, no technician: ok; [DB] Kamil approves Breather: ok; [DB] Breather Red repair, parts Awaiting, no technician: ok; [DB] Air Filter also in the queue as Planned: ok; [DB] ASSET2 stays Red: ok; [DB] Green Tagged footer false: ok; [DB] report still Escalated: ok; [DB] two Approved by Kamil In-Person: ok; top-right shows Kamil Shahzad | Maintenance Manager / FSM (Tier 3): ok; STOP CHECK Agitator: red Critical badge and Kamil Shahzad: ok; Agitator: Review Method In-Person: ok; Agitator: Approve greyed out until Notes: ok; Agitator: green message Approved — Agitator on ASSET2: ok; Agitator: card leaves Pending Approvals: ok; STOP CHECK Breather: red Critical badge and Kamil Shahzad: ok; Breather: Review Method In-Person: ok; Breather: Approve greyed out until Notes: ok; Breather: green message Approved — Breather on ASSET2: ok; Breather: card leaves Pending Approvals: ok; step 6: Rectification Queue has ASSET2 Agitator and Breather: ok; Air Filter also there as Planned: ok; step 7: Green Tagged not ticked: ok; report status still Escalated (Close Report offered, not done): ok",
+  "evidence": "e2e/screenshots/C7/01_after_approvals.png | e2e/screenshots/C7/02_rectification_queue.png | e2e/screenshots/C7/03_report_footer.png | backend test mri_matrix_backend.rs (9 DB checks ok)",
+  "notes": "two Red rows parts Awaiting no technician; decision log Approved by Kamil In-Person: stored values checked in Phase 1 (C7 ok)",
+  "proposed fix": "",
+  "date": "2026-11-07T14:03:41.785Z"
+ },
+ {
+  "id": "C8",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Report 2 back in Reports to Review (resolved, awaiting close): ok; [DB] Close Report: ok; [DB] status Approved: ok; [DB] queue still has Agitator Red, Breather Red, Air Filter Planned: ok; [DB] ASSET2 stays Red: ok; ASSET2 card \"Resolved — awaiting close\": ok; two round icon buttons and no text buttons: ok; tooltips Show flow and Close report #N: ok; step 3: report closed (left Reports to Review): ok; Agitator and Breather still in the queue with the Red Tag icon (tooltip Red Tag): ok; Air Filter as a Moderate follow-up: ok",
+  "evidence": "e2e/screenshots/C8/01_card.png | e2e/screenshots/C8/02_closed.png | e2e/screenshots/C8/03_rectification_queue.png | backend test mri_matrix_backend.rs (5 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:04:08.368Z"
+ },
+ {
+  "id": "C9",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] ASSET1 Draft created: ok; [DB] template defaults Ball Valves Critical / Agitator Moderate: ok; [DB] Submit refused without the Checklist ID: ok; [DB] Submit: ok; [DB] status Submitted: ok; [DB] ASSET1 Red at once: ok; [DB] tag history reason: ok; Maintenance Type Preventive (default): ok; step 2: red list says Checklist ID required for Pre-Mob / Pre-Job; Submit disabled: ok; Ball Valves: severity Major / Critical (template default), Pending, today: ok; Agitator: severity Moderate (template default), Pending, today: ok; Status Submitted: ok",
+  "evidence": "e2e/screenshots/C9/01_step2.png | e2e/screenshots/C9/02_fails.png | backend test mri_matrix_backend.rs (7 DB checks ok)",
+  "notes": "ASSET1 status dot after submit: {\"title\":\"Has pending issue\",\"bg\":\"rgb(163, 45, 45)\",\"cls\":\"asset-status-dot\"} / ASSET1 Red at once, tag reason Critical fault reported (report #N): stored values checked in Phase 1 (C9 ok); tag history on screen in D10 / J2",
+  "proposed fix": "",
+  "date": "2026-11-07T14:04:29.260Z"
+ },
+ {
+  "id": "C10",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] only Kamil Shahzad listed: ok; [DB] endorsing a Critical report to Disantha is refused: ok; [DB] endorse to Kamil: ok; [DB] status Escalated: ok; [DB] two Pending approvals assigned to Kamil: ok; only Kamil Shahzad listed: ok; endorsed (report left Awaiting endorsement): ok",
+  "evidence": "e2e/screenshots/C10/01_picker.png | e2e/screenshots/C10/02_after.png | backend test mri_matrix_backend.rs (5 DB checks ok)",
+  "notes": "status Escalated, two Pending assigned to Kamil: stored values checked in Phase 1 (C10 ok); seen as Kamil in C10a / C11",
+  "proposed fix": "",
+  "date": "2026-11-07T14:05:28.473Z"
+ },
+ {
+  "id": "C10a",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] flow: Ball Valves Critical, decision Pending: ok; flow of report #10 opens: ok; Critical fault Decision box reads Pending: ok; Back returns to Pending Approvals: ok",
+  "evidence": "e2e/screenshots/C10a/01_flow.png | backend test mri_matrix_backend.rs (1 DB checks ok)",
+  "notes": "red border, Back button: screen check, Phase 2 / red border on the Critical fault box: see screenshot",
+  "proposed fix": "",
+  "date": "2026-11-07T14:05:42.437Z"
+ },
+ {
+  "id": "C11",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Carryforward refused: ok; [DB] Reclassify to Minor refused: ok; [DB] fault stays Pending: ok; Carryforward refused: ok; Reclassify to Minor refused: ok; fault stays Pending: ok",
+  "evidence": "e2e/screenshots/C11/01_carryforward_refused.png | e2e/screenshots/C11/02_minor_refused.png | backend test mri_matrix_backend.rs (3 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:05:55.662Z"
+ },
+ {
+  "id": "C12",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Reclassify to Moderate: ok; [DB] Planned follow-up row: ok; [DB] ASSET1 returns to Green: ok; Ball Valves reclassified to Moderate: ok",
+  "evidence": "e2e/screenshots/C12/01_after.png | backend test mri_matrix_backend.rs (3 DB checks ok)",
+  "notes": "Planned follow-up row, ASSET1 Green: stored values checked in Phase 1 (C12 ok); queue on screen in D1",
+  "proposed fix": "",
+  "date": "2026-11-07T14:06:08.336Z"
+ },
+ {
+  "id": "C13",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Reclassify Agitator to Minor: ok; [DB] decision Reclassified: ok; [DB] item closed: ok; [DB] no follow-up row: ok; [DB] no tag change: ok; Agitator reclassified to Minor: ok",
+  "evidence": "e2e/screenshots/C13/01_after.png | backend test mri_matrix_backend.rs (5 DB checks ok)",
+  "notes": "item closed, no tag change, no follow-up: stored values checked in Phase 1 (C13 ok)",
+  "proposed fix": "",
+  "date": "2026-11-07T14:06:15.002Z"
+ },
+ {
+  "id": "C14",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Close: ok; [DB] status Approved: ok; [DB] ASSET1 Green: ok; [DB] Ball Valves Planned follow-up stays in the queue: ok; report closed (left Reports to Review): ok",
+  "evidence": "e2e/screenshots/C14/01_closed.png | backend test mri_matrix_backend.rs (4 DB checks ok)",
+  "notes": "ASSET1 status dot: {\"title\":\"No pending issues\",\"bg\":\"rgb(15, 110, 86)\",\"cls\":\"asset-status-dot\"} / status Approved, ASSET1 Green, Ball Valves Planned stays: stored values checked in Phase 1 (C14 ok); queue on screen in D1",
+  "proposed fix": "",
+  "date": "2026-11-07T14:06:21.581Z"
+ },
+ {
+  "id": "D1",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] four rows, Red ones without technician: ok; Open Defects shows 4: ok; red circle counts at least 4: ok; four rows listed: ok; the two Red rows show no technician: ok",
+  "evidence": "e2e/screenshots/D1/01_main_menu.png | e2e/screenshots/D1/02_queue.png | backend test mri_matrix_backend.rs (1 DB checks ok)",
+  "notes": "Open Defects tile = 4 / red circle count: screen check, Phase 2",
+  "proposed fix": "",
+  "date": "2026-11-07T14:06:39.567Z"
+ },
+ {
+  "id": "D2",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] technician on Breather: ok; [DB] ASSET2 stays Red: ok; plan saved: ok; ASSET2 stays Red: ok",
+  "evidence": "e2e/screenshots/D2/01_breather_tech.png | backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "Rectification Queue \"Update Plan\" always failed (FIXED with Jess's approval (frontend only, not committed); D and E re-run on the fixed build and pass.)",
+  "proposed fix": "Wrap the plan as { update: { id, assigned_technician, parts_status, repair_date, updated_by } }. (FIXED with Jess's approval (frontend only, not committed); D and E re-run on the fixed build and pass.)",
+  "date": "2026-11-07T14:06:47.199Z"
+ },
+ {
+  "id": "D3",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] technician on Agitator: ok; [DB] ASSET2 Yellow: ok; [DB] tag reason names the technician: ok; Agitator pill: amber wrench, hover Yellow Tag — repair in progress: ok; summary: Repair in progress +1, Red tag — not started −1: ok; ASSET2 turns Yellow: ok; tag reason names the technician: ok",
+  "evidence": "e2e/screenshots/D3/01_agitator_tech.png | backend test mri_matrix_backend.rs (3 DB checks ok)",
+  "notes": "Rectification Queue \"Update Plan\" always failed (FIXED with Jess's approval (frontend only, not committed); D and E re-run on the fixed build and pass.)",
+  "proposed fix": "Wrap the plan as { update: { id, assigned_technician, parts_status, repair_date, updated_by } }. (FIXED with Jess's approval (frontend only, not committed); D and E re-run on the fixed build and pass.)",
+  "date": "2026-11-07T14:06:57.348Z"
+ },
+ {
+  "id": "D3a",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] flow Repair box carries technician and parts status: ok; flow opens; Repair box shows Repair open with technician and parts: ok; Back returns to the Rectification Queue: ok",
+  "evidence": "e2e/screenshots/D3a/01_flow.png | backend test mri_matrix_backend.rs (1 DB checks ok)",
+  "notes": "Rectification Queue \"Update Plan\" always failed (FIXED with Jess's approval (frontend only, not committed); D and E re-run on the fixed build and pass.)",
+  "proposed fix": "Wrap the plan as { update: { id, assigned_technician, parts_status, repair_date, updated_by } }. (FIXED with Jess's approval (frontend only, not committed); D and E re-run on the fixed build and pass.)",
+  "date": "2026-11-07T14:07:06.681Z"
+ },
+ {
+  "id": "D4",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] cleared -> ASSET2 Red: ok; [DB] re-entered -> Yellow: ok; step 1: ASSET2 back to Red: ok; step 2: Yellow again: ok",
+  "evidence": "backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "Rectification Queue \"Update Plan\" always failed (FIXED with Jess's approval (frontend only, not committed); D and E re-run on the fixed build and pass.)",
+  "proposed fix": "Wrap the plan as { update: { id, assigned_technician, parts_status, repair_date, updated_by } }. (FIXED with Jess's approval (frontend only, not committed); D and E re-run on the fixed build and pass.)",
+  "date": "2026-11-07T14:07:13.370Z"
+ },
+ {
+  "id": "D5",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Report 3 Draft created: ok; [DB] Brass Bushing listed as carried forward from Report 2: ok; [DB] earlier Action Taken entry by Suganya: ok; [DB] carried item defaults to Fail / Moderate / Pending / today: ok; carried-forward faults list Brass Bushing, linked to Report #9: ok; Issue Details read-only text from Report 2: ok; Action Taken lists the earlier entry (date/time, by Suganya Rajendran) and an empty box for this report: ok; defaults: Fail, Moderate, Pending, today: ok",
+  "evidence": "e2e/screenshots/D5/01_report3_top.png | e2e/screenshots/D5/02_carried_row.png | backend test mri_matrix_backend.rs (4 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:07:32.640Z"
+ },
+ {
+  "id": "D6",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Submit refused (Yellow, no exemption): ok; [DB] left as Draft: ok; no form issues listed: ok; refused: unit Red / Yellow tagged with no valid MOC exemption: ok",
+  "evidence": "e2e/screenshots/D6/01_refused.png | backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:07:47.204Z"
+ },
+ {
+  "id": "D7",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] limitations recorded: ok; [DB] note, informed-by and date saved: ok; saved: ok; note, who informed the team and the date shown on the repair: ok",
+  "evidence": "e2e/screenshots/D7/01_limitations.png | backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "Matrix issue: D7 data: Informed by Abdulla Qais",
+  "proposed fix": "",
+  "date": "2026-11-07T14:08:08.187Z"
+ },
+ {
+  "id": "D8",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] verify without function test refused: ok; [DB] verify without repair date refused: ok; [DB] verify with repair date: ok; [DB] repair Green with verifier and date: ok; [DB] unit stays Yellow: ok; step 1: Confirm disabled with the function test empty: ok; step 2: refused, a repair date is required for a Red repair: ok; step 3: repair verified (turns Green, leaves the queue): ok; unit stays Yellow (other repair open): ok",
+  "evidence": "e2e/screenshots/D8/01_step1.png | e2e/screenshots/D8/02_step2.png | e2e/screenshots/D8/03_step3.png | backend test mri_matrix_backend.rs (5 DB checks ok)",
+  "notes": "Matrix issue: Parts status \"Received\" Rectification Queue \"Update Plan\" always failed (FIXED with Jess's approval (frontend only, not committed); D and E re-run on the fixed build and pass.) matrix parts status 'Received': the app offers Awaiting / Ordered / Available; 'Available' is used / verifier and date on the repair: stored values checked in Phase 1 (D8 ok)",
+  "proposed fix": "Wrap the plan as { update: { id, assigned_technician, parts_status, repair_date, updated_by } }. (FIXED with Jess's approval (frontend only, not committed); D and E re-run on the fixed build and pass.)",
+  "date": "2026-11-07T14:08:18.745Z"
+ },
+ {
+  "id": "D9",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] verify Agitator: ok; [DB] ASSET2 Green: ok; [DB] Green Tagged footer true: ok; repair verified: ok; ASSET2 turns Green: ok",
+  "evidence": "e2e/screenshots/D9/01_verified.png | backend test mri_matrix_backend.rs (3 DB checks ok)",
+  "notes": "Rectification Queue \"Update Plan\" always failed (FIXED with Jess's approval (frontend only, not committed); D and E re-run on the fixed build and pass.) Green Tagged footer value true: stored value checked in Phase 1 (D9 ok)",
+  "proposed fix": "Wrap the plan as { update: { id, assigned_technician, parts_status, repair_date, updated_by } }. (FIXED with Jess's approval (frontend only, not committed); D and E re-run on the fixed build and pass.)",
+  "date": "2026-11-07T14:08:46.471Z"
+ },
+ {
+  "id": "D10",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Green (C1), Red, Yellow, Red, Yellow, Green: ok; [DB] each entry has reason, report number and user: ok; entries in order (first Green from the C1 Moderate decision): ok; every change listed with reason, report number and user: ok",
+  "evidence": "e2e/screenshots/D10/01_tag_history.png | backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "Matrix issue: D10 expects Red, Yellow, Red, Yellow, Green / D10 expects Red, Yellow, Red, Yellow, Green",
+  "proposed fix": "",
+  "date": "2026-11-07T14:09:00.606Z"
+ },
+ {
+  "id": "D11",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Update Plan: ok; [DB] tag stays Green after plan: ok; [DB] Verify & Close Follow-up: ok; [DB] verifier and date recorded: ok; [DB] row leaves the queue: ok; [DB] tag never changed (no history rows added): ok; Update Plan saved: ok; tag stays Green after the plan (no Yellow): ok; Verify & Close Follow-up: verified, row leaves the queue: ok; tag never changed (no tag-history rows added): ok",
+  "evidence": "e2e/screenshots/D11/01_closed.png | backend test mri_matrix_backend.rs (6 DB checks ok)",
+  "notes": "Rectification Queue \"Update Plan\" always failed (FIXED with Jess's approval (frontend only, not committed); D and E re-run on the fixed build and pass.)",
+  "proposed fix": "Wrap the plan as { update: { id, assigned_technician, parts_status, repair_date, updated_by } }. (FIXED with Jess's approval (frontend only, not committed); D and E re-run on the fixed build and pass.)",
+  "date": "2026-11-07T14:09:04.872Z"
+ },
+ {
+  "id": "D12",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] ASSET1 Green before: ok; [DB] plan Ball Valves (Bilal Ahmed): ok; [DB] ASSET1 stays Green: ok; ASSET1 Green before: ok; plan saved: ok; ASSET1 stays Green: ok",
+  "evidence": "e2e/screenshots/D12/01_planned.png | backend test mri_matrix_backend.rs (3 DB checks ok)",
+  "notes": "Rectification Queue \"Update Plan\" always failed (FIXED with Jess's approval (frontend only, not committed); D and E re-run on the fixed build and pass.)",
+  "proposed fix": "Wrap the plan as { update: { id, assigned_technician, parts_status, repair_date, updated_by } }. (FIXED with Jess's approval (frontend only, not committed); D and E re-run on the fixed build and pass.)",
+  "date": "2026-11-07T14:09:28.282Z"
+ },
+ {
+  "id": "D13",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Submit now that ASSET2 is Green: ok; [DB] Close & Approve refused: Report 3 carries a Moderate fault (Table 3 review): ok; [DB] endorse to Disantha: ok; [DB] Disantha approves Brass Bushing: ok; [DB] Close: ok; [DB] Report 3 Approved: ok; [DB] ASSET2 stays Green: ok; Submit succeeds now that ASSET2 is Green: ok; Close & Approve not offered: Report 3 carries the Moderate Brass Bushing, so Endorse is required (Manual Table 3): ok; Disantha approves Brass Bushing: ok; Report 3 closed (Approved): ok",
+  "evidence": "e2e/screenshots/D13/01_next_step.png | e2e/screenshots/D13/02_closed.png | backend test mri_matrix_backend.rs (7 DB checks ok)",
+  "notes": "Matrix issue: D13 step 2 says press Close & Approve / D13 step 2 says press Close & Approve",
+  "proposed fix": "",
+  "date": "2026-11-07T14:09:40.446Z"
+ },
+ {
+  "id": "E1",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] list holds JSR-2026-0900 only: ok; IT SQL ran: ok; the list holds one job number, JSR-2026-0900: ok",
+  "evidence": "backend test mri_matrix_backend.rs (1 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:10:45.494Z"
+ },
+ {
+  "id": "E2",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Draft created: ok; [DB] Previous Engine Hours (auto) = 220: ok; [DB] Engine Hours (This Report) = 150: ok; [DB] Air Supply Line default Critical: ok; [DB] Submit refused with Job Number empty: ok; [DB] Submit: ok; [DB] ASSET2 Red at once: ok; [DB] reason Critical fault reported: ok; [DB] job_number_status: ok; Previous Engine Hours 220 (auto): ok; Air Supply Line Fail / Major / Critical / Pending: ok; Engine Hours (This Report) reads 150: ok; step 2: refused, Job Number is required for POST JOB: ok; step 3: Submitted: ok; ASSET2 turns Red at once: ok; reason Critical fault reported: ok; IT check: job_number_status: ok",
+  "evidence": "e2e/screenshots/E2/01_job_number_refused.png | backend test mri_matrix_backend.rs (9 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:10:46.174Z"
+ },
+ {
+  "id": "E3",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] endorse to Kamil: ok; [DB] Kamil approves: ok; [DB] Red repair created: ok; [DB] ASSET2 stays Red: ok; Kamil approves Air Supply Line: ok; a Red repair is created: ok; ASSET2 stays Red: ok",
+  "evidence": "e2e/screenshots/E3/01_red_repair.png | backend test mri_matrix_backend.rs (4 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:12:09.902Z"
+ },
+ {
+  "id": "E4",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Close: ok; [DB] status Approved: ok; [DB] EH running 370: ok; [DB] KM running 600: ok; [DB] OH running 12: ok; [DB] EH in warning (>= 350, < 400): ok; [DB] CA unchanged: ok; [DB] ASSET2 stays Red: ok; Status Approved (closed): ok; EH 370 of 400: ok; EH in warning (>= 350): ok; KM 600 of 1000: ok; OH 0 -> 12: ok; CA unchanged: ok; ASSET2 stays Red: ok",
+  "evidence": "e2e/screenshots/E4/01_trigger_chips.png | backend test mri_matrix_backend.rs (8 DB checks ok)",
+  "notes": "triggers shown on the ASSET2 card: Calendar days 0/500 | Engine hours 370/400 | Distance (KM) 600/1000 | Operating hours 12/600 | Calendar days 0/700 | Engine hours 370/800 |…",
+  "proposed fix": "",
+  "date": "2026-11-07T14:12:41.082Z"
+ },
+ {
+  "id": "E5",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Draft created: ok; [DB] Pre-Mob refused (Red, no exemption): ok; refused: no valid MOC exemption (Manual 6.1.5): ok",
+  "evidence": "e2e/screenshots/E5/01_refused.png | backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:13:01.595Z"
+ },
+ {
+  "id": "E6",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Pre-Job refused too: ok; refused for the same reason: ok",
+  "evidence": "e2e/screenshots/E6/01_refused.png | backend test mri_matrix_backend.rs (1 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:13:33.953Z"
+ },
+ {
+  "id": "E7",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] exemption recorded: ok; [DB] shown Active and valid: ok; [DB] Pre-Mob submits: ok; exemption area shows No valid exemption and Record exemption: ok; exemption saved and shown Active (valid): ok; Checklist ID kept: ok; the Pre-Mob report submits: ok",
+  "evidence": "e2e/screenshots/E7/01_exemption_form.png | e2e/screenshots/E7/02_exemption_saved.png | backend test mri_matrix_backend.rs (3 DB checks ok)",
+  "notes": "Matrix issue: E7 gives no \"Conditions for return to service\" matrix gives no 'Conditions for return to service': the app requires it (Err(\"Conditions for return to service is required\")); the run uses 'Air supply line repaired and verified.'",
+  "proposed fix": "",
+  "date": "2026-11-07T14:13:53.398Z"
+ },
+ {
+  "id": "E8",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Close & Approve: ok; [DB] status Approved: ok; Status Approved (closed): ok",
+  "evidence": "backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:14:33.480Z"
+ },
+ {
+  "id": "E9",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] revoke without a reason refused: ok; [DB] revoke: ok; [DB] registry shows Revoked: ok; [DB] Report A Draft: ok; [DB] Pre-Mob refused (no exemption): ok; [DB] Yard Inspection submits: ok; [DB] Abdulla closes Report A: ok; [DB] Report B Draft: ok; [DB] Report B Previous Engine Hours (auto) = 370: ok; [DB] Post Job submits (Red, no exemption): ok; [DB] Abdulla closes Report B: ok; [DB] EH 380: ok; [DB] KM 620: ok; [DB] OH 20: ok; registry shows Revoked: ok; step 2: Pre-Mob refused (no exemption): ok; Yard submits: ok; Abdulla closes Report A: ok; Report B Previous Engine Hours 370 (auto): ok; Post Job submits: ok; Abdulla closes Report B: ok; triggers EH 380, KM 620, OH 20: ok",
+  "evidence": "e2e/screenshots/E9/01_revoked.png | backend test mri_matrix_backend.rs (14 DB checks ok)",
+  "notes": "Matrix issue: E9 gives no revoke reason matrix gives no revoke reason: the app requires one; the run uses 'Test E9' / revoke reason prompt: WebDriver could not reach the reason prompt; the run supplied the reason to the page's prompt and pressed Revoke again. Jess may want to ch…",
+  "proposed fix": "",
+  "date": "2026-11-07T14:14:46.503Z"
+ },
+ {
+  "id": "E10",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] assign Bilal Ahmed: ok; [DB] ASSET2 Yellow: ok; [DB] verify: ok; [DB] ASSET2 Green: ok; step 1: ASSET2 Yellow: ok; verified: ok; step 2: ASSET2 Green: ok",
+  "evidence": "backend test mri_matrix_backend.rs (4 DB checks ok)",
+  "notes": "Rectification Queue \"Update Plan\" always failed (FIXED with Jess's approval (frontend only, not committed); D and E re-run on the fixed build and pass.)",
+  "proposed fix": "Wrap the plan as { update: { id, assigned_technician, parts_status, repair_date, updated_by } }. (FIXED with Jess's approval (frontend only, not committed); D and E re-run on the fixed build and pass.)",
+  "date": "2026-11-07T14:16:53.193Z"
+ },
+ {
+  "id": "E11",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] last Post-Job is Report B and within 72 h: ok; [DB] copy created: ok; [DB] Client copied: ok; [DB] Location copied: ok; [DB] Maintenance Type same as Report B: ok; [DB] Compliance Stage set to PREMOB: ok; [DB] Job Number not copied: ok; [DB] MR Initization Date not copied: ok; [DB] Current Engine Hours not copied: ok; [DB] Engine Hours (This Report) not copied: ok; [DB] Pre-Mobilization Checklist ID not copied: ok; [DB] Pass on Access Ladders & Handrails: ok; [DB] Pass on Air Hoses: ok; [DB] Pass on Alternator: ok; the dialog offers both options: ok; Client copied: ok; Location copied: ok; Compliance Stage set to PREMOB: ok; Job Number not copied: ok; Checklist ID not copied: ok; Maintenance Type same as Report B: ok; Pass on Access Ladders & Handrails: ok; Pass on Air Hoses: ok; Pass on Alternator: ok",
+  "evidence": "e2e/screenshots/E11/01_dialog.png | e2e/screenshots/E11/02_copy_header.png | backend test mri_matrix_backend.rs (14 DB checks ok)",
+  "notes": "Matrix issue: IT delete SQL fails as written / IT delete SQL fails as written E11: corrected cleanup: Ok(2) Draft(s) deleted / header values on the copy (incl. the wizard's own defaults: MR Initization Date = today, Current Engine Hours = previous reading): Asset No=ASSET2; Client=Test Client; Compliance Stage=PREMOB; Country=PAKISTAN; Current Engine Hours=380; Location=Test Well TW-21; MR II D… / engine hours / MR initiation date: not copied from Report B; the wizard itself fills MR Initization Date (today) and Current Engine Hours (the previous reading, 380) on every… / corrected cleanup: [17,48,0,1,0,0,2]",
+  "proposed fix": "",
+  "date": "2026-11-07T14:17:21.707Z"
+ },
+ {
+  "id": "E12",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] IT SQL updated one row: ok; [DB] not within 72 h: ok; [DB] copy refused over 72 h: ok; [DB] Start a new report: ok; [DB] it is a fresh empty Draft (not the E11 copy): ok; IT SQL ran (1 row): ok; only Start a new report is offered: ok",
+  "evidence": "e2e/screenshots/E12/01_dialog.png | backend test mri_matrix_backend.rs (5 DB checks ok)",
+  "notes": "IT deletes the Draft (matrix SQL): 1 row(s) deleted / step 3: the run cancelled the dialog instead of starting a Draft, so there was nothing for IT to delete / IT deletes the Draft (matrix SQL): 0 row(s)",
+  "proposed fix": "",
+  "date": "2026-11-07T14:17:41.332Z"
+ },
+ {
+  "id": "E13",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] IT SQL updated one row: ok; [DB] ASSET2 listed, day 8: ok; IT SQL ran (1 row): ok; banner: Pre-Job MR-I due, lists ASSET2, day 8 since its Post-Job report: ok",
+  "evidence": "e2e/screenshots/E13/01_banner.png | backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:17:48.811Z"
+ },
+ {
+  "id": "F1",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] ASSET1 Draft created: ok; [DB] Submit: ok; [DB] endorse to Disantha: ok; [DB] Escalated: ok; [DB] two Pending approvals for Disantha: ok; [DB] ASSET1 stays Green: ok; Air Hose & Coupling Connection: Moderate (template default), Pending: ok; Chain & Drive System: Moderate (template default), Pending: ok; submitted: ok; ASSET1 stays Green: ok",
+  "evidence": "backend test mri_matrix_backend.rs (6 DB checks ok)",
+  "notes": "Escalated with two Pending approvals for Disantha: seen in Disantha's Pending Approvals in F3 / F4; stored values checked in Phase 1 (F1 ok)",
+  "proposed fix": "",
+  "date": "2026-11-07T14:17:53.648Z"
+ },
+ {
+  "id": "F2",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] reminder from a non-manager (Abdulla) refused: ok; [DB] Kamil sends a reminder: ok; [DB] row shows reminder from Kamil with time: ok; reminder sent: ok; row shows Reminder from Kamil Shahzad with the time: ok",
+  "evidence": "e2e/screenshots/F2/01_reminder.png | backend test mri_matrix_backend.rs (3 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:18:39.945Z"
+ },
+ {
+  "id": "F3",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Kamil offered as person to be informed: ok; [DB] Approve, inform Kamil: ok; [DB] acknowledgement queued for Kamil: ok; [DB] not queued for someone else (Jan-Albert): ok; Decision Approved: ok; an acknowledgement is queued for Kamil Shahzad: ok",
+  "evidence": "e2e/screenshots/F3/01_approved.png | e2e/screenshots/F3/02_kamil_needs_ack.png | backend test mri_matrix_backend.rs (4 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:18:48.888Z"
+ },
+ {
+  "id": "F4",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Abdulla holds Record provisional and not Approve: ok; [DB] Abdulla sees the fault and can act (relay): ok; [DB] phone relay recorded: ok; [DB] Provisional: ok; [DB] close refused while Provisional: ok; Abdulla can open Pending Approvals from the main menu: ok; Pending Approvals shows Abdulla only what he can act on (Record (Phone Relay) + read-only Show flow): ok; no Awaiting Confirmation or Needs Acknowledgment section for the Job Supervisor: ok; Abdulla is offered Record (Phone Relay), not Approve / Reject buttons: ok; Review Method fixed to Phone: ok; relay recorded: ok; decision shows Provisional (Phone, for Disantha, recorded by Abdulla): ok; close refused while a decision is Provisional: ok",
+  "evidence": "e2e/screenshots/F4/01_pending_approvals_job_supervisor.png | e2e/screenshots/F4/02_relay_dialog.png | e2e/screenshots/F4/03_close_check.png | backend test mri_matrix_backend.rs (5 DB checks ok)",
+  "notes": "Job Supervisor cannot reach Pending Approvals from the main menu (FIXED (not committed). F4 re-tested on e2e/run/retest_F4.db (copy of snapshots/before_F1.db; F1–F3 replayed as setup, not recorded): Pass. The Job Supervisor sees only Record (Phone Relay) cards.)",
+  "proposed fix": "Add effectivePermissions.includes(\"mri.record_provisional\") to canReviewApprovals in MainMenu.tsx. (FIXED (not committed). F4 re-tested on e2e/run/retest_F4.db (copy of snapshots/before_F1.db; F1–F3 replayed as setup, not recorded): Pass. The Job Supervisor sees only Record (Phone Relay) cards.)",
+  "date": "2026-11-07T15:22:13.770Z"
+ },
+ {
+  "id": "F5",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] listed in Awaiting Confirmation for Disantha: ok; [DB] confirm: ok; [DB] Confirmed with name and date: ok; provisional decision listed under Awaiting Confirmation: ok; Confirmed: ok; status Confirmed with name and date: ok",
+  "evidence": "e2e/screenshots/F5/01_confirmed.png | backend test mri_matrix_backend.rs (3 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:19:37.671Z"
+ },
+ {
+  "id": "F6",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Close: ok; [DB] Approved without the acknowledgement: ok; Status Approved (closed) although Kamil has not acknowledged: ok; stored status: ok",
+  "evidence": "e2e/screenshots/F6/01_closed.png | backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:19:46.697Z"
+ },
+ {
+  "id": "F7",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] acknowledge: ok; [DB] name and date recorded: ok; [DB] second attempt refused: ok; acknowledged: ok; name and date recorded: ok; a second attempt is not possible (entry leaves Needs Acknowledgment): ok",
+  "evidence": "e2e/screenshots/F7/01_acknowledged.png | backend test mri_matrix_backend.rs (3 DB checks ok)",
+  "notes": "server refusal \"already acknowledged\": checked in Phase 1 (F7 ok); the screen no longer offers the button",
+  "proposed fix": "",
+  "date": "2026-11-07T14:20:01.794Z"
+ },
+ {
+  "id": "F8",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Escalated then Approved, in order: ok; [DB] each row has reviewer, method, provisional flag and recorder: ok; log lists the decisions in order (Escalated, then Approved): ok; each row: reviewer, method, provisional flag, recorder: ok; cannot be edited (no edit control): ok",
+  "evidence": "e2e/screenshots/F8/01_breather_decision.png | backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "Matrix issue: F8 expects Pending, Escalated, Approved no 'Pending' row in mri_fault_decision_log: the matrix lists Pending, Escalated, Approved; the stored log starts at Escalated (endorsing does not log). Phase 2 checks whether the scre… / log cannot be edited: no update/delete command exists for mri_fault_decision_log",
+  "proposed fix": "",
+  "date": "2026-11-07T14:20:11.837Z"
+ },
+ {
+  "id": "F9",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] ASSET1 Draft created: ok; [DB] tick refused with issue description empty: ok; [DB] tick refused with Action Taken empty: ok; [DB] tick accepted: ok; [DB] item shows Closed: ok; [DB] Submit: ok; [DB] ASSET1 stays Green: ok; [DB] photo still attached: ok; [DB] Date Observed today: ok; [DB] Close & Approve available without escalation (probe, rolled back): ok; [DB] mri_onsite_repair_log has one row: ok; tick refused: Add issue details before marking this fault as repaired on site: ok; tick refused: Describe the repair in Action Taken first: ok; tick accepted and the item shows Closed: ok; step 2: Submitted: ok; ASSET1 stays Green: ok; photo still attached, Date Observed today: ok; step 3: Close & Approve available without escalation (not pressed): ok; IT check: mri_onsite_repair_log has one row: ok",
+  "evidence": "e2e/screenshots/F9/01_repaired_on_site.png | e2e/screenshots/F9/02_close_and_approve_offered.png | backend test mri_matrix_backend.rs (11 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:20:25.608Z"
+ },
+ {
+  "id": "G1",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Draft created: ok; [DB] no carried Fails (all items Pass): ok; [DB] Submit: ok; [DB] Submitted: ok; all items Pass (no carried Fails): ok; Report G1 is Submitted: ok",
+  "evidence": "backend test mri_matrix_backend.rs (4 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:21:27.776Z"
+ },
+ {
+  "id": "G2",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Data Miner holds no MR-I action permission: ok; she can view the report: ok; no Submit, Endorse, Close or decision control: ok; no cost control: ok",
+  "evidence": "e2e/screenshots/G2/01_report_view.png | backend test mri_matrix_backend.rs (1 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:22:02.019Z"
+ },
+ {
+  "id": "G3",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] override granted: ok; [DB] Suganya now holds mri.edit_after_submit: ok; [DB] Location edited: ok; [DB] override removed: ok; [DB] Suganya no longer holds it: ok; override set: ok; Location editable while the override exists: ok; Location saved as Test Well TW-22: ok; locked again after the override is removed: ok",
+  "evidence": "e2e/screenshots/G3/01_override_on.png | e2e/screenshots/G3/02_edited.png | e2e/screenshots/G3/03_locked_again.png | backend test mri_matrix_backend.rs (5 DB checks ok)",
+  "notes": "editable / locked on screen: screen check, Phase 2",
+  "proposed fix": "",
+  "date": "2026-11-07T14:22:16.200Z"
+ },
+ {
+  "id": "G4",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Endorse granted by override: ok; [DB] Endorse gone after removal: ok; Endorse control appears with the override: ok; Endorse control disappears when the override is removed: ok",
+  "evidence": "e2e/screenshots/G4/01_endorse_shown.png | backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:23:19.221Z"
+ },
+ {
+  "id": "G5",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Abdulla limited to UAE: ok; [DB] no PAKISTAN reports in Reports to Review: ok; [DB] report flow refused: ok; [DB] reports return after removal: ok; Abdulla limited to UAE (saved): ok; no PAKISTAN assets in the asset list: ok; no PAKISTAN assets on Select Asset for a new MR-I report: ok; no PAKISTAN reports in the report list: ok; all return afterwards: ok; restriction removed: ok; FSM with a country row (UAE) still sees every asset: ok; Kamil's test country row removed again: ok",
+  "evidence": "e2e/screenshots/G5/01_restricted.png | e2e/screenshots/G5/02_asset_list.png | e2e/screenshots/G5/03_select_asset.png | e2e/screenshots/G5/04_fsm_asset_list.png | backend test mri_matrix_backend.rs (4 DB checks ok)",
+  "notes": "Asset Registry ignores the user's country access (FIXED (not committed). G5 re-tested on e2e/run/retest_G5.db (copy of e2e/run/retest_after_H3.db, the state after G1–H3): Pass, including an FSM check (Kamil with a UAE row still sees both assets). The first attempt blocked before the case started (app start screen not shown in 30 s); the immediate re-run passed.) asset list: get_assets has no viewer filter; the asset list filter is in the UI (Phase 2)",
+  "proposed fix": "get_assets(viewer_user_id) filters by the user's country rows (rule agreed with Jess: Maintenance Manager / FSM, Administrator and users with no country rows see every asset); Asset Registry and Select Asset use the new useAssetsForViewer() hook. Dashboard, menu KPIs, Data Purging and the wizard lookup still list all assets. (FIXED (not committed). G5 re-tested on e2e/run/retest_G5.db (copy of e2e/run/retest_after_H3.db, the state after G1–H3): Pass, including an FSM check (Kamil with a UAE row still sees both assets). The first attempt blocked before the case started (app start screen not shown in 30 s); the immediate re-run passed.)",
+  "date": "2026-11-07T15:50:07.312Z"
+ },
+ {
+  "id": "G6",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Administrator holds no review permission: ok; [DB] Jess absent from every reviewer list: ok; no Endorse, Close or decision control on Report G1: ok; no exemption control (no Record exemption / Revoke): ok; Jess has no Attention Required tab: ok",
+  "evidence": "e2e/screenshots/G6/01_report.png | backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "absent from reviewer lists: checked on screen in B7 / C5 / C10 (pickers never list Jess) and in Phase 1 (G6)",
+  "proposed fix": "",
+  "date": "2026-11-07T14:24:42.752Z"
+ },
+ {
+  "id": "G7",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] last editor and time recorded: ok; IT query ran: ok; the last editor and time are recorded: ok",
+  "evidence": "backend test mri_matrix_backend.rs (1 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:25:00.875Z"
+ },
+ {
+  "id": "H1",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Operator lacks mri.enter_cost: ok; [DB] Job Supervisor lacks mri.enter_cost: ok; Suganya: Not yet entered, no input: ok; Abdulla: Not yet entered, no input: ok",
+  "evidence": "e2e/screenshots/H1/01_suganya.png | e2e/screenshots/H1/02_abdulla.png | backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:25:01.133Z"
+ },
+ {
+  "id": "H2",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Report G1 and Report F9 listed: ok; Report G1 (ASSET2) and Report F9 (ASSET1) listed under Awaiting MR cost with Enter cost: ok",
+  "evidence": "e2e/screenshots/H2/01_awaiting_cost.png | backend test mri_matrix_backend.rs (1 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:25:21.826Z"
+ },
+ {
+  "id": "H3",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] 2500 saved: ok; [DB] 2650 saved: ok; [DB] amount, name and date: ok; [DB] G1 leaves the awaiting list: ok; Enter cost opens Report G1 (#19): ok; 2500 saved: ok; changed to 2650: panel shows amount and name: ok; panel shows the date: ok; Report G1 leaves the awaiting list: ok",
+  "evidence": "e2e/screenshots/H3/01_cost_saved.png | backend test mri_matrix_backend.rs (4 DB checks ok)",
+  "notes": "Dates shown as raw Unix seconds (FIXED (not committed). J2 re-tested on e2e/run/retest_J2.db (copy of snapshots/final_after_J9.db): Pass. H3 re-tested on e2e/run/retest_H3.db (copy of snapshots/before_G1.db; G1–H2 replayed as setup, not recorded): Pass.)",
+  "proposed fix": "Format all-digit date values as dates (seconds x 1000), DD/Mon/YYYY like Pending Approvals: AssetFlow shortDate() and its detail rows, the MR cost date (ReportWizard), the Asset Registry tag history, the Pending Approvals reminder time, and the report date on Review & Submit / print (ReportWizard fmtDate, DD-Mon-YYYY as elsewhere on the report). (FIXED (not committed). J2 re-tested on e2e/run/retest_J2.db (copy of snapshots/final_after_J9.db): Pass. H3 re-tested on e2e/run/retest_H3.db (copy of snapshots/before_G1.db; G1–H2 replayed as setup, not recorded): Pass.)",
+  "date": "2026-11-07T15:34:47.853Z"
+ },
+ {
+  "id": "H4",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] -100 refused: ok; [DB] blank (NaN) refused: ok; \"blank\" refused with Enter a valid cost (0 or more): ok; \"-100\" refused with Enter a valid cost (0 or more): ok",
+  "evidence": "e2e/screenshots/H4/01_refused.png | backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "message wording: backend says 'Cost must be zero or a positive number'; the matrix expects the screen text 'Enter a valid cost (0 or more)' (Phase 2)",
+  "proposed fix": "",
+  "date": "2026-11-07T14:25:41.505Z"
+ },
+ {
+  "id": "H5",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] close ASSET1 Post Job (no cost): ok; [DB] close Report G1 (cost 2650): ok; [DB] both Approved: ok; report #18 Approved (cost null): ok; report #19 Approved (cost 2650): ok",
+  "evidence": "e2e/screenshots/H5/01_closed.png | backend test mri_matrix_backend.rs (3 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:25:48.831Z"
+ },
+ {
+  "id": "H6",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] ASSET1 Draft started: ok; [DB] cost refused on a Draft: ok; Jan-Albert opens the Draft: ok; the cost panel is not shown: ok",
+  "evidence": "e2e/screenshots/H6/01_draft.png | backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:26:12.323Z"
+ },
+ {
+  "id": "H7",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "Marilyn Tabay: READ ONLY: ok; Suganya Rajendran: TIER 1: ok; Abdulla Qais: TIER 2: ok; Jan-Albert Victorino: TIER 2: ok; Disantha Perera: TIER 2: ok; Kamil Shahzad: TIER 3: ok; Jess Britanico: IT / ADMIN (NO TIER): ok",
+  "evidence": "e2e/screenshots/H7/01_picker.png | backend test mri_matrix_backend.rs (0 DB checks ok)",
+  "notes": "screen-only case: no backend rule to test; covered in Phase 2",
+  "proposed fix": "",
+  "date": "2026-11-07T14:26:39.333Z"
+ },
+ {
+  "id": "H8",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] mri1_audit_permissions present: ok; [DB] relaunch migration runs: ok; [DB] relaunch migration runs: ok; [DB] roles unchanged after two relaunches: ok; mri1_audit_permissions present: ok; nothing changes on later launches (two more app-code launches of the database): ok",
+  "evidence": "backend test mri_matrix_backend.rs (4 DB checks ok)",
+  "notes": "restart: each IT query opens the database through the app's own open-and-migrate code; Phase 1 H8 also ran the migration twice",
+  "proposed fix": "",
+  "date": "2026-11-07T14:26:46.697Z"
+ },
+ {
+  "id": "I1",
+  "runner": "claude-code+review",
+  "status": "Needs review",
+  "verdicts": "ASSET1 and ASSET2 shown as cards with Active pill, Edit and Delete: ok; search filters the cards; count shows 1 of 2: ok; then 2 of 2: ok",
+  "evidence": "e2e/screenshots/I1/01_cards.png | e2e/screenshots/I1/02_search.png",
+  "notes": "Look not judged by Claude Code; screenshots for Jess. card look (icon, pills, trigger chips): see screenshots",
+  "proposed fix": "",
+  "date": "2026-11-07T14:46:51.918Z"
+ },
+ {
+  "id": "I2",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "step 1: the asset opens in the panel in view mode: ok; step 2: Edit opens it in edit mode: ok; step 3: delete confirmation appears: ok; Cancel leaves the asset in place: ok; step 4: Edit and Delete disabled for Suganya with a no-permission tooltip: ok",
+  "evidence": "e2e/screenshots/I2/01_view.png | e2e/screenshots/I2/02_edit.png | e2e/screenshots/I2/03_delete_confirm.png | e2e/screenshots/I2/04_suganya_card.png",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:46:58.558Z"
+ },
+ {
+  "id": "I3",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "COILED TUBING UNIT and PUMP UNIT cards with status pill and icon buttons: ok; Rename turns the name into a text box with Save and Cancel: ok; Cancel restores the name: ok; Delete (cancelled) keeps the template: ok",
+  "evidence": "e2e/screenshots/I3/01_templates.png | e2e/screenshots/I3/02_rename.png | e2e/screenshots/I3/03_delete_confirm.png",
+  "notes": "PUMP UNIT buttons: View this template's structure, Click to cycle Draft → Active → Inactive, Rename, Delete / Structure and card-click opening: see screenshots; not opened by the run",
+  "proposed fix": "",
+  "date": "2026-11-07T14:47:19.236Z"
+ },
+ {
+  "id": "I4",
+  "runner": "claude-code+review",
+  "status": "Needs review",
+  "verdicts": "",
+  "evidence": "e2e/screenshots/I4/01_asset_form.png | e2e/screenshots/I4/02_users.png | e2e/screenshots/I4/03_roles.png",
+  "notes": "Look not judged by Claude Code; screenshots for Jess. neumorphic text boxes, focus glow, dimmer disabled boxes: screens saved for Jess",
+  "proposed fix": "",
+  "date": "2026-11-07T14:47:32.942Z"
+ },
+ {
+  "id": "I5",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "no Show flow button on a Draft report: ok",
+  "evidence": "e2e/screenshots/I5/01_draft.png",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:47:41.761Z"
+ },
+ {
+  "id": "I6",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "report submitted (not closed): ok; the card has a Show flow button: ok; it opens the flow (not the report); title reads ASSET1 — Document flow: ok; Back returns to My Reports: ok",
+  "evidence": "e2e/screenshots/I6/01_header.png | e2e/screenshots/I6/02_my_reports.png",
+  "notes": "Possible race: a header dropdown choice can be lost (to confirm by hand) (FIXED (not committed). I6 and I7 re-tested on copies of snapshots/final_after_J9.db (I5 / I12 replayed as setup) with the test re-select retry switched off: Pass at automation speed (e2e/run/retest_I6.db, recorded) and with a 1-second pause between fields (e2e/run/retest_I6_slow.db). The Compliance Stage choice was kept both ways. The Distance Travelled and Footer steps use the same reset-on-refresh pattern and were not changed.) Compliance Stage after choosing YARD INSPECTION: screen \"YARD INSPECTION\", stored {\"value\":\"YARD INSPECTION\"} / report used: #20: Minor-only (no faults) Yard Inspection on ASSET1, submitted for I6 / I7 / I12",
+  "proposed fix": "HeaderEntryStep tracks fields changed but not yet saved and keeps them when savedValues refreshes (merge instead of replace). (FIXED (not committed). I6 and I7 re-tested on copies of snapshots/final_after_J9.db (I5 / I12 replayed as setup) with the test re-select retry switched off: Pass at automation speed (e2e/run/retest_I6.db, recorded) and with a 1-second pause between fields (e2e/run/retest_I6_slow.db). The Compliance Stage choice was kept both ways. The Distance Travelled and Footer steps use the same reset-on-refresh pattern and were not changed.)",
+  "date": "2026-11-07T15:41:37.311Z"
+ },
+ {
+  "id": "I12",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "asset box: Open Asset Registry enabled: ok; Decision box: Open button disabled with the no-access note: ok; Repair box: Open button disabled with the no-access note: ok; selecting boxes and reading details still works: ok",
+  "evidence": "e2e/screenshots/I12/01_decision_disabled.png",
+  "notes": "report used: Report 2 (#9, submitted by Suganya), opened through the asset flow since it is closed; the My Reports route is checked in I6",
+  "proposed fix": "",
+  "date": "2026-11-07T14:48:13.109Z"
+ },
+ {
+  "id": "I7",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "report header has Show flow next to Back: ok; both routes open the same flow: ok",
+  "evidence": "e2e/screenshots/I7/01_flow_from_queue.png | e2e/screenshots/I7/02_flow_from_header.png",
+  "notes": "Possible race: a header dropdown choice can be lost (to confirm by hand) (FIXED (not committed). I6 and I7 re-tested on copies of snapshots/final_after_J9.db (I5 / I12 replayed as setup) with the test re-select retry switched off: Pass at automation speed (e2e/run/retest_I6.db, recorded) and with a 1-second pause between fields (e2e/run/retest_I6_slow.db). The Compliance Stage choice was kept both ways. The Distance Travelled and Footer steps use the same reset-on-refresh pattern and were not changed.)",
+  "proposed fix": "HeaderEntryStep tracks fields changed but not yet saved and keeps them when savedValues refreshes (merge instead of replace). (FIXED (not committed). I6 and I7 re-tested on copies of snapshots/final_after_J9.db (I5 / I12 replayed as setup) with the test re-select retry switched off: Pass at automation speed (e2e/run/retest_I6.db, recorded) and with a 1-second pause between fields (e2e/run/retest_I6_slow.db). The Compliance Stage choice was kept both ways. The Distance Travelled and Footer steps use the same reset-on-refresh pattern and were not changed.)",
+  "date": "2026-11-07T15:42:18.385Z"
+ },
+ {
+  "id": "I8",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "five fault boxes: ok; Agitator row ends in a Repair verified box: ok; Breather row ends in a Repair verified box: ok; Air Filter row has no Red repair box: ok; Actuators on Control Panel row has no Red repair box: ok; Brass Bushing Condition Within Tolerance Limits row has no Red repair box: ok; a Tag box lists the tag changes of this report: ok",
+  "evidence": "e2e/screenshots/I8/01_flow.png",
+  "notes": "red border on Critical, amber on Moderate: see screenshot",
+  "proposed fix": "",
+  "date": "2026-11-07T14:48:27.880Z"
+ },
+ {
+  "id": "I9",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "Carried in box names Report 2 as the source: ok; Open report opens Report 2 read-only: ok; Back returns to the flow of Report 3: ok",
+  "evidence": "e2e/screenshots/I9/01_carried_in.png",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:48:39.062Z"
+ },
+ {
+  "id": "I10",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "C9: Ball Valves Critical becoming Moderate: ok; C9: Tag box present (Red then Green): ok; F9: a Repaired on site box for Ball Valves: ok; F9: no decision or repair boxes for it: ok",
+  "evidence": "e2e/screenshots/I10/01_c9.png | e2e/screenshots/I10/02_f9.png",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:48:51.692Z"
+ },
+ {
+  "id": "I11",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "selecting a Fault box lists its details: ok; selected box highlighted with a blue border: ok; Open Pending Approvals opens it: ok; Open Rectification Queue opens it: ok; Open Asset Registry opens it: ok; double-clicking a Decision box opens its screen directly: ok",
+  "evidence": "",
+  "notes": "read-only flow: no control on the flow screen changes a decision, repair or tag (only Open / Show buttons)",
+  "proposed fix": "",
+  "date": "2026-11-07T14:49:07.334Z"
+ },
+ {
+  "id": "I13",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "an MOC box for MOC-2026-014 is shown: ok; MOC box shows reference, Revoked, validity dates and approver: ok; its button opens the Asset Registry: ok",
+  "evidence": "e2e/screenshots/I13/01_moc.png",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:49:45.803Z"
+ },
+ {
+  "id": "J1",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "a flow icon button on every asset card, next to Edit and Delete: ok; click opens the Asset history flow for ASSET2 (not the edit form): ok; Back returns to Asset Registry: ok",
+  "evidence": "e2e/screenshots/J1/01_registry.png | e2e/screenshots/J1/02_asset_flow.png | backend test mri_matrix_backend.rs (0 DB checks ok)",
+  "notes": "screen-only case: no backend rule to test; covered in Phase 2",
+  "proposed fix": "",
+  "date": "2026-11-07T14:26:47.475Z"
+ },
+ {
+  "id": "J2",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Report 2: 5 faults, 0 open: ok; [DB] carried arc Report 2 -> Report 3: ok; [DB] tag boxes = tag history rows: ok; [DB] exemption box present: ok; [DB] reports in date order (drafts last): ok; [DB] enabled triggers available for the trigger boxes (screen shows enabled only): ok; top row: the asset, then every report on ASSET2: ok; Report 2 box shows status, date and fault counts (5 faults, 0 open): ok; report and tag boxes show readable dates: ok; one Tag box per tag change: ok; MOC exemption box and enabled trigger boxes under the asset: ok; carried-forward fault drawn as a dashed arc: ok; select a report box: detail list shown: ok; report box details show readable dates: ok; select a tag box: detail list shown: ok; tag box details show readable dates: ok; select a exemption box: detail list shown: ok; exemption box details show readable dates: ok; select a trigger box: detail list shown: ok; trigger box details show readable dates: ok",
+  "evidence": "e2e/screenshots/J2/01_flow.png | backend test mri_matrix_backend.rs (6 DB checks ok)",
+  "notes": "Dates shown as raw Unix seconds (FIXED (not committed). J2 re-tested on e2e/run/retest_J2.db (copy of snapshots/final_after_J9.db): Pass. H3 re-tested on e2e/run/retest_H3.db (copy of snapshots/before_G1.db; G1–H2 replayed as setup, not recorded): Pass.) boxes with open faults: Report #11 (var(--danger)), Tag: none → Green (var(--success)), Tag: Green → Red (var(--danger)), Tag: Yellow → Red (var(--danger)), Tag: Y… / trigger box MR-II EH: MR-II EH380 / 400reset 2026-10-28 stroke var(--warn) / box colours (amber at warning, red at interval, red border on open faults): see screenshot",
+  "proposed fix": "Format all-digit date values as dates (seconds x 1000), DD/Mon/YYYY like Pending Approvals: AssetFlow shortDate() and its detail rows, the MR cost date (ReportWizard), the Asset Registry tag history, the Pending Approvals reminder time, and the report date on Review & Submit / print (ReportWizard fmtDate, DD-Mon-YYYY as elsewhere on the report). (FIXED (not committed). J2 re-tested on e2e/run/retest_J2.db (copy of snapshots/final_after_J9.db): Pass. H3 re-tested on e2e/run/retest_H3.db (copy of snapshots/before_G1.db; G1–H2 replayed as setup, not recorded): Pass.)",
+  "date": "2026-11-07T15:29:04.288Z"
+ },
+ {
+  "id": "J3",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "Show flow of this report opens Report 2's document flow: ok; Show asset history flow opens the asset flow: ok; Back 1: report flow: ok; Back 2: asset flow: ok; Back 3: Asset Registry: ok",
+  "evidence": "backend test mri_matrix_backend.rs (0 DB checks ok)",
+  "notes": "screen-only case: no backend rule to test; covered in Phase 2",
+  "proposed fix": "",
+  "date": "2026-11-07T14:27:05.078Z"
+ },
+ {
+  "id": "J4",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "the report opens read-only: ok; Back returns to the asset flow: ok; the Triggers screen for ASSET2 opens: ok",
+  "evidence": "e2e/screenshots/J4/01_report.png | e2e/screenshots/J4/02_triggers.png | backend test mri_matrix_backend.rs (0 DB checks ok)",
+  "notes": "screen-only case: no backend rule to test; covered in Phase 2",
+  "proposed fix": "",
+  "date": "2026-11-07T14:27:24.074Z"
+ },
+ {
+  "id": "J6",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Air Filter decision box has one audit row per logged decision: ok; [DB] Actuators decision box has its Rejected row: ok; Decision, Reviewer and Provisional status shown: ok; Reminders sent shown: ok; one Audit row per logged decision (action, severity, reviewer and method, recorded by, time, note): ok; Actuators decision box: rows agree with the decision log (Rejected): ok",
+  "evidence": "e2e/screenshots/J6/01_air_filter_decision.png | backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "No decisions logged yet: every fault on Report 2 has a logged decision, so this text is not reachable here",
+  "proposed fix": "",
+  "date": "2026-11-07T14:27:36.907Z"
+ },
+ {
+  "id": "J7",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] Report 3 Carried in box from report #2: ok; [DB] Report 2 Brass Bushing box: carried forward to report #3: ok; the flow of Report 2 opens: ok; Brass Bushing fault box: Carried forward to report #11: ok; Show flow of report #11 button returns to the later report: ok; Back goes to the flow of Report 3: ok",
+  "evidence": "e2e/screenshots/J7/01_carried_in.png | e2e/screenshots/J7/02_report2_brass_bushing.png | backend test mri_matrix_backend.rs (2 DB checks ok)",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:27:51.721Z"
+ },
+ {
+  "id": "J8",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "a Show flow button sits beside Back to assets: ok; opens the asset history flow: ok; Back returns to the asset history panel: ok",
+  "evidence": "e2e/screenshots/J8/01_asset_list.png | e2e/screenshots/J8/02_asset_history.png | e2e/screenshots/J8/03_flow.png | e2e/screenshots/J8/04_after_back.png | backend test mri_matrix_backend.rs (0 DB checks ok)",
+  "notes": "Back from the asset flow opened on the Dashboard lands on the Dashboard start view (FIXED (not committed). J8 re-tested on e2e/run/retest_J8.db (copy of snapshots/final_after_J9.db): Pass.) screen-only case: no backend rule to test; covered in Phase 2 / Open button for a screen Marilyn may not have: [{\"text\":\"Open triggers\",\"disabled\":false,\"title\":\"\"}] / report box buttons for Marilyn: [{\"text\":\"Show flow of this report\",\"disabled\":false,\"title\":\"\"},{\"text\":\"Open report\",\"disabled\":false,\"title\":\"\"}] / Open buttons disabled where Marilyn has no permission: see the info rows and screenshot",
+  "proposed fix": "Keep the Dashboard view and selected asset in App.tsx (DashboardNav state passed to Dashboard); opening the Dashboard from the main menu still starts at its hub. (FIXED (not committed). J8 re-tested on e2e/run/retest_J8.db (copy of snapshots/final_after_J9.db): Pass.)",
+  "date": "2026-11-07T15:37:39.049Z"
+ },
+ {
+  "id": "J9",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "[DB] report flow blocked: ok; [DB] asset flow blocked: ok; [DB] report flow opens after restore: ok; [DB] asset flow opens after restore: ok; [DB] Administrator never blocked: ok; flows show the outside-country-access message (or the asset is not offered at all); no boxes drawn: ok; after restoring access both flows open normally: ok",
+  "evidence": "e2e/screenshots/J9/01_restricted.png | e2e/screenshots/J9/02_restored.png | backend test mri_matrix_backend.rs (5 DB checks ok)",
+  "notes": "Administrators and users with no country rows: Phase 1 J9: never blocked",
+  "proposed fix": "",
+  "date": "2026-11-07T14:28:22.557Z"
+ },
+ {
+  "id": "K1",
+  "runner": "claude-code",
+  "status": "Pass",
+  "verdicts": "exactly three themes: Light, Dark, macOS Light: ok; picking each one changes the whole app at once (no restart): ok",
+  "evidence": "e2e/screenshots/K1/01_theme_list.png | e2e/screenshots/K1/02_after_Dark.png | e2e/screenshots/K1/03_after_macOS_Light.png | e2e/screenshots/K1/04_after_Light.png",
+  "notes": "",
+  "proposed fix": "",
+  "date": "2026-11-07T14:49:59.173Z"
+ },
+ {
+  "id": "K2",
+  "runner": "claude-code+review",
+  "status": "Needs review",
+  "verdicts": "",
+  "evidence": "e2e/screenshots/K2/01_Light_main_menu.png | e2e/screenshots/K2/02_Light_asset_registry.png | e2e/screenshots/K2/03_Light_select_asset.png | e2e/screenshots/K2/04_Light_dashboard.png | e2e/screenshots/K2/05_Light_admin_users.png",
+  "notes": "Look not judged by Claude Code; screenshots for Jess. look: screens saved for Jess",
+  "proposed fix": "",
+  "date": "2026-11-07T14:50:17.143Z"
+ },
+ {
+  "id": "K3",
+  "runner": "claude-code+review",
+  "status": "Needs review",
+  "verdicts": "",
+  "evidence": "e2e/screenshots/K3/01_Dark_main_menu.png | e2e/screenshots/K3/02_Dark_asset_registry.png | e2e/screenshots/K3/03_Dark_select_asset.png | e2e/screenshots/K3/04_Dark_dashboard.png | e2e/screenshots/K3/05_Dark_admin_users.png",
+  "notes": "Look not judged by Claude Code; screenshots for Jess. look: screens saved for Jess",
+  "proposed fix": "",
+  "date": "2026-11-07T14:50:31.762Z"
+ },
+ {
+  "id": "K4",
+  "runner": "claude-code+review",
+  "status": "Needs review",
+  "verdicts": "",
+  "evidence": "e2e/screenshots/K4/01_asset_form.png",
+  "notes": "Look not judged by Claude Code; screenshots for Jess. text box borders: screen saved for Jess",
+  "proposed fix": "",
+  "date": "2026-11-07T14:50:50.436Z"
+ },
+ {
+  "id": "K5",
+  "runner": "claude-code+review",
+  "status": "Needs review",
+  "verdicts": "",
+  "evidence": "e2e/screenshots/K5/01_registry_icons.png",
+  "notes": "Look not judged by Claude Code; screenshots for Jess. icon buttons: screen saved for Jess",
+  "proposed fix": "",
+  "date": "2026-11-07T14:50:56.101Z"
+ },
+ {
+  "id": "K6",
+  "runner": "claude-code+review",
+  "status": "Needs review",
+  "verdicts": "",
+  "evidence": "e2e/screenshots/K6/01_error.png",
+  "notes": "Blocked: waitUntil condition timed out after 10000ms Look not judged by Claude Code; screenshots for Jess.",
+  "proposed fix": "",
+  "date": "2026-11-07T14:50:59.050Z"
+ },
+ {
+  "id": "K7",
+  "runner": "claude-code+review",
+  "status": "Needs review",
+  "verdicts": "",
+  "evidence": "e2e/screenshots/K7/01_dialog.png",
+  "notes": "Look not judged by Claude Code; screenshots for Jess. tables and dialogs: screen saved for Jess",
+  "proposed fix": "",
+  "date": "2026-11-07T14:51:10.790Z"
+ },
+ {
+  "id": "K8",
+  "runner": "claude-code+review",
+  "status": "Needs review",
+  "verdicts": "",
+  "evidence": "e2e/screenshots/K8/01_macOS_Light_main_menu.png | e2e/screenshots/K8/02_macOS_Light_asset_registry.png | e2e/screenshots/K8/03_macOS_Light_select_asset.png | e2e/screenshots/K8/04_macOS_Light_dashboard.png | e2e/screenshots/K8/05_macOS_Light_admin_users.png",
+  "notes": "Look not judged by Claude Code; screenshots for Jess. observation: screens saved for Jess",
+  "proposed fix": "",
+  "date": "2026-11-07T14:51:15.223Z"
+ },
+ {
+  "id": "K9",
+  "runner": "claude-code+review",
+  "status": "Needs review",
+  "verdicts": "",
+  "evidence": "e2e/screenshots/K9/01_switch_Light.png | e2e/screenshots/K9/02_switch_Dark.png | e2e/screenshots/K9/03_switch_macOS_Light.png | e2e/screenshots/K9/04_switch_Dark.png | e2e/screenshots/K9/05_switch_Light.png",
+  "notes": "Look not judged by Claude Code; screenshots for Jess. no leftovers after switching: screens saved for Jess",
+  "proposed fix": "",
+  "date": "2026-11-07T14:51:28.320Z"
+ },
+ {
+  "id": "K10",
+  "runner": "claude-code+review",
+  "status": "Needs review",
+  "verdicts": "",
+  "evidence": "e2e/screenshots/K10/01_picker.png | e2e/screenshots/K10/02_picker_Dark.png | e2e/screenshots/K10/03_picker_macOS_Light.png | e2e/screenshots/K10/04_picker_Light.png",
+  "notes": "Look not judged by Claude Code; screenshots for Jess. theme picker on the sign-in screen: screens saved for Jess",
+  "proposed fix": "",
+  "date": "2026-11-07T14:51:43.516Z"
+ },
+ {
+  "id": "K11",
+  "runner": "claude-code+review",
+  "status": "Needs review",
+  "verdicts": "",
+  "evidence": "e2e/screenshots/K11/01_checklist_fail_buttons.png",
+  "notes": "Look not judged by Claude Code; screenshots for Jess. Fail button fill: screen saved for Jess",
+  "proposed fix": "",
+  "date": "2026-11-07T14:51:51.789Z"
+ },
+ {
+  "id": "L1",
+  "runner": "claude-code+review",
+  "status": "Needs review",
+  "verdicts": "",
+  "evidence": "e2e/screenshots/L1/01_lamps.png",
+  "notes": "Look not judged by Claude Code; screenshots for Jess. lamps: {\"label\":\"Green tag\",\"title\":\"Green tag: No open Critical faults remain (report #17)\"} {\"label\":\"Green tag\",\"title\":\"Green tag: No open Cri… / lamp look: screen saved for Jess",
+  "proposed fix": "",
+  "date": "2026-11-07T14:52:09.894Z"
+ },
+ {
+  "id": "L2",
+  "runner": "claude-code+review",
+  "status": "Needs review",
+  "verdicts": "",
+  "evidence": "e2e/screenshots/L2/01_select_asset.png | e2e/screenshots/L2/02_dashboard.png",
+  "notes": "Look not judged by Claude Code; screenshots for Jess. lamps: screens saved for Jess",
+  "proposed fix": "",
+  "date": "2026-11-07T14:52:17.592Z"
+ },
+ {
+  "id": "L3",
+  "runner": "claude-code+review",
+  "status": "Needs review",
+  "verdicts": "",
+  "evidence": "e2e/screenshots/L3/01_asset_stats.png",
+  "notes": "Look not judged by Claude Code; screenshots for Jess. stat cards: screen saved for Jess",
+  "proposed fix": "",
+  "date": "2026-11-07T14:52:24.576Z"
+ },
+ {
+  "id": "L4",
+  "runner": "claude-code+review",
+  "status": "Needs review",
+  "verdicts": "",
+  "evidence": "e2e/screenshots/L4/01_main_menu.png",
+  "notes": "Look not judged by Claude Code; screenshots for Jess. KPIs: screen saved for Jess",
+  "proposed fix": "",
+  "date": "2026-11-07T14:52:29.181Z"
+ },
+ {
+  "id": "L5",
+  "runner": "claude-code+review",
+  "status": "Needs review",
+  "verdicts": "",
+  "evidence": "e2e/screenshots/L5/01_Light_registry.png | e2e/screenshots/L5/02_Light_dashboard.png | e2e/screenshots/L5/03_Dark_registry.png | e2e/screenshots/L5/04_Dark_dashboard.png | e2e/screenshots/L5/05_macOS_Light_registry.png | e2e/screenshots/L5/06_macOS_Light_dashboard.png",
+  "notes": "Look not judged by Claude Code; screenshots for Jess. lamps and cards in each theme: screens saved for Jess",
+  "proposed fix": "",
+  "date": "2026-11-07T14:52:30.577Z"
+ },
+ {
+  "id": "L6",
+  "runner": "claude-code+review",
+  "status": "Needs review",
+  "verdicts": "",
+  "evidence": "e2e/screenshots/L6/01_small_main_menu.png | e2e/screenshots/L6/02_small_dashboard.png",
+  "notes": "Look not judged by Claude Code; screenshots for Jess. gauges at small size: screens saved for Jess",
+  "proposed fix": "",
+  "date": "2026-11-07T14:52:59.255Z"
+ }
+]
