@@ -21,7 +21,13 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "$RESOURCE/resources/maps/**"
+        ]
+      }
     }
   },
   "bundle": {
@@ -29,7 +35,9 @@
     "targets": "all",
     "resources": {
       "resources/beta-start.db": "resources/beta-start.db",
-      "libs/libcrypto-3-x64.dll": "libcrypto-3-x64.dll"
+      "libs/libcrypto-3-x64.dll": "libcrypto-3-x64.dll",
+      "resources/maps/test-region.pmtiles": "resources/maps/test-region.pmtiles",
+      "libs/vcruntime140.dll": "vcruntime140.dll"
     },
     "windows": {
       "nsis": {

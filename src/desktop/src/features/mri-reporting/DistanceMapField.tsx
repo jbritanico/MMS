@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import {
-    addProtocol,
     GeoJSONSource,
     Map as MaplibreMap,
     Marker,
@@ -10,18 +9,10 @@ import {
     type ErrorEvent as MaplibreErrorEvent,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Protocol } from "pmtiles";
 import { layers, namedFlavor } from "@protomaps/basemaps";
+import { basemapUrl, diagnoseBasemap, ensurePmtilesProtocol, hasWebGL2 } from "../../lib/basemap";
 
-let protocolRegistered = false;
-function ensurePmtilesProtocol() {
-    if (protocolRegistered) return;
-    const protocol = new Protocol();
-    addProtocol("pmtiles", protocol.tile);
-    protocolRegistered = true;
-}
 
-const DEFAULT_TILE_PATH = "/maps/test-region.pmtiles";
 const SOURCE_NAME = "basemap";
 const ROUTE_SOURCE_ID = "distance-field-route";
 const ROUTE_LAYER_ID = "distance-field-route-line";
@@ -101,21 +92,36 @@ function DistanceMapField({
         setMapError(null);
 
         const flavor = namedFlavor("light");
-        const map = new MaplibreMap({
+        let map: MaplibreMap;
+        try {
+            map = new MaplibreMap({
             container: containerRef.current,
             style: {
                 version: 8,
                 sources: {
                     [SOURCE_NAME]: {
                         type: "vector",
-                        url: `pmtiles://${window.location.origin}${DEFAULT_TILE_PATH}`,
+                        url: basemapUrl(),
                     },
                 },
                 layers: layers(SOURCE_NAME, flavor),
             },
             center: [55.27, 25.2],
             zoom: 6,
+            });
+        } catch (e) {
+            // e.g. graphics (WebGL2) switched off on this computer: say so instead of a silent grey box
+            setMapError(`The map could not start on this computer: ${e instanceof Error ? e.message : String(e)} (WebGL2: ${hasWebGL2() ? "available" : "not available"})`);
+            return;
+        }
+
+        let loaded = false;
+        map.once("load", () => {
+            loaded = true;
         });
+        const loadCheck = window.setTimeout(() => {
+            if (!loaded) diagnoseBasemap().then(setMapError);
+        }, 12000);
 
         map.on("error", (e: MaplibreErrorEvent) => {
             setMapError(`Map failed to load — is the basemap file in place? (${e.error?.message ?? "unknown error"})`);
@@ -145,6 +151,7 @@ function DistanceMapField({
         mapRef.current = map;
 
         return () => {
+            window.clearTimeout(loadCheck);
             map.remove();
             mapRef.current = null;
         };

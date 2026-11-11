@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import {
-    addProtocol,
     GeoJSONSource,
     Map as MaplibreMap,
     Marker,
@@ -10,17 +9,10 @@ import {
     type ErrorEvent as MaplibreErrorEvent,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Protocol } from "pmtiles";
 import { layers, namedFlavor } from "@protomaps/basemaps";
+import { basemapUrl, ensurePmtilesProtocol } from "../../lib/basemap";
 
 // Registered once per app lifetime — safe to call even if this screen mounts more than once.
-let protocolRegistered = false;
-function ensurePmtilesProtocol() {
-    if (protocolRegistered) return;
-    const protocol = new Protocol();
-    addProtocol("pmtiles", protocol.tile);
-    protocolRegistered = true;
-}
 
 const DEFAULT_TILE_PATH = "/maps/test-region.pmtiles";
 const SOURCE_NAME = "basemap";
@@ -103,7 +95,7 @@ function DistanceMapTest() {
                 sources: {
                     [SOURCE_NAME]: {
                         type: "vector",
-                        url: `pmtiles://${window.location.origin}${loadedTilePath}`,
+                        url: loadedTilePath === DEFAULT_TILE_PATH ? basemapUrl() : `pmtiles://${window.location.origin}${loadedTilePath}`,
                     },
                 },
                 layers: layers(SOURCE_NAME, flavor),
