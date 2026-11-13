@@ -12,6 +12,7 @@ import dashboardBgImageDark from "../../assets/FieldDark.png";
 import { isDarkTheme, type Theme } from "../../lib/theme";
 import { useAssets } from "../asset-registry/hooks/useAssets";
 import { TagLamp } from "../../components/Instruments";
+import MriDashboards from "./MriDashboards";
 
 const STATUS_COLOR: Record<string, string> = {
   Draft: "var(--st-grey)",
@@ -195,6 +196,16 @@ const TRASH_ICON = (
     <path d="M9 7V4.8c0-.44.36-.8.8-.8h4.4c.44 0 .8.36.8.8V7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
     <path d="M6.5 7l.7 12.2c.05.98.86 1.8 1.84 1.8h6.92c.98 0 1.79-.82 1.84-1.8L18.5 7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
     <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+  </svg>
+);
+
+// User Analytics tile: two people with a small chart.
+const USER_ANALYTICS_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="8" cy="7.5" r="2.8" stroke="currentColor" strokeWidth="1.6" />
+    <path d="M3 18.5a5 5 0 0 1 10 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    <circle cx="15.5" cy="8.5" r="2.2" stroke="currentColor" strokeWidth="1.6" />
+    <path d="M15 20.5v-3M18 20.5v-5M21 20.5v-7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
   </svg>
 );
 
@@ -579,7 +590,7 @@ function AssetHistoryPanel({ assetId, assetCode, assetDescription, onBack, onOpe
   );
 }
 
-type DashboardView = "hub" | "mri-history";
+type DashboardView = "hub" | "mri-history" | "mri-dashboards" | "user-analytics";
 // Which dashboard view and asset are open. Held by App so Back from a flow returns to them.
 export type DashboardNav = { view: DashboardView; asset: { id: number; code: string; description: string | null } | null };
 
@@ -609,6 +620,22 @@ function Dashboard({ onOpenReport, onShowAssetFlow, theme, nav, onNavChange }: D
           onOpenReport={onOpenReport}
           onShowAssetFlow={onShowAssetFlow}
         />
+      </DashboardBackdrop>
+    );
+  }
+
+  if (view === "user-analytics") {
+    return (
+      <DashboardBackdrop theme={theme}>
+        <MriDashboards section="users" onBack={() => setView("hub")} />
+      </DashboardBackdrop>
+    );
+  }
+
+  if (view === "mri-dashboards") {
+    return (
+      <DashboardBackdrop theme={theme}>
+        <MriDashboards onBack={() => setView("hub")} />
       </DashboardBackdrop>
     );
   }
@@ -661,6 +688,18 @@ function Dashboard({ onOpenReport, onShowAssetFlow, theme, nav, onNavChange }: D
             <span className="dashboard-tile-icon">{HISTORY_TILE_ICON}</span>
             <span className="dashboard-tile-title">Asset MR-I History</span>
             <span className="dashboard-tile-desc">Browse every asset's MR-I report timeline, trigger status, and trend.</span>
+          </div>
+
+          <div className="dashboard-tile" onClick={() => setView("mri-dashboards")}>
+            <span className="dashboard-tile-icon">{FAULT_TREND_ICON}</span>
+            <span className="dashboard-tile-title">MR-I Dashboards</span>
+            <span className="dashboard-tile-desc">Fleet status, defects, reviews, repairs and inspections, for the countries you can see.</span>
+          </div>
+
+          <div className="dashboard-tile" onClick={() => setView("user-analytics")}>
+            <span className="dashboard-tile-icon">{USER_ANALYTICS_ICON}</span>
+            <span className="dashboard-tile-title">User Analytics</span>
+            <span className="dashboard-tile-desc">Workload and response times by person: inspectors, supervisors, reviewers, technicians, managers.</span>
           </div>
 
           <div className="dashboard-tile disabled">

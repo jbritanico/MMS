@@ -37,7 +37,8 @@
       "resources/beta-start.db": "resources/beta-start.db",
       "libs/libcrypto-3-x64.dll": "libcrypto-3-x64.dll",
       "resources/maps/test-region.pmtiles": "resources/maps/test-region.pmtiles",
-      "libs/vcruntime140.dll": "vcruntime140.dll"
+      "libs/vcruntime140.dll": "vcruntime140.dll",
+      "libs/vcruntime140_1.dll": "vcruntime140_1.dll"
     },
     "windows": {
       "nsis": {

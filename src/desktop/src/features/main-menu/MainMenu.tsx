@@ -17,6 +17,7 @@ import {
 } from "../mri-reporting/hooks/useMriFaultApprovals";
 import { useAssets } from "../asset-registry/hooks/useAssets";
 import { usePendingMriFaultRectifications } from "../mri-reporting/hooks/useMriFaultRectifications";
+import { fmtTrialDate, useTrial } from "../../lib/TrialGate";
 import {
   useReportsNeedingSupervisorAction,
   useMyOpenMriReports,
@@ -183,6 +184,7 @@ const MR_LEVELS: { id: MrLevel; short: string; desc: string }[] = [
 ];
 
 function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
+  const trial = useTrial();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [faultDrawerOpen, setFaultDrawerOpen] = useState(false);
   const [idleOpen, setIdleOpen] = useState(false);
@@ -288,6 +290,45 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
 
   return (
     <>
+      {trial?.enabled && trial.days_left != null && !trial.expired && (
+        <div
+          role="status"
+          title={`Beta test period on this computer: ${fmtTrialDate(trial.first_use)} to ${fmtTrialDate(trial.expires_at)}`}
+          style={{
+            position: "fixed",
+            left: 24,
+            bottom: 24,
+            zIndex: 6,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "8px 14px",
+            borderRadius: 12,
+            background: "var(--glass-bg-strong)",
+            boxShadow: "var(--glass-shadow-strong)",
+            color: "var(--text)",
+          }}
+        >
+          <span
+            style={{
+              fontSize: 22,
+              fontWeight: 700,
+              lineHeight: 1,
+              color: trial.days_left <= 5 ? "var(--danger)" : "var(--accent-blue, #2f6fed)",
+            }}
+          >
+            {trial.days_left}
+          </span>
+          <span style={{ display: "flex", flexDirection: "column", lineHeight: 1.25 }}>
+            <span style={{ fontSize: 12, fontWeight: 600 }}>
+              day{trial.days_left === 1 ? "" : "s"} left in the beta
+            </span>
+            <span style={{ fontSize: 11, color: "var(--text-soft)" }}>
+              Ends {fmtTrialDate(trial.expires_at)}
+            </span>
+          </span>
+        </div>
+      )}
       <div
         style={{ position: "relative", height: "100vh", overflow: "hidden" }}
       >

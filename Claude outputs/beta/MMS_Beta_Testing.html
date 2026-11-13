@@ -141,12 +141,20 @@ details.test summary{grid-template-columns:auto minmax(0,1fr) auto auto}
 .pv-wrap{border:1px solid var(--line);border-radius:8px;background:#e9edf1;overflow:auto;max-height:78vh;padding:10px;display:grid;justify-items:center}
 .pv-wrap canvas{background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.12);max-width:100%;height:auto}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.about{margin:4px 0 12px;background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:8px;padding:8px 14px 10px}
+.about h4{margin-top:2px!important}.about p{margin:2px 0 0;font-size:14.5px;line-height:1.5;color:var(--ink)}
+ol.steps{padding-left:22px;margin:4px 0 8px}ol.steps>li{margin:8px 0 2px}ol.steps>li:has(>ol.sub){font-weight:600}ol.steps>li::marker{color:var(--accent);font-weight:700}
+ol.steps ol.sub{list-style:lower-alpha;padding-left:20px;margin:4px 0 2px;font-weight:400}ol.steps ol.sub li{margin:3px 0}ol.steps ol.sub li::marker{color:var(--muted)}
+.stepissue{font:500 11px var(--sans);border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;padding:1px 8px;margin-left:6px;cursor:pointer;vertical-align:1px}.stepissue:hover,.stepissue:focus-visible{border-color:var(--bad);color:var(--bad)}
+select.locked{background:var(--soft);color:var(--ink);opacity:1;cursor:not-allowed;border-style:dashed}
+.locknote{background:var(--accent-soft);border-radius:8px;padding:8px 12px;margin:6px 0 10px;font-size:13.5px}
 .must{display:flex;gap:14px;align-items:flex-start;background:var(--bad-bg);border:2px solid var(--bad);border-left-width:8px;border-radius:10px;padding:14px 16px;margin:14px 0 16px}
 .must-icon{flex:none;width:38px;height:38px;border-radius:50%;background:var(--bad);color:#fff;font:800 24px/38px system-ui,sans-serif;text-align:center}
 .must-body{min-width:0}.must h2{margin:0 0 6px;font-size:18px;line-height:1.25;color:var(--bad);text-wrap:balance}
 .must p{margin:0 0 8px;font-size:14px}.must ul{margin:0 0 8px;padding-left:20px;display:grid;gap:4px;font-size:13.5px}
 .must-do{background:#fff;border:1px dashed var(--bad);border-radius:8px;padding:8px 10px}
 .confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px dashed var(--line);padding-top:8px}
+.must-mini{background:var(--bad-bg);border-left:6px solid var(--bad);border-radius:8px;padding:10px 14px;margin:14px 0}.must-mini ul{margin:6px 0 0;padding-left:20px}.must-mini li{margin:3px 0}
 </style>
 </head><body>
 <main>
@@ -175,7 +183,7 @@ details.test summary{grid-template-columns:auto minmax(0,1fr) auto auto}
         <li><b>The counters would be wrong.</b> Engine hours, distance and operating-hours gauges would start from old values, so the trigger checks in later tests would not add up.</li>
         <li><b>Everyone starts from the same point.</b> Every tester's results can only be compared if all start from an empty, all-Green MMS.</li>
       </ul>
-      <p class="must-do">Do it <b>once</b>, at the very start (Test 1, steps 3–6): <b>Administration → Data Tools → Purging → Clean Slate: Clear All MR-I Data</b>. <b>Never run it again</b> during testing: it deletes every MR-I report, including yours.</p>
+      <p class="must-do">Do it <b>once</b>, at the very start (Test 1, steps 4 and 5): <b>Administration → Data Tools → Purging → Clean Slate: Clear All MR-I Data</b>. <b>Never run it again</b> during testing: it deletes every MR-I report, including yours.</p>
     </div>
   </section>
   <nav class="tabs" id="tabs">
@@ -184,7 +192,7 @@ details.test summary{grid-template-columns:auto minmax(0,1fr) auto auto}
     <a href="#manual" data-v="manual">Manual</a>
     <a href="#report" data-v="report">Report an issue</a>
     <a href="#issues" data-v="issues">Issues<span class="badge" id="b-issues"></span></a>
-    <a href="#export" data-v="export">Send results</a>
+    <a href="#export" data-v="export">Send results</a><a href="#update" data-v="update">Updating MMS</a>
   </nav>
 
   <!-- TESTS -->
@@ -221,7 +229,7 @@ details.test summary{grid-template-columns:auto minmax(0,1fr) auto auto}
         <label class="field"><span>Signed in as (in MMS)</span><select id="i-profile">
           <option value="">—</option><option>Suganya Rajendran (Operator)</option><option>Abdulla Qais (Job Supervisor)</option><option>Jan-Albert Victorino (Operations Coordinator)</option><option>Disantha Perera (Maintenance Supervisor)</option><option>Kamil Shahzad (FSM)</option><option>Jess Britanico (Administrator)</option><option>Marilyn Tabay (Read only)</option></select></label>
         <label class="field"><span>Screen</span><select id="i-screen">
-          <option value="">—</option><option>Start screen</option><option>Main menu</option><option>Attention Required</option><option>Select asset / component</option><option>Header</option><option>Checklist</option><option>Distance Travelled</option><option>Footer</option><option>Review &amp; Submit</option><option>Reports to Review</option><option>Pending Approvals</option><option>Awaiting Confirmation</option><option>Rectification Queue</option><option>My Reports</option><option>Asset Registry / MOC exemption</option><option>Asset MR-I history</option><option>Document flow</option><option>Dashboard</option><option>Print / PDF</option><option>Administration / Data Tools</option><option>Installer / start-up</option><option>Other</option></select></label>
+          <option value="">—</option><option>Start screen</option><option>Main menu</option><option>Attention Required</option><option>Select asset / component</option><option>Header</option><option>Checklist</option><option>Distance Travelled</option><option>Footer</option><option>Review &amp; Submit</option><option>Reports to Review</option><option>Pending Approvals</option><option>Awaiting Confirmation</option><option>Rectification Queue</option><option>My Reports</option><option>Asset Registry / MOC exemption</option><option>Asset MR-I history</option><option>Document flow</option><option>Dashboard</option><option>Print / PDF</option><option>Administration: Users / Roles</option><option>Administration: References (Lookups, Checklist Bank, Asset Types, Sections)</option><option>Administration: MR Templates / Template builder</option><option>Administration / Data Tools</option><option>Installer / start-up</option><option>Other</option></select></label>
         <label class="field"><span>Type <b>*</b></span><select id="i-type"><option value="">—</option><option>Something is wrong (bug)</option><option>Hard to understand</option><option>Missing feature</option><option>Suggestion</option><option>Question</option></select></label>
         <label class="field"><span>How serious? <b>*</b></span><select id="i-sev"><option value="">—</option><option value="1">1 Blocker – I cannot continue</option><option value="2">2 Major – wrong result or data</option><option value="3">3 Minor – works but awkward</option><option value="4">4 Cosmetic – looks wrong</option></select></label>
         <label class="field"><span>Report number / asset</span><input type="text" id="i-ref" placeholder="e.g. Report #5, ASSET2 Left"></label>
@@ -258,6 +266,48 @@ details.test summary{grid-template-columns:auto minmax(0,1fr) auto auto}
 
 
   <!-- PROGRESS -->
+  <section id="v-update" class="view" hidden>
+    <div class="panel"><h2>Updating MMS during the beta</h2>
+      <div class="about"><h4>What this is about</h4><p>While you test, Jess may fix problems and send you a newer version of MMS. Installing it is quick, and <b>your reports, test results and issues are kept</b>. Only the program is replaced; your data is stored in a separate place on your laptop.</p></div>
+      <h3>How will I know?</h3>
+      <p>Jess will send you a message in Teams or by e-mail with a <b>download link</b> and the new version number. Only update when you receive that message.</p>
+      <h3>Step by step</h3>
+      <ol class="steps">
+        <li>Before you update:
+          <ol class="sub">
+            <li>Open MMS and sign in as <b>Jess Britanico</b>.</li>
+            <li>Go to <span class="ui">Administration</span> → <span class="ui">Data Tools</span> → <span class="ui">Backup</span> and press <span class="ui">Export full backup</span>.</li>
+            <li>Save the file in your <b>MMS Beta Backups</b> folder. This is your safety copy.</li>
+            <li>Close MMS completely.</li>
+          </ol></li>
+        <li>Install the update:
+          <ol class="sub">
+            <li>Open the link from Jess and download the file. It is named like <code>Sprint MMS_0.9.1_x64-setup.exe</code>.</li>
+            <li>Double-click the downloaded file.</li>
+            <li>If Windows shows "Windows protected your PC", press <span class="ui">More info</span>, then <span class="ui">Run anyway</span>.</li>
+            <li>Follow the screens to the end. You do not need to remove the old version first.</li>
+          </ol></li>
+        <li>After the update:
+          <ol class="sub">
+            <li>Open <b>Sprint MMS</b> from the Start menu.</li>
+            <li>Go to <span class="ui">Dashboard</span> → <span class="ui">Asset MR-I History</span> and check that your earlier reports are still there.</li>
+            <li>Come back to this testing form and carry on from where you stopped. Your ticks and issues are still here.</li>
+          </ol></li>
+      </ol>
+      <div class="must-mini"><b>Please do not:</b>
+        <ul>
+          <li><b>Uninstall MMS.</b> Removing it can also delete your reports.</li>
+          <li><b>Run Clean Slate again.</b> It deletes every MR-I report, including yours.</li>
+          <li><b>Move or rename this testing form.</b> Your ticks and issues are linked to it.</li>
+        </ul></div>
+      <h3>If something looks wrong after the update</h3>
+      <ol class="steps">
+        <li>Stop testing and send Jess a message.</li>
+        <li>Report it in <a href="#report">Report an issue</a>, with a screenshot.</li>
+        <li>Jess can send you the previous version, and your backup file can bring your data back if needed.</li>
+      </ol>
+    </div>
+  </section>
   <section id="v-export" class="view" hidden>
     <div class="panel"><h2>Send results to Jess</h2>
       <p id="ex-sum"></p>
@@ -562,6 +612,279 @@ function diagramSVG(hl){
    ${lanes}${EDGES.map(edge).join('')}${Object.keys(NODES).map(node).join('')}</svg>`;
 }
 
+// ---------- plain-language purpose and structured steps (overrides TESTS[i][3]) ----------
+// Steps: a string is a main step; {t:'main step', sub:['sub-step', ...]} has sub-steps.
+const ABOUT = {
+ 'G1':'Puts MMS on your laptop and empties the sample data, so every tester starts from the same clean point: no old reports, all units Green, counters at zero.',
+ 'G2':'A backup is a safety copy of everything in MMS. If something goes wrong later, it lets you get your data back.',
+ 'W1-1':'Each person in MMS has a role (Operator, Supervisor, Manager…). This test checks that MMS shows who is signed in and only offers each person the screens their role allows.',
+ 'W1-2':'The heart of MR-I: the Operator inspects a unit before the job, records one small (Minor) fault and sends the report for review.',
+ 'W1-3':'MMS should not accept an incomplete report. This test leaves important fields empty on purpose to check that MMS stops you and tells you what is missing.',
+ 'W1-4':'A report you have not sent yet is a Draft. This test checks you can come back to it later, and that MMS does not let two open reports pile up on the same part of a unit.',
+ 'W1-5':'A report with only small faults needs no manager decision: the Job Supervisor simply reviews and closes it, and its hours and distance are added to the unit\'s history.',
+ 'W1-6':'Inspections also happen in the yard and before mobilisation. This test checks those two report types ask for the right information.',
+ 'W2-1':'Medium (Moderate) faults need a decision. Here the Job Supervisor endorses the report and chooses which supervisor must decide on the faults.',
+ 'W2-2':'The Maintenance Supervisor decides on each Moderate fault in one of four ways (approve, reject, carry forward, reclassify), and the Manager is informed of the decisions.',
+ 'W2-3':'Sometimes a decision is given by phone. The Job Supervisor records it as "provisional", and the report cannot be closed until the supervisor confirms it in MMS.',
+ 'W2-4':'A fault that was not fixed must come back on the next report of the same part, so it is not forgotten, but it must not appear on the other side of the unit.',
+ 'W2-5':'An approved Moderate fault becomes a planned repair. This test plans the repair and closes it once it is done.',
+ 'W3-1':'A serious (Critical) fault makes the unit unsafe: MMS tags it Red at once, and only the FSM / Maintenance Manager may decide on it.',
+ 'W3-2':'The Red unit is repaired: a technician is assigned (the unit turns Yellow), the field team is told of any limits, and once the repair is tested the unit turns Green again.',
+ 'W3-3':'A Red unit may only go to a job with an approved exemption (MOC). This test checks MMS blocks the job without one, allows it with one, and blocks it again once it is revoked.',
+ 'W3-4':'The report after the job (POST JOB) records the job number, hours and distance. These numbers feed the counters that tell when the next MR-II maintenance is due.',
+ 'W3-5':'To save typing, a new report can start from the last Post-Job report, as long as it is less than 72 hours old. Only the safe, repeatable values are copied.',
+ 'W4-1':'Use MMS for real on one or two units, the way you would on a normal day. This tells us whether MMS fits the real work.',
+ 'W4-2':'The history, document flow, dashboard and registry are where you look things up afterwards. This test checks they show the right information and are easy to move around in.',
+ 'W4-3':'The Operations Coordinator adds the maintenance cost to a finished report, and the report can be printed or saved as a PDF.',
+ 'W4-4':'Checks that a backup can be read back into MMS without losing or changing anything.',
+ 'AD0':'A safety copy before the administration tests, which change settings and lists. If anything goes wrong you can put everything back.',
+ 'AD1':'The Administrator manages who can use MMS. This test adds a person, changes their name, switches them off and back on.',
+ 'AD2':'Besides their role, a person can be given (or refused) one extra right, and limited to certain countries. This test checks those personal settings work for that person only.',
+ 'AD3':'Each role comes with a standard set of rights. This test checks the rights match the manual, for example that only the FSM can approve.',
+ 'AD4':'Lookups are the choices in drop-down lists, such as the client names. This test adds, renames and removes a choice and checks it appears in the report.',
+ 'AD5':'The Checklist Bank is the master list of everything that can be inspected. This test adds an item that can later be used in an inspection form.',
+ 'AD6':'Asset types (kinds of equipment) and checklist sections (headings that group the items) are reference lists used when building forms and registering units.',
+ 'AD7':'A template is the inspection form for one type of equipment. This test looks at an existing form and creates a new, empty one.',
+ 'AD8':'Builds the new inspection form step by step: which header fields, which checklist items and how serious each one is, a picture of the unit, and the sign-off fields.',
+ 'AD9':'Registers a new unit and sets when its next MR-II is due (hours, kilometres, days). The unit then uses the form you built.',
+ 'AD10':'The Data Browser lets the Administrator look at the stored data and export it to Excel or other files.',
+ 'AD11':'Purging removes old or unused data. This test only tries the harmless option, to check MMS asks before deleting anything.',
+ 'AD12':'Removes the test data you created in the administration tests, so MMS is tidy again, and checks that deleting always asks first.'
+};
+const SIGN = n => 'Sign in as <b>'+n+'</b>';
+const STEPS2 = {
+ 'G1':[
+   {t:'Install MMS:',sub:['Run the installer from the link in your e-mail.','If Windows shows "Windows protected your PC", press '+ui('More info')+', then '+ui('Run anyway')+'.','Choose "Install for me only".']},
+   'Start <b>Sprint MMS</b> from the Start menu.',
+   {t:'Look at the sample data:',sub:['Pick <b>Jess Britanico</b> (Administrator).','Open '+ui('Asset Registry')+'.','Note the tag lamp on ASSET1 and ASSET2: they come from the sample data and may be Red.']},
+   {t:'Run Clean Slate:',sub:['Go back to the main menu.','Open '+ui('Administration')+' → '+ui('Data Tools')+' → '+ui('Purging')+'.','Under <b>Clean Slate (MR-I Testing)</b>, press '+ui('Clean Slate: Clear All MR-I Data')+'.','Read the warning, then press '+ui('Clean slate')+'. (A new install has nothing to back up yet.)']},
+   {t:'Check the result:',sub:['Open '+ui('Asset Registry')+' again and look at both assets.','Open '+ui('Dashboard')+' → '+ui('Asset MR-I History')+'.']},
+   {t:'Switch to the Operator:',sub:['Sign out (top bar).','Pick <b>Suganya Rajendran</b>.','Open '+ui('Maintenance Report')+' → '+ui('MR-I')+'.']}],
+ 'G2':[SIGN('Jess Britanico')+'.',
+   'Open '+ui('Administration')+' → '+ui('Data Tools')+' → '+ui('Backup')+'.',
+   {t:'Make the backup:',sub:['Press '+ui('Export full backup')+'.','Save the file in your private OneDrive folder <b>MMS Beta Backups</b>.']}],
+ 'W1-1':[
+   {t:'On the start screen, go through all 7 users:',sub:['Use the arrows beside the name.','For each user, read the role panel under the name.']},
+   {t:'Sign in as each user in turn:',sub:['Look at the window title.','Look at the main menu.']}],
+ 'W1-2':[
+   {t:'Start the report:',sub:[SIGN('Suganya Rajendran')+'.','Open '+ui('Maintenance Report')+' → '+ui('MR-I')+' and pick an asset.','For a pump unit, choose a component that is not greyed out.']},
+   {t:'Fill in the Header:',sub:['Client: pick one from the list.','Location: the well name (e.g. "Test Well TW-21").','Compliance Stage: PRE-JOB.','Maintenance Type: leave it on Preventive.','Pre-Mobilization Checklist ID: PMC-BETA-001.','Pump units only: type Current Engine Hours a little higher than last time.','Press '+ui('Next →')+'.']},
+   {t:'Record a Minor fault on the Checklist:',sub:['Change one Minor item (e.g. Access Ladders &amp; Handrails) to Fail.','Type the Issue details and the Action taken.','Add a photo with '+ui('+')+'.','Leave Closure Status on Pending.','Press '+ui('Next →')+'.']},
+   {t:'Distance:',sub:['Type the Pre-Job km.','Press '+ui('Next →')+'.']},
+   {t:'Footer:',sub:['Operator Date: today.','Supervisor: Abdulla Qais.','Supervisor Date: today.','Press '+ui('Next →')+'.']},
+   {t:'Review and send:',sub:['Check the summary.','Press '+ui('Submit')+'.']}],
+ 'W1-3':[
+   'Start a new report on another free asset or component.',
+   {t:'Try without a Compliance Stage:',sub:['Leave Compliance Stage empty.','Go to Review &amp; Submit and try to Submit.']},
+   {t:'Try without a Checklist ID:',sub:['Go back and choose PRE-JOB.','Leave the Checklist ID empty and try to Submit again.']},
+   {t:'Try to close a fault without an action:',sub:['Fail one item.','Leave Action taken empty.','Set its Closure Status to Closed.']},
+   {t:'Try without the sign-off:',sub:['In the Footer, leave Operator Date or Supervisor empty.','Try to Submit.']}],
+ 'W1-4':[
+   'Leave the Draft from the previous test by going back to the main menu.',
+   'Open '+ui('MR-I')+' and the same asset or component again.',
+   'Then try to start a report on a component whose last report is Submitted but not closed.'],
+ 'W1-5':[
+   {t:'Open the report to review:',sub:[SIGN('Abdulla Qais')+'.','Open Attention Required → '+ui('Reports to Review')+' → '+ui('Review')+'.']},
+   {t:'Close it:',sub:['On the report from test 4, press the round button to open it.','Press '+ui('Close Report')+'.']},
+   {t:'Check the history:',sub:['Open '+ui('Dashboard')+' → '+ui('Asset MR-I History')+'.','Open the asset.']}],
+ 'W1-6':[
+   {t:'Yard inspection:',sub:['As Suganya, create a report with Compliance Stage YARD INSPECTION.','Location: the yard (e.g. "Karachi Yard").','Mark all items Pass and Submit.','As Abdulla, close it.']},
+   {t:'Pre-mobilisation:',sub:['As Suganya, create a PREMOB report.','Checklist ID: PMC-BETA-002. Location: the yard.','Submit.','As Abdulla, close it.']}],
+ 'W2-1':[
+   {t:'Create the report (as Suganya):',sub:['Create a PRE-JOB report.','Fail four Moderate items (e.g. Air Filter, Actuators on Control Panel, Breather, Brass Bushing).','Fill Issue details and Action taken for each.','Submit.']},
+   {t:'Endorse it (as Abdulla):',sub:['Open Reports to Review and open the report.','Press '+ui('Endorse Report')+'.','Try '+ui('Confirm &amp; Endorse')+' before choosing anyone.','Choose Disantha Perera and confirm.']}],
+ 'W2-2':[
+   {t:'Open the faults:',sub:[SIGN('Disantha Perera')+'.','Open Attention Required → '+ui('Pending Approvals')+'.']},
+   'In each decision below, choose Kamil Shahzad under '+ui('Inform (optional)')+'.',
+   {t:'Fault 1, approve:',sub:['Review Method: In-Person.','Type Notes.','Press '+ui('Approve')+'.']},
+   {t:'Fault 2, reject:',sub:['Notes: "Not a fault: within limits".','Press '+ui('Reject')+'.']},
+   {t:'Fault 3, carry forward:',sub:['Notes: "Re-check next report".','Press '+ui('Carryforward')+'.']},
+   {t:'Fault 4, reclassify:',sub:['Reclassify To: Minor.','Type Notes.','Press '+ui('Reclassify')+'.']},
+   {t:'Acknowledge as the Manager:',sub:[SIGN('Kamil Shahzad')+'.','Open Attention Required → '+ui('Pending Approvals')+'.','Under Needs Acknowledgment, press '+ui('Acknowledge')+' on each decision.']}],
+ 'W2-3':[
+   {t:'Prepare a report:',sub:['As Suganya, submit a report with one Moderate fault.','As Abdulla, endorse it to Disantha.']},
+   {t:'Record the phone decision (as Abdulla):',sub:['Open Pending Approvals and open the fault.','Press '+ui('Record (Phone Relay)')+'.','Enter Disantha\'s decision (Approve) and Notes.']},
+   'Still as Abdulla, try to close the report.',
+   {t:'Confirm (as Disantha):',sub:['Open Attention Required → '+ui('Awaiting Confirmation')+'.','Confirm the decision.']},
+   'As Abdulla, close the report.'],
+ 'W2-4':[
+   {t:'Start the next report on the same component as test 10 (as Suganya):',sub:['If it is greyed out, close the earlier reports first.']},
+   'On the checklist, find the item that was carried forward in test 10.',
+   'Start a report on the other component (Right or Left) of the same pump unit.'],
+ 'W2-5':[
+   'As Disantha, open Attention Required → '+ui('Rectification Queue')+'.',
+   {t:'Plan the repair from test 10:',sub:['Press '+ui('Update Plan')+'.','Technician: any name. Parts status: Available. Repair date: today.','Press '+ui('Save')+'.']},
+   'Press '+ui('Verify &amp; Close Follow-up')+'.'],
+ 'W3-1':[
+   {t:'Report the Critical fault (as Suganya):',sub:['Fail a Critical item (e.g. Air Supply Line or Ball Valves).','Fill Issue details and Action taken.','Submit.']},
+   {t:'Endorse (as Abdulla):',sub:['Endorse the report.','Look at who can be chosen as the reviewer.']},
+   {t:'Decide (as Kamil):',sub:['Open Pending Approvals.','Type Notes and press '+ui('Approve')+'.']}],
+ 'W3-2':[
+   {t:'Plan the repair (as Disantha):',sub:['Open the Rectification Queue and the Red repair.','Press '+ui('Update Plan')+'.','Technician (e.g. Bilal Ahmed), Parts status, repair date.','Save.']},
+   {t:'Tell the field team:',sub:['Press '+ui('Inform field team')+'.','Record the limits (e.g. "Do not run above 50% pump rate").']},
+   {t:'Verify the repair:',sub:['Press '+ui('Verify &amp; Remove Tag')+'.','Try Confirm with the function test unticked.','Tick the function test and confirm.']}],
+ 'W3-3':[
+   {t:'Try without an exemption (as Suganya):',sub:['Make sure a unit is Red-tagged (repeat test 14 if needed).','Try to submit a PREMOB report on it.']},
+   {t:'Record the exemption (as Kamil):',sub:['Open '+ui('Asset Registry')+' and select the unit.','Press '+ui('Record exemption')+'.','Reference MOC-BETA-01, approver Kamil, valid 7 days.','Fill the limitations, controls and conditions for return to service.']},
+   'As Suganya, submit the PREMOB report again.',
+   {t:'Revoke it:',sub:['As Kamil, revoke the exemption (a reason is asked).','As Suganya, submit a YARD INSPECTION report.']}],
+ 'W3-4':[
+   'Note the gauges in '+ui('Dashboard')+' → '+ui('Asset MR-I History')+' for the asset.',
+   {t:'Create a POST JOB report (as Suganya):',sub:['Location: the well.','Job Number: JSR-BETA-001.','Job Operating Hours: 10. Post-Job km: 50.','Engine hours: higher than last time.','Submit.']},
+   {t:'Close it (as Abdulla):',sub:['Close the report.','Look at the history gauges again.']}],
+ 'W3-5':[
+   'Within 72 hours of test 17, as Suganya, start a new report on the same component.',
+   {t:'Copy the last report:',sub:['Choose '+ui('Copy last Post-Job report')+'.','Review the new Draft.']}],
+ 'W4-1':[
+   {t:'Inspect one or two real units as on a normal day:',sub:['Go from start to close.','Use the real values.']}],
+ 'W4-2':[
+   'Open '+ui('Dashboard')+' → '+ui('Asset MR-I History')+' for each asset.',
+   {t:'Look at a document flow:',sub:['On a report with faults, press '+ui('Show flow')+'.','Click the boxes.','Press '+ui('← Back')+'.']},
+   'Open '+ui('Asset Registry')+'.'],
+ 'W4-3':[
+   {t:'Enter the cost:',sub:[SIGN('Jan-Albert Victorino')+'.','Open a closed report.','Type the MR cost and press '+ui('Save cost')+'.']},
+   {t:'Print:',sub:['Press '+ui('Print / Export PDF')+'.','Save the PDF.']}],
+ 'W4-4':[
+   {t:'Export (as Jess):',sub:['Open '+ui('Administration')+' → '+ui('Data Tools')+' → '+ui('Backup')+'.','Press '+ui('Export full backup')+'.']},
+   {t:'Import:',sub:['Press '+ui('Import full backup')+'.','Choose the same file.']}],
+ 'AD0':[
+   {t:'Make a backup:',sub:[SIGN('Jess Britanico')+'.','Open '+ui('Administration')+' → '+ui('Data Tools')+' → '+ui('Backup')+'.','Press '+ui('Export full backup')+'.']},
+   'Save the file as <b>MMS_before_admin_tests</b> in your private OneDrive folder.'],
+ 'AD1':[
+   'Open '+ui('Administration')+' → '+ui('Users')+' → Users.',
+   'Press '+ui('Add user')+' with Name and Email empty.',
+   {t:'Add a user:',sub:['Name: Beta Test User.','Email: beta.user@sprint-ae.com.','Role: Operator.']},
+   {t:'Edit the user:',sub:['Press '+ui('Edit')+' on the new user.','Change the name to Beta Test User 2 and save.']},
+   {t:'Switch the user off and on:',sub:['Press '+ui('Deactivate')+'.','Sign out and look for the user on the start screen.','Sign in as Jess again and reactivate the user.']}],
+ 'AD2':[
+   {t:'Give Suganya one extra right:',sub:['In Users, press '+ui('Permissions')+' on Suganya Rajendran.','Click a permission tile she does not have (e.g. assets.create) to grant it.']},
+   {t:'Check it, then undo it:',sub:['Sign in as Suganya and check that Asset Registry now lets her create an asset.','Sign in as Jess and set the tile back to the role default.']},
+   {t:'Country access:',sub:['Press '+ui('Countries')+' on Suganya and read the screen.','If it says no countries are defined, first add PAKISTAN under Lookups → COUNTRY (test 27).','Then assign it.']}],
+ 'AD3':[
+   'Open '+ui('Administration')+' → '+ui('Users')+' → '+ui('Roles')+'.',
+   {t:'Read each role\'s permissions:',sub:['Data Miner View','Operator','Job Supervisor','Operations Coordinator','Maintenance Supervisor','Maintenance Manager / FSM','Administrator']},
+   'Check that only the Maintenance Manager / FSM has Approve (mri.approve).'],
+ 'AD4':[
+   'Open '+ui('Administration')+' → '+ui('References')+' → '+ui('Lookups')+' and choose CLIENT.',
+   {t:'Add and rename a client:',sub:['Type Beta Client Ltd in "New value for CLIENT" and press '+ui('Add')+'.','Rename it to Beta Client LLC.']},
+   {t:'Optional, paste from Excel:',sub:['Press '+ui('Paste from Excel')+'.','Paste two client names copied from Excel.','Review and confirm.']},
+   {t:'Check it in a report (as Suganya):',sub:['Start an MR-I and open the Client list on the Header.','Cancel the draft, or keep it for later.']},
+   'As Jess, delete Beta Client LLC.'],
+ 'AD5':[
+   'Open '+ui('Administration')+' → '+ui('References')+' → '+ui('Checklist Bank')+', tab MR-I.',
+   {t:'Add an item:',sub:['Code: MRI-BETA-01.','Description: Beta test item: check hose labels.','Press '+ui('Add to MR-I')+'.']},
+   {t:'Edit and find it:',sub:['Edit its description.','Search for it.']},
+   {t:'Optional, upload a list:',sub:['Press '+ui('Upload from CSV / Excel')+' with a small sheet (columns Code, Description, Level).','Check the preview before importing.']}],
+ 'AD6':[
+   {t:'Asset Types:',sub:['Open '+ui('References')+' → '+ui('Asset Types')+'.','Add Beta Test Unit.','Change its icon, rename it and search for it.']},
+   {t:'Checklist Sections:',sub:['Open '+ui('References')+' → '+ui('Checklist Sections')+'.','Add Beta Section and rename it.']}],
+ 'AD7':[
+   'Open '+ui('Administration')+' → '+ui('MR Templates')+' → '+ui('MR-I')+'.',
+   {t:'Look at an existing form:',sub:['Press the structure icon on PUMP UNIT.','Read the tree: header fields, checklist items by section, mid and footer fields.']},
+   {t:'Create a template:',sub:['Name: Beta Test Unit — MR-I.','Asset type: Beta Test Unit.','Press '+ui('Create template')+'.']},
+   {t:'Change its status and name:',sub:['Press the status icon to go Draft → Active → Inactive and back to Draft.','Rename the template.']},
+   'Press the download icon (Export Backup) to save a backup of all templates.',
+   'Open '+ui('MR-II')+' and '+ui('MR-III')+' in the menu.'],
+ 'AD8':[
+   {t:'Open the builder:',sub:['Click the Beta Test Unit — MR-I card.','Watch the Live preview below as you go.']},
+   {t:'Header Fields:',sub:['Click fields on the left to add them.','Tick Required on Compliance Stage.','Reorder with the arrows.']},
+   'Components: press '+ui('+ Add Left &amp; Right')+', or skip this for a single-part unit.',
+   {t:'Checklist:',sub:['Add five items from the databank, including MRI-BETA-01.','Set each item\'s section and severity (Minor, Moderate, Major / Critical).','Keep Required ticked.']},
+   {t:'Drawing:',sub:['Press '+ui('Upload drawing')+' with any photo of the equipment.','Place a hotspot and link it to a checklist item.']},
+   'Mid-Section and Footer: tick the fields this unit needs.',
+   {t:'Review &amp; Save:',sub:['Press '+ui('Save Template')+'.','Set the template to Active.']}],
+ 'AD9':[
+   {t:'Register the unit:',sub:['Main menu → '+ui('Asset Registry')+'.','Fill New asset: code BETA-01, description Beta test unit, asset type Beta Test Unit, country, service line.','Save.']},
+   {t:'Set its triggers:',sub:['Open the asset\'s triggers.','Set intervals and warnings (e.g. engine hours 400/350, km 1000/950, operating hours 600/550).']},
+   'As Suganya, open '+ui('Maintenance Report')+' → '+ui('MR-I')+' and start a report on BETA-01.'],
+ 'AD10':[
+   {t:'Open the Data Browser:',sub:['Open '+ui('Administration')+' → '+ui('Data Tools')+' → '+ui('Browser')+'.','Choose a table (e.g. assets, mri_reports).']},
+   {t:'Try its tools:',sub:['Search all columns.','Try grouping.','Export the table as CSV, Excel and JSON.']},
+   'Open '+ui('Removal')+' in the menu.'],
+ 'AD11':[
+   {t:'Get ready:',sub:['Make sure the backup from test 23 exists.','Open '+ui('Administration')+' → '+ui('Data Tools')+' → '+ui('Purging')+'.']},
+   {t:'Try one safe purge:',sub:['Read every option.','Press '+ui('Purge')+' only on Checklist Sections (removes all sections not currently in use).','Confirm.']},
+   {t:'Do not press these:',sub:['Clean Slate: you used it in test 1, and it would delete all your MR-I test reports.','Purge Lookups, Checklist Databank, Asset Types, MR-I Reports or running totals.']}],
+ 'AD12':[
+   {t:'Delete what you created:',sub:['The template Beta Test Unit — MR-I (delete icon on its card).','The asset BETA-01.','The asset type Beta Test Unit.','The bank item MRI-BETA-01.','The user Beta Test User 2.']},
+   {t:'Check the safety lock:',sub:['In Users, press '+ui('Clear all users…')+'.','Read the warning, then press '+ui('Cancel')+'. Do not type CLEAR.']},
+   'If anything went wrong, restore the backup from test 23 with '+ui('Import full backup')+'.']
+};
+TESTS.forEach(t=>{ if(STEPS2[t[0]]) t[3]=STEPS2[t[0]]; });
+// ---------- where each main step happens: [screen in the issue form, who is signed in] ----------
+const SCR_ADM_USERS='Administration: Users / Roles', SCR_ADM_REF='Administration: References (Lookups, Checklist Bank, Asset Types, Sections)', SCR_ADM_TPL='Administration: MR Templates / Template builder', SCR_DATA='Administration / Data Tools';
+const STEP_SCREEN = {
+ 'G1':[['Installer / start-up',''],['Start screen',''],['Asset Registry / MOC exemption','adm'],[SCR_DATA,'adm'],['Asset Registry / MOC exemption','adm'],['Select asset / component','op']],
+ 'G2':[['Start screen','adm'],[SCR_DATA,'adm'],[SCR_DATA,'adm']],
+ 'W1-1':[['Start screen',''],['Main menu','']],
+ 'W1-2':[['Select asset / component','op'],['Header','op'],['Checklist','op'],['Distance Travelled','op'],['Footer','op'],['Review & Submit','op']],
+ 'W1-3':[['Select asset / component','op'],['Review & Submit','op'],['Header','op'],['Checklist','op'],['Footer','op']],
+ 'W1-4':[['Main menu','op'],['Select asset / component','op'],['Select asset / component','op']],
+ 'W1-5':[['Reports to Review','js'],['Reports to Review','js'],['Asset MR-I history','js']],
+ 'W1-6':[['Header','op'],['Header','op']],
+ 'W2-1':[['Checklist','op'],['Reports to Review','js']],
+ 'W2-2':[['Pending Approvals','ms'],['Pending Approvals','ms'],['Pending Approvals','ms'],['Pending Approvals','ms'],['Pending Approvals','ms'],['Pending Approvals','ms'],['Pending Approvals','fsm']],
+ 'W2-3':[['Review & Submit','op'],['Pending Approvals','js'],['Reports to Review','js'],['Awaiting Confirmation','ms'],['Reports to Review','js']],
+ 'W2-4':[['Select asset / component','op'],['Checklist','op'],['Select asset / component','op']],
+ 'W2-5':[['Rectification Queue','ms'],['Rectification Queue','ms'],['Rectification Queue','ms']],
+ 'W3-1':[['Checklist','op'],['Reports to Review','js'],['Pending Approvals','fsm']],
+ 'W3-2':[['Rectification Queue','ms'],['Rectification Queue','ms'],['Rectification Queue','ms']],
+ 'W3-3':[['Review & Submit','op'],['Asset Registry / MOC exemption','fsm'],['Review & Submit','op'],['Asset Registry / MOC exemption','fsm']],
+ 'W3-4':[['Asset MR-I history','op'],['Header','op'],['Reports to Review','js']],
+ 'W3-5':[['Select asset / component','op'],['Select asset / component','op']],
+ 'W4-1':[['Other','op']],
+ 'W4-2':[['Asset MR-I history',''],['Document flow',''],['Asset Registry / MOC exemption','']],
+ 'W4-3':[['Reports to Review','oc'],['Print / PDF','oc']],
+ 'W4-4':[[SCR_DATA,'adm'],[SCR_DATA,'adm']],
+ 'AD0':[[SCR_DATA,'adm'],[SCR_DATA,'adm']],
+ 'AD1':[[SCR_ADM_USERS,'adm'],[SCR_ADM_USERS,'adm'],[SCR_ADM_USERS,'adm'],[SCR_ADM_USERS,'adm'],[SCR_ADM_USERS,'adm']],
+ 'AD2':[[SCR_ADM_USERS,'adm'],['Asset Registry / MOC exemption','op'],[SCR_ADM_USERS,'adm']],
+ 'AD3':[[SCR_ADM_USERS,'adm'],[SCR_ADM_USERS,'adm'],[SCR_ADM_USERS,'adm']],
+ 'AD4':[[SCR_ADM_REF,'adm'],[SCR_ADM_REF,'adm'],[SCR_ADM_REF,'adm'],['Header','op'],[SCR_ADM_REF,'adm']],
+ 'AD5':[[SCR_ADM_REF,'adm'],[SCR_ADM_REF,'adm'],[SCR_ADM_REF,'adm'],[SCR_ADM_REF,'adm']],
+ 'AD6':[[SCR_ADM_REF,'adm'],[SCR_ADM_REF,'adm']],
+ 'AD7':[[SCR_ADM_TPL,'adm'],[SCR_ADM_TPL,'adm'],[SCR_ADM_TPL,'adm'],[SCR_ADM_TPL,'adm'],[SCR_ADM_TPL,'adm'],[SCR_ADM_TPL,'adm']],
+ 'AD8':[[SCR_ADM_TPL,'adm'],[SCR_ADM_TPL,'adm'],[SCR_ADM_TPL,'adm'],[SCR_ADM_TPL,'adm'],[SCR_ADM_TPL,'adm'],[SCR_ADM_TPL,'adm'],[SCR_ADM_TPL,'adm']],
+ 'AD9':[['Asset Registry / MOC exemption','adm'],['Asset Registry / MOC exemption','adm'],['Select asset / component','op']],
+ 'AD10':[[SCR_DATA,'adm'],[SCR_DATA,'adm'],[SCR_DATA,'adm']],
+ 'AD11':[[SCR_DATA,'adm'],[SCR_DATA,'adm'],[SCR_DATA,'adm']],
+ 'AD12':[['Other','adm'],[SCR_ADM_USERS,'adm'],[SCR_DATA,'adm']]
+};
+const SCREEN_OPTIONS_EXTRA=[SCR_ADM_USERS,SCR_ADM_REF,SCR_ADM_TPL];
+const stepTitle = s => (typeof s==='string'?s:s.t).replace(/<[^>]+>/g,'').replace(/:$/,'').trim();
+const STEP_HTML = (steps,id) => '<ol class="steps">'+steps.map((s,k)=>{const rb=`<button type="button" class="stepissue" data-issue="${id}" data-step="${k}" title="Report a problem with this step" aria-label="Report a problem with step ${k+1}">⚑ Report issue</button>`;
+  return typeof s==='string'?`<li>${s} ${rb}</li>`:`<li>${s.t} ${rb}<ol class="sub">${s.sub.map(x=>`<li>${x}</li>`).join('')}</ol></li>`}).join('')+'</ol>';
+// Fill the issue form from a test (and step): test, screen and who is signed in are set for you.
+function prefillIssue(id,k){
+  const t=TESTS.find(x=>x[0]===id); if(!t) return;
+  $('i-test').value=id; lockIssue(id,k);
+  const sc=(STEP_SCREEN[id]||[])[k==null?0:k]||[];
+  const role=sc[1]||(t[2][0]!=='all'?t[2][0]:'');
+  if(role&&U[role]){$('i-profile').value=U[role];$('i-profile').dataset.auto='1';}
+  if(k==null&&$('i-steps').dataset.auto==='1'){$('i-steps').value='';delete $('i-steps').dataset.auto;}
+  if(k!=null){const box=$('i-steps');const line=`Test ${NUM[id]}, step ${k+1} (${stepTitle(t[3][k])}): `;if(!box.value.trim()||box.dataset.auto==='1'){box.value=line;box.dataset.auto='1';}}
+}
+// ---------- lock Test and Screen when the report starts from a test ----------
+let SCREEN_ALL_HTML=null;
+function lockIssue(id,k){
+  const sel=$('i-screen'); if(SCREEN_ALL_HTML==null) SCREEN_ALL_HTML=sel.innerHTML;
+  $('i-test').disabled=true; $('i-test').classList.add('locked');
+  const screens=[...new Set((STEP_SCREEN[id]||[]).map(x=>x[0]).filter(Boolean))];
+  if(k!=null||screens.length<=1){ sel.disabled=true; sel.classList.add('locked'); sel.innerHTML=SCREEN_ALL_HTML; sel.value=((STEP_SCREEN[id]||[])[k==null?0:k]||[])[0]||''; }
+  else { sel.disabled=false; sel.classList.remove('locked'); sel.innerHTML=screens.map(x=>`<option>${esc(x)}</option>`).join(''); sel.value=screens[0]; }
+  let n=$('i-lock'); if(!n){ n=document.createElement('p'); n.id='i-lock'; n.className='locknote'; $('i-test').closest('.grid2').before(n); }
+  n.innerHTML=k!=null?`<b>Test ${NUM[id]}, step ${k+1}</b> is already filled in, with its screen. To report something that is not part of a test, open <b>Report an issue</b> from the tabs at the top.`
+    :`<b>Test ${NUM[id]}</b> is already filled in. Choose the screen from the ones this test uses. To report something that is not part of a test, open <b>Report an issue</b> from the tabs at the top.`;
+  n.hidden=false;
+}
+function unlockIssue(reset){
+  const sel=$('i-screen'); if(SCREEN_ALL_HTML!=null) sel.innerHTML=SCREEN_ALL_HTML;
+  ['i-test','i-screen'].forEach(x=>{ $(x).disabled=false; $(x).classList.remove('locked'); });
+  const n=$('i-lock'); if(n) n.hidden=true;
+  if(reset){ $('i-test').value=''; sel.value='';
+    ['i-profile','i-steps'].forEach(x=>{ if($(x).dataset.auto==='1'){ $(x).value=''; delete $(x).dataset.auto; } }); }
+}
+
 // ---------- local storage (IndexedDB, works offline from a file) ----------
 const STORE_KEY='mms-beta-results-v1';
 let state={tester:'',site:'',checks:{},issues:[],created:new Date().toISOString()};
@@ -694,10 +1017,11 @@ function buildTests(){
        ${nodes.length?`<button type="button" class="wfbtn" data-wf="${id}" title="Show where this test is on the workflow" aria-label="Show test ${i+1} on the workflow"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="7" height="5" rx="1.2"/><rect x="15" y="3" width="7" height="5" rx="1.2"/><rect x="8.5" y="16" width="7" height="5" rx="1.2"/><path d="M5.5 8v3.5h13V8M12 11.5V16"/></svg></button>`:'<span></span>'}
        <span class="pill" id="pl-${id}">To do</span></summary>
      <div class="tbody">
+       ${ABOUT[id]?`<div class="about"><h4>What this test is about</h4><p>${ABOUT[id]}</p></div>`:''}
        ${shots.length?`<div class="shotrow"><button type="button" class="shot main" data-img="${shots[0]}" aria-label="Enlarge screenshot"><img src="${IMG[shots[0]]}" alt="Screen for test ${i+1}"></button>${shots.length>1?`<div class="shotmini">${shots.slice(1).map(k=>`<button type="button" class="shot" data-img="${k}" aria-label="Enlarge screenshot"><img src="${IMG[k]}" alt="" loading="lazy"></button>`).join('')}</div>`:''}</div><p class="small">Screens from a test copy of MMS; your data will differ. Click to enlarge.</p>`:''}
        <div class="cols">
         <div><h4>Sign in as</h4><div class="roles">${roles.map(r=>`<span class="role">${r==='all'?'Each user in turn':U[r]}</span>`).join('')}</div>
-         <h4>Steps</h4><ol>${steps.map(s=>`<li>${s}</li>`).join('')}</ol></div>
+         <h4>Steps</h4>${STEP_HTML(steps,id)}</div>
         <div><h4>What you should see</h4><ul>${exp.map(s=>`<li>${s}</li>`).join('')}</ul>
          ${man.length?`<h4>Manual reference</h4><div class="mans">${man.map(([l,p])=>manLink(l,p)).join('')}</div>`:''}</div>
        </div>
@@ -707,8 +1031,13 @@ function buildTests(){
     const w=e.target.closest('[data-wf]'); if(w){e.preventDefault();e.stopPropagation();openWf(w.dataset.wf);return;}
     const im=e.target.closest('[data-img]'); if(im){openImg(im.dataset.img);return;}
     const d=e.target.closest('button[data-done]'); if(d){toggleDone(d.dataset.done);return;}
-    const r=e.target.closest('button[data-issue]'); if(r){$('i-test').value=r.dataset.issue;location.hash='report';}
+    const r=e.target.closest('button[data-issue]'); if(r){e.preventDefault();e.stopPropagation();prefillIssue(r.dataset.issue,r.dataset.step!=null?+r.dataset.step:null);location.hash='report';}
   });
+  document.querySelectorAll('a[href="#report"]').forEach(a=>a.addEventListener('click',()=>unlockIssue(true)));
+  $('i-clear').addEventListener('click',()=>unlockIssue(true));
+  { const _cf=clearForm; clearForm=function(){ _cf(); unlockIssue(true); }; }
+  $('i-test').addEventListener('change',()=>{const id=$('i-test').value;if($('i-steps').dataset.auto==='1'){$('i-steps').value='';delete $('i-steps').dataset.auto;}if(!id)return;if(!$('i-screen').value||$('i-screen').dataset.auto==='1'){const sc=(STEP_SCREEN[id]||[])[0];if(sc&&sc[0]){$('i-screen').value=sc[0];$('i-screen').dataset.auto='1';}}if(!$('i-profile').value||$('i-profile').dataset.auto==='1'){const t=TESTS.find(x=>x[0]===id);const r=(STEP_SCREEN[id]||[[0,'']])[0][1]||(t&&t[2][0]!=='all'?t[2][0]:'');if(r&&U[r]){$('i-profile').value=U[r];$('i-profile').dataset.auto='1';}}});
+  ['i-screen','i-profile','i-steps'].forEach(k=>$(k).addEventListener('input',()=>{delete $(k).dataset.auto;}));
   $('i-test').innerHTML='<option value="">— (not tied to a test)</option>'+ALL_TESTS.map(t=>`<option value="${t.id}">${t.n}. ${esc(t.title)}</option>`).join('');
   // workflow tab
   $('wf-main').innerHTML=diagramSVG([]);
@@ -764,7 +1093,7 @@ $('man-open').addEventListener('click',()=>openManual(1));
 
 
 // ---------- routing ----------
-const VIEWS=['tests','workflow','manual','report','issues','export'];
+const VIEWS=['tests','workflow','manual','report','issues','export','update'];
 function currentView(){const h=location.hash.replace('#','');return VIEWS.includes(h)?h:'tests';}
 function route(){const v=currentView();VIEWS.forEach(x=>$('v-'+x).hidden=x!==v);document.querySelectorAll('#tabs a').forEach(a=>{if(a.dataset.v===v)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});}
 window.addEventListener('hashchange',route);

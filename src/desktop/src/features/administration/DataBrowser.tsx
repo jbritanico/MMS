@@ -5,37 +5,72 @@ import {
   useBrowsableTables,
   useTableColumns,
   useTableRows,
-  useUpdateTableRow,
-  useDeleteTableRow,
 } from "./hooks/useDataBrowser";
+
+// Plain-language descriptions of the tables the Data Browser can open.
+// group: where the table belongs; name: everyday name; what: what one row is; where: the MMS screen that normally changes it.
+type TableInfo = { group: string; name: string; what: string; where: string; caution?: string };
+
+const TABLE_INFO: Record<string, TableInfo> = {
+  assets: { group: "Equipment", name: "Assets (units)", what: "One row per unit of equipment, such as a CTU or a pumping unit: its code, type, country and current Green / Yellow / Red tag.", where: "Asset Registry" },
+  asset_types: { group: "Equipment", name: "Asset types", what: "The kinds of equipment MMS knows about (for example CTU, Pumping unit) and the icon shown for each.", where: "Administration → References → Asset Types" },
+  maintenance_triggers: { group: "Equipment", name: "Maintenance triggers (MR-II / MR-III countdowns)", what: "For each unit, the counters that decide when the next MR-II or MR-III is due: by hours, kilometres or days, the warning point and how much has been used so far.", where: "Asset Registry → the unit → Triggers" },
+
+  checklist_databank: { group: "Checklist set-up", name: "Checklist Bank", what: "The master list of inspection items (for example \"Access Ladders & Handrails\") with their section and default severity. Templates pick their items from here.", where: "Administration → References → Checklist Bank" },
+  checklist_sections: { group: "Checklist set-up", name: "Checklist sections", what: "The headings that group checklist items, such as Structure or Hydraulics.", where: "Administration → References → Sections" },
+  header_field_catalog: { group: "Checklist set-up", name: "Header fields list", what: "Every field that can appear in the Header step of an MR-I form, such as Client, Location or Compliance Stage.", where: "Administration → MR Templates (Template builder)" },
+  mid_field_catalog: { group: "Checklist set-up", name: "Distance / middle fields list", what: "Every field that can appear in the middle step of an MR-I form, such as Pre-Job or Post-Job kilometres.", where: "Administration → MR Templates (Template builder)" },
+  footer_field_catalog: { group: "Checklist set-up", name: "Footer fields list", what: "Every field that can appear in the Footer step, such as Operator Date or Supervisor.", where: "Administration → MR Templates (Template builder)" },
+  lookups: { group: "Checklist set-up", name: "Drop-down lists (Lookups)", what: "The choices shown in drop-down boxes across MMS, such as clients, compliance stages and component positions. Each row is one choice under one list name.", where: "Administration → References → Lookups" },
+
+  mri_templates: { group: "MR-I templates", name: "MR-I templates", what: "One row per MR-I form design, normally one per asset type. Says which form a unit uses.", where: "Administration → MR Templates" },
+  template_components: { group: "MR-I templates", name: "Template components", what: "The parts of a unit that get their own report, for example Left and Right on a pumping unit.", where: "Administration → MR Templates → Template builder" },
+  template_header_fields: { group: "MR-I templates", name: "Template header fields", what: "Which header fields each template shows, and in what order.", where: "Administration → MR Templates → Template builder" },
+  template_checklist_items: { group: "MR-I templates", name: "Template checklist items", what: "Which checklist items each template contains, in what order and with what severity.", where: "Administration → MR Templates → Template builder" },
+  template_mid_fields: { group: "MR-I templates", name: "Template distance / middle fields", what: "Which middle-step fields each template shows.", where: "Administration → MR Templates → Template builder" },
+  template_footer_fields: { group: "MR-I templates", name: "Template footer fields", what: "Which footer fields each template shows.", where: "Administration → MR Templates → Template builder" },
+  template_drawings: { group: "MR-I templates", name: "Template drawings", what: "The picture of the equipment shown on a template, used to point at where each check is.", where: "Administration → MR Templates → Template builder" },
+  template_drawing_hotspots: { group: "MR-I templates", name: "Drawing hotspots", what: "The numbered spots placed on a template drawing.", where: "Administration → MR Templates → Template builder" },
+  template_drawing_hotspot_items: { group: "MR-I templates", name: "Hotspot ↔ checklist links", what: "Which checklist items each drawing spot stands for. One spot can cover several items.", where: "Administration → MR Templates → Template builder" },
+
+  mri_reports: { group: "MR-I reports", name: "MR-I reports", what: "One row per MR-I report: unit, component, compliance stage, status (Draft, Submitted, Closed and so on), who did it and when.", where: "Maintenance Report → MR-I" },
+  mri_report_header_values: { group: "MR-I reports", name: "Report header answers", what: "What was typed or chosen in the Header step of each report.", where: "Maintenance Report → MR-I → Header" },
+  mri_report_checklist_results: { group: "MR-I reports", name: "Report checklist results", what: "The Pass / Fail result, issue details, action taken and closure status for each checklist item on each report.", where: "Maintenance Report → MR-I → Checklist" },
+  mri_report_mid_values: { group: "MR-I reports", name: "Report distance / middle answers", what: "What was typed in the middle step (for example kilometres) on each report.", where: "Maintenance Report → MR-I → Distance" },
+  mri_report_footer_values: { group: "MR-I reports", name: "Report footer answers", what: "The footer entries on each report, such as dates and the supervisor's name.", where: "Maintenance Report → MR-I → Footer" },
+  mri_report_attachments: { group: "MR-I reports", name: "Report photos and files", what: "Photos and files attached to checklist items. The file itself shows here as <binary>.", where: "Maintenance Report → MR-I → Checklist (+ button)" },
+
+  sqlite_sequence: { group: "System", name: "ID counters (system)", what: "The database's own record of the last ID number used in each table. Not business data.", where: "Managed by the database itself" },
+};
+
+const GROUP_ORDER = ["Equipment", "MR-I reports", "MR-I templates", "Checklist set-up", "System", "Other"];
+
+function tableInfo(t: string): TableInfo {
+  return TABLE_INFO[t] ?? { group: "Other", name: t, what: "No plain-language description yet for this table.", where: "—" };
+}
+
 
 function DataBrowser() {
   const { data: tables = [] } = useBrowsableTables();
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const { data: columns = [] } = useTableColumns(selectedTable);
   const { data: rows = [], isLoading } = useTableRows(selectedTable);
-  const updateRow = useUpdateTableRow(selectedTable);
-  const deleteRow = useDeleteTableRow(selectedTable);
 
   const [search, setSearch] = useState("");
   const [groupBy, setGroupBy] = useState("");
-  const [, setPage] = useState(1);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editValues, setEditValues] = useState<Record<string, any>>({});
-  const [pendingDelete, setPendingDelete] = useState<Record<string, any> | null>(null);
-  const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
-
-  function flash(msg: string, kind: "ok" | "err") {
-    setStatus({ msg, kind });
-    setTimeout(() => setStatus(null), 4000);
+  // Groups start collapsed; this holds the ones the user has opened.
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  useEffect(() => { setOpenGroups(new Set()); }, [groupBy, selectedTable]);
+  function toggleGroup(k: string) {
+    setOpenGroups((prev) => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   }
+  const [, setPage] = useState(1);
 
   function selectTable(t: string) {
     setSelectedTable(t);
     setSearch("");
     setGroupBy("");
     setPage(1);
-    setEditingId(null);
   }
 
   const filteredRows = useMemo(() => {
@@ -59,64 +94,62 @@ function DataBrowser() {
       .map(([key, rows]) => ({ key, rows }));
   }, [filteredRows, groupBy]);
 
-  function startEdit(row: Record<string, any>) {
-    setEditingId(row.id);
-    setEditValues({ ...row });
-  }
-
-  async function saveEdit() {
-    if (editingId === null) return;
-    try {
-      await updateRow.mutateAsync({ id: editingId, values: editValues });
-      setEditingId(null);
-      flash("Row updated", "ok");
-    } catch (err) {
-      flash(String(err), "err");
-    }
-  }
-
-  async function confirmDelete() {
-    if (!pendingDelete) return;
-    try {
-      await deleteRow.mutateAsync(pendingDelete.id);
-      flash(`Row #${pendingDelete.id} deleted`, "ok");
-      setPendingDelete(null);
-    } catch (err) {
-      flash(String(err), "err");
-    }
-  }
-
   const displayColumns = columns.slice(0, 6);
 
   return (
     <div>
       <h2 style={{ marginBottom: 4 }}>Data Browser</h2>
       <p style={{ fontSize: 13, color: "var(--text-soft)", marginBottom: 4 }}>
-        Browse, search, filter, and group any local table. Edit and delete are unrestricted for now — access will be limited once user authentication is added.
-      </p>
-      <p style={{ fontSize: 11.5, color: "var(--warn)", marginBottom: 16 }}>
-        ⚠ Temporary: administrative-only access is not yet enforced.
+        Look at, search, group and export the data stored on this computer. View only: records cannot be edited or deleted here.
       </p>
 
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 18 }}>
-        {tables.map((t) => (
-          <button
-            key={t}
-            onClick={() => selectTable(t)}
-            style={{
-              padding: "6px 12px", borderRadius: 8, fontSize: 12, fontFamily: "var(--mono)",
-              background: selectedTable === t ? "var(--accent-soft)" : "var(--neu-bg)",
-              color: selectedTable === t ? "var(--accent)" : "var(--text-soft)",
-              boxShadow: selectedTable === t ? "var(--neu-inset-sm)" : "var(--neu-raised-sm)",
-            }}
-          >
-            {t}
-          </button>
-        ))}
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+        <label htmlFor="db-table" style={{ fontSize: 13, fontWeight: 600 }}>Table</label>
+        <select
+          id="db-table"
+          className="neu-select"
+          value={selectedTable ?? ""}
+          onChange={(e) => e.target.value && selectTable(e.target.value)}
+          style={{ minWidth: 320 }}
+        >
+          <option value="" disabled>Choose a table…</option>
+          {GROUP_ORDER.map((g) => {
+            const inGroup = tables.filter((t) => tableInfo(t).group === g);
+            if (inGroup.length === 0) return null;
+            return (
+              <optgroup key={g} label={g}>
+                {inGroup.map((t) => (
+                  <option key={t} value={t}>{tableInfo(t).name} ({t})</option>
+                ))}
+              </optgroup>
+            );
+          })}
+        </select>
       </div>
 
+      {selectedTable && (() => {
+        const info = tableInfo(selectedTable);
+        return (
+          <div
+            role="note"
+            style={{
+              marginBottom: 18, padding: "12px 16px", borderRadius: 12, maxWidth: 820,
+              background: "var(--accent-soft)", borderLeft: "4px solid var(--accent)",
+              fontSize: 13, lineHeight: 1.5,
+            }}
+          >
+            <div style={{ fontWeight: 700, marginBottom: 2 }}>
+              {info.name} <span style={{ fontFamily: "var(--mono)", fontWeight: 400, fontSize: 11.5, color: "var(--text-soft)" }}>{selectedTable}</span>
+            </div>
+            <div><b>What it holds:</b> {info.what}</div>
+            <div><b>Normally changed in:</b> {info.where}</div>
+            {info.caution && <div style={{ color: "var(--warn)", marginTop: 2 }}>⚠ {info.caution}</div>}
+          </div>
+        );
+      })()}
+
       {!selectedTable ? (
-        <div className="empty">Select a table above to browse its data</div>
+        <div className="empty">Choose a table from the list above to browse its data</div>
       ) : (
         <>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 14 }}>
@@ -134,105 +167,61 @@ function DataBrowser() {
                 <option key={c} value={c}>Group by: {c}</option>
               ))}
             </select>
-            <span className="count">{filteredRows.length} of {rows.length} rows</span>
+            {groupBy && (
+              <>
+                <button className="ghost" onClick={() => setOpenGroups(new Set(grouped.map((g) => g.key ?? "")))}>Expand all</button>
+                <button className="ghost" onClick={() => setOpenGroups(new Set())}>Collapse all</button>
+              </>
+            )}
+            <span className="count">{filteredRows.length} of {rows.length} rows{groupBy ? ` · ${grouped.length} groups` : ""}</span>
             <ExportMenu tableName={selectedTable} rows={filteredRows} />
           </div>
-
-          {status && <div className={`toast ${status.kind}`} style={{ maxWidth: 400, marginBottom: 12 }}>{status.msg}</div>}
 
           {isLoading ? (
             <div className="empty">Loading...</div>
           ) : filteredRows.length === 0 ? (
             <div className="empty">No rows match your search</div>
           ) : (
-            grouped.map((group) => (
-              <div key={group.key ?? "all"} style={{ marginBottom: 20 }}>
+            grouped.map((group) => {
+              const isOpen = group.key === null || openGroups.has(group.key);
+              return (
+              <div key={group.key ?? "all"} style={{ marginBottom: group.key === null || isOpen ? 20 : 8 }}>
                 {group.key !== null && (
-                  <div className="mri-preview-section-label">{group.key} ({group.rows.length})</div>
+                  <button
+                    type="button"
+                    className="mri-preview-section-label"
+                    aria-expanded={isOpen}
+                    onClick={() => toggleGroup(group.key!)}
+                    style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", cursor: "pointer", background: "none", border: "none", padding: "4px 0" }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"
+                      style={{ transform: isOpen ? "rotate(90deg)" : "none", transition: "transform .15s" }}>
+                      <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    {group.key} ({group.rows.length})
+                  </button>
                 )}
+                {isOpen && (
                 <div className="grid-table">
-                  <div className="grid-row grid-head" style={{ gridTemplateColumns: `repeat(${displayColumns.length}, 1fr) 90px` }}>
+                  <div className="grid-row grid-head" style={{ gridTemplateColumns: `repeat(${displayColumns.length}, 1fr)` }}>
                     {displayColumns.map((c) => <span key={c}>{c}</span>)}
-                    <span></span>
                   </div>
                   {group.rows.map((row) => (
-                    <div key={row.id} className="grid-row" style={{ gridTemplateColumns: `repeat(${displayColumns.length}, 1fr) 90px` }}>
+                    <div key={row.id} className="grid-row" style={{ gridTemplateColumns: `repeat(${displayColumns.length}, 1fr)` }}>
                       {displayColumns.map((c) => (
-                        <span key={c}>
-                          {editingId === row.id ? (
-                            <input
-                              type="text"
-                              className="trigger-input"
-                              value={editValues[c] ?? ""}
-                              onChange={(e) => setEditValues({ ...editValues, [c]: e.target.value })}
-                              disabled={c === "id"}
-                            />
-                          ) : (
-                            String(row[c] ?? "")
-                          )}
-                        </span>
+                        <span key={c}>{String(row[c] ?? "")}</span>
                       ))}
-                      <div className="card-actions">
-                        {editingId === row.id ? (
-                          <>
-                            <button className="icon-btn" aria-label="Save" onClick={saveEdit}>
-                              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                            </button>
-                            <button className="icon-btn" aria-label="Cancel" onClick={() => setEditingId(null)}>
-                              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                              </svg>
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button className="icon-btn" aria-label="Edit" onClick={() => startEdit(row)}>
-                              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"
-                                  stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
-                              </svg>
-                            </button>
-                            <button className="icon-btn icon-danger" aria-label="Delete" onClick={() => setPendingDelete(row)}>
-                              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                                <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                              </svg>
-                            </button>
-                          </>
-                        )}
-                      </div>
                     </div>
                   ))}
                 </div>
+                )}
               </div>
-            ))
+              );
+            })
           )}
         </>
       )}
 
-      {pendingDelete && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 9V13M12 17H12.01M10.29 3.86L1.82 18A2 2 0 0 0 3.54 21H20.46A2 2 0 0 0 22.18 18L13.71 3.86A2 2 0 0 0 10.29 3.86Z"
-                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <h3>Delete row?</h3>
-            <p>
-              This will permanently delete row <strong>#{pendingDelete.id}</strong> from <strong>{selectedTable}</strong>.
-              This bypasses any related-table cleanup — deleting here can leave orphaned references elsewhere.
-            </p>
-            <div className="modal-actions">
-              <button className="ghost" onClick={() => setPendingDelete(null)}>Cancel</button>
-              <button className="danger" onClick={confirmDelete}>Delete</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

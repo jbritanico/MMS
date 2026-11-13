@@ -14,6 +14,12 @@ edition = "2021"
 name = "tauri_app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# Beta builds: MMS stops working 25 days after it is first opened on a computer.
+# For a production build, turn it off:  cargo tauri build -- --no-default-features
+default = ["beta-trial"]
+beta-trial = []
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

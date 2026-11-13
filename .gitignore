@@ -30,3 +30,4 @@ e2e/screenshots/
 .claude/settings.local.json
 Claude outputs/_fe_src.tgz
 Claude outputs/_cd_data.json
+.codegraphy/*
