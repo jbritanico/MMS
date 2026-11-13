@@ -1,0 +1,13 @@
+{
+    "servers": {
+        "aura": {
+            "command": "node",
+            "args": [
+                "c:\\Users\\JessBritanico\\.vscode\\extensions\\monticma-aura.aura-visualizer-3d-1.6.0\\out\\mcp-server.js"
+            ],
+            "env": {
+                "AURA_DB_PATH": "c:\\Users\\JessBritanico\\Documents\\GitHub\\MMS-fresh\\.aura\\graph.db"
+            }
+        }
+    }
+}

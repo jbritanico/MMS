@@ -1,0 +1,878 @@
+// ---------------------------------------------------------------- MR-I dashboards (Task 0)
+// Which units a viewer may see on the MR-I dashboards. Same rule as the Asset Registry
+// (get_assets): the Maintenance Manager / FSM and the Administrator see every country; other
+// users see only the countries in user_country_access (no rows = no limit).
+fn mri_dashboard_restriction(conn: &Connection, viewer_user_id: Option<i64>) -> Result<Option<Vec<String>>, String> {
+    match viewer_user_id {
+        Some(id) => {
+            let role: String = conn
+                .query_row("SELECT role FROM app_users WHERE id = ?1", [id], |row| row.get(0))
+                .map_err(|e| e.to_string())?;
+            // Administrator and FSM: no restriction on any MR-I dashboard.
+            if role == "Administrator" || role == "Maintenance Manager / FSM" {
+                Ok(None)
+            } else {
+                user_country_restriction(conn, id)
+            }
+        }
+        None => Ok(None),
+    }
+}
+
+#[derive(Serialize)]
+struct MriDashboardAsset {
+    id: i64,
+    asset_code: String,
+    asset_description: Option<String>,
+    country: Option<String>,
+    service_line: Option<String>,
+    asset_type: Option<String>,
+    active: bool,
+    tag_status: Option<String>,
+    tag_reason: Option<String>,
+}
+
+#[derive(Serialize)]
+struct MriDashboardScope {
+    /// None = the viewer may see every country.
+    allowed_countries: Option<Vec<String>>,
+    /// Units the viewer may see, with the fields the dashboard filters use.
+    assets: Vec<MriDashboardAsset>,
+}
+
+/// Scope of the MR-I dashboards for the signed-in user: the units (and their country, service
+/// line and equipment type for the filters) limited to the countries the user may see.
+/// Each dashboard adds its own data on top of this list.
+#[tauri::command]
+fn get_mri_dashboard_scope(viewer_user_id: Option<i64>) -> Result<MriDashboardScope, String> {
+    let conn = get_connection()?;
+    let restriction = mri_dashboard_restriction(&conn, viewer_user_id)?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT a.id, a.asset_code, a.asset_description, a.country, a.service_line, t.description,
+                    a.active, a.tag_status, a.tag_reason
+             FROM assets a LEFT JOIN asset_types t ON t.id = a.asset_type_id
+             ORDER BY a.asset_code",
+        )
+        .map_err(|e| e.to_string())?;
+    let all = stmt
+        .query_map([], |row| {
+            Ok(MriDashboardAsset {
+                id: row.get(0)?,
+                asset_code: row.get(1)?,
+                asset_description: row.get(2)?,
+                country: row.get(3)?,
+                service_line: row.get(4)?,
+                asset_type: row.get(5)?,
+                active: row.get::<_, Option<i64>>(6)?.unwrap_or(1) != 0,
+                tag_status: row.get(7)?,
+                tag_reason: row.get(8)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    let assets = match &restriction {
+        None => all,
+        Some(allowed) => all
+            .into_iter()
+            .filter(|a| {
+                a.country
+                    .as_deref()
+                    .map(|c| allowed.iter().any(|x| x.eq_ignore_ascii_case(c.trim())))
+                    .unwrap_or(false)
+            })
+            .collect(),
+    };
+    Ok(MriDashboardScope { allowed_countries: restriction, assets })
+}
+
+// Dates in the database are stored as Unix seconds (chrono_now) or, in a few older rows,
+// as text dates. This SQL expression turns either into Unix seconds.
+macro_rules! sql_ts {
+    ($col:expr) => {
+        concat!(
+            "CAST(CASE WHEN TRIM(COALESCE(", $col, ",'')) = '' THEN NULL WHEN ", $col,
+            " NOT GLOB '*[^0-9]*' THEN ", $col, " ELSE strftime('%s', ", $col, ") END AS INTEGER)"
+        )
+    };
+}
+
+#[derive(Serialize)]
+struct MriDashboardFault {
+    result_id: i64,
+    report_id: i64,
+    asset_id: i64,
+    component: Option<String>,
+    item: Option<String>,
+    original_severity: Option<String>,
+    /// Severity after any reclassification.
+    severity: String,
+    issue_details: Option<String>,
+    /// When the report with the fault was submitted (Unix seconds).
+    found_at: Option<i64>,
+    /// When the fault stopped counting as open on this report: closed, or carried to a later report.
+    ended_at: Option<i64>,
+    /// "Open", "Closed" or "Carried forward" (the same fault continues on a later report).
+    state: String,
+    /// Plain words: where an open fault stands, or how it was closed.
+    stage: String,
+}
+
+/// One row per fault (a Fail on a submitted MR-I report) for the MR-I dashboards, limited to the
+/// units the viewer may see. Closing rules follow the MR-I workflow:
+///   repaired on site -> closed at submission; closed on the report itself -> closed at submission;
+///   a repair (rectification) exists -> closed when the repair is verified;
+///   rejected / reclassified / approved without a repair -> closed at the decision;
+///   pending or provisional decision -> open;
+///   otherwise (Minor faults, carry-forward decisions) -> the next inspection of the same item on
+///   the same unit decides: Pass = closed then, Fail = carried forward to that report.
+#[tauri::command]
+fn get_mri_dashboard_faults(viewer_user_id: Option<i64>) -> Result<Vec<MriDashboardFault>, String> {
+    let conn = get_connection()?;
+    let restriction = mri_dashboard_restriction(&conn, viewer_user_id)?;
+    let allowed = |country: &Option<String>| -> bool {
+        match &restriction {
+            None => true,
+            Some(list) => country
+                .as_deref()
+                .map(|c| list.iter().any(|x| x.eq_ignore_ascii_case(c.trim())))
+                .unwrap_or(false),
+        }
+    };
+
+    // Every result per unit / component / item on submitted reports, to find the next inspection.
+    let mut later: std::collections::HashMap<(i64, Option<i64>, i64), Vec<(i64, Option<i64>, String)>> =
+        std::collections::HashMap::new();
+    {
+        let sql = format!(
+            "SELECT r.asset_id, r.component_id, cr.template_checklist_item_id, r.id, {}, cr.status
+             FROM mri_report_checklist_results cr JOIN mri_reports r ON r.id = cr.report_id
+             WHERE r.status <> 'Draft' ORDER BY r.id",
+            sql_ts!("r.submitted_date")
+        );
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, Option<i64>>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, i64>(3)?,
+                    row.get::<_, Option<i64>>(4)?,
+                    row.get::<_, Option<String>>(5)?.unwrap_or_default(),
+                ))
+            })
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            let (a, c, i, rid, ts, st) = r.map_err(|e| e.to_string())?;
+            later.entry((a, c, i)).or_default().push((rid, ts, st));
+        }
+    }
+
+    let sql = format!(
+        "SELECT cr.id, r.id, r.asset_id, r.component_id, tc.label, cr.template_checklist_item_id, cd.description,
+                cr.severity, cr.closure_status, COALESCE(cr.repaired_on_site, 0), cr.issue_details,
+                {found}, a.id, a.decision, a.new_severity, a.provisional_status, {decided},
+                f.id, {verified}, ast.country
+         FROM mri_report_checklist_results cr
+         JOIN mri_reports r ON r.id = cr.report_id
+         JOIN assets ast ON ast.id = r.asset_id
+         LEFT JOIN template_components tc ON tc.id = r.component_id
+         LEFT JOIN template_checklist_items tci ON tci.id = cr.template_checklist_item_id
+         LEFT JOIN checklist_databank cd ON cd.id = tci.checklist_item_id
+         LEFT JOIN mri_fault_approvals a ON a.report_id = cr.report_id AND a.template_checklist_item_id = cr.template_checklist_item_id
+         LEFT JOIN mri_fault_rectifications f ON f.fault_approval_id = a.id
+         WHERE cr.status = 'Fail' AND r.status <> 'Draft'
+         ORDER BY r.id, cr.id",
+        found = sql_ts!("r.submitted_date"),
+        decided = sql_ts!("a.updated_date"),
+        verified = sql_ts!("f.verified_date"),
+    );
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                (
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, Option<i64>>(3)?,
+                    row.get::<_, Option<String>>(4)?,
+                    row.get::<_, i64>(5)?,
+                    row.get::<_, Option<String>>(6)?,
+                ),
+                (
+                    row.get::<_, Option<String>>(7)?,
+                    row.get::<_, Option<String>>(8)?,
+                    row.get::<_, i64>(9)? != 0,
+                    row.get::<_, Option<String>>(10)?,
+                    row.get::<_, Option<i64>>(11)?,
+                ),
+                (
+                    row.get::<_, Option<i64>>(12)?,
+                    row.get::<_, Option<String>>(13)?,
+                    row.get::<_, Option<String>>(14)?,
+                    row.get::<_, Option<String>>(15)?,
+                    row.get::<_, Option<i64>>(16)?,
+                    row.get::<_, Option<i64>>(17)?,
+                    row.get::<_, Option<i64>>(18)?,
+                    row.get::<_, Option<String>>(19)?,
+                ),
+            ))
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut out = Vec::new();
+    for r in rows {
+        let ((result_id, report_id, asset_id, component_id, component, item_id, item), (sev, closure, onsite, issue, found_at), (approval_id, decision, new_sev, provisional, decided_at, rect_id, verified_at, country)) =
+            r.map_err(|e| e.to_string())?;
+        if !allowed(&country) {
+            continue;
+        }
+        let original = sev.clone().filter(|s| !s.trim().is_empty());
+        let severity = new_sev
+            .clone()
+            .filter(|s| !s.trim().is_empty())
+            .or_else(|| original.clone())
+            .unwrap_or_else(|| "Minor".to_string());
+        let decision = decision.unwrap_or_default();
+        let provisional = provisional.as_deref() == Some("Provisional");
+
+        // Next inspection of the same item on the same unit / component.
+        let next = || -> Option<(i64, Option<i64>, String)> {
+            later
+                .get(&(asset_id, component_id, item_id))
+                .and_then(|v| v.iter().find(|(rid, _, _)| *rid > report_id).cloned())
+        };
+        let by_next = || -> (Option<i64>, String, String) {
+            match next() {
+                Some((rid, ts, st)) if st == "Pass" => (ts, "Closed".into(), format!("Passed on the next inspection (report #{})", rid)),
+                Some((rid, ts, _)) => (ts, "Carried forward".into(), format!("Carried forward to report #{}", rid)),
+                None => (None, "Open".into(), "Open on the report, waiting for the next inspection".into()),
+            }
+        };
+
+        let (ended_at, state, stage): (Option<i64>, String, String) = if onsite {
+            (found_at, "Closed".into(), "Repaired on site".into())
+        } else if approval_id.is_some() {
+            if rect_id.is_some() {
+                match verified_at {
+                    Some(t) => (Some(t), "Closed".into(), "Repair verified".into()),
+                    None => (None, "Open".into(), "Repair in progress".into()),
+                }
+            } else if decision == "Pending" || decision.is_empty() {
+                (None, "Open".into(), "Waiting for a decision".into())
+            } else if provisional {
+                (None, "Open".into(), "Phone decision waiting for confirmation".into())
+            } else if decision == "Carryforward" {
+                by_next()
+            } else {
+                let how = match decision.as_str() {
+                    "Rejected" => "Rejected: not a fault",
+                    "Reclassified" => "Reclassified and closed",
+                    _ => "Decided and closed",
+                };
+                (decided_at.or(found_at), "Closed".into(), how.into())
+            }
+        } else if closure.as_deref() == Some("Closed") {
+            (found_at, "Closed".into(), "Closed on the report".into())
+        } else {
+            by_next()
+        };
+
+        out.push(MriDashboardFault {
+            result_id,
+            report_id,
+            asset_id,
+            component,
+            item,
+            original_severity: original,
+            severity,
+            issue_details: issue,
+            found_at,
+            ended_at,
+            state,
+            stage,
+        });
+    }
+    Ok(out)
+}
+
+// ---------------------------------------------------------------- MR-I dashboard 5
+// Everything waiting for a reviewer right now: fault decisions (Pending) and reports waiting for
+// the Supervisor (to endorse, or to close). One row each, with who it is waiting for.
+#[derive(Serialize)]
+struct MriDashboardWaiting {
+    /// "fault" = a fault decision; "report" = the Supervisor's review or close of a report.
+    kind: String,
+    report_id: i64,
+    asset_id: i64,
+    approval_id: Option<i64>,
+    severity: Option<String>,
+    component: Option<String>,
+    item: Option<String>,
+    issue_details: Option<String>,
+    /// Plain words: what is waiting to happen.
+    step: String,
+    /// Unix seconds: since when it has been waiting.
+    waiting_since: Option<i64>,
+    assigned_to_user_id: Option<i64>,
+    assigned_to_name: Option<String>,
+    /// Who may decide when nobody is named.
+    required_authority: String,
+    reminders: i64,
+    last_reminder_by: Option<String>,
+    last_reminder_at: Option<i64>,
+    submitted_by: Option<String>,
+}
+
+#[tauri::command]
+fn get_mri_dashboard_waiting(viewer_user_id: Option<i64>) -> Result<Vec<MriDashboardWaiting>, String> {
+    let conn = get_connection()?;
+    let restriction = mri_dashboard_restriction(&conn, viewer_user_id)?;
+    let allowed = |country: &Option<String>| -> bool {
+        match &restriction {
+            None => true,
+            Some(list) => country
+                .as_deref()
+                .map(|c| list.iter().any(|x| x.eq_ignore_ascii_case(c.trim())))
+                .unwrap_or(false),
+        }
+    };
+    let mut out: Vec<MriDashboardWaiting> = Vec::new();
+
+    // Fault decisions still Pending.
+    let sql = format!(
+        "SELECT fa.id, fa.report_id, rep.asset_id, fa.original_severity, tc.label, cd.description, r.issue_details,
+                {since}, fa.assigned_to_user_id, au.name,
+                (SELECT COUNT(*) FROM mri_fault_reminders rem WHERE rem.fault_approval_id = fa.id),
+                (SELECT rem.sent_by_name FROM mri_fault_reminders rem WHERE rem.fault_approval_id = fa.id ORDER BY rem.id DESC LIMIT 1),
+                (SELECT {rem_at} FROM mri_fault_reminders rem WHERE rem.fault_approval_id = fa.id ORDER BY rem.id DESC LIMIT 1),
+                rep.submitted_by, ast.country
+         FROM mri_fault_approvals fa
+         JOIN mri_reports rep ON rep.id = fa.report_id
+         JOIN assets ast ON ast.id = rep.asset_id
+         LEFT JOIN app_users au ON au.id = fa.assigned_to_user_id
+         LEFT JOIN template_components tc ON tc.id = rep.component_id
+         LEFT JOIN template_checklist_items tci ON tci.id = fa.template_checklist_item_id
+         LEFT JOIN checklist_databank cd ON cd.id = tci.checklist_item_id
+         LEFT JOIN mri_report_checklist_results r ON r.report_id = fa.report_id AND r.template_checklist_item_id = fa.template_checklist_item_id
+         WHERE fa.decision = 'Pending' AND rep.status <> 'Draft'",
+        since = sql_ts!("fa.created_date"),
+        rem_at = sql_ts!("rem.sent_at"),
+    );
+    {
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |row| {
+                let sev: Option<String> = row.get(3)?;
+                let critical = sev.as_deref().map(|s| { let l = s.to_lowercase(); l.contains("crit") || l.contains("major") }).unwrap_or(false);
+                Ok((
+                    MriDashboardWaiting {
+                        kind: "fault".into(),
+                        approval_id: Some(row.get(0)?),
+                        report_id: row.get(1)?,
+                        asset_id: row.get(2)?,
+                        severity: sev,
+                        component: row.get(4)?,
+                        item: row.get(5)?,
+                        issue_details: row.get(6)?,
+                        step: "Fault decision".into(),
+                        waiting_since: row.get(7)?,
+                        assigned_to_user_id: row.get(8)?,
+                        assigned_to_name: row.get(9)?,
+                        required_authority: if critical { "FSM / Maintenance Manager".into() } else { "Operations Coordinator / Maintenance Supervisor".into() },
+                        reminders: row.get(10)?,
+                        last_reminder_by: row.get(11)?,
+                        last_reminder_at: row.get(12)?,
+                        submitted_by: row.get(13)?,
+                    },
+                    row.get::<_, Option<String>>(14)?,
+                ))
+            })
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            let (w, country) = r.map_err(|e| e.to_string())?;
+            if allowed(&country) {
+                out.push(w);
+            }
+        }
+    }
+
+    // Reports waiting for the Supervisor: Submitted (review), Endorsed (close), and Escalated with
+    // every fault decided and confirmed (close). Same rule as the Supervisor's queue.
+    let sql = format!(
+        "SELECT r.id, r.asset_id, r.status, tc.label, {sub}, {appr},
+                (SELECT MAX({upd}) FROM mri_fault_approvals fa WHERE fa.report_id = r.id),
+                (SELECT COUNT(*) FROM mri_report_checklist_results x WHERE x.report_id = r.id AND x.status = 'Fail'),
+                r.submitted_by, a.country
+         FROM mri_reports r
+         JOIN assets a ON a.id = r.asset_id
+         LEFT JOIN template_components tc ON tc.id = r.component_id
+         WHERE r.status = 'Submitted'
+            OR r.status = 'Endorsed'
+            OR (r.status = 'Escalated' AND NOT EXISTS (
+                SELECT 1 FROM mri_fault_approvals fa
+                WHERE fa.report_id = r.id AND (fa.decision = 'Pending' OR fa.provisional_status = 'Provisional')))",
+        sub = sql_ts!("r.submitted_date"),
+        appr = sql_ts!("r.approved_date"),
+        upd = sql_ts!("fa.updated_date"),
+    );
+    {
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |row| {
+                let status: String = row.get(2)?;
+                let submitted: Option<i64> = row.get(4)?;
+                let approved: Option<i64> = row.get(5)?;
+                let last_decision: Option<i64> = row.get(6)?;
+                let faults: i64 = row.get(7)?;
+                let (step, since) = match status.as_str() {
+                    "Submitted" => ("Supervisor review of the report".to_string(), submitted),
+                    "Endorsed" => ("Supervisor to close the report".to_string(), approved.or(submitted)),
+                    _ => (
+                        "Supervisor to close the report (all faults decided)".to_string(),
+                        [approved, last_decision, submitted].into_iter().flatten().max(),
+                    ),
+                };
+                Ok((
+                    MriDashboardWaiting {
+                        kind: "report".into(),
+                        report_id: row.get(0)?,
+                        asset_id: row.get(1)?,
+                        approval_id: None,
+                        severity: None,
+                        component: row.get(3)?,
+                        item: None,
+                        issue_details: Some(if faults == 0 { "No faults on the report".to_string() } else { format!("{} fault{} on the report", faults, if faults == 1 { "" } else { "s" }) }),
+                        step,
+                        waiting_since: since,
+                        assigned_to_user_id: None,
+                        assigned_to_name: None,
+                        required_authority: "Maintenance Supervisor".into(),
+                        reminders: 0,
+                        last_reminder_by: None,
+                        last_reminder_at: None,
+                        submitted_by: row.get(8)?,
+                    },
+                    row.get::<_, Option<String>>(9)?,
+                ))
+            })
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            let (w, country) = r.map_err(|e| e.to_string())?;
+            if allowed(&country) {
+                out.push(w);
+            }
+        }
+    }
+    out.sort_by_key(|w| w.waiting_since.unwrap_or(i64::MAX));
+    Ok(out)
+}
+
+// ---------------------------------------------------------------- MR-I dashboards 6-13
+// One call with the remaining dashboard data: reports, fault decisions, repairs, tag changes,
+// MOC exemptions and maintenance triggers, limited to the units the viewer may see.
+// Dates are Unix seconds (text dates are converted).
+#[derive(Serialize)]
+struct MriDashReport {
+    id: i64,
+    asset_id: i64,
+    status: String,
+    component: Option<String>,
+    compliance_stage: Option<String>,
+    created_at: Option<i64>,
+    submitted_at: Option<i64>,
+    submitted_by: Option<String>,
+    /// Endorsed date while open; the close date once Approved.
+    approved_at: Option<i64>,
+    approved_by: Option<String>,
+    fault_count: i64,
+}
+
+#[derive(Serialize)]
+struct MriDashDecision {
+    approval_id: i64,
+    report_id: i64,
+    asset_id: i64,
+    item: Option<String>,
+    original_severity: Option<String>,
+    decision: String,
+    new_severity: Option<String>,
+    reviewer: Option<String>,
+    review_method: Option<String>,
+    recorded_by: Option<String>,
+    provisional_status: Option<String>,
+    report_submitted_at: Option<i64>,
+    sent_at: Option<i64>,
+    /// When the (final) decision was recorded.
+    decided_at: Option<i64>,
+    confirmed_by: Option<String>,
+    confirmed_at: Option<i64>,
+    /// Moderate decisions the Maintenance Manager / FSM must be told about.
+    ack_needed: bool,
+    acknowledged_by: Option<String>,
+    acknowledged_at: Option<i64>,
+    ack_assigned_to: Option<String>,
+}
+
+#[derive(Serialize)]
+struct MriDashRepair {
+    rectification_id: i64,
+    approval_id: i64,
+    report_id: i64,
+    asset_id: i64,
+    item: Option<String>,
+    severity: Option<String>,
+    technician: Option<String>,
+    parts_status: String,
+    tag_status: String,
+    queued_at: Option<i64>,
+    repair_at: Option<i64>,
+    verified_by: Option<String>,
+    verified_at: Option<i64>,
+    limitations_note: Option<String>,
+}
+
+#[derive(Serialize)]
+struct MriDashTagChange {
+    asset_id: i64,
+    tag_status: String,
+    previous_tag_status: Option<String>,
+    reason: Option<String>,
+    report_id: Option<i64>,
+    changed_by: Option<String>,
+    changed_at: Option<i64>,
+}
+
+#[derive(Serialize)]
+struct MriDashExemption {
+    id: i64,
+    asset_id: i64,
+    moc_reference: String,
+    approved_by: String,
+    limitations: String,
+    required_controls: String,
+    return_conditions: String,
+    valid_from: Option<i64>,
+    valid_until: Option<i64>,
+    status: String,
+    revoked_at: Option<i64>,
+    revoke_reason: Option<String>,
+}
+
+#[derive(Serialize)]
+struct MriDashTrigger {
+    asset_id: i64,
+    mr_level: String,
+    trigger_type: String,
+    interval_value: i64,
+    warning_value: i64,
+    running_value: i64,
+    last_reset_at: Option<i64>,
+}
+
+#[derive(Serialize)]
+struct MriDashboardMore {
+    reports: Vec<MriDashReport>,
+    decisions: Vec<MriDashDecision>,
+    repairs: Vec<MriDashRepair>,
+    tag_changes: Vec<MriDashTagChange>,
+    exemptions: Vec<MriDashExemption>,
+    triggers: Vec<MriDashTrigger>,
+}
+
+#[tauri::command]
+fn get_mri_dashboard_more(viewer_user_id: Option<i64>) -> Result<MriDashboardMore, String> {
+    let conn = get_connection()?;
+    let restriction = mri_dashboard_restriction(&conn, viewer_user_id)?;
+    // Units the viewer may see.
+    let visible: std::collections::HashSet<i64> = {
+        let mut stmt = conn.prepare("SELECT id, country FROM assets").map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, Option<String>>(1)?)))
+            .map_err(|e| e.to_string())?;
+        let mut set = std::collections::HashSet::new();
+        for r in rows {
+            let (id, country) = r.map_err(|e| e.to_string())?;
+            let ok = match &restriction {
+                None => true,
+                Some(list) => country
+                    .as_deref()
+                    .map(|c| list.iter().any(|x| x.eq_ignore_ascii_case(c.trim())))
+                    .unwrap_or(false),
+            };
+            if ok {
+                set.insert(id);
+            }
+        }
+        set
+    };
+
+    let mut out = MriDashboardMore {
+        reports: vec![],
+        decisions: vec![],
+        repairs: vec![],
+        tag_changes: vec![],
+        exemptions: vec![],
+        triggers: vec![],
+    };
+
+    // Reports
+    {
+        let sql = format!(
+            "SELECT r.id, r.asset_id, r.status, tc.label, {c}, {s}, r.submitted_by, {a}, r.approved_by,
+                    (SELECT COUNT(*) FROM mri_report_checklist_results x WHERE x.report_id = r.id AND x.status = 'Fail')
+             FROM mri_reports r LEFT JOIN template_components tc ON tc.id = r.component_id ORDER BY r.id",
+            c = sql_ts!("r.created_date"),
+            s = sql_ts!("r.submitted_date"),
+            a = sql_ts!("r.approved_date"),
+        );
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(MriDashReport {
+                    id: row.get(0)?,
+                    asset_id: row.get(1)?,
+                    status: row.get(2)?,
+                    component: row.get(3)?,
+                    compliance_stage: None,
+                    created_at: row.get(4)?,
+                    submitted_at: row.get(5)?,
+                    submitted_by: row.get(6)?,
+                    approved_at: row.get(7)?,
+                    approved_by: row.get(8)?,
+                    fault_count: row.get(9)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            let mut r = r.map_err(|e| e.to_string())?;
+            if visible.contains(&r.asset_id) {
+                r.compliance_stage = get_compliance_stage(&conn, r.id);
+                out.reports.push(r);
+            }
+        }
+    }
+
+    // Fault decisions (escalated faults only; the others never needed a decision)
+    {
+        let sql = format!(
+            "SELECT fa.id, fa.report_id, rep.asset_id, cd.description, fa.original_severity, fa.decision, fa.new_severity,
+                    fa.reviewer, fa.review_method, fa.recorded_by, fa.provisional_status,
+                    {sub}, {sent},
+                    (SELECT MAX({logged}) FROM mri_fault_decision_log l WHERE l.fault_approval_id = fa.id AND l.action <> 'Escalated'),
+                    {upd}, fa.confirmed_by, {conf}, fa.acknowledged_by, {ack}, au.name
+             FROM mri_fault_approvals fa
+             JOIN mri_reports rep ON rep.id = fa.report_id
+             LEFT JOIN template_checklist_items tci ON tci.id = fa.template_checklist_item_id
+             LEFT JOIN checklist_databank cd ON cd.id = tci.checklist_item_id
+             LEFT JOIN app_users au ON au.id = fa.acknowledgment_assigned_to_user_id
+             WHERE rep.status <> 'Draft' ORDER BY fa.id",
+            sub = sql_ts!("rep.submitted_date"),
+            sent = sql_ts!("fa.created_date"),
+            logged = sql_ts!("l.logged_at"),
+            upd = sql_ts!("fa.updated_date"),
+            conf = sql_ts!("fa.confirmed_date"),
+            ack = sql_ts!("fa.acknowledged_date"),
+        );
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |row| {
+                let decision: String = row.get(5)?;
+                let original: Option<String> = row.get(4)?;
+                let logged: Option<i64> = row.get(13)?;
+                let updated: Option<i64> = row.get(14)?;
+                let decided_at = if decision == "Pending" { None } else { logged.or(updated) };
+                let ack_needed = original.as_deref() == Some("Moderate")
+                    && matches!(decision.as_str(), "Approved" | "Reclassified" | "Rejected");
+                Ok(MriDashDecision {
+                    approval_id: row.get(0)?,
+                    report_id: row.get(1)?,
+                    asset_id: row.get(2)?,
+                    item: row.get(3)?,
+                    original_severity: original,
+                    decision,
+                    new_severity: row.get(6)?,
+                    reviewer: row.get(7)?,
+                    review_method: row.get(8)?,
+                    recorded_by: row.get(9)?,
+                    provisional_status: row.get(10)?,
+                    report_submitted_at: row.get(11)?,
+                    sent_at: row.get(12)?,
+                    decided_at,
+                    confirmed_by: row.get(15)?,
+                    confirmed_at: row.get(16)?,
+                    ack_needed,
+                    acknowledged_by: row.get(17)?,
+                    acknowledged_at: row.get(18)?,
+                    ack_assigned_to: row.get(19)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            let r = r.map_err(|e| e.to_string())?;
+            if visible.contains(&r.asset_id) {
+                out.decisions.push(r);
+            }
+        }
+    }
+
+    // Repairs (rectifications of faults that left the unit Red-Tagged)
+    {
+        let sql = format!(
+            "SELECT f.id, fa.id, fa.report_id, rep.asset_id, cd.description, COALESCE(fa.new_severity, fa.original_severity),
+                    f.assigned_technician, COALESCE(f.parts_status, ''), COALESCE(f.tag_status, ''), {q}, {rd}, f.verified_by, {vd}, f.limitations_note
+             FROM mri_fault_rectifications f
+             JOIN mri_fault_approvals fa ON fa.id = f.fault_approval_id
+             JOIN mri_reports rep ON rep.id = fa.report_id
+             LEFT JOIN template_checklist_items tci ON tci.id = fa.template_checklist_item_id
+             LEFT JOIN checklist_databank cd ON cd.id = tci.checklist_item_id
+             ORDER BY f.id",
+            q = sql_ts!("f.created_date"),
+            rd = sql_ts!("f.repair_date"),
+            vd = sql_ts!("f.verified_date"),
+        );
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(MriDashRepair {
+                    rectification_id: row.get(0)?,
+                    approval_id: row.get(1)?,
+                    report_id: row.get(2)?,
+                    asset_id: row.get(3)?,
+                    item: row.get(4)?,
+                    severity: row.get(5)?,
+                    technician: row.get(6)?,
+                    parts_status: row.get(7)?,
+                    tag_status: row.get(8)?,
+                    queued_at: row.get(9)?,
+                    repair_at: row.get(10)?,
+                    verified_by: row.get(11)?,
+                    verified_at: row.get(12)?,
+                    limitations_note: row.get(13)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            let r = r.map_err(|e| e.to_string())?;
+            if visible.contains(&r.asset_id) {
+                out.repairs.push(r);
+            }
+        }
+    }
+
+    // Tag changes
+    {
+        let sql = format!(
+            "SELECT asset_id, COALESCE(tag_status, ''), previous_tag_status, reason, report_id, changed_by, {c}
+             FROM asset_tag_history ORDER BY asset_id, {c}, id",
+            c = sql_ts!("changed_at"),
+        );
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(MriDashTagChange {
+                    asset_id: row.get(0)?,
+                    tag_status: row.get(1)?,
+                    previous_tag_status: row.get(2)?,
+                    reason: row.get(3)?,
+                    report_id: row.get(4)?,
+                    changed_by: row.get(5)?,
+                    changed_at: row.get(6)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            let r = r.map_err(|e| e.to_string())?;
+            if visible.contains(&r.asset_id) {
+                out.tag_changes.push(r);
+            }
+        }
+    }
+
+    // MOC exemptions
+    {
+        let sql = format!(
+            "SELECT id, asset_id, COALESCE(moc_reference, ''), COALESCE(approved_by, ''), COALESCE(limitations, ''),
+                    COALESCE(required_controls, ''), COALESCE(return_conditions, ''), {f}, {u}, COALESCE(status, ''), {r}, revoke_reason
+             FROM asset_moc_exemptions ORDER BY id",
+            f = sql_ts!("valid_from"),
+            u = sql_ts!("valid_until"),
+            r = sql_ts!("revoked_at"),
+        );
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(MriDashExemption {
+                    id: row.get(0)?,
+                    asset_id: row.get(1)?,
+                    moc_reference: row.get(2)?,
+                    approved_by: row.get(3)?,
+                    limitations: row.get(4)?,
+                    required_controls: row.get(5)?,
+                    return_conditions: row.get(6)?,
+                    valid_from: row.get(7)?,
+                    valid_until: row.get(8)?,
+                    status: row.get(9)?,
+                    revoked_at: row.get(10)?,
+                    revoke_reason: row.get(11)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            let r = r.map_err(|e| e.to_string())?;
+            if visible.contains(&r.asset_id) {
+                out.exemptions.push(r);
+            }
+        }
+    }
+
+    // Maintenance triggers (enabled only)
+    {
+        let sql = format!(
+            "SELECT asset_id, mr_level, trigger_type, interval_value, warning_value, running_value, {r}
+             FROM maintenance_triggers WHERE enabled = 1 ORDER BY asset_id, mr_level, trigger_type",
+            r = sql_ts!("last_reset_date"),
+        );
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(MriDashTrigger {
+                    asset_id: row.get(0)?,
+                    mr_level: row.get(1)?,
+                    trigger_type: row.get(2)?,
+                    interval_value: row.get(3)?,
+                    warning_value: row.get(4)?,
+                    running_value: row.get(5)?,
+                    last_reset_at: row.get(6)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            let r = r.map_err(|e| e.to_string())?;
+            if visible.contains(&r.asset_id) {
+                out.triggers.push(r);
+            }
+        }
+    }
+
+    Ok(out)
+}
+fn get_compliance_stage(conn: &Connection, report_id: i64) -> Option<String> {
+    let result: Result<Option<String>, rusqlite::Error> = conn.query_row(
+        "SELECT v.value
+         FROM mri_reports r
+         JOIN template_header_fields thf ON thf.template_id = r.template_id
+         JOIN header_field_catalog hfc ON hfc.id = thf.header_field_id
+         JOIN mri_report_header_values v ON v.report_id = r.id AND v.template_header_field_id = thf.id
+         WHERE r.id = ?1 AND LOWER(TRIM(hfc.label)) = 'compliance stage'",
+        [report_id],
+        |row| row.get(0),
+    );
+    match result {
+        Ok(Some(v)) if !v.trim().is_empty() => Some(v),
+        _ => None,
+    }
+}
