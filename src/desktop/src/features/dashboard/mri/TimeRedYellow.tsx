@@ -7,6 +7,9 @@ import { PreviewButton } from "./ReportPreview";
 import { AX, DrillChips, fmtDur, Loading, monthsFor, period, Tile, toDays, TT, useMore } from "./kit";
 import { Sparkline, StoryStrip, type StoryLine } from "./fluid";
 import { HealthStream, useHealthSeries } from "./health";
+import { Num, chartAnim } from "../fluent/motion";
+import Chart3D, { use3DMode, ViewToggle, type Cell3D } from "../fluent/Chart3D";
+import { Liquid } from "../fluent/Liquid";
 
 // Dashboard 8: Time spent Red or Yellow.
 // From the tag history, how long each unit was Red (not safe to use) or Yellow (under repair)
@@ -85,6 +88,7 @@ export default function TimeRedYellow({ assets, filters }: { assets: MriDashboar
   }, [assets, tag_changes, p.from.getTime(), p.to.getTime()]); // eslint-disable-line react-hooks/exhaustive-deps
   const mPrev = monthly.length > 1 ? monthly[monthly.length - 2] : null, mLast = monthly.length ? monthly[monthly.length - 1] : null;
   const [pick, setPick] = useState<Pick>(null);
+  const [is3d, set3d] = use3DMode(8);
   const [unitPick, setUnitPick] = useState<number | null>(null);
   const clearAll = () => { setPick(null); setUnitPick(null); };
   const span = Math.max(1, p.e - p.s);
@@ -98,6 +102,23 @@ export default function TimeRedYellow({ assets, filters }: { assets: MriDashboar
     .filter((t) => (pick !== "red" || t.red > 0) && (pick !== "yellow" || t.yellow > 0))
     .sort((a, b) => b.red + b.yellow - (a.red + a.yellow));
   const chart = ranked.slice(0, 20).map((t) => ({ id: t.asset.id, name: t.asset.asset_code, Red: toDays(t.red), Yellow: toDays(t.yellow) }));
+  // 3D view: units (top 12) × months, bar height = days Red and Yellow in that month.
+  const cube = (() => {
+    if (!is3d) return null;
+    const by = new Map<number, MriDashTagChange[]>();
+    tag_changes.forEach((c) => by.set(c.asset_id, [...(by.get(c.asset_id) ?? []), c]));
+    const units = ranked.slice(0, 12);
+    const ms = monthsFor(p.from, p.to).slice(-12);
+    const cells: Cell3D[] = [];
+    units.forEach((u, i) => ms.forEach((m, j) => {
+      const t = timeFor(u.asset, by.get(u.asset.id) ?? [], m.s, m.e);
+      cells.push({ row: i, col: j, segs: [
+        { key: "Red", label: "Red", value: t.red / 86400, color: RED },
+        { key: "Yellow", label: "Yellow", value: t.yellow / 86400, color: YEL },
+      ] });
+    }));
+    return { rows: units.map((u) => u.asset.asset_code), cols: ms.map((m) => m.name), ids: units.map((u) => u.asset.id), cells };
+  })();
   const unit = unitPick != null ? times.find((t) => t.asset.id === unitPick) : undefined;
   const pct = (t: UnitTime) => Math.round(((t.red + t.yellow) / span) * 1000) / 10;
 
@@ -142,9 +163,10 @@ export default function TimeRedYellow({ assets, filters }: { assets: MriDashboar
         <Tile k="yellow" pick={pick} setPick={setPick} color={YEL} label={<><TagLamp status="Yellow" size={14} /> Yellow</>} value={`${toDays(yel) ?? 0} d`} sub="unit-days under repair"
           extra={<Sparkline values={monthly.map((m) => m.yellow)} color={YEL} title="Yellow unit-days by month" />} />
         <Tile k="out" pick={pick} setPick={setPick} color="var(--text-soft)" label="Units out of action" value={affected.length} sub={`of ${times.length} active units, for some of the time`} />
-        <div className="mrid-kpi" style={{ ["--kpi" as string]: "var(--success)" }}>
+        <div className={`mrid-kpi${ready != null ? " has-liquid" : ""}`} style={{ ["--kpi" as string]: "var(--success)" }}>
+          <Liquid pct={ready} />
           <div className="mrid-kpi-head"><span>Ready-for-service time</span></div>
-          <div className="mrid-kpi-value">{ready == null ? "—" : `${ready}%`}</div>
+          <div className="mrid-kpi-value"><Num v={ready == null ? "—" : `${ready}%`} /></div>
           <div className="mrid-kpi-sub">Share of all unit time not Red or Yellow</div>
         </div>
       </div>
@@ -156,8 +178,14 @@ export default function TimeRedYellow({ assets, filters }: { assets: MriDashboar
       />
 
       <div className="mrid-panel">
-        <div className="mrid-panel-head"><h3>Days Red or Yellow, by unit{ranked.length > 20 ? " (top 20)" : ""}</h3></div>
-        {chart.length === 0 ? <p className="mrid-note">No unit was Red or Yellow in this period.</p> : (
+        <div className="mrid-panel-head"><h3>{is3d ? `Days Red or Yellow, by unit and month${ranked.length > 12 ? " (top 12 units)" : ""}` : `Days Red or Yellow, by unit${ranked.length > 20 ? " (top 20)" : ""}`}</h3><ViewToggle is3d={is3d} onChange={set3d} /></div>
+        {chart.length === 0 ? <p className="mrid-note">No unit was Red or Yellow in this period.</p> : cube ? (
+          <>
+            <Chart3D rows={cube.rows} cols={cube.cols} cells={cube.cells} rowTitle="Unit" colTitle="Month" valueTitle="Days"
+              fmt={(v) => `${Math.round(v * 10) / 10} d`} onPick={(cell) => setUnitPick(cube.ids[cell.row] ?? null)} />
+            <div className="mrid-legend"><span><i style={{ background: RED }} />Red</span><span><i style={{ background: YEL }} />Yellow</span></div>
+          </>
+        ) : (
           <>
             <div style={{ width: "100%", height: Math.max(130, chart.length * 34 + 50) }}>
               <ResponsiveContainer>
@@ -166,8 +194,8 @@ export default function TimeRedYellow({ assets, filters }: { assets: MriDashboar
                   <XAxis type="number" tick={AX} unit=" d" />
                   <YAxis type="category" dataKey="name" width={120} tick={{ fill: "var(--text)", fontSize: 12 }} />
                   <Tooltip cursor={{ fill: "var(--accent-soft)" }} contentStyle={TT} formatter={(v) => `${v} days`} />
-                  <Bar dataKey="Red" stackId="t" fill={RED} maxBarSize={22} cursor="pointer" onClick={(_, i) => setUnitPick(chart[i]?.id ?? null)} />
-                  <Bar dataKey="Yellow" stackId="t" fill={YEL} maxBarSize={22} cursor="pointer" onClick={(_, i) => setUnitPick(chart[i]?.id ?? null)} />
+                  <Bar {...chartAnim()} dataKey="Red" stackId="t" fill={RED} maxBarSize={22} cursor="pointer" onClick={(_, i) => setUnitPick(chart[i]?.id ?? null)} />
+                  <Bar {...chartAnim()} dataKey="Yellow" stackId="t" fill={YEL} maxBarSize={22} cursor="pointer" onClick={(_, i) => setUnitPick(chart[i]?.id ?? null)} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

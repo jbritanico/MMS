@@ -15,6 +15,9 @@ import {
 import ExportMenu, { type ExportRow } from "./ExportMenu";
 import { PreviewButton } from "./ReportPreview";
 import { changeLine, Sparkline, StoryStrip, TrendDelta, type StoryLine } from "./fluid";
+import { Num, Ring, chartAnim } from "../fluent/motion";
+import { Liquid } from "../fluent/Liquid";
+import { sevLabel } from "../hooks/useMriDashboards";
 
 // Dashboard 4: Fault closure rate (Faults Severity Classification, "MMS Data Monitoring"):
 //   Closure rate % = faults closed in the period ÷ (backlog at the start + new faults in the period) × 100
@@ -65,8 +68,8 @@ export function ClosureRateMini({ assets }: { assets: MriDashboardAsset[] }) {
       {SEVERITIES.map((sv) => {
         const c = count(bySev(faults, sv.key), s, e);
         return (
-          <span key={sv.key} className="mrid-mini-item" title={`${sv.key} closure rate, this month`}>
-            <i className="mrid-dot" style={{ background: sv.color }} /> {sv.key} <b>{fmtRate(c.rate)}</b>
+          <span key={sv.key} className="mrid-mini-item" title={`${sevLabel(sv.key)} closure rate, this month`}>
+            <i className="mrid-dot" style={{ background: sv.color }} /> {sevLabel(sv.key)} <b>{fmtRate(c.rate)}</b>
           </span>
         );
       })}
@@ -132,7 +135,7 @@ export default function ClosureRate({ assets, filters }: { assets: MriDashboardA
   closedList.forEach(({ f }) => howClosed.set(f.stage, (howClosed.get(f.stage) ?? 0) + 1));
 
   const base = (f: MriDashboardFault): ExportRow => ({
-    Severity: sevKey(f.severity),
+    Severity: sevLabel(sevKey(f.severity)),
     Unit: unitOf.get(f.asset_id)?.asset_code ?? String(f.asset_id),
     "Equipment type": unitOf.get(f.asset_id)?.asset_type ?? null,
     Component: f.component,
@@ -165,7 +168,7 @@ export default function ClosureRate({ assets, filters }: { assets: MriDashboardA
     {
       name: "Closure rate",
       rows: [
-        ...tiles.map((t) => ({ Group: t.key, "Backlog at start": t.backlog, "New in period": t.added, "Closed in period": t.closed, "Closure rate %": t.rate, Target: t.key === "Critical" ? `> ${TARGET}%` : "" })),
+        ...tiles.map((t) => ({ Group: sevLabel(t.key), "Backlog at start": t.backlog, "New in period": t.added, "Closed in period": t.closed, "Closure rate %": t.rate, Target: t.key === "Critical" ? `> ${TARGET}%` : "" })),
         { Group: "Minor and Moderate", "Backlog at start": minMod.backlog, "New in period": minMod.added, "Closed in period": minMod.closed, "Closure rate %": minMod.rate, Target: "" },
         { Group: "All", "Backlog at start": all.backlog, "New in period": all.added, "Closed in period": all.closed, "Closure rate %": all.rate, Target: "" },
       ],
@@ -174,7 +177,7 @@ export default function ClosureRate({ assets, filters }: { assets: MriDashboardA
       name: "Monthly trend",
       rows: months.map((m) => {
         const r = (l: MriDashboardFault[]) => count(l, m.s, m.e).rate;
-        return { Month: m.name, "Major and Critical %": r(bySev(faults, "Critical")), "Moderate %": r(bySev(faults, "Moderate")), "Minor %": r(bySev(faults, "Minor")), "Minor and Moderate %": r(bySev(faults, "MinMod")), "All %": r(faults) };
+        return { Month: m.name, "Major / Critical %": r(bySev(faults, "Critical")), "Moderate %": r(bySev(faults, "Moderate")), "Minor %": r(bySev(faults, "Minor")), "Minor and Moderate %": r(bySev(faults, "MinMod")), "All %": r(faults) };
       }),
     },
     { name: "Closed", rows: closedList.map(({ f, days }) => ({ ...base(f), Closed: fmtDate(f.ended_at), "Days to close": days, "How it was closed": f.stage })) },
@@ -191,7 +194,7 @@ export default function ClosureRate({ assets, filters }: { assets: MriDashboardA
           <p className="mrid-note" style={{ margin: 0 }}>
             Of the faults that needed closing in <b>{periodName}</b> (open at the start plus new ones), the share closed in that time.
           </p>
-          <span className="mrid-formula">Closure rate = closed in the period ÷ (backlog at the start + new in the period) × 100 · Target for Critical: above {TARGET}%</span>
+          <span className="mrid-formula">Closure rate = closed in the period ÷ (backlog at the start + new in the period) × 100 · Target for Major / Critical: above {TARGET}%</span>
         </div>
         <ExportMenu dashboardNo={4} title="Fault closure rate" filters={filters} tables={exportTables} />
       </div>
@@ -206,19 +209,20 @@ export default function ClosureRate({ assets, filters }: { assets: MriDashboardA
             <button
               type="button"
               key={t.key}
-              className={`mrid-kpi${sevPick === t.key ? " is-on" : ""}`}
+              className={`mrid-kpi${sevPick === t.key ? " is-on" : ""}${t.rate != null ? " has-liquid" : ""}`}
               style={{ ["--kpi" as string]: sevColor(t.key) }}
               onClick={() => setSevPick((v) => (v === t.key ? null : t.key))}
-              title={`List the ${t.key} faults`}
+              title={`List the ${sevLabel(t.key)} faults`}
             >
+              <Liquid pct={t.rate} />
               <div className="mrid-kpi-head">
                 <i className="mrid-dot" style={{ background: sevColor(t.key) }} />
                 <span>{isCrit ? "Major / Critical" : t.key}</span>
                 {isCrit && t.rate != null && <span className={`mrid-target ${ok ? "ok" : "bad"}`}>{ok ? "On target" : `Below ${TARGET}%`}</span>}
               </div>
-              <div className="mrid-kpi-value">{fmtRate(t.rate)}</div>
+              <div className="fl-kpi-ringrow"><div className="mrid-kpi-value"><Num v={fmtRate(t.rate)} /></div>{t.rate != null && <Ring pct={t.rate} color={sevColor(t.key)} size={44} title={`${t.rate}% closed`} />}</div>
               <TrendDelta now={t.rate} prev={prevRate(t.key)} lowerIsBetter={false} unit="%" label="vs last month" />
-              <Sparkline values={numbers(trendAll.map((m) => m[t.key]))} color={sevColor(t.key)} title={`${t.key} closure rate by month`} />
+              <Sparkline values={numbers(trendAll.map((m) => m[t.key]))} color={sevColor(t.key)} title={`${sevLabel(t.key)} closure rate by month`} />
               <div className="mrid-kpi-sub">
                 {t.closed} closed of {t.backlog + t.added} ({t.backlog} backlog + {t.added} new){avgDays(t.key) != null ? ` · ${avgDays(t.key)} days to close on average` : ""}
               </div>
@@ -226,9 +230,10 @@ export default function ClosureRate({ assets, filters }: { assets: MriDashboardA
             </button>
           );
         })}
-        <button type="button" className="mrid-kpi" style={{ ["--kpi" as string]: "var(--text-soft)" }} onClick={clearAll} title="Show all faults">
+        <button type="button" className={`mrid-kpi${all.rate != null ? " has-liquid" : ""}`} style={{ ["--kpi" as string]: "var(--text-soft)" }} onClick={clearAll} title="Show all faults">
+          <Liquid pct={all.rate} color="var(--accent-blue, #2f6fed)" />
           <div className="mrid-kpi-head"><span>All faults</span></div>
-          <div className="mrid-kpi-value">{fmtRate(all.rate)}</div>
+          <div className="fl-kpi-ringrow"><div className="mrid-kpi-value"><Num v={fmtRate(all.rate)} /></div>{all.rate != null && <Ring pct={all.rate} color="var(--accent-blue, #2f6fed)" size={44} title={`${all.rate}% closed`} />}</div>
           <TrendDelta now={all.rate} prev={prevRate("All")} lowerIsBetter={false} unit="%" label="vs last month" />
           <Sparkline values={numbers(trendAll.map((m) => m.All))} color="var(--accent-blue, #2f6fed)" title="Closure rate by month" />
           <div className="mrid-kpi-sub">{all.closed} closed of {all.backlog + all.added} · Minor and Moderate together: {fmtRate(minMod.rate)}</div>
@@ -259,7 +264,7 @@ export default function ClosureRate({ assets, filters }: { assets: MriDashboardA
               <XAxis dataKey="name" tick={{ fill: "var(--text-soft)", fontSize: 11 }} />
               <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 95, 100]} tickFormatter={(v) => `${v}%`} tick={{ fill: "var(--text-soft)", fontSize: 11 }} width={44} />
               <Tooltip cursor={{ fill: "var(--accent-soft)" }} formatter={(v) => (v == null ? "No faults" : `${v}%`)} contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
-              <ReferenceLine y={TARGET} stroke="var(--danger)" strokeDasharray="6 4" label={{ value: `Critical target ${TARGET}%`, position: "insideTopLeft", fill: "var(--danger)", fontSize: 11 }} />
+              <ReferenceLine y={TARGET} stroke="var(--danger)" strokeDasharray="6 4" label={{ value: `Major / Critical target ${TARGET}%`, position: "insideTopLeft", fill: "var(--danger)", fontSize: 11 }} />
               <defs>
                 {SEVERITIES.map((sv) => (
                   <linearGradient key={sv.key} id={`cr-${sv.key}`} x1="0" x2="0" y1="0" y2="1">
@@ -269,7 +274,7 @@ export default function ClosureRate({ assets, filters }: { assets: MriDashboardA
                 ))}
               </defs>
               {SEVERITIES.map((sv) => (
-                <Bar key={sv.key} dataKey={sv.key} name={sv.key === "Critical" ? "Major / Critical" : sv.key} fill={`url(#cr-${sv.key})`} radius={[6, 6, 0, 0]} maxBarSize={28} minPointSize={2} animationDuration={700} animationEasing="ease-out">
+                <Bar {...chartAnim(700)} key={sv.key} dataKey={sv.key} name={sv.key === "Critical" ? "Major / Critical" : sv.key} fill={`url(#cr-${sv.key})`} radius={[6, 6, 0, 0]} maxBarSize={28} minPointSize={2}>
                   <LabelList dataKey={sv.key} position="top" formatter={(v: unknown) => (v == null ? "" : `${v}%`)} style={{ fill: "var(--text-soft)", fontSize: 10 }} />
                 </Bar>
               ))}
@@ -296,7 +301,7 @@ export default function ClosureRate({ assets, filters }: { assets: MriDashboardA
         </div>
         {(sevPick || monthPick) && (
           <div className="mrid-drill">
-            {sevPick && <span className="mrid-chip">Severity: <b>{sevPick}</b></span>}
+            {sevPick && <span className="mrid-chip">Severity: <b>{sevLabel(sevPick)}</b></span>}
             {monthPick && <span className="mrid-chip">Month: <b>{monthPick.name}</b></span>}
             <button type="button" className="ghost mrid-clear" onClick={clearAll}>✕ Clear selection</button>
           </div>
@@ -320,7 +325,7 @@ export default function ClosureRate({ assets, filters }: { assets: MriDashboardA
                 <tbody>
                   {closedList.map(({ f, days }) => (
                     <tr key={f.result_id}>
-                      <td><span className="mrid-sev"><i className="mrid-dot" style={{ background: sevColor(sevKey(f.severity)) }} />{sevKey(f.severity)}</span></td>
+                      <td><span className="mrid-sev"><i className="mrid-dot" style={{ background: sevColor(sevKey(f.severity)) }} />{sevLabel(sevKey(f.severity))}</span></td>
                       <td><b>{unitOf.get(f.asset_id)?.asset_code ?? f.asset_id}</b>{f.component ? <span className="mrid-soft"> · {f.component}</span> : null}</td>
                       <td>{f.item ?? "—"}</td>
                       <td className="mrid-soft">{f.issue_details ?? "—"}</td>
@@ -346,7 +351,7 @@ export default function ClosureRate({ assets, filters }: { assets: MriDashboardA
               <tbody>
                 {notClosed.map((f) => (
                   <tr key={f.result_id}>
-                    <td><span className="mrid-sev"><i className="mrid-dot" style={{ background: sevColor(sevKey(f.severity)) }} />{sevKey(f.severity)}</span></td>
+                    <td><span className="mrid-sev"><i className="mrid-dot" style={{ background: sevColor(sevKey(f.severity)) }} />{sevLabel(sevKey(f.severity))}</span></td>
                     <td><b>{unitOf.get(f.asset_id)?.asset_code ?? f.asset_id}</b>{f.component ? <span className="mrid-soft"> · {f.component}</span> : null}</td>
                     <td>{f.item ?? "—"}</td>
                     <td className="mrid-soft">{f.issue_details ?? "—"}</td>

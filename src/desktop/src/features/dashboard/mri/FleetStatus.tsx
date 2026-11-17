@@ -7,6 +7,8 @@ import { UnitReports } from "./ReportPreview";
 import { monthsFor, nowSecs, useMore } from "./kit";
 import { Sparkline, StoryStrip, TrendDelta, type StoryLine } from "./fluid";
 import { HealthStream, useHealthSeries } from "./health";
+import { Num, chartAnim } from "../fluent/motion";
+import Chart3D, { use3DMode, ViewToggle, type Cell3D } from "../fluent/Chart3D";
 
 // Dashboard 1: Fleet status by tag colour.
 // Current tag of every active unit the viewer may see (after the country / service line /
@@ -65,6 +67,7 @@ const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
 
 export default function FleetStatus({ assets, filters }: { assets: MriDashboardAsset[]; filters: DashboardFilters }) {
   const [groupBy, setGroupBy] = useState<GroupBy>("country");
+  const [is3d, set3d] = use3DMode(1);
   const [showUntagged, setShowUntagged] = useState(false);
   // Drill-down: click a tag tile and/or a bar to list those units, then a unit to see its reports.
   const [tagPick, setTagPick] = useState<Tag | null>(null);
@@ -98,6 +101,22 @@ export default function FleetStatus({ assets, filters }: { assets: MriDashboardA
     .sort((a, b) => (tagOf(a) === tagOf(b) ? a.asset_code.localeCompare(b.asset_code) : tagOf(a) === "Red" ? -1 : 1));
   const untagged = active.filter((a) => tagOf(a) === "None");
   const groupKey = (a: MriDashboardAsset) => ((a[groupBy] as string | null) ?? "").trim() || "Not set";
+  // 3D view: the chosen grouping × a second one (equipment type, or country when grouping by equipment type).
+  const other: GroupBy = groupBy === "asset_type" ? "country" : "asset_type";
+  const cube = (() => {
+    if (!is3d) return null;
+    const key2 = (a: MriDashboardAsset) => ((a[other] as string | null) ?? "").trim() || "Not set";
+    const rows = groups.slice(0, 10).map((g) => g.name);
+    const colCount = new Map<string, number>();
+    active.forEach((a) => colCount.set(key2(a), (colCount.get(key2(a)) ?? 0) + 1));
+    const cols = [...colCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k]) => k);
+    const cells: Cell3D[] = [];
+    rows.forEach((r, i) => cols.forEach((col, j) => {
+      const us = active.filter((a) => groupKey(a) === r && key2(a) === col);
+      if (us.length) cells.push({ row: i, col: j, segs: TAGS.map((t) => ({ key: t.key, label: t.label, value: us.filter((a) => tagOf(a) === t.key).length, color: t.color })) });
+    }));
+    return { rows, cols, cells };
+  })();
   const drilling = tagPick != null || groupPick != null;
   const drilled = active
     .filter((a) => (tagPick == null || tagOf(a) === tagPick) && (groupPick == null || groupKey(a) === groupPick))
@@ -171,7 +190,7 @@ export default function FleetStatus({ assets, filters }: { assets: MriDashboardA
               <TagLamp status={t.key === "None" ? null : t.key} size={16} />
               <span>{t.label}</span>
             </div>
-            <div className="mrid-kpi-value">{counts.by[t.key]}</div>
+            <div className="mrid-kpi-value"><Num v={counts.by[t.key]} /></div>
             {t.key !== "None" && (
               <>
                 <TrendDelta now={counts.by[t.key]} prev={prevH ? prevH[t.key] : null} lowerIsBetter={t.key !== "Green"} label={prevH ? `vs end of ${prevH.name}` : ""} />
@@ -194,7 +213,7 @@ export default function FleetStatus({ assets, filters }: { assets: MriDashboardA
 
       <div className="mrid-panel">
         <div className="mrid-panel-head">
-          <h3>Tag colour by {GROUP_LABEL[groupBy].toLowerCase()}</h3>
+          <h3>Tag colour by {GROUP_LABEL[groupBy].toLowerCase()}{is3d ? ` and ${GROUP_LABEL[other].toLowerCase()}` : ""}</h3>
           <label className="mrid-field mrid-inline">
             <span>Group by</span>
             <select value={groupBy} onChange={(e) => { setGroupBy(e.target.value as GroupBy); setGroupPick(null); }}>
@@ -203,7 +222,12 @@ export default function FleetStatus({ assets, filters }: { assets: MriDashboardA
               ))}
             </select>
           </label>
+          <ViewToggle is3d={is3d} onChange={set3d} />
         </div>
+        {cube ? (
+          <Chart3D rows={cube.rows} cols={cube.cols} cells={cube.cells} rowTitle={GROUP_LABEL[groupBy]} colTitle={GROUP_LABEL[other]} valueTitle="Units" integer
+            fmt={(v) => String(Math.round(v))} onPick={(cell, seg) => { setGroupPick(cube.rows[cell.row]); setTagPick(seg.key as Tag); }} />
+        ) : (
         <div style={{ width: "100%", height: Math.max(160, groups.length * 44 + 70) }}>
           <ResponsiveContainer>
             <BarChart data={groups} layout="vertical" margin={{ top: 4, right: 24, bottom: 4, left: 8 }}>
@@ -215,7 +239,7 @@ export default function FleetStatus({ assets, filters }: { assets: MriDashboardA
                 contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
               />
               {TAGS.map((t) => (
-                <Bar
+                <Bar {...chartAnim()}
                   key={t.key}
                   dataKey={t.key}
                   name={t.label}
@@ -232,6 +256,7 @@ export default function FleetStatus({ assets, filters }: { assets: MriDashboardA
             </BarChart>
           </ResponsiveContainer>
         </div>
+        )}
         <div className="mrid-legend">
           {TAGS.map((t) => (
             <span key={t.key}><i style={{ background: t.color }} />{t.label}</span>

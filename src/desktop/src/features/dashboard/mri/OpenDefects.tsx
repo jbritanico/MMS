@@ -18,6 +18,8 @@ import { PreviewButton } from "./ReportPreview";
 import { monthsFor } from "./kit";
 import { Sparkline, StoryStrip, TrendDelta, type StoryLine } from "./fluid";
 import { BreakdownTable, GROUP_LABEL, groupOf, MonthEndTrend, type BreakdownRow, type GroupBy, type MonthEndPoint } from "./MonthEnd";
+import { Num, chartAnim } from "../fluent/motion";
+import { sevLabel } from "../hooks/useMriDashboards";
 
 // Dashboard 2: Open defects by severity.
 // A fault is "open" from the moment its report is submitted until it is closed (repair verified,
@@ -44,8 +46,8 @@ export function OpenDefectsMini({ assets }: { assets: MriDashboardAsset[] }) {
   return (
     <div className="mrid-mini">
       {SEVERITIES.map((s) => (
-        <span key={s.key} className="mrid-mini-item" title={`${s.key}: ${s.plain}`}>
-          <i className="mrid-dot" style={{ background: s.color }} /> {s.key} <b>{c[s.key]}</b>
+        <span key={s.key} className="mrid-mini-item" title={`${sevLabel(s.key)}: ${s.plain}`}>
+          <i className="mrid-dot" style={{ background: s.color }} /> {sevLabel(s.key)} <b>{c[s.key]}</b>
         </span>
       ))}
     </div>
@@ -167,7 +169,7 @@ export default function OpenDefects({ assets, filters }: { assets: MriDashboardA
   }
 
   const row = (f: MriDashboardFault): ExportRow => ({
-    Severity: sevKey(f.severity),
+    Severity: sevLabel(sevKey(f.severity)),
     Unit: codeOf.get(f.asset_id)?.asset_code ?? String(f.asset_id),
     Component: f.component,
     Item: f.item,
@@ -182,14 +184,14 @@ export default function OpenDefects({ assets, filters }: { assets: MriDashboardA
     {
       name: "Summary",
       rows: SEVERITIES.map((s) => ({
-        Severity: s.key,
+        Severity: sevLabel(s.key),
         Meaning: s.plain,
         "Open at start of period": atStart[s.key],
         [isCurrent ? "Open now" : "Open at end of period"]: atEnd[s.key],
         "New faults found in period": found[s.key],
       })),
     },
-    { name: "Trend", rows: trend.map((t) => ({ "Period end": t.name, Critical: t.Critical, Moderate: t.Moderate, Minor: t.Minor, Total: t.Critical + t.Moderate + t.Minor })) },
+    { name: "Trend", rows: trend.map((t) => ({ "Period end": t.name, "Major / Critical": t.Critical, Moderate: t.Moderate, Minor: t.Minor, Total: t.Critical + t.Moderate + t.Minor })) },
     { name: "Month-end trend", rows: monthEnd.map((m) => ({ Month: m.name, "Major / Critical": m.Critical, Moderate: m.Moderate, Minor: m.Minor, Total: m.Critical + m.Moderate + m.Minor })) },
     { name: `By ${GROUP_LABEL[groupBy].toLowerCase()}`.slice(0, 31), rows: groupRows.map((r) => ({ [GROUP_LABEL[groupBy]]: r.label, "Major / Critical": r.Critical, Moderate: r.Moderate, Minor: r.Minor, Total: r.Critical + r.Moderate + r.Minor })) },
     ...(groupPick ? [{ name: "By unit", rows: unitRows.map((r) => ({ Unit: r.label, "Major / Critical": r.Critical, Moderate: r.Moderate, Minor: r.Minor, Total: r.Critical + r.Moderate + r.Minor })) }] : []),
@@ -220,12 +222,12 @@ export default function OpenDefects({ assets, filters }: { assets: MriDashboardA
               className={`mrid-kpi${sevPick === s.key ? " is-on" : ""}`}
               style={{ ["--kpi" as string]: s.color }}
               onClick={() => setSevPick((v) => (v === s.key ? null : s.key))}
-              title={`List the open ${s.key} faults`}
+              title={`List the open ${sevLabel(s.key)} faults`}
             >
-              <div className="mrid-kpi-head"><i className="mrid-dot" style={{ background: s.color }} /><span>{s.key}</span></div>
-              <div className="mrid-kpi-value">{atEnd[s.key]}</div>
+              <div className="mrid-kpi-head"><i className="mrid-dot" style={{ background: s.color }} /><span>{sevLabel(s.key)}</span></div>
+              <div className="mrid-kpi-value"><Num v={atEnd[s.key]} /></div>
               <TrendDelta now={atEnd[s.key]} prev={prevMonth ? prevMonth[s.key] : null} label={prevMonth ? `vs end of ${prevMonth.name}` : ""} />
-              <Sparkline values={series(s.key)} color={s.color} title={`Open ${s.key} faults at each month-end`} />
+              <Sparkline values={series(s.key)} color={s.color} title={`Open ${sevLabel(s.key)} faults at each month-end`} />
               <div className="mrid-kpi-sub">
                 {s.plain} · {diff === 0 ? "no change" : `${diff > 0 ? "+" : ""}${diff}`} since start of period · {found[s.key]} new
               </div>
@@ -235,7 +237,7 @@ export default function OpenDefects({ assets, filters }: { assets: MriDashboardA
         })}
         <button type="button" className="mrid-kpi" style={{ ["--kpi" as string]: "var(--text-soft)" }} onClick={() => { setSevPick(null); setBarPick(null); setGroupPick(null); setUnitPick(null); }} title="Show every open fault">
           <div className="mrid-kpi-head"><span>All open faults</span></div>
-          <div className="mrid-kpi-value">{total(atEnd)}</div>
+          <div className="mrid-kpi-value"><Num v={total(atEnd)} /></div>
           <TrendDelta now={total(atEnd)} prev={prevMonth ? total(prevMonth) : null} label={prevMonth ? `vs end of ${prevMonth.name}` : ""} />
           <Sparkline values={monthEnd.map((m) => total(m))} color="var(--accent-blue, #2f6fed)" title="All open faults at each month-end" />
           <div className="mrid-kpi-sub">{total(atStart)} at start of period · {total(found)} new in period</div>
@@ -283,8 +285,8 @@ export default function OpenDefects({ assets, filters }: { assets: MriDashboardA
                   <YAxis hide />
                   <Tooltip contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
                   {[...SEVERITIES].reverse().map((s) => (
-                    <Area key={s.key} type="monotone" dataKey={s.key} name={s.key === "Critical" ? "Major / Critical" : s.key} stackId="sev"
-                      stroke={s.color} strokeWidth={1} fill={`url(#st-${s.key})`} animationDuration={900} animationEasing="ease-out" />
+                    <Area {...chartAnim(900)} key={s.key} type="monotone" dataKey={s.key} name={s.key === "Critical" ? "Major / Critical" : s.key} stackId="sev"
+                      stroke={s.color} strokeWidth={1} fill={`url(#st-${s.key})`} />
                   ))}
                 </AreaChart>
               </ResponsiveContainer>
@@ -333,7 +335,7 @@ export default function OpenDefects({ assets, filters }: { assets: MriDashboardA
         </div>
         {(sevPick || barPick || groupPick) && (
           <div className="mrid-drill">
-            {sevPick && <span className="mrid-chip">Severity: <b>{sevPick}</b></span>}
+            {sevPick && <span className="mrid-chip">Severity: <b>{sevLabel(sevPick)}</b></span>}
             {barPick && <span className="mrid-chip">As at: <b>end of {barPick.name}</b></span>}
             {groupPick && <span className="mrid-chip">{GROUP_LABEL[groupBy]}: <b>{groupPick}</b></span>}
             {unitPick != null && <span className="mrid-chip">Unit: <b>{codeOf.get(unitPick)?.asset_code ?? unitPick}</b></span>}
@@ -358,7 +360,7 @@ export default function OpenDefects({ assets, filters }: { assets: MriDashboardA
               <tbody>
                 {openList.map((f) => (
                   <tr key={f.result_id}>
-                    <td><span className="mrid-sev"><i className="mrid-dot" style={{ background: SEVERITIES.find((s) => s.key === sevKey(f.severity))!.color }} />{sevKey(f.severity)}</span></td>
+                    <td><span className="mrid-sev"><i className="mrid-dot" style={{ background: SEVERITIES.find((s) => s.key === sevKey(f.severity))!.color }} />{sevLabel(sevKey(f.severity))}</span></td>
                     <td><b>{codeOf.get(f.asset_id)?.asset_code ?? f.asset_id}</b>{f.component ? <span className="mrid-soft"> · {f.component}</span> : null}</td>
                     <td>{f.item ?? "—"}</td>
                     <td className="mrid-soft">{f.issue_details ?? "—"}</td>

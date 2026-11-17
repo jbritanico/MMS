@@ -5,6 +5,8 @@ import ExportMenu from "./ExportMenu";
 import { PreviewButton } from "./ReportPreview";
 import { FlowSteps, StoryStrip, type StoryLine } from "./fluid";
 import { AX, avg, DAY, DrillChips, fmtDur, inRange, Loading, monthsFor, nowSecs, period, Tile, toDays, trimLeading, TT, useMore } from "./kit";
+import { chartAnim } from "../fluent/motion";
+import { sevLabel } from "../hooks/useMriDashboards";
 
 // Dashboard 10: Phone decisions and acknowledgements.
 // Phone decision = a decision phoned in and recorded on the authority's behalf ("Provisional").
@@ -60,7 +62,7 @@ export default function PhoneDecisions({ assets, filters }: { assets: MriDashboa
   const code = (id: number) => unitOf.get(id)?.asset_code ?? String(id);
   const periodName = monthPick?.name ?? p.label;
   const row = (d: MriDashDecision) => ({
-    Unit: code(d.asset_id), Item: d.item, Severity: sevKey(d.original_severity ?? ""), Decision: d.decision, "New severity": d.new_severity,
+    Unit: code(d.asset_id), Item: d.item, Severity: sevLabel(sevKey(d.original_severity ?? "")), Decision: d.decision, "New severity": d.new_severity ? sevLabel(sevKey(d.new_severity)) : null,
     Authority: d.reviewer, "Recorded by": d.recorded_by, Method: d.review_method, Decided: fmtDate(d.decided_at),
     Confirmed: d.confirmed_at ? `${fmtDate(d.confirmed_at)} by ${d.confirmed_by ?? "—"}` : d.provisional_status === "Provisional" ? "Waiting" : null,
     "To acknowledge": d.ack_needed ? (d.acknowledged_by ? `${fmtDate(d.acknowledged_at)} by ${d.acknowledged_by}` : `Waiting${d.ack_assigned_to ? ` (${d.ack_assigned_to})` : ""}`) : null,
@@ -101,7 +103,7 @@ export default function PhoneDecisions({ assets, filters }: { assets: MriDashboa
       <tbody>{l.map((d) => { const w = waited(d); return (
         <tr key={d.approval_id}>
           <td><b>{code(d.asset_id)}</b></td>
-          <td>{d.item ?? "—"}<div className="mrid-soft">{sevKey(d.original_severity ?? "")}</div></td>
+          <td>{d.item ?? "—"}<div className="mrid-soft">{sevLabel(sevKey(d.original_severity ?? ""))}</div></td>
           <td>{d.decision}{d.new_severity ? <span className="mrid-soft"> → {d.new_severity}</span> : null}{isPhone(d) ? <div className="mrid-soft">By phone</div> : null}</td>
           <td>{kind === "ack" ? (d.ack_assigned_to ?? "Any Maintenance Manager / FSM") : <>{d.reviewer ?? "—"}{d.recorded_by && d.recorded_by !== d.reviewer ? <div className="mrid-soft">recorded by {d.recorded_by}</div> : null}</>}</td>
           <td>{fmtDate(d.decided_at)}</td>
@@ -156,8 +158,8 @@ export default function PhoneDecisions({ assets, filters }: { assets: MriDashboa
                     <XAxis dataKey="name" tick={AX} axisLine={false} tickLine={false} />
                     <YAxis hide />
                     <Tooltip contentStyle={TT} />
-                    <Area type="monotone" dataKey="Direct" stackId="d" stroke="var(--success)" strokeWidth={1} fill="url(#pd-dir)" animationDuration={900} />
-                    <Area type="monotone" dataKey="By phone" stackId="d" stroke="var(--accent-blue, #2f6fed)" strokeWidth={1} fill="url(#pd-ph)" animationDuration={900} />
+                    <Area {...chartAnim(900)} type="monotone" dataKey="Direct" stackId="d" stroke="var(--success)" strokeWidth={1} fill="url(#pd-dir)" />
+                    <Area {...chartAnim(900)} type="monotone" dataKey="By phone" stackId="d" stroke="var(--accent-blue, #2f6fed)" strokeWidth={1} fill="url(#pd-ph)" />
                   </AreaChart>
                 ) : (
                   <BarChart data={trend} margin={{ top: 10, right: 16, bottom: 4, left: 0 }} style={{ cursor: "pointer" }}
@@ -166,8 +168,8 @@ export default function PhoneDecisions({ assets, filters }: { assets: MriDashboa
                     <XAxis dataKey="name" tick={AX} />
                     <YAxis allowDecimals={false} tick={AX} width={32} />
                     <Tooltip cursor={{ fill: "var(--accent-soft)" }} contentStyle={TT} />
-                    <Bar dataKey="Direct" stackId="d" fill="var(--success)" maxBarSize={34} />
-                    <Bar dataKey="By phone" stackId="d" fill="var(--accent-blue, #2f6fed)" maxBarSize={34} />
+                    <Bar {...chartAnim()} dataKey="Direct" stackId="d" fill="var(--success)" maxBarSize={34} />
+                    <Bar {...chartAnim()} dataKey="By phone" stackId="d" fill="var(--accent-blue, #2f6fed)" maxBarSize={34} />
                   </BarChart>
                 )}
               </ResponsiveContainer>

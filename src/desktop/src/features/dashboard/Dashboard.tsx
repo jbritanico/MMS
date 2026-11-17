@@ -1,4 +1,4 @@
-import { useState, type ReactElement, type ReactNode } from "react";
+import { useMemo, useState, type ReactElement, type ReactNode } from "react";
 import {
   useAssetsWithMriHistorySummary,
   useAssetMriHistory,
@@ -7,12 +7,16 @@ import {
 import { useDeleteLastMriReport } from "../mri-reporting/hooks/useMriReports";
 import { useAssetTriggers } from "../asset-registry/hooks/useTriggers";
 import { useCurrentUser } from "../../lib/currentUser";
-import dashboardBgImage from "../../assets/FieldMaintenance.png";
-import dashboardBgImageDark from "../../assets/FieldDark.png";
-import { isDarkTheme, type Theme } from "../../lib/theme";
+import { type Theme } from "../../lib/theme";
 import { useAssets } from "../asset-registry/hooks/useAssets";
+import { useAssetTypes } from "../administration/hooks/useAssetTypes";
 import { TagLamp } from "../../components/Instruments";
 import MriDashboards from "./MriDashboards";
+import { FL_ICONS, FluentShell, HeroBanner, RangeTabs, sectionOfDash, type FlTone, type ShellSection } from "./fluent/FluentShell";
+import Overview from "./fluent/Overview";
+import { GROUPS, USER_GROUPS } from "./dashCatalog";
+import { inScope, ScopeFilterBar, useScopeFilter } from "./scopeFilter";
+import { useMriDashboardScope } from "./hooks/useMriDashboards";
 
 const STATUS_COLOR: Record<string, string> = {
   Draft: "var(--st-grey)",
@@ -44,6 +48,8 @@ const TRIGGER_TYPE_COLORS: Record<string, string> = {
 // tokens where one lines up with the trigger color; OH's blue has no themed soft token, so
 // it gets a fixed low-alpha tint instead.
 const TRIGGER_STAT_ICON_BG: Record<string, string> = {
+  CA: "color-mix(in srgb, var(--warn) 14%, transparent)",
+  RIF: "color-mix(in srgb, var(--accent) 14%, transparent)",
   KM: "var(--success-soft)",
   OH: "rgba(47, 111, 237, 0.14)",
   EH: "var(--danger-soft)",
@@ -89,32 +95,9 @@ const DEFAULT_TRIGGER_ICON = (
   </svg>
 );
 
-const HISTORY_TILE_ICON = (
-  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.6" />
-    <path d="M12 7v5l3 2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
 
-const FAULT_TREND_ICON = (
-  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M4 19V9M10 19V5M16 19v-7M22 19H2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
 
-const FLEET_ICON = (
-  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.6" />
-    <path d="M3 9h18" stroke="currentColor" strokeWidth="1.6" />
-  </svg>
-);
 
-const BUDGET_ICON = (
-  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.6" />
-    <path d="M12 8v8M9 10.5c0-1.4 1.3-2.5 3-2.5s3 .9 3 2c0 2.5-6 1.5-6 4 0 1.1 1.3 2 3 2s3-1.1 3-2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-  </svg>
-);
 
 const DOCUMENT_ICON = (
   <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -199,21 +182,6 @@ const TRASH_ICON = (
   </svg>
 );
 
-// User Analytics tile: two people with a small chart.
-const USER_ANALYTICS_ICON = (
-  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="8" cy="7.5" r="2.8" stroke="currentColor" strokeWidth="1.6" />
-    <path d="M3 18.5a5 5 0 0 1 10 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    <circle cx="15.5" cy="8.5" r="2.2" stroke="currentColor" strokeWidth="1.6" />
-    <path d="M15 20.5v-3M18 20.5v-5M21 20.5v-7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-  </svg>
-);
-
-const STAT_DEFS: { type: string; label: string }[] = [
-  { type: "KM", label: "Distance Travelled (KM)" },
-  { type: "OH", label: "Operating hours" },
-  { type: "EH", label: "Engine hours" },
-];
 
 function formatDate(value: string | null | undefined): string {
   if (!value) return "—";
@@ -233,83 +201,172 @@ function reportIconStyle(status: string): { background: string; color: string } 
   return { background: STATUS_COLOR[status] ?? "var(--st-grey)", color: "var(--on-status)" };
 }
 
-// Washed-out background photo layer, the same treatment used on the Main Menu screen,
-// applied behind every Dashboard sub-screen for a consistent look across the app.
-function DashboardBackdrop({
-  children,
-  theme,
-}: {
-  children: ReactNode;
-  theme: Theme;
-}) {
-  return (
-    <div className="dashboard-bg-wrap">
-      <div className="dashboard-bg-layer">
-        <img src={isDarkTheme(theme) ? dashboardBgImageDark : dashboardBgImage} alt="" />
-        <div className="dashboard-bg-veil" />
-      </div>
-      <div className="dashboard-bg-content">{children}</div>
-    </div>
-  );
-}
-
 interface DashboardAssetCardProps {
   asset: AssetMriHistorySummaryRow;
   onSelect: () => void;
 }
 
+const tagTone = (tag: string | null | undefined): FlTone => (tag === "Red" ? "red" : tag === "Yellow" ? "amber" : tag === "Green" ? "green" : "blue");
+const fmtDay = (value: string | null | undefined) => {
+  if (!value) return "—";
+  const n = Number(value);
+  return Number.isFinite(n) ? new Date(n * 1000).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" }) : value;
+};
+const triggerTone = (t: { running_value: number; interval_value: number; warning_value: number }) =>
+  t.interval_value > 0 && t.running_value >= t.interval_value ? "var(--danger)" : t.warning_value && t.running_value >= t.warning_value ? "var(--st-amber)" : "var(--success)";
+
 // Separate component so it can call useAssetTriggers for its own asset -- hooks can't be
 // called conditionally inside the parent's .map().
+// ---- MR-II / MR-III counters, grouped by maintenance level ----
+type Trig = { id: number; mr_level: string; trigger_type: string; running_value: number; interval_value: number; warning_value: number; enabled: boolean };
+const COUNTER_SHORT: Record<string, string> = { KM: "Distance", CA: "Calendar", OH: "Operating", EH: "Engine", RIF: "Running-in" };
+const LEVEL_NAME: Record<string, string> = { "MR-II": "Preventive maintenance", "MR-III": "Major maintenance" };
+const usedPct = (t: Trig) => (t.interval_value > 0 ? (t.running_value / t.interval_value) * 100 : 0);
+/** Counter state: 2 = interval reached, 1 = warning value reached, 0 = on track. */
+const counterState = (t: Trig) => (t.interval_value > 0 && t.running_value >= t.interval_value ? 2 : t.warning_value > 0 && t.running_value >= t.warning_value ? 1 : 0);
+const STATE_INFO = [
+  { text: "On track", tone: "var(--success)" },
+  { text: "Due soon", tone: "var(--st-amber)" },
+  { text: "Due now", tone: "var(--danger)" },
+];
+const levelRank = (l: string) => { const i = ["MR-II", "MR-III"].indexOf(l); return i < 0 ? 9 : i; };
+/** Enabled counters grouped by MR level (MR-II first), most used first inside each level. */
+function groupCounters(triggers: Trig[]) {
+  const by = new Map<string, Trig[]>();
+  triggers.filter((t) => t.enabled).forEach((t) => by.set(t.mr_level, [...(by.get(t.mr_level) ?? []), t]));
+  return [...by.entries()]
+    .sort((a, b) => levelRank(a[0]) - levelRank(b[0]) || a[0].localeCompare(b[0]))
+    .map(([level, items]) => ({ level, items: items.sort((a, b) => usedPct(b) - usedPct(a)), state: Math.max(...items.map(counterState)) }));
+}
+const fmtCount = (n: number) => Math.round(n).toLocaleString();
+
+/** The picture set for the unit's equipment type (the same icon its MR-I template uses), or the generic unit icon. */
+function AssetPic({ assetTypeId, tone, large }: { assetTypeId: number | null | undefined; tone: FlTone; large?: boolean }) {
+  const { data: assetTypes = [] } = useAssetTypes();
+  const icon = assetTypeId != null ? assetTypes.find((t) => t.id === assetTypeId)?.icon : undefined;
+  if (icon && icon.trim().startsWith("data:"))
+    return <span className={`fl-asset-pic tone-${tone}${large ? " lg" : ""}`}><img src={icon} alt="" /></span>;
+  return <span className={`fl-ico${large ? " lg" : ""} tone-${tone}`}>{FL_ICONS.fleet}</span>;
+}
+
 function DashboardAssetCard({ asset, onSelect }: DashboardAssetCardProps) {
   const { data: triggers = [] } = useAssetTriggers(asset.asset_id);
   const activeTriggers = triggers.filter((t) => t.enabled);
   // Tag lamp: the asset's current Red / Yellow / Green tag (shared, cached Asset Registry list).
   const { data: registryAssets = [] } = useAssets();
   const registryAsset = registryAssets.find((x) => x.id === asset.asset_id);
+  const tag = registryAsset?.tag_status ?? null;
+  const tone = tagTone(tag);
 
   return (
-    <div className="mri-history-card" onClick={onSelect}>
-      <div className="card-main">
-        <div className="code">{asset.asset_code}</div>
-        <div className="desc">{asset.asset_description || "—"}</div>
-        <div className="meta">
-          {registryAsset?.tag_status && <TagLamp status={registryAsset.tag_status} size={16} title={registryAsset.tag_reason ?? undefined} />}
-          <span className="pill neutral">
-            {asset.report_count} report{asset.report_count === 1 ? "" : "s"}
-          </span>
-          {asset.latest_status && (
-            <span
-              className="pill"
-              style={{ background: STATUS_COLOR[asset.latest_status] ?? "var(--st-grey)", color: "var(--on-status)" }}
-            >
-              {asset.latest_status}
-            </span>
-          )}
-          {asset.latest_date && <span className="pill neutral">{formatDate(asset.latest_date)}</span>}
-        </div>
-        {activeTriggers.length > 0 && (
-          <div className="meta" style={{ marginTop: 4 }}>
-            {activeTriggers.map((t) => (
-              <span
-                key={t.id}
-                className="trigger-icon-chip"
-                title={TRIGGER_TYPE_LABELS[t.trigger_type] ?? t.trigger_type}
-              >
-                <span
-                  style={{
-                    color: TRIGGER_TYPE_COLORS[t.trigger_type] ?? "var(--text-soft)",
-                    display: "inline-flex",
-                  }}
-                >
-                  {TRIGGER_TYPE_ICONS[t.trigger_type] ?? DEFAULT_TRIGGER_ICON}
-                </span>
-                <span>{t.running_value}/{t.interval_value}</span>
-              </span>
-            ))}
-          </div>
+    <button type="button" className={`fl-asset tone-${tone}`} onClick={onSelect}>
+      <span className="fl-asset-top">
+        <AssetPic assetTypeId={registryAsset?.asset_type_id} tone={tone} />
+        <span className="fl-asset-name"><b>{asset.asset_code}</b><small>{asset.asset_description || "—"}</small></span>
+        {tag && <TagLamp status={tag} size={14} title={registryAsset?.tag_reason ?? undefined} />}
+      </span>
+      <span className="fl-asset-stats">
+        <span className="fl-asset-count"><b>{asset.report_count}</b> report{asset.report_count === 1 ? "" : "s"}</span>
+        {asset.latest_status && (
+          <span className="fl-pill" style={{ ["--tone" as string]: STATUS_COLOR[asset.latest_status] ?? "var(--st-grey)" }}>{asset.latest_status}</span>
         )}
+        <span className="fl-asset-date">{asset.latest_date ? <>Last {fmtDay(asset.latest_date)}</> : "No reports yet"}</span>
+      </span>
+      {activeTriggers.length > 0 && (
+        <span className="fl-cnt-list">
+          {groupCounters(activeTriggers).map((g) => (
+            <span key={g.level} className="fl-cnt-group">
+              <span className="fl-cnt-level" style={{ ["--tone" as string]: STATE_INFO[g.state].tone }} title={`${g.level} · ${STATE_INFO[g.state].text}`}>{g.level}</span>
+              <span className="fl-cnt-rows">
+                {g.items.map((t) => {
+                  const pct = Math.min(100, usedPct(t));
+                  const unit = STAT_UNITS[t.trigger_type] ?? "";
+                  return (
+                    <span key={t.id} className="fl-cnt-row" title={`${g.level} · ${TRIGGER_TYPE_LABELS[t.trigger_type] ?? t.trigger_type}: ${fmtCount(t.running_value)} of ${fmtCount(t.interval_value)} ${unit} (${Math.round(usedPct(t))}%)`}>
+                      <span className="fl-cnt-ico" style={{ color: TRIGGER_TYPE_COLORS[t.trigger_type] ?? "var(--text-soft)" }}>{TRIGGER_TYPE_ICONS[t.trigger_type] ?? DEFAULT_TRIGGER_ICON}</span>
+                      <span className="fl-cnt-name">{COUNTER_SHORT[t.trigger_type] ?? t.trigger_type}</span>
+                      <span className="fl-meter"><i style={{ width: `${pct}%`, background: triggerTone(t) }} /></span>
+                      <span className="fl-cnt-val"><b>{fmtCount(t.running_value)}</b> / {fmtCount(t.interval_value)} {unit}</span>
+                    </span>
+                  );
+                })}
+              </span>
+            </span>
+          ))}
+        </span>
+      )}
+      <span className="fl-asset-go">Open history {FL_ICONS.chevron}</span>
+    </button>
+  );
+}
+
+type HistoryFilter = "all" | "open" | "closed" | "none";
+const isOpenStatus = (s: string | null) => !!s && s !== "Approved";
+
+/** Asset MR-I History: every unit, with search and a status filter. */
+function AssetHistoryList({ assets: allAssets, isLoading, onSelect }: { assets: AssetMriHistorySummaryRow[]; isLoading: boolean; onSelect: (a: AssetMriHistorySummaryRow) => void }) {
+  const [q, setQ] = useState("");
+  const [filter, setFilter] = useState<HistoryFilter>("all");
+  // Country / service line filter shared with the other dashboards (unit details from the dashboard scope).
+  const scopeF = useScopeFilter();
+  const { data: scopeData } = useMriDashboardScope();
+  const unitOf = useMemo(() => new Map((scopeData?.assets ?? []).map((a) => [a.id, a])), [scopeData]);
+  const assets = useMemo(() => (scopeF.country || scopeF.serviceLine
+    ? allAssets.filter((a) => { const u = unitOf.get(a.asset_id); return !!u && inScope(u, scopeF); })
+    : allAssets), [allAssets, unitOf, scopeF]);
+  const reports = assets.reduce((n, a) => n + a.report_count, 0);
+  const openN = assets.filter((a) => isOpenStatus(a.latest_status)).length;
+  const noneN = assets.filter((a) => a.report_count === 0).length;
+  const closedN = assets.filter((a) => a.latest_status === "Approved").length;
+  const shown = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    return assets.filter((a) =>
+      (!t || `${a.asset_code} ${a.asset_description ?? ""}`.toLowerCase().includes(t)) &&
+      (filter === "all" || (filter === "open" ? isOpenStatus(a.latest_status) : filter === "closed" ? a.latest_status === "Approved" : a.report_count === 0)));
+  }, [assets, q, filter]);
+
+  return (
+    <>
+      <HeroBanner
+        eyebrow="Asset MR-I History"
+        title="Every unit's MR-I report timeline"
+        text="Pick a unit to see each MR-I report in order, its readings, faults found and where its MR-II / MR-III counters stand."
+        chips={<>
+          <span className="fl-chip">{assets.length} unit{assets.length === 1 ? "" : "s"}</span>
+          <span className="fl-chip">{reports} MR-I report{reports === 1 ? "" : "s"}</span>
+        </>}
+      >
+        <div className="fl-hero-stat"><b>{openN}</b><span>Last report open</span></div>
+        <div className="fl-hero-stat"><b>{noneN}</b><span>No reports yet</span></div>
+      </HeroBanner>
+
+      <ScopeFilterBar shown={assets.length} total={allAssets.length} />
+
+      <div className="fl-toolbar">
+        <div className="fl-search fl-toolbar-search">
+          <span className="fl-search-icon">{FL_ICONS.search}</span>
+          <input type="search" placeholder="Find a unit by code or description" aria-label="Find a unit" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+        <RangeTabs<HistoryFilter>
+          label="Show units"
+          value={filter}
+          onChange={setFilter}
+          options={[{ v: "all", label: `All ${assets.length}` }, { v: "open", label: `Last report open ${openN}` }, { v: "closed", label: `Last report closed ${closedN}` }, { v: "none", label: `No reports ${noneN}` }]}
+        />
       </div>
-    </div>
+
+      {isLoading ? (
+        <div className="empty"><span className="fl-spinner" />Loading the units…</div>
+      ) : assets.length === 0 ? (
+        <div className="empty">No assets yet — create one in Asset Registry to get started</div>
+      ) : shown.length === 0 ? (
+        <div className="empty">No unit matches the search and filter.</div>
+      ) : (
+        <div className="fl-asset-grid">
+          {shown.map((a) => <DashboardAssetCard key={a.asset_id} asset={a} onSelect={() => onSelect(a)} />)}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -321,7 +378,7 @@ interface StatCardProps {
   warningValue?: number;
 }
 
-const STAT_UNITS: Record<string, string> = { KM: "km", OH: "h", EH: "h" };
+const STAT_UNITS: Record<string, string> = { KM: "km", OH: "h", EH: "h", CA: "days", RIF: "ft" };
 
 // Modern KPI card: big reading, slim progress bar with the warning point marked,
 // and a status pill (On track / Due soon / Overdue) driven by the trigger's own thresholds.
@@ -390,6 +447,10 @@ function AssetHistoryPanel({ assetId, assetCode, assetDescription, onBack, onOpe
   const { user: currentUser } = useCurrentUser();
   const isAdministrator = currentUser?.role === "Administrator";
   const deleteReport = useDeleteLastMriReport();
+  const { data: registryAssets = [] } = useAssets();
+  const registryAsset = registryAssets.find((x) => x.id === assetId);
+  const tag = registryAsset?.tag_status ?? null;
+  const counterGroups = useMemo(() => groupCounters(triggers), [triggers]);
   const [pendingDelete, setPendingDelete] = useState<{ id: number } | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -407,43 +468,53 @@ function AssetHistoryPanel({ assetId, assetCode, assetDescription, onBack, onOpe
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+      <div style={{ marginBottom: 12 }}>
         <button className="ghost" onClick={onBack} style={{ padding: "6px 12px", fontSize: 12 }}>
-          ← Back to assets
+          ← All units
         </button>
-        {onShowAssetFlow && (
-          <button className="ghost" onClick={() => onShowAssetFlow(assetId)} style={{ padding: "6px 12px", fontSize: 12 }}>
-            Show flow
-          </button>
-        )}
       </div>
 
-      <div className="header">
-        <h1>{assetCode}</h1>
-        <span className="sub">{assetDescription ?? "No description"} · MR-I report history</span>
+      <div className="fl-asset-head">
+        <AssetPic assetTypeId={registryAsset?.asset_type_id} tone={tagTone(tag)} large />
+        <div className="fl-asset-headtext">
+          <h2>{assetCode}{tag && <TagLamp status={tag} size={16} showText title={registryAsset?.tag_reason ?? undefined} />}</h2>
+          <p>{assetDescription ?? "No description"} · MR-I report history{registryAsset?.tag_reason ? ` · ${registryAsset.tag_reason}` : ""}</p>
+        </div>
+        <div className="fl-asset-headtools">
+          {!isLoading && <span className="fl-pill tone-blue">{rows.length} report{rows.length === 1 ? "" : "s"}</span>}
+          {onShowAssetFlow && (
+            <button className="ghost" onClick={() => onShowAssetFlow(assetId)} style={{ padding: "6px 12px", fontSize: 12 }}>
+              Show flow
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="mri-stat-grid">
-        {STAT_DEFS.map((def) => {
-          const trigger = triggers.find((t) => t.trigger_type === def.type && t.enabled);
-          if (!trigger) return null;
-          return (
-            <StatCard
-              key={def.type}
-              type={def.type}
-              label={def.label}
-              runningValue={trigger.running_value}
-              intervalValue={trigger.interval_value}
-              warningValue={trigger.warning_value}
-            />
-          );
-        })}
-      </div>
+      {counterGroups.length > 0 && <h2 className="fl-section-title fl-gap">MR-II / MR-III counters</h2>}
+      {counterGroups.map((g) => (
+        <section key={g.level} className="fl-cnt-board" style={{ ["--tone" as string]: STATE_INFO[g.state].tone }}>
+          <div className="fl-cnt-board-head">
+            <span className="fl-cnt-level lg">{g.level}</span>
+            <div className="fl-cnt-board-text">
+              <b>{LEVEL_NAME[g.level] ?? "Maintenance"}</b>
+              <small>{g.items.length === 1 ? "Due when this counter reaches its limit" : `Due when the first of these ${g.items.length} counters reaches its limit`}</small>
+            </div>
+            <span className="fl-cnt-state"><i />{STATE_INFO[g.state].text}</span>
+          </div>
+          <div className="mri-stat-grid">
+            {g.items.map((t) => (
+              <StatCard key={t.id} type={t.trigger_type} label={TRIGGER_TYPE_LABELS[t.trigger_type] ?? t.trigger_type}
+                runningValue={t.running_value} intervalValue={t.interval_value} warningValue={t.warning_value} />
+            ))}
+          </div>
+        </section>
+      ))}
 
+      <h2 className="fl-section-title fl-gap">Report timeline</h2>
       {isLoading ? (
-        <p style={{ color: "var(--text-soft)", fontSize: 13, marginTop: 20 }}>Loading...</p>
+        <div className="empty" style={{ marginTop: 14 }}><span className="fl-spinner" />Loading the reports…</div>
       ) : rows.length === 0 ? (
-        <p style={{ color: "var(--text-soft)", fontSize: 13, marginTop: 20 }}>No MR-I reports have been filed for this asset yet.</p>
+        <div className="empty" style={{ marginTop: 14 }}>No MR-I reports have been filed for this asset yet.</div>
       ) : (
         <div className="mri-report-timeline">
           {rows.map((row, index) => {
@@ -591,140 +662,68 @@ function AssetHistoryPanel({ assetId, assetCode, assetDescription, onBack, onOpe
 }
 
 type DashboardView = "hub" | "mri-history" | "mri-dashboards" | "user-analytics";
-// Which dashboard view and asset are open. Held by App so Back from a flow returns to them.
-export type DashboardNav = { view: DashboardView; asset: { id: number; code: string; description: string | null } | null };
+// Which dashboard view, asset and dashboard are open. Held by App so Back from a flow returns to them.
+export type DashboardNav = { view: DashboardView; asset: { id: number; code: string; description: string | null } | null; dash?: number | null };
 
 interface DashboardProps {
   onOpenReport?: (reportId: number) => void;
   onShowAssetFlow?: (assetId: number) => void;
+  /** Kept for the caller; the Fluent dashboard area takes its colours from the theme tokens. */
   theme: Theme;
   nav: DashboardNav;
   onNavChange: (nav: DashboardNav) => void;
 }
 
-function Dashboard({ onOpenReport, onShowAssetFlow, theme, nav, onNavChange }: DashboardProps) {
+const VIEW_OF: Record<ShellSection, DashboardView> = { overview: "hub", "mri-history": "mri-history", "mri-dashboards": "mri-dashboards", "user-analytics": "user-analytics" };
+const SECTION_OF: Record<DashboardView, ShellSection> = { hub: "overview", "mri-history": "mri-history", "mri-dashboards": "mri-dashboards", "user-analytics": "user-analytics" };
+const HEAD: Record<DashboardView, [string, string]> = {
+  hub: ["Dashboard", "MR-I overview for the units you can see"],
+  "mri-dashboards": ["MR-I Dashboards", "Fleet condition, defects, reviews and inspections from MR-I reports"],
+  "user-analytics": ["User Analytics", "Workload and response times by person, for each role in the MR-I process"],
+  "mri-history": ["Asset MR-I History", "Every unit's MR-I report timeline, trigger status and trend"],
+};
+
+function Dashboard({ onOpenReport, onShowAssetFlow, nav, onNavChange }: DashboardProps) {
   const view = nav.view;
   const selectedAsset = nav.asset;
-  const setView = (v: DashboardView) => onNavChange({ ...nav, view: v });
+  const setSection = (s: ShellSection) => onNavChange({ view: VIEW_OF[s], asset: s === "mri-history" ? nav.asset : null, dash: null });
+  const openDash = (no: number) => onNavChange({ view: VIEW_OF[sectionOfDash(no)], asset: null, dash: no });
   const setSelectedAsset = (a: DashboardNav["asset"]) => onNavChange({ ...nav, asset: a });
   const { data: assets = [], isLoading } = useAssetsWithMriHistorySummary();
+  const [title, subtitle] = HEAD[view];
+  // The dashboard on screen in the MR-I / User Analytics sections (first of the section until one is picked).
+  const activeDash = view === "mri-dashboards" ? nav.dash ?? GROUPS[0].nos[0] : view === "user-analytics" ? nav.dash ?? USER_GROUPS[0].nos[0] : null;
 
+  let body: ReactNode;
   if (view === "mri-history" && selectedAsset) {
-    return (
-      <DashboardBackdrop theme={theme}>
-        <AssetHistoryPanel
-          assetId={selectedAsset.id}
-          assetCode={selectedAsset.code}
-          assetDescription={selectedAsset.description}
-          onBack={() => setSelectedAsset(null)}
-          onOpenReport={onOpenReport}
-          onShowAssetFlow={onShowAssetFlow}
-        />
-      </DashboardBackdrop>
+    body = (
+      <AssetHistoryPanel
+        assetId={selectedAsset.id}
+        assetCode={selectedAsset.code}
+        assetDescription={selectedAsset.description}
+        onBack={() => setSelectedAsset(null)}
+        onOpenReport={onOpenReport}
+        onShowAssetFlow={onShowAssetFlow}
+      />
     );
-  }
-
-  if (view === "user-analytics") {
-    return (
-      <DashboardBackdrop theme={theme}>
-        <MriDashboards section="users" onBack={() => setView("hub")} />
-      </DashboardBackdrop>
+  } else if (view === "user-analytics" || view === "mri-dashboards") {
+    body = <MriDashboards key={view} section={view === "user-analytics" ? "users" : "mri"} open={activeDash} />;
+  } else if (view === "mri-history") {
+    body = (
+      <AssetHistoryList
+        assets={assets}
+        isLoading={isLoading}
+        onSelect={(a) => setSelectedAsset({ id: a.asset_id, code: a.asset_code, description: a.asset_description })}
+      />
     );
-  }
-
-  if (view === "mri-dashboards") {
-    return (
-      <DashboardBackdrop theme={theme}>
-        <MriDashboards onBack={() => setView("hub")} />
-      </DashboardBackdrop>
-    );
-  }
-
-  if (view === "mri-history") {
-    return (
-      <DashboardBackdrop theme={theme}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-            <button className="ghost" onClick={() => setView("hub")} style={{ padding: "6px 12px", fontSize: 12 }}>
-              ← Back to dashboards
-            </button>
-          </div>
-
-          <div className="header">
-            <h1>Asset MR-I History</h1>
-            <span className="sub">Select an asset to view its full MR-I report timeline</span>
-          </div>
-
-          {isLoading ? (
-            <div className="empty">Loading...</div>
-          ) : assets.length === 0 ? (
-            <div className="empty">No assets yet — create one in Asset Registry to get started</div>
-          ) : (
-            <div className="mri-history-grid">
-              {assets.map((a) => (
-                <DashboardAssetCard
-                  key={a.asset_id}
-                  asset={a}
-                  onSelect={() => setSelectedAsset({ id: a.asset_id, code: a.asset_code, description: a.asset_description })}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </DashboardBackdrop>
-    );
+  } else {
+    body = <Overview onSection={setSection} onOpenDash={openDash} />;
   }
 
   return (
-    <DashboardBackdrop theme={theme}>
-      <div>
-        <div className="header">
-          <h1>Dashboard</h1>
-          <span className="sub">Choose a view</span>
-        </div>
-
-        <div className="dashboard-hub-grid">
-          <div className="dashboard-tile" onClick={() => setView("mri-history")}>
-            <span className="dashboard-tile-icon">{HISTORY_TILE_ICON}</span>
-            <span className="dashboard-tile-title">Asset MR-I History</span>
-            <span className="dashboard-tile-desc">Browse every asset's MR-I report timeline, trigger status, and trend.</span>
-          </div>
-
-          <div className="dashboard-tile" onClick={() => setView("mri-dashboards")}>
-            <span className="dashboard-tile-icon">{FAULT_TREND_ICON}</span>
-            <span className="dashboard-tile-title">MR-I Dashboards</span>
-            <span className="dashboard-tile-desc">Fleet status, defects, reviews, repairs and inspections, for the countries you can see.</span>
-          </div>
-
-          <div className="dashboard-tile" onClick={() => setView("user-analytics")}>
-            <span className="dashboard-tile-icon">{USER_ANALYTICS_ICON}</span>
-            <span className="dashboard-tile-title">User Analytics</span>
-            <span className="dashboard-tile-desc">Workload and response times by person: inspectors, supervisors, reviewers, technicians, managers.</span>
-          </div>
-
-          <div className="dashboard-tile disabled">
-            <span className="dashboard-tile-icon">{FAULT_TREND_ICON}</span>
-            <span className="dashboard-tile-title">Fault Trends</span>
-            <span className="dashboard-tile-desc">Recurring faults and rectification turnaround across the fleet.</span>
-            <span className="dashboard-tile-badge">Coming soon</span>
-          </div>
-
-          <div className="dashboard-tile disabled">
-            <span className="dashboard-tile-icon">{FLEET_ICON}</span>
-            <span className="dashboard-tile-title">Fleet Utilization</span>
-            <span className="dashboard-tile-desc">Uptime, active vs. idle assets, and country-level coverage.</span>
-            <span className="dashboard-tile-badge">Coming soon</span>
-          </div>
-
-          <div className="dashboard-tile disabled">
-            <span className="dashboard-tile-icon">{BUDGET_ICON}</span>
-            <span className="dashboard-tile-title">Budget & Planning</span>
-            <span className="dashboard-tile-desc">MR-III planning cost projections and budget tracking.</span>
-            <span className="dashboard-tile-badge">Coming soon</span>
-          </div>
-        </div>
-      </div>
-    </DashboardBackdrop>
+    <FluentShell section={SECTION_OF[view]} dash={activeDash} onSection={setSection} onOpenDash={openDash} title={title} subtitle={subtitle}>
+      {body}
+    </FluentShell>
   );
 }
 

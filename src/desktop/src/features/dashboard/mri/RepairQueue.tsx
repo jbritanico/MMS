@@ -5,6 +5,8 @@ import ExportMenu from "./ExportMenu";
 import { PreviewButton } from "./ReportPreview";
 import { AX, avg, DAY, DrillChips, fmtDur, inRange, Loading, median, monthsFor, nowSecs, period, Tile, toDays, TT, useMore } from "./kit";
 import { FlowSteps, Sparkline, StoryStrip, TrendDelta, type StoryLine } from "./fluid";
+import { chartAnim } from "../fluent/motion";
+import { sevLabel } from "../hooks/useMriDashboards";
 
 // Dashboard 7: Repair queue and repair time.
 // The repair queue = faults that left the unit Red-Tagged and are not yet verified as repaired.
@@ -97,7 +99,7 @@ export default function RepairQueue({ assets, filters }: { assets: MriDashboardA
       ],
     },
     { name: "By technician", rows: byTech.map((t) => ({ Technician: t.name, ...Object.fromEntries(partsKinds.map((k) => [k, (t as Record<string, unknown>)[k] as number ?? 0])), Total: t.total })) },
-    { name: "Queue", rows: list.map((r) => ({ Unit: code(r.asset_id), Item: r.item, Severity: sevKey(r.severity ?? ""), Technician: r.technician, Parts: r.parts_status, "In queue since": fmtDate(r.queued_at), "Days in queue": toDays(age(r)), "Planned repair": fmtDate(r.repair_at), "Limitations told to field": r.limitations_note, Report: `#${r.report_id}` })) },
+    { name: "Queue", rows: list.map((r) => ({ Unit: code(r.asset_id), Item: r.item, Severity: sevLabel(sevKey(r.severity ?? "")), Technician: r.technician, Parts: r.parts_status, "In queue since": fmtDate(r.queued_at), "Days in queue": toDays(age(r)), "Planned repair": fmtDate(r.repair_at), "Limitations told to field": r.limitations_note, Report: `#${r.report_id}` })) },
     { name: "Completed", rows: done.map(({ r, secs }) => ({ Unit: code(r.asset_id), Item: r.item, Technician: r.technician, "Verified by": r.verified_by, "In queue since": fmtDate(r.queued_at), Verified: fmtDate(r.verified_at), "Repair days": toDays(secs), Report: `#${r.report_id}` })) },
   ];
 
@@ -144,7 +146,7 @@ export default function RepairQueue({ assets, filters }: { assets: MriDashboardA
                   <YAxis type="category" dataKey="name" width={160} tick={{ fill: "var(--text)", fontSize: 12 }} />
                   <Tooltip cursor={{ fill: "var(--accent-soft)" }} contentStyle={TT} />
                   {partsKinds.map((k) => (
-                    <Bar key={k} dataKey={k} stackId="p" fill={partsColor(k)} maxBarSize={24} cursor="pointer"
+                    <Bar {...chartAnim()} key={k} dataKey={k} stackId="p" fill={partsColor(k)} maxBarSize={24} cursor="pointer"
                       onClick={(_, idx) => { const t = byTech[idx]; if (t) { setTechPick(t.name); setPartsPick(k); setPick(null); } }} />
                   ))}
                 </BarChart>
@@ -175,7 +177,7 @@ export default function RepairQueue({ assets, filters }: { assets: MriDashboardA
               return (
                 <tr key={r.rectification_id}>
                   <td><b>{code(r.asset_id)}</b><div className="mrid-soft">{r.tag_status === "Planned" ? "Repair planned" : "Red-Tagged"}</div></td>
-                  <td>{r.item ?? "—"}<div className="mrid-soft">{sevKey(r.severity ?? "")}</div></td>
+                  <td>{r.item ?? "—"}<div className="mrid-soft">{sevLabel(sevKey(r.severity ?? ""))}</div></td>
                   <td>{r.technician?.trim() || <span className="mrid-over">Not assigned</span>}</td>
                   <td>{r.parts_status || "—"}</td><td>{fmtDate(r.queued_at)}</td>
                   <td className={a != null && a > 7 * DAY ? "mrid-over" : undefined}>{fmtDur(a)}</td>

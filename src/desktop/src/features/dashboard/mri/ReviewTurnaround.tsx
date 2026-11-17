@@ -3,8 +3,10 @@ import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContai
 import { fmtDate, sevKey, SEVERITIES, type DashboardFilters, type MriDashboardAsset } from "../hooks/useMriDashboards";
 import ExportMenu from "./ExportMenu";
 import { PreviewButton } from "./ReportPreview";
-import { changeLine, Sparkline, StoryStrip, TrendDelta, type StoryLine } from "./fluid";
+import { changeLine, FlowSteps, Sparkline, StoryStrip, TrendDelta, type StoryLine } from "./fluid";
 import { AX, avg, DrillChips, fmtDur, inRange, Loading, median, monthsFor, period, Tile, toDays, trimLeading, TT, useMore } from "./kit";
+import { chartAnim } from "../fluent/motion";
+import { sevLabel } from "../hooks/useMriDashboards";
 
 // Dashboard 6: Review turnaround.
 // (1) Submit -> fault decision: from the report's Submit to the recorded decision on each escalated fault.
@@ -109,7 +111,7 @@ export default function ReviewTurnaround({ assets, filters }: { assets: MriDashb
     },
     { name: "By month", rows: trend.map((t) => ({ Month: t.name, "Submit to decision (days)": t["Submit to decision"], "Submit to closure (days)": t["Submit to closure"] })) },
     { name: "By reviewer", rows: byReviewer.map((r) => ({ Reviewer: r.name, Decisions: r.count, "Average days": r.days })) },
-    { name: "Decisions", rows: decList.map(({ x, secs }) => ({ Unit: code(x.asset_id), Item: x.item, Severity: sevKey(x.original_severity ?? ""), Decision: x.decision, Reviewer: x.reviewer, Method: x.review_method, Submitted: fmtDate(x.report_submitted_at), Decided: fmtDate(x.decided_at), Days: toDays(secs), Report: `#${x.report_id}` })) },
+    { name: "Decisions", rows: decList.map(({ x, secs }) => ({ Unit: code(x.asset_id), Item: x.item, Severity: sevLabel(sevKey(x.original_severity ?? "")), Decision: x.decision, Reviewer: x.reviewer, Method: x.review_method, Submitted: fmtDate(x.report_submitted_at), Decided: fmtDate(x.decided_at), Days: toDays(secs), Report: `#${x.report_id}` })) },
     { name: "Reports closed", rows: cloList.map(({ r, secs }) => ({ Report: `#${r.id}`, Unit: code(r.asset_id), Stage: r.compliance_stage, Faults: r.fault_count, Submitted: fmtDate(r.submitted_at), Closed: fmtDate(r.approved_at), "Closed by": r.approved_by, Days: toDays(secs) })) },
   ];
 
@@ -137,11 +139,23 @@ export default function ReviewTurnaround({ assets, filters }: { assets: MriDashb
           <div className="mrid-kpi-head"><span>Decision time by severity</span></div>
           <div className="mrid-kpi-sub" style={{ display: "grid", gap: 4, marginTop: 6 }}>
             {bySev.map((b) => (
-              <span key={b.key} className="mrid-sev"><i className="mrid-dot" style={{ background: b.color }} />{b.key}: <b>{fmtDur(b.avg)}</b> ({b.n})</span>
+              <span key={b.key} className="mrid-sev"><i className="mrid-dot" style={{ background: b.color }} />{sevLabel(b.key)}: <b>{fmtDur(b.avg)}</b> ({b.n})</span>
             ))}
           </div>
         </div>
       </div>
+
+      <FlowSteps
+        title="Journey of a report"
+        steps={[
+          { label: "Report submitted", value: "Start", sub: "Sent for review", color: "var(--text-soft)", flow: 0 },
+          { label: "Fault decision", value: fmtDur(avg(decSecs)), sub: <>average after Submit · {dec.length} decision{dec.length === 1 ? "" : "s"}</>, color: "var(--accent-blue, #2f6fed)", flow: dec.length,
+            active: pick === "decisions", onClick: () => setPick((v) => (v === "decisions" ? null : "decisions")) },
+          { label: "Report closed", value: fmtDur(avg(cloSecs)), sub: <>average after Submit · {clo.length} report{clo.length === 1 ? "" : "s"}</>, color: "var(--success)", flow: clo.length,
+            active: pick === "closures", onClick: () => setPick((v) => (v === "closures" ? null : "closures")) },
+        ]}
+        note="The dots show reports moving from Submit to a decision and to closure. Click a step to list them."
+      />
 
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>Average days by month</h3></div>
@@ -160,8 +174,8 @@ export default function ReviewTurnaround({ assets, filters }: { assets: MriDashb
                     <XAxis dataKey="name" tick={AX} />
                     <YAxis tick={AX} width={36} />
                     <Tooltip contentStyle={TT} formatter={(v) => (v == null ? "None" : `${v} days`)} />
-                    <Area type="monotone" dataKey="Submit to decision" stroke="var(--accent-blue, #2f6fed)" strokeWidth={2.2} fill="url(#rt-dec)" connectNulls animationDuration={800} />
-                    <Area type="monotone" dataKey="Submit to closure" stroke="var(--success)" strokeWidth={2.2} fill="url(#rt-clo)" connectNulls animationDuration={800} />
+                    <Area {...chartAnim(800)} type="monotone" dataKey="Submit to decision" stroke="var(--accent-blue, #2f6fed)" strokeWidth={2.2} fill="url(#rt-dec)" connectNulls />
+                    <Area {...chartAnim(800)} type="monotone" dataKey="Submit to closure" stroke="var(--success)" strokeWidth={2.2} fill="url(#rt-clo)" connectNulls />
                   </AreaChart>
                 ) : (
                   <BarChart data={trend} margin={{ top: 10, right: 16, bottom: 4, left: 0 }} style={{ cursor: "pointer" }}
@@ -170,8 +184,8 @@ export default function ReviewTurnaround({ assets, filters }: { assets: MriDashb
                     <XAxis dataKey="name" tick={AX} />
                     <YAxis tick={AX} width={36} />
                     <Tooltip cursor={{ fill: "var(--accent-soft)" }} contentStyle={TT} formatter={(v) => (v == null ? "None" : `${v} days`)} />
-                    <Bar dataKey="Submit to decision" fill="var(--accent-blue, #2f6fed)" radius={[6, 6, 0, 0]} maxBarSize={28} />
-                    <Bar dataKey="Submit to closure" fill="var(--success)" radius={[6, 6, 0, 0]} maxBarSize={28} />
+                    <Bar {...chartAnim()} dataKey="Submit to decision" fill="var(--accent-blue, #2f6fed)" radius={[6, 6, 0, 0]} maxBarSize={28} />
+                    <Bar {...chartAnim()} dataKey="Submit to closure" fill="var(--success)" radius={[6, 6, 0, 0]} maxBarSize={28} />
                   </BarChart>
                 )}
               </ResponsiveContainer>
@@ -192,7 +206,7 @@ export default function ReviewTurnaround({ assets, filters }: { assets: MriDashb
                 <XAxis type="number" tick={AX} unit=" d" />
                 <YAxis type="category" dataKey="name" width={170} tick={{ fill: "var(--text)", fontSize: 12 }} />
                 <Tooltip cursor={{ fill: "var(--accent-soft)" }} contentStyle={TT} formatter={(v, _n, it) => [`${v} days (${(it?.payload as { count: number }).count} decisions)`, "Average"]} />
-                <Bar dataKey="days" fill="var(--accent-blue, #2f6fed)" maxBarSize={24} cursor="pointer" onClick={(_, i) => { const r = byReviewer[i]; if (r) setReviewerPick(r.name); }} />
+                <Bar {...chartAnim()} dataKey="days" fill="var(--accent-blue, #2f6fed)" maxBarSize={24} cursor="pointer" onClick={(_, i) => { const r = byReviewer[i]; if (r) setReviewerPick(r.name); }} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -215,7 +229,7 @@ export default function ReviewTurnaround({ assets, filters }: { assets: MriDashb
               <thead><tr><th>Unit</th><th>Item</th><th>Severity</th><th>Decision</th><th>Reviewer</th><th>Submitted</th><th>Decided</th><th>Took</th><th>MR-I report</th></tr></thead>
               <tbody>{decList.map(({ x, secs }) => (
                 <tr key={x.approval_id}>
-                  <td><b>{code(x.asset_id)}</b></td><td>{x.item ?? "—"}</td><td>{sevKey(x.original_severity ?? "")}</td>
+                  <td><b>{code(x.asset_id)}</b></td><td>{x.item ?? "—"}</td><td>{sevLabel(sevKey(x.original_severity ?? ""))}</td>
                   <td>{x.decision}{x.new_severity ? <span className="mrid-soft"> → {x.new_severity}</span> : null}</td>
                   <td>{x.reviewer ?? "—"}{x.review_method ? <div className="mrid-soft">{x.review_method}</div> : null}</td>
                   <td>{fmtDate(x.report_submitted_at)}</td><td>{fmtDate(x.decided_at)}</td>

@@ -25,6 +25,7 @@ import { CurrentUserProvider } from "./lib/currentUser";
 import WindowTitle from "./lib/WindowTitle";
 import UserPickerGate from "./lib/UserPickerGate";
 import UserBadge from "./lib/UserBadge";
+import SupportCenter from "./lib/support/SupportCenter";
 
 type Screen =
   | "menu"
@@ -2603,6 +2604,17 @@ function App() {
               </div>
             </div>
           </UserPickerGate>
+          {/* Help button and support tools (diagnostics, error details, data check, support mode) on every screen. */}
+          <SupportCenter
+            screen={screen}
+            context={{
+              report: screen === "report-wizard" ? selectedReportId : null,
+              unit: screen === "triggers" ? selectedAsset?.code : null,
+              dashboard: screen === "dashboard" ? `${dashboardNav.view}${dashboardNav.dash ? ` #${dashboardNav.dash}` : ""}${dashboardNav.asset ? ` ${dashboardNav.asset.code}` : ""}` : null,
+              template: screen === "template-builder" ? selectedTemplate?.name : null,
+              level: screen === "reports" ? mrLevel : null,
+            }}
+          />
         </div>
       </CurrentUserProvider>
     </QueryClientProvider>

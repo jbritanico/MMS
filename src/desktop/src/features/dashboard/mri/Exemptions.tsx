@@ -5,6 +5,7 @@ import ExportMenu from "./ExportMenu";
 import { UnitReports } from "./ReportPreview";
 import { StoryStrip, type StoryLine } from "./fluid";
 import { DAY, DrillChips, Loading, nowSecs, Tile, useMore } from "./kit";
+import { Ring } from "../fluent/motion";
 
 // Dashboard 12: Red units under exemption (MOC).
 // A Red-Tagged unit must not be deployed without an approved exemption (Management of Change).
@@ -155,8 +156,12 @@ export default function Exemptions({ assets, filters }: { assets: MriDashboardAs
                   <td><b>{code(x.asset_id)}</b><div><TagLamp status={a?.tag_status === "Red" || a?.tag_status === "Yellow" || a?.tag_status === "Green" ? a.tag_status : null} size={11} showText /></div></td>
                   <td><b>{x.moc_reference}</b><div className="mrid-soft">Approved by {x.approved_by}</div></td>
                   <td style={{ whiteSpace: "nowrap" }}>{fmtDate(x.valid_from)}<div className="mrid-soft">to {fmtDate(x.valid_until)}</div></td>
-                  <td><span className="mrid-sev" style={{ color: STATE_COLOR[st], fontWeight: 600 }}><i className="mrid-dot" style={{ background: STATE_COLOR[st] }} />{st}</span>
-                    {(st === "In force" || st === "Expiring soon") && dl != null ? <div className="mrid-soft">{dl} day{dl === 1 ? "" : "s"} left</div> : null}
+                  <td><span className="fl-ring-row">
+                    {(st === "In force" || st === "Expiring soon") && dl != null && x.valid_until != null ? (
+                      <Ring pct={((x.valid_until + DAY - now) / Math.max(DAY, x.valid_until + DAY - (x.valid_from ?? x.valid_until))) * 100} color={STATE_COLOR[st]} label={`${dl}d`} pulse={st === "Expiring soon"} title={`${dl} day${dl === 1 ? "" : "s"} left of the exemption`} />
+                    ) : null}
+                    <span><span className="mrid-sev" style={{ color: STATE_COLOR[st], fontWeight: 600 }}><i className="mrid-dot" style={{ background: STATE_COLOR[st] }} />{st}</span>
+                    {(st === "In force" || st === "Expiring soon") && dl != null ? <div className="mrid-soft">{dl} day{dl === 1 ? "" : "s"} left</div> : null}</span></span>
                     {st === "Revoked" && x.revoke_reason ? <div className="mrid-soft">{x.revoke_reason}</div> : null}</td>
                   <td className="mrid-soft">{x.limitations || "—"}</td><td className="mrid-soft">{x.required_controls || "—"}</td><td className="mrid-soft">{x.return_conditions || "—"}</td>
                 </tr>); })}</tbody>

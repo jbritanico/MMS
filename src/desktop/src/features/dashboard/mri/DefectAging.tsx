@@ -19,6 +19,8 @@ import { PreviewButton } from "./ReportPreview";
 import { monthsFor } from "./kit";
 import { changeLine, Sparkline, StoryStrip, TrendDelta, type StoryLine } from "./fluid";
 import { GROUP_LABEL, groupOf, MonthEndTrend, type GroupBy, type MonthEndPoint } from "./MonthEnd";
+import { Num, chartAnim } from "../fluent/motion";
+import { sevLabel } from "../hooks/useMriDashboards";
 
 // Dashboard 3: Defect aging.
 // How long each open fault has waited since it was FIRST found (carried-forward faults keep
@@ -63,8 +65,8 @@ export function DefectAgingMini({ assets }: { assets: MriDashboardAsset[] }) {
     <div className="mrid-mini">
       <span className="mrid-mini-item">Overdue:</span>
       {SEVERITIES.map((s) => (
-        <span key={s.key} className="mrid-mini-item" title={`${s.key} older than ${AGING_LIMIT_DAYS[s.key]} days`}>
-          <i className="mrid-dot" style={{ background: s.color }} /> {s.key} <b>{c[s.key]}</b>
+        <span key={s.key} className="mrid-mini-item" title={`${sevLabel(s.key)} older than ${AGING_LIMIT_DAYS[s.key]} days`}>
+          <i className="mrid-dot" style={{ background: s.color }} /> {sevLabel(s.key)} <b>{c[s.key]}</b>
         </span>
       ))}
     </div>
@@ -192,7 +194,7 @@ export default function DefectAging({ assets, filters }: { assets: MriDashboardA
   }
 
   const row = ({ f, age, limit }: { f: MriDashboardFault; age: number; limit: number }): ExportRow => ({
-    Severity: sevKey(f.severity),
+    Severity: sevLabel(sevKey(f.severity)),
     Unit: unitOf.get(f.asset_id)?.asset_code ?? String(f.asset_id),
     "Equipment type": typeOf(f),
     Component: f.component,
@@ -211,7 +213,7 @@ export default function DefectAging({ assets, filters }: { assets: MriDashboardA
     {
       name: "Summary",
       rows: summary.map((s) => ({
-        Severity: s.key,
+        Severity: sevLabel(s.key),
         "Overdue after (days)": AGING_LIMIT_DAYS[s.key],
         "Open faults": s.open,
         Overdue: s.overdue,
@@ -219,8 +221,8 @@ export default function DefectAging({ assets, filters }: { assets: MriDashboardA
         "Oldest (days)": s.oldest,
       })),
     },
-    { name: "Age groups", rows: bucketData.map((b) => ({ Age: b.name, Critical: b.Critical, Moderate: b.Moderate, Minor: b.Minor, Total: b.Critical + b.Moderate + b.Minor })) },
-    { name: "Overdue trend", rows: trend.map((t) => ({ "Period end": t.name, Critical: t.Critical, Moderate: t.Moderate, Minor: t.Minor, Total: t.Critical + t.Moderate + t.Minor })) },
+    { name: "Age groups", rows: bucketData.map((b) => ({ Age: b.name, "Major / Critical": b.Critical, Moderate: b.Moderate, Minor: b.Minor, Total: b.Critical + b.Moderate + b.Minor })) },
+    { name: "Overdue trend", rows: trend.map((t) => ({ "Period end": t.name, "Major / Critical": t.Critical, Moderate: t.Moderate, Minor: t.Minor, Total: t.Critical + t.Moderate + t.Minor })) },
     { name: "Month-end overdue", rows: monthEnd.map((m) => ({ Month: m.name, "Major / Critical over 7 days": m.Critical, "Moderate over 30 days": m.Moderate, "Minor over 30 days": m.Minor, Total: m.Critical + m.Moderate + m.Minor })) },
     { name: `By ${GROUP_LABEL[groupBy].toLowerCase()}`.slice(0, 31), rows: byType.map((r) => ({ [GROUP_LABEL[groupBy]]: r.name, "Open faults": r.open, "Overdue Critical": r.Critical, "Overdue Moderate": r.Moderate, "Overdue Minor": r.Minor, "Overdue total": r.overdue })) },
     { name: picking ? "Faults (selection)" : "Open faults", rows: list.map(row) },
@@ -235,7 +237,7 @@ export default function DefectAging({ assets, filters }: { assets: MriDashboardA
     <div className="mrid-dash">
       <div className="mrid-dash-bar">
         <p className="mrid-note">
-          Age of each open fault {whenText}, counted from the day it was first found. Overdue: Critical older than {AGING_LIMIT_DAYS.Critical} days; Moderate and Minor older than {AGING_LIMIT_DAYS.Moderate} days.
+          Age of each open fault {whenText}, counted from the day it was first found. Overdue: Major / Critical older than {AGING_LIMIT_DAYS.Critical} days; Moderate and Minor older than {AGING_LIMIT_DAYS.Moderate} days.
         </p>
         <ExportMenu dashboardNo={3} title="Defect aging" filters={filters} tables={exportTables} />
       </div>
@@ -254,12 +256,12 @@ export default function DefectAging({ assets, filters }: { assets: MriDashboardA
               setSevPick(on ? null : s.key);
               setOverdueOnly(!on);
             }}
-            title={`List the overdue ${s.key} faults`}
+            title={`List the overdue ${sevLabel(s.key)} faults`}
           >
-            <div className="mrid-kpi-head"><i className="mrid-dot" style={{ background: sevColor(s.key) }} /><span>{s.key} overdue</span></div>
-            <div className="mrid-kpi-value">{s.overdue}</div>
+            <div className="mrid-kpi-head"><i className="mrid-dot" style={{ background: sevColor(s.key) }} /><span>{sevLabel(s.key)} overdue</span></div>
+            <div className="mrid-kpi-value"><Num v={s.overdue} /></div>
             <TrendDelta now={s.overdue} prev={prevMonth && !whenPick ? prevMonth[s.key] : null} label={prevMonth ? `vs end of ${prevMonth.name}` : ""} />
-            <Sparkline values={monthEnd.map((m) => m[s.key])} color={sevColor(s.key)} title={`Overdue ${s.key} faults at each month-end`} />
+            <Sparkline values={monthEnd.map((m) => m[s.key])} color={sevColor(s.key)} title={`Overdue ${sevLabel(s.key)} faults at each month-end`} />
             <div className="mrid-kpi-sub">
               of {s.open} open · limit {AGING_LIMIT_DAYS[s.key]} days · oldest {s.oldest} days
             </div>
@@ -268,7 +270,7 @@ export default function DefectAging({ assets, filters }: { assets: MriDashboardA
         ))}
         <button type="button" className="mrid-kpi" style={{ ["--kpi" as string]: "var(--text-soft)" }} onClick={clearAll} title="Show every open fault">
           <div className="mrid-kpi-head"><span>All open faults</span></div>
-          <div className="mrid-kpi-value">{open.length}</div>
+          <div className="mrid-kpi-value"><Num v={open.length} /></div>
           <Sparkline values={monthEnd.map(meTotal)} color="var(--accent-blue, #2f6fed)" title="Overdue faults at each month-end" />
           <div className="mrid-kpi-sub">{totalOverdue} overdue · average age {avgAll} days</div>
           <div className="mrid-kpi-hint">Click to list all</div>
@@ -285,17 +287,17 @@ export default function DefectAging({ assets, filters }: { assets: MriDashboardA
               <YAxis allowDecimals={false} tick={{ fill: "var(--text-soft)", fontSize: 11 }} width={32} />
               <Tooltip cursor={{ fill: "var(--accent-soft)" }} contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
               {[...SEVERITIES].reverse().map((s) => (
-                <Bar key={s.key} dataKey={s.key} stackId="sev" fill={s.color} maxBarSize={70} cursor="pointer" onClick={(_, i) => setBucketPick(i)} />
+                <Bar {...chartAnim()} key={s.key} dataKey={s.key} name={sevLabel(s.key)} stackId="sev" fill={s.color} maxBarSize={70} cursor="pointer" onClick={(_, i) => setBucketPick(i)} />
               ))}
             </BarChart>
           </ResponsiveContainer>
         </div>
         <div className="mrid-legend">
           {SEVERITIES.map((s) => (
-            <span key={s.key}><i style={{ background: s.color }} />{s.key}</span>
+            <span key={s.key}><i style={{ background: s.color }} />{sevLabel(s.key)}</span>
           ))}
         </div>
-        <p className="mrid-note" style={{ textAlign: "center" }}>Critical faults are overdue from 8 days; Moderate and Minor from 31 days. Click a bar to list those faults.</p>
+        <p className="mrid-note" style={{ textAlign: "center" }}>Major / Critical faults are overdue from 8 days; Moderate and Minor from 31 days. Click a bar to list those faults.</p>
       </div>
 
       <MonthEndTrend
@@ -337,14 +339,14 @@ export default function DefectAging({ assets, filters }: { assets: MriDashboardA
                     ))}
                   </defs>
                   {SEVERITIES.map((s) => (
-                    <Area key={s.key} type="monotone" dataKey={s.key} stroke={s.color} strokeWidth={2.2} fill={`url(#da-${s.key})`} dot={false} activeDot={{ r: 5 }} animationDuration={800} animationEasing="ease-out" />
+                    <Area {...chartAnim(800)} key={s.key} type="monotone" dataKey={s.key} name={sevLabel(s.key)} stroke={s.color} strokeWidth={2.2} fill={`url(#da-${s.key})`} dot={false} activeDot={{ r: 5 }} />
                   ))}
                 </AreaChart>
               </ResponsiveContainer>
             </div>
             <div className="mrid-legend">
               {SEVERITIES.map((s) => (
-                <span key={s.key}><i style={{ background: s.color }} />{s.key}</span>
+                <span key={s.key}><i style={{ background: s.color }} />{sevLabel(s.key)}</span>
               ))}
             </div>
             <p className="mrid-note" style={{ textAlign: "center" }}>Overdue faults at the end of each {trendUnit(range.from, range.to)}. Click a point to see the faults as they stood then.</p>
@@ -368,7 +370,7 @@ export default function DefectAging({ assets, filters }: { assets: MriDashboardA
           <div className="mrid-table-wrap">
             <table className="mrid-table">
               <thead>
-                <tr><th>{GROUP_LABEL[groupBy]}</th><th>Open faults</th><th>Overdue Critical</th><th>Overdue Moderate</th><th>Overdue Minor</th><th>Overdue total</th></tr>
+                <tr><th>{GROUP_LABEL[groupBy]}</th><th>Open faults</th><th>Overdue Major / Critical</th><th>Overdue Moderate</th><th>Overdue Minor</th><th>Overdue total</th></tr>
               </thead>
               <tbody>
                 {byType.map((r) => (
@@ -397,7 +399,7 @@ export default function DefectAging({ assets, filters }: { assets: MriDashboardA
         </div>
         {picking && (
           <div className="mrid-drill">
-            {sevPick && <span className="mrid-chip">Severity: <b>{sevPick}</b></span>}
+            {sevPick && <span className="mrid-chip">Severity: <b>{sevLabel(sevPick)}</b></span>}
             {overdueOnly && <span className="mrid-chip"><b>Overdue only</b></span>}
             {bucketPick != null && <span className="mrid-chip">Age: <b>{AGE_BUCKETS[bucketPick].label}</b></span>}
             {typePick && <span className="mrid-chip">{GROUP_LABEL[groupBy]}: <b>{typePick}</b></span>}
@@ -416,7 +418,7 @@ export default function DefectAging({ assets, filters }: { assets: MriDashboardA
               <tbody>
                 {list.map(({ f, age, limit }) => (
                   <tr key={f.result_id}>
-                    <td><span className="mrid-sev"><i className="mrid-dot" style={{ background: sevColor(sevKey(f.severity)) }} />{sevKey(f.severity)}</span></td>
+                    <td><span className="mrid-sev"><i className="mrid-dot" style={{ background: sevColor(sevKey(f.severity)) }} />{sevLabel(sevKey(f.severity))}</span></td>
                     <td><b>{unitOf.get(f.asset_id)?.asset_code ?? f.asset_id}</b><div className="mrid-soft">{typeOf(f)}{f.component ? ` · ${f.component}` : ""}</div></td>
                     <td>{f.item ?? "—"}</td>
                     <td className="mrid-soft">{f.issue_details ?? "—"}</td>

@@ -4,6 +4,8 @@ import { fmtDate, sevKey, SEVERITIES, useMriDashboardWaiting, type DashboardFilt
 import ExportMenu, { type ExportRow } from "./ExportMenu";
 import { PreviewButton } from "./ReportPreview";
 import { FlowSteps, StoryStrip, type StoryLine } from "./fluid";
+import { LiveAge, Num, chartAnim } from "../fluent/motion";
+import { sevLabel } from "../hooks/useMriDashboards";
 
 // Dashboard 5: Decisions waiting, by reviewer.
 // Everything waiting for a reviewer NOW: fault decisions (Pending) and reports waiting for the
@@ -102,7 +104,7 @@ export default function DecisionsWaiting({ assets, filters }: { assets: MriDashb
     Unit: unitOf.get(w.asset_id)?.asset_code ?? String(w.asset_id),
     Component: w.component,
     Item: w.item,
-    Severity: w.severity ? sevKey(w.severity) : null,
+    Severity: w.severity ? sevLabel(sevKey(w.severity)) : null,
     Issue: w.issue_details,
     "Submitted by": w.submitted_by,
     "Waiting since": fmtDate(w.waiting_since),
@@ -145,7 +147,7 @@ export default function DecisionsWaiting({ assets, filters }: { assets: MriDashb
   const tile = (key: Exclude<Pick, null>, label: string, value: number, sub: string, color: string) => (
     <button type="button" className={`mrid-kpi${pick === key ? " is-on" : ""}`} style={{ ["--kpi" as string]: color }} onClick={() => setPick((v) => (v === key ? null : key))}>
       <div className="mrid-kpi-head"><span>{label}</span></div>
-      <div className="mrid-kpi-value">{value}</div>
+      <div className="mrid-kpi-value"><Num v={value} /></div>
       <div className="mrid-kpi-sub">{sub}</div>
       <div className="mrid-kpi-hint">{pick === key ? "Showing these ↓" : "Click to list"}</div>
     </button>
@@ -163,7 +165,7 @@ export default function DecisionsWaiting({ assets, filters }: { assets: MriDashb
       <StoryStrip lines={story} />
 
       <div className="mrid-kpis">
-        {tile("faults", "Fault decisions waiting", faults.length, `${critical} Critical · oldest ${fmtDays(oldest(faults)).toLowerCase()}`, "var(--danger)")}
+        {tile("faults", "Fault decisions waiting", faults.length, `${critical} Major / Critical · oldest ${fmtDays(oldest(faults)).toLowerCase()}`, "var(--danger)")}
         {tile("reports", "Reports waiting for the Supervisor", reports.length, `To review or close · oldest ${fmtDays(oldest(reports)).toLowerCase()}`, "var(--accent-blue, #2f6fed)")}
         {tile("unnamed", "Not named to a person", unnamed.length, "Fault decisions any reviewer with authority can take", "var(--warn)")}
         {tile("late", "Waiting over 7 days", late.length, late.length ? `Oldest ${oldest(late)} days` : "Nothing waiting that long", "var(--text-soft)")}
@@ -173,10 +175,10 @@ export default function DecisionsWaiting({ assets, filters }: { assets: MriDashb
         title="Where things are waiting in the review flow"
         steps={[
           { label: "Supervisor review of the report", value: supReview.length, sub: supReview.length ? `oldest ${fmtDays(oldest(supReview)).toLowerCase()}` : "nothing waiting", color: "var(--accent-blue, #2f6fed)", onClick: () => setPick((v) => (v === "reports" ? null : "reports")), active: pick === "reports" },
-          { label: "Fault decision", value: faults.length, sub: faults.length ? `${critical} Critical · oldest ${fmtDays(oldest(faults)).toLowerCase()}` : "nothing waiting", color: "var(--danger)", onClick: () => setPick((v) => (v === "faults" ? null : "faults")), active: pick === "faults" },
+          { label: "Fault decision", value: faults.length, sub: faults.length ? `${critical} Major / Critical · oldest ${fmtDays(oldest(faults)).toLowerCase()}` : "nothing waiting", color: "var(--danger)", onClick: () => setPick((v) => (v === "faults" ? null : "faults")), active: pick === "faults" },
           { label: "Supervisor to close the report", value: supClose.length, sub: supClose.length ? `oldest ${fmtDays(oldest(supClose)).toLowerCase()}` : "nothing waiting", color: "var(--success)", onClick: () => setPick((v) => (v === "reports" ? null : "reports")), active: false },
         ]}
-        note="A report is reviewed by the Supervisor, its Moderate / Critical faults go for a decision, then the Supervisor closes it. Click a stage to list what is waiting there."
+        note="A report is reviewed by the Supervisor, its Moderate and Major / Critical faults go for a decision, then the Supervisor closes it. Click a stage to list what is waiting there."
       />
 
       <div className="mrid-panel">
@@ -193,7 +195,7 @@ export default function DecisionsWaiting({ assets, filters }: { assets: MriDashb
                   <YAxis type="category" dataKey="name" width={260} tick={{ fill: "var(--text)", fontSize: 12 }} />
                   <Tooltip cursor={{ fill: "var(--accent-soft)" }} contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
                   {AGES.map((a) => (
-                    <Bar
+                    <Bar {...chartAnim()}
                       key={a.key}
                       dataKey={a.key}
                       name={a.label}
@@ -255,7 +257,7 @@ export default function DecisionsWaiting({ assets, filters }: { assets: MriDashb
                       <td><b>{unitOf.get(w.asset_id)?.asset_code ?? w.asset_id}</b>{w.component ? <span className="mrid-soft"> · {w.component}</span> : null}{w.submitted_by ? <div className="mrid-soft">Submitted by {w.submitted_by}</div> : null}</td>
                       <td>{w.item ? <b>{w.item}</b> : null}{w.issue_details ? <div className="mrid-soft">{w.issue_details}</div> : null}</td>
                       <td>{fmtDate(w.waiting_since)}</td>
-                      <td className={d > 7 ? "mrid-over" : undefined}>{fmtDays(d)}</td>
+                      <td title={fmtDays(d)}><LiveAge since={w.waiting_since} /></td>
                       <td className="mrid-soft">{w.reminders ? `${w.reminders} · last ${fmtDate(w.last_reminder_at)}${w.last_reminder_by ? ` by ${w.last_reminder_by}` : ""}` : "—"}</td>
                       <td><PreviewButton reportId={w.report_id} /></td>
                     </tr>

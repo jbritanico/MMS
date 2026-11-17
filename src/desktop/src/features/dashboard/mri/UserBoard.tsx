@@ -5,6 +5,8 @@ import ExportMenu, { type ExportRow } from "./ExportMenu";
 import { PreviewButton } from "./ReportPreview";
 import { DrillChips } from "./kit";
 import { Sparkline, StoryStrip, type StoryLine } from "./fluid";
+import { Num } from "../fluent/motion";
+import { Liquid, pctOf } from "../fluent/Liquid";
 
 // Shared view for the User Analytics dashboards: one row per person with neutral measures,
 // the team average for comparison, a 12-month sparkline, and a drill-down to their records.
@@ -83,9 +85,10 @@ export default function UserBoard({ dashboardNo, title, filters, intro, people, 
 
       <div className="mrid-kpis">
         {tiles.map((t) => (
-          <div key={t.label} className="mrid-kpi" style={{ ["--kpi" as string]: t.color }}>
+          <div key={t.label} className={`mrid-kpi${pctOf(t.value) != null ? " has-liquid" : ""}`} style={{ ["--kpi" as string]: t.color }}>
+            <Liquid pct={pctOf(t.value)} />
             <div className="mrid-kpi-head"><span>{t.label}</span></div>
-            <div className="mrid-kpi-value">{t.value}</div>
+            <div className="mrid-kpi-value"><Num v={t.value} /></div>
             {t.spark ? <Sparkline values={t.spark} color={t.color} title={`${t.label} by month`} /> : null}
             <div className="mrid-kpi-sub">{t.sub}</div>
           </div>

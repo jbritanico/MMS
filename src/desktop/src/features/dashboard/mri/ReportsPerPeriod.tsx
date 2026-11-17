@@ -5,6 +5,7 @@ import ExportMenu from "./ExportMenu";
 import { PreviewButton } from "./ReportPreview";
 import { AX, DrillChips, inRange, Loading, monthsFor, period, Tile, TT, useMore } from "./kit";
 import { Sparkline, StoryStrip, TrendDelta, type StoryLine } from "./fluid";
+import { chartAnim } from "../fluent/motion";
 
 // Dashboard 11: MR-I reports per period, by compliance stage (Pre-Mob, Pre-Job, Post Job, Yard).
 // Counts reports SUBMITTED in the period. Drafts are shown separately as "not yet submitted".
@@ -134,7 +135,7 @@ export default function ReportsPerPeriod({ assets, filters }: { assets: MriDashb
                     <XAxis dataKey="name" tick={AX} interval="preserveStartEnd" minTickGap={12} axisLine={false} tickLine={false} />
                     <YAxis hide />
                     <Tooltip contentStyle={TT} />
-                    {usedStages.map((st) => <Area key={st.key} type="monotone" dataKey={st.key} stackId="s" stroke={st.color} strokeWidth={1} fill={st.color} fillOpacity={0.7} animationDuration={900} />)}
+                    {usedStages.map((st) => <Area {...chartAnim(900)} key={st.key} type="monotone" dataKey={st.key} stackId="s" stroke={st.color} strokeWidth={1} fill={st.color} fillOpacity={0.7} />)}
                   </AreaChart>
                 ) : (
                   <BarChart data={trend} margin={{ top: 10, right: 16, bottom: 4, left: 0 }} style={{ cursor: "pointer" }}
@@ -143,7 +144,7 @@ export default function ReportsPerPeriod({ assets, filters }: { assets: MriDashb
                     <XAxis dataKey="name" tick={AX} interval="preserveStartEnd" minTickGap={12} />
                     <YAxis allowDecimals={false} tick={AX} width={32} />
                     <Tooltip cursor={{ fill: "var(--accent-soft)" }} contentStyle={TT} />
-                    {usedStages.map((st) => <Bar key={st.key} dataKey={st.key} stackId="s" fill={st.color} maxBarSize={34} />)}
+                    {usedStages.map((st) => <Bar {...chartAnim()} key={st.key} dataKey={st.key} stackId="s" fill={st.color} maxBarSize={34} />)}
                   </BarChart>
                 )}
               </ResponsiveContainer>

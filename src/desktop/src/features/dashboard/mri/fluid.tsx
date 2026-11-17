@@ -1,4 +1,5 @@
 import { useId, type ReactNode } from "react";
+import { FlowDots, Num } from "../fluent/motion";
 
 // Fluid analytics layer for the MR-I dashboards: small, calm additions that sit inside the
 // existing neumorphic cards (sparklines, trend deltas, an insight strip with a soft wave).
@@ -86,7 +87,14 @@ export function StoryStrip({ lines }: { lines: StoryLine[] }) {
   );
 }
 
-export interface FlowStep { label: string; value: ReactNode; sub?: ReactNode; color: string; onClick?: () => void; active?: boolean }
+export interface FlowStep { label: string; value: ReactNode; sub?: ReactNode; color: string; onClick?: () => void; active?: boolean;
+  /** How many items are moving into this step (sets the number of moving dots on the arrow before it). Defaults to the previous step's number. */
+  flow?: number }
+
+const flowCount = (v: ReactNode) => {
+  const n = typeof v === "number" ? v : typeof v === "string" ? Number(/^-?\d+/.exec(v)?.[0] ?? NaN) : NaN;
+  return Number.isFinite(n) ? n : 2;
+};
 
 /** A workflow shown as connected stages with curved, flowing arrows (Open -> Pending -> ... -> Done). */
 export function FlowSteps({ title, steps, note }: { title: string; steps: FlowStep[]; note?: ReactNode }) {
@@ -100,11 +108,12 @@ export function FlowSteps({ title, steps, note }: { title: string; steps: FlowSt
               <svg className="mrid-flow-arrow" viewBox="0 0 60 30" aria-hidden="true">
                 <path d="M2,22 C18,4 40,4 56,16" fill="none" stroke="var(--accent-blue, #2f6fed)" strokeOpacity="0.45" strokeWidth="2" strokeLinecap="round" />
                 <path d="M50,10 L57,16 L49,20" fill="none" stroke="var(--accent-blue, #2f6fed)" strokeOpacity="0.45" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <FlowDots count={s.flow ?? flowCount(steps[i - 1].value)} path="M2,22 C18,4 40,4 56,16" color={steps[i - 1].color} />
               </svg>
             )}
             <button type="button" className={`mrid-flow-step${s.active ? " is-on" : ""}`} style={{ ["--kpi" as string]: s.color }} onClick={s.onClick} disabled={!s.onClick}>
               <span className="mrid-flow-label">{s.label}</span>
-              <span className="mrid-flow-value">{s.value}</span>
+              <span className="mrid-flow-value"><Num v={s.value} /></span>
               {s.sub ? <span className="mrid-flow-sub">{s.sub}</span> : null}
             </button>
           </div>

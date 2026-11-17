@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import type { MriDashboardAsset, MriDashTagChange } from "../hooks/useMriDashboards";
 import { AX, TT } from "./kit";
+import { chartAnim } from "../fluent/motion";
 
 // Fleet health over time from the tag history: how many units were Green, Yellow, Red or not
 // tagged at each point. Used by "Fleet status by tag colour" and "Time spent Red or Yellow".
@@ -65,7 +66,7 @@ export function HealthStream({ title, data, note, onPick }: { title: string; dat
             <YAxis tickFormatter={(v) => `${Math.round(v * 100)}%`} tick={AX} width={40} axisLine={false} tickLine={false} />
             <Tooltip contentStyle={TT} formatter={(v, n) => [`${v} unit${v === 1 ? "" : "s"}`, n]} />
             {[...used].reverse().map((h) => (
-              <Area key={h.key} type="monotone" dataKey={h.key} name={h.label} stackId="h" stroke={h.color} strokeWidth={1} fill={`url(#hs-${h.key})`} animationDuration={900} animationEasing="ease-out" />
+              <Area {...chartAnim(900)} key={h.key} type="monotone" dataKey={h.key} name={h.label} stackId="h" stroke={h.color} strokeWidth={1} fill={`url(#hs-${h.key})`} />
             ))}
           </AreaChart>
         </ResponsiveContainer>

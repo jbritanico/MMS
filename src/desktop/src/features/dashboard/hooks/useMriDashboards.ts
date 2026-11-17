@@ -139,11 +139,15 @@ export function useMriDashboardFaults() {
 export const openAt = (f: MriDashboardFault, t: number) =>
   f.found_at != null && f.found_at < t && (f.ended_at == null || f.ended_at >= t);
 
+// Severity levels as in the MMS Manual Rev 02, Table 3 (three levels; Level 3 is "Major / Critical").
+// The key stays "Critical" (as stored in MMS); screens show the label.
 export const SEVERITIES = [
-  { key: "Critical", plain: "Unit not safe to use", color: "var(--danger)" },
-  { key: "Moderate", plain: "Repair needed, unit can work", color: "var(--warn)" },
-  { key: "Minor", plain: "Small issue", color: "var(--accent-blue, #2f6fed)" },
+  { key: "Critical", label: "Major / Critical", plain: "Level 3: affects reliability, performance or safe operation. Stop use and Red-tag", color: "var(--danger)" },
+  { key: "Moderate", label: "Moderate", plain: "Level 2: early deterioration. Plan the repair and monitor until repaired", color: "var(--warn)" },
+  { key: "Minor", label: "Minor", plain: "Level 1: appearance or housekeeping. Fix during planned maintenance", color: "var(--accent-blue, #2f6fed)" },
 ] as const;
+/** Display name of a severity key, as in Manual Table 3 ("Critical" shows as "Major / Critical"). */
+export const sevLabel = (k: string | null | undefined) => (k === "Critical" ? "Major / Critical" : k ?? "");
 
 export const sevKey = (s: string) => (/crit|major/i.test(s) ? "Critical" : /mod/i.test(s) ? "Moderate" : "Minor");
 

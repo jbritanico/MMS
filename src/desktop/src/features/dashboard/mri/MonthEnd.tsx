@@ -1,6 +1,7 @@
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { SEVERITIES, type MriDashboardAsset } from "../hooks/useMriDashboards";
 import { AX, TT } from "./kit";
+import { chartAnim } from "../fluent/motion";
 
 // Shared by Dashboards 2 and 3: a month-end trend line by severity, with the Jan-Dec style table
 // the dashboard deck asks for (counts at the end of each month), and a "group by" breakdown table.
@@ -33,8 +34,8 @@ export function MonthEndTrend({ title, note, points, picked, onPick }: {
               ))}
             </defs>
             {SEVERITIES.map((s) => (
-              <Area key={s.key} type="monotone" dataKey={s.key} name={s.key === "Critical" ? "Major / Critical" : s.key} stroke={s.color} strokeWidth={2.2}
-                fill={`url(#me-${s.key})`} dot={{ r: 2.5, strokeWidth: 0, fill: s.color }} activeDot={{ r: 5 }} animationDuration={800} animationEasing="ease-out" />
+              <Area {...chartAnim(800)} key={s.key} type="monotone" dataKey={s.key} name={s.key === "Critical" ? "Major / Critical" : s.key} stroke={s.color} strokeWidth={2.2}
+                fill={`url(#me-${s.key})`} dot={{ r: 2.5, strokeWidth: 0, fill: s.color }} activeDot={{ r: 5 }} />
             ))}
           </AreaChart>
         </ResponsiveContainer>

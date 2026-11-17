@@ -1,5 +1,7 @@
 import { useMemo, type ReactNode } from "react";
 import { periodRange, useMriDashboardMore, type DashboardFilters, type MriDashboardAsset, type MriDashboardMore } from "../hooks/useMriDashboards";
+import { Num } from "../fluent/motion";
+import { Liquid, pctOf } from "../fluent/Liquid";
 
 // Shared pieces for Dashboards 6-13.
 
@@ -80,10 +82,12 @@ export function Tile<K extends string>({ k, pick, setPick, label, value, sub, co
   extra?: ReactNode;
 }) {
   const on = pick === k;
+  const lp = pctOf(value);
   return (
-    <button type="button" className={`mrid-kpi${on ? " is-on" : ""}`} style={{ ["--kpi" as string]: color }} onClick={() => setPick((v) => (v === k ? null : k))}>
+    <button type="button" className={`mrid-kpi${on ? " is-on" : ""}${lp != null ? " has-liquid" : ""}`} style={{ ["--kpi" as string]: color }} onClick={() => setPick((v) => (v === k ? null : k))}>
+      <Liquid pct={lp} />
       <div className="mrid-kpi-head"><span>{label}</span></div>
-      <div className="mrid-kpi-value">{value}</div>
+      <div className="mrid-kpi-value"><Num v={value} /></div>
       {extra}
       <div className="mrid-kpi-sub">{sub}</div>
       <div className="mrid-kpi-hint">{on ? "Showing these ↓" : hint ?? "Click to list"}</div>

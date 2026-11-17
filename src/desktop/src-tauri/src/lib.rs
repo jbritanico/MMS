@@ -3,6 +3,9 @@ use serde::{Deserialize, Serialize};
 use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+// Support and debugging helpers: app log, system info, Check my data, report export, crash detection.
+mod diag;
+
 const BROWSABLE_TABLES: [&str; 25] = [
     "assets",
     "template_components",
@@ -10212,14 +10215,30 @@ pub fn run() {
             set_job_number_verification,
             get_job_number_flags,
             get_mri_fault_decisions_pending_acknowledgment,
-            acknowledge_mri_fault_decision
+            acknowledge_mri_fault_decision,
+            diag::diag_write_log,
+            diag::diag_log_folder,
+            diag::diag_open_log_folder,
+            diag::diag_read_log_tail,
+            diag::diag_system_info,
+            diag::diag_check_data,
+            diag::diag_export_report,
+            diag::diag_session_start
         ])
         .setup(|app| {
             // Decide where the database lives before any command opens it.
             let path = resolve_db_path(app.handle())?;
             let _ = DB_PATH.set(path);
+            // Log folder, panic hook (support tools).
+            diag::init(app.handle());
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, event| {
+            // A clean exit removes the session marker, so the next start knows MMS closed properly.
+            if let tauri::RunEvent::Exit = event {
+                diag::session_end();
+            }
+        });
 }

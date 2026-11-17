@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { copyText, diag } from "../lib/support/diag";
 
 // Modal error dialog: drawn above every other control (including other modals), and the
 // rest of the app is made inert while it is open, so keyboard focus and clicks stay on the
@@ -14,7 +15,14 @@ export default function ErrorDialog({
   onClose: () => void;
 }) {
   const okRef = useRef<HTMLButtonElement>(null);
+  const copyRef = useRef<HTMLButtonElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState<null | boolean>(null);
+
+  // Every error message shown here is recorded for "Copy details" and the diagnostics file.
+  useEffect(() => {
+    diag.error(message, `Error message: ${title}`);
+  }, [message, title]);
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
@@ -23,11 +31,11 @@ export default function ErrorDialog({
     if (root) root.inert = true;
     okRef.current?.focus();
 
-    // Keep Tab / Shift+Tab inside the dialog (it has a single button, so focus stays on OK).
+    // Keep Tab / Shift+Tab inside the dialog: it moves between Copy details and OK.
     const trap = (e: KeyboardEvent) => {
       if (e.key === "Tab") {
         e.preventDefault();
-        okRef.current?.focus();
+        (document.activeElement === okRef.current ? copyRef.current : okRef.current)?.focus();
       }
       if (e.key === "Escape") {
         // Escape does not dismiss: the user must acknowledge the error with OK.
@@ -82,7 +90,15 @@ export default function ErrorDialog({
         <p id="error-dialog-message" style={{ whiteSpace: "pre-wrap", margin: "8px 0 18px", color: "var(--text)" }}>
           {message}
         </p>
-        <div className="modal-actions">
+        <div className="modal-actions" style={{ alignItems: "center" }}>
+          <button
+            ref={copyRef}
+            className="ghost"
+            title="Copies the error, the screen, your last steps and the MMS version, to paste into the testing form or Teams"
+            onClick={async () => setCopied(await copyText(diag.detailsText()))}
+          >
+            {copied === true ? "Copied ✓" : copied === false ? "Could not copy" : "Copy details"}
+          </button>
           <button ref={okRef} className="primary" onClick={onClose}>
             OK
           </button>

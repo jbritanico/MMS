@@ -5,6 +5,8 @@ import ExportMenu from "./ExportMenu";
 import { UnitReports } from "./ReportPreview";
 import { StoryStrip, type StoryLine } from "./fluid";
 import { AX, DAY, DrillChips, Loading, nowSecs, Tile, TT, useMore } from "./kit";
+import { chartAnim, Meter } from "../fluent/motion";
+import Chart3D, { use3DMode, ViewToggle, type Cell3D } from "../fluent/Chart3D";
 
 // Dashboard 13: MR-II due forecast.
 // From the maintenance-trigger counters that MR-I reports keep up to date (distance, operating
@@ -62,6 +64,7 @@ export default function DueForecast({ assets, filters }: { assets: MriDashboardA
   const [level, setLevel] = useState<"MR-II" | "MR-III">("MR-II");
   const { units, isLoading, error, noTriggers } = useForecast(assets, level);
   const [pick, setPick] = useState<Pick>(null);
+  const [is3d, set3d] = use3DMode(13);
   const [openUnit, setOpenUnit] = useState<number | null>(null);
   const [showReports, setShowReports] = useState<number | null>(null);
 
@@ -74,6 +77,20 @@ export default function DueForecast({ assets, filters }: { assets: MriDashboardA
     .filter((u) => (pick !== "overdue" || u.status === "Overdue") && (pick !== "soon" || u.status === "Due soon") && (pick !== "horizon" || (u.daysToDue != null && u.daysToDue <= HORIZON)) && (pick !== "nodata" || u.daysToDue == null))
     .sort((a, b) => (a.daysToDue ?? Infinity) - (b.daysToDue ?? Infinity) || b.pct - a.pct);
   const chart = [...units].sort((a, b) => b.pct - a.pct).slice(0, 20).map((u) => ({ id: u.asset.id, name: u.asset.asset_code, pct: Math.min(u.pct, 150), real: u.pct, status: u.status }));
+  // 3D view: units (top 14) × counter type, bar height = % of the interval used; the plane is 100%.
+  const cube = (() => {
+    if (!is3d) return null;
+    const us = [...units].sort((a, b) => b.pct - a.pct).slice(0, 14);
+    const order = ["KM", "OH", "EH", "CA"];
+    const rank = (t: string) => (order.indexOf(t) < 0 ? 99 : order.indexOf(t));
+    const types = [...new Set(us.flatMap((u) => u.calcs.map((x) => x.t.trigger_type)))].sort((a, b) => rank(a) - rank(b));
+    const cells: Cell3D[] = [];
+    us.forEach((u, i) => types.forEach((ty, j) => {
+      const x = u.calcs.find((k) => k.t.trigger_type === ty);
+      if (x) cells.push({ row: i, col: j, segs: [{ key: x.status, label: `${TYPE_LABEL[ty] ?? ty} (${x.status})`, value: Math.min(x.pct, 150), color: STATUS_COLOR[x.status] }] });
+    }));
+    return { rows: us.map((u) => u.asset.asset_code), cols: types.map((t) => TYPE_LABEL[t] ?? t), ids: us.map((u) => u.asset.id), cells };
+  })();
 
   // ---- fluid layer ----
   const story: StoryLine[] = [];
@@ -120,8 +137,16 @@ export default function DueForecast({ assets, filters }: { assets: MriDashboardA
       </div>
 
       <div className="mrid-panel">
-        <div className="mrid-panel-head"><h3>% of the {level} interval used{units.length > 20 ? " (top 20)" : ""}</h3></div>
-        {chart.length === 0 ? <p className="mrid-note">No units have {level} triggers switched on.</p> : (
+        <div className="mrid-panel-head"><h3>{is3d ? `% of the ${level} interval used, by unit and counter${units.length > 14 ? " (top 14)" : ""}` : `% of the ${level} interval used${units.length > 20 ? " (top 20)" : ""}`}</h3><ViewToggle is3d={is3d} onChange={set3d} /></div>
+        {chart.length === 0 ? <p className="mrid-note">No units have {level} triggers switched on.</p> : cube ? (
+          <>
+            <Chart3D rows={cube.rows} cols={cube.cols} cells={cube.cells} rowTitle="Unit" colTitle="Counter" valueTitle="% used"
+              fmt={(v) => `${Math.round(v)}%`} plane={{ value: 100, label: `${level} due (100%)`, color: "var(--danger)" }}
+              onPick={(cell) => { const id = cube.ids[cell.row]; if (id != null) { setOpenUnit(id); setPick(null); } }} />
+            <div className="mrid-legend">{(Object.keys(STATUS_COLOR) as Status[]).map((st) => <span key={st}><i style={{ background: STATUS_COLOR[st] }} />{st}</span>)}</div>
+            <p className="mrid-note" style={{ textAlign: "center" }}>Bars that reach through the red plane have used their whole interval. Click a bar to see that unit's counters.</p>
+          </>
+        ) : (
           <>
             <div style={{ width: "100%", height: Math.max(130, chart.length * 32 + 50) }}>
               <ResponsiveContainer>
@@ -131,7 +156,7 @@ export default function DueForecast({ assets, filters }: { assets: MriDashboardA
                   <YAxis type="category" dataKey="name" width={120} tick={{ fill: "var(--text)", fontSize: 12 }} />
                   <Tooltip cursor={{ fill: "var(--accent-soft)" }} contentStyle={TT} formatter={(_v, _n, it) => [`${(it?.payload as { real: number }).real}%`, "Used"]} />
                   <ReferenceLine x={100} stroke="var(--danger)" strokeDasharray="6 4" />
-                  <Bar dataKey="pct" maxBarSize={22} cursor="pointer" onClick={(_, i) => { const c = chart[i]; if (c) { setOpenUnit(c.id); setPick(null); } }}>
+                  <Bar {...chartAnim()} dataKey="pct" maxBarSize={22} cursor="pointer" onClick={(_, i) => { const c = chart[i]; if (c) { setOpenUnit(c.id); setPick(null); } }}>
                     {chart.map((c) => <Cell key={c.id} fill={STATUS_COLOR[c.status]} />)}
                   </Bar>
                 </BarChart>
@@ -153,8 +178,8 @@ export default function DueForecast({ assets, filters }: { assets: MriDashboardA
               <Fragment key={u.asset.id}>
                 <tr className="mrid-click" onClick={() => setOpenUnit((v) => (v === u.asset.id ? null : u.asset.id))} style={openUnit === u.asset.id ? { outline: "2px solid var(--accent)" } : undefined}>
                   <td><b>{u.asset.asset_code}</b><div className="mrid-soft">{u.asset.asset_type ?? ""}{u.asset.country ? ` · ${u.asset.country}` : ""}</div></td>
-                  <td><span className="mrid-sev" style={{ color: STATUS_COLOR[u.status], fontWeight: 600 }}><i className="mrid-dot" style={{ background: STATUS_COLOR[u.status] }} />{u.status}</span></td>
-                  <td>{u.pct}%</td>
+                  <td><span className="mrid-sev" style={{ color: STATUS_COLOR[u.status], fontWeight: 600 }}><i className={`mrid-dot${u.status === "Overdue" ? " is-pulse" : ""}`} style={{ background: STATUS_COLOR[u.status] }} />{u.status}</span></td>
+                  <td><Meter pct={u.pct} color={STATUS_COLOR[u.status]} pulse={u.status === "Overdue"} /></td>
                   <td>{u.status === "Overdue" ? <span className="mrid-over">Now</span> : u.daysToDue != null ? <>{fmtDate(nowSecs() + u.daysToDue * DAY)}<div className="mrid-soft">in about {u.daysToDue} day{u.daysToDue === 1 ? "" : "s"}</div></> : <span className="mrid-soft">Not enough use yet</span>}</td>
                   <td style={{ whiteSpace: "nowrap" }}><span className="mrid-caret">{openUnit === u.asset.id ? "▾" : "▸"}</span> {u.calcs.length} counter{u.calcs.length === 1 ? "" : "s"}</td>
                 </tr>
@@ -165,7 +190,7 @@ export default function DueForecast({ assets, filters }: { assets: MriDashboardA
                       <tbody>{u.calcs.map((c) => (
                         <tr key={c.t.trigger_type}>
                           <td>{TYPE_LABEL[c.t.trigger_type] ?? c.t.trigger_type}</td><td><b>{c.running.toLocaleString()}</b></td><td>{c.t.warning_value ? c.t.warning_value.toLocaleString() : "—"}</td><td>{c.t.interval_value.toLocaleString()}</td>
-                          <td style={{ color: STATUS_COLOR[c.status], fontWeight: 600 }}>{c.pct}%</td>
+                          <td><Meter pct={c.pct} color={STATUS_COLOR[c.status]} warnPct={c.t.interval_value > 0 && c.t.warning_value ? (c.t.warning_value / c.t.interval_value) * 100 : null} pulse={c.status === "Overdue"} /></td>
                           <td>{c.perDay != null ? Math.round(c.perDay * 10) / 10 : "—"}</td>
                           <td>{c.status === "Overdue" ? <span className="mrid-over">Now</span> : fmtDate(c.dueAt)}</td><td>{fmtDate(c.t.last_reset_at)}</td>
                         </tr>))}</tbody>
