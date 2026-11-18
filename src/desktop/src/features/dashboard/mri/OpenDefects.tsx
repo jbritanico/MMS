@@ -20,6 +20,7 @@ import { Sparkline, StoryStrip, TrendDelta, type StoryLine } from "./fluid";
 import { BreakdownTable, GROUP_LABEL, groupOf, MonthEndTrend, type BreakdownRow, type GroupBy, type MonthEndPoint } from "./MonthEnd";
 import { Num, chartAnim } from "../fluent/motion";
 import { sevLabel } from "../hooks/useMriDashboards";
+import { useAdvanced } from "../dashMode";
 
 // Dashboard 2: Open defects by severity.
 // A fault is "open" from the moment its report is submitted until it is closed (repair verified,
@@ -55,6 +56,8 @@ export function OpenDefectsMini({ assets }: { assets: MriDashboardAsset[] }) {
 }
 
 export default function OpenDefects({ assets, filters }: { assets: MriDashboardAsset[]; filters: DashboardFilters }) {
+  // Simple view: summary, KPI cards and the list to act on. Advanced adds the charts and breakdowns.
+  const adv = useAdvanced();
   const { faults, isLoading, error } = useScopedFaults(assets);
   const range = periodRange(filters);
   const start = Math.floor(range.from.getTime() / 1000);
@@ -245,6 +248,7 @@ export default function OpenDefects({ assets, filters }: { assets: MriDashboardA
         </button>
       </div>
 
+      {adv && (<>
       <MonthEndTrend
         title="Open faults at the end of each month"
         note="Each point is the number of faults still open on the last day of that month (today for the current month)."
@@ -256,7 +260,7 @@ export default function OpenDefects({ assets, filters }: { assets: MriDashboardA
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>Flow of open faults over the period</h3></div>
         {trend.length === 0 ? (
-          <p className="mrid-note">This period has not started yet.</p>
+          <p className="mrid-note mrid-empty">This period has not started yet.</p>
         ) : (
           <>
             <div style={{ width: "100%", height: 240 }}>
@@ -328,6 +332,7 @@ export default function OpenDefects({ assets, filters }: { assets: MriDashboardA
             hint="Click a unit to list only its faults below." />
         )}
       </div>
+      </>)}
 
       <div className="mrid-panel">
         <div className="mrid-panel-head">
@@ -350,7 +355,7 @@ export default function OpenDefects({ assets, filters }: { assets: MriDashboardA
           </div>
         )}
         {openList.length === 0 ? (
-          <p className="mrid-note">No faults match this selection.</p>
+          <p className="mrid-note mrid-empty">No faults match this selection.</p>
         ) : (
           <div className="mrid-table-wrap">
             <table className="mrid-table">

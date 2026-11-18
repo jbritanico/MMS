@@ -159,7 +159,7 @@ export default function ReviewTurnaround({ assets, filters }: { assets: MriDashb
 
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>Average days by month</h3></div>
-        {trend.length === 0 ? <p className="mrid-note">No decisions or closures in these months.</p> : (
+        {trend.length === 0 ? <p className="mrid-note mrid-empty">No decisions or closures in these months.</p> : (
           <>
             <div style={{ width: "100%", height: 250 }}>
               <ResponsiveContainer>
@@ -224,7 +224,7 @@ export default function ReviewTurnaround({ assets, filters }: { assets: MriDashb
         </div>
         <DrillChips onClear={clearAll} chips={[pick === "slow" && <b>Over {SLOW_DAYS} days</b>, monthPick && <>Month: <b>{monthPick.name}</b></>, reviewerPick && <>Reviewer: <b>{reviewerPick}</b></>]} />
         {showTab === "decisions" ? (
-          decList.length === 0 ? <p className="mrid-note">No fault decisions in this time.</p> : (
+          decList.length === 0 ? <p className="mrid-note mrid-empty">No fault decisions in this time.</p> : (
             <div className="mrid-table-wrap"><table className="mrid-table">
               <thead><tr><th>Unit</th><th>Item</th><th>Severity</th><th>Decision</th><th>Reviewer</th><th>Submitted</th><th>Decided</th><th>Took</th><th>MR-I report</th></tr></thead>
               <tbody>{decList.map(({ x, secs }) => (
@@ -237,7 +237,7 @@ export default function ReviewTurnaround({ assets, filters }: { assets: MriDashb
                   <td><PreviewButton reportId={x.report_id} /></td>
                 </tr>))}</tbody>
             </table></div>)
-        ) : cloList.length === 0 ? <p className="mrid-note">No reports were closed in this time.</p> : (
+        ) : cloList.length === 0 ? <p className="mrid-note mrid-empty">No reports were closed in this time.</p> : (
           <div className="mrid-table-wrap"><table className="mrid-table">
             <thead><tr><th>Report</th><th>Unit</th><th>Stage</th><th>Faults</th><th>Submitted</th><th>Closed</th><th>Closed by</th><th>Took</th></tr></thead>
             <tbody>{cloList.map(({ r, secs }) => (

@@ -98,7 +98,7 @@ export default function UserBoard({ dashboardNo, title, filters, intro, people, 
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>{seeAll ? `${personLabel}s` : "Your figures"} ({sorted.length})</h3></div>
         {sorted.length === 0 ? (
-          <p className="mrid-note">{seeAll ? "No records for this period." : "You have no records in this period."}</p>
+          <p className="mrid-note mrid-empty">{seeAll ? "No records for this period." : "You have no records in this period."}</p>
         ) : (
           <div className="mrid-table-wrap">
             <table className="mrid-table">
@@ -137,7 +137,7 @@ export default function UserBoard({ dashboardNo, title, filters, intro, people, 
         <div className="mrid-panel">
           <div className="mrid-panel-head"><h3>{itemsTitle}: {person.name} ({person.items.length})</h3></div>
           <DrillChips onClear={() => setPick(null)} chips={[<>{personLabel}: <b>{person.name}</b></>]} />
-          {person.items.length === 0 ? <p className="mrid-note">No records.</p> : (
+          {person.items.length === 0 ? <p className="mrid-note mrid-empty">No records.</p> : (
             <div className="mrid-table-wrap">
               <table className="mrid-table">
                 <thead><tr><th>Date</th><th>Unit</th><th>What</th><th>Detail</th><th>Took</th><th>MR-I report</th></tr></thead>

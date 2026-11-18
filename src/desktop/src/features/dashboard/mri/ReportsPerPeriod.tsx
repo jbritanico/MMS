@@ -125,7 +125,7 @@ export default function ReportsPerPeriod({ assets, filters }: { assets: MriDashb
 
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>Reports submitted over the period</h3></div>
-        {submitted.length === 0 ? <p className="mrid-note">No reports were submitted in this period.</p> : (
+        {submitted.length === 0 ? <p className="mrid-note mrid-empty">No reports were submitted in this period.</p> : (
           <>
             <div style={{ width: "100%", height: 250 }}>
               <ResponsiveContainer>
@@ -158,7 +158,7 @@ export default function ReportsPerPeriod({ assets, filters }: { assets: MriDashb
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>{pick === "drafts" ? "Drafts not yet submitted" : "Reports"} ({list.length})</h3></div>
         <DrillChips onClear={clearAll} chips={[pick === "faults" && <b>With faults</b>, pick === "drafts" && <b>Drafts</b>, stagePick && <>Stage: <b>{stagePick}</b></>, bucketPick && <>Submitted: <b>{bucketPick.name}</b></>]} />
-        {list.length === 0 ? <p className="mrid-note">No reports match.</p> : (
+        {list.length === 0 ? <p className="mrid-note mrid-empty">No reports match.</p> : (
           <div className="mrid-table-wrap"><table className="mrid-table">
             <thead><tr><th>Report</th><th>Unit</th><th>Stage</th><th>Status</th><th>{pick === "drafts" ? "Started" : "Submitted"}</th><th>By</th><th>Faults</th></tr></thead>
             <tbody>{list.map((r) => (

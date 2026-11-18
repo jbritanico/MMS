@@ -21,6 +21,7 @@ import { changeLine, Sparkline, StoryStrip, TrendDelta, type StoryLine } from ".
 import { GROUP_LABEL, groupOf, MonthEndTrend, type GroupBy, type MonthEndPoint } from "./MonthEnd";
 import { Num, chartAnim } from "../fluent/motion";
 import { sevLabel } from "../hooks/useMriDashboards";
+import { useAdvanced } from "../dashMode";
 
 // Dashboard 3: Defect aging.
 // How long each open fault has waited since it was FIRST found (carried-forward faults keep
@@ -74,6 +75,8 @@ export function DefectAgingMini({ assets }: { assets: MriDashboardAsset[] }) {
 }
 
 export default function DefectAging({ assets, filters }: { assets: MriDashboardAsset[]; filters: DashboardFilters }) {
+  // Simple view: summary, KPI cards and the list to act on. Advanced adds the charts and breakdowns.
+  const adv = useAdvanced();
   const { faults, isLoading, error, since, ageAt, overdueAt } = useAging(assets);
   const range = periodRange(filters);
   const endFull = Math.floor(range.to.getTime() / 1000);
@@ -277,6 +280,7 @@ export default function DefectAging({ assets, filters }: { assets: MriDashboardA
         </button>
       </div>
 
+      {adv && (<>
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>How old are the open faults?</h3></div>
         <div style={{ width: "100%", height: 240 }}>
@@ -311,7 +315,7 @@ export default function DefectAging({ assets, filters }: { assets: MriDashboardA
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>Overdue faults over the period</h3></div>
         {trend.length === 0 ? (
-          <p className="mrid-note">This period has not started yet.</p>
+          <p className="mrid-note mrid-empty">This period has not started yet.</p>
         ) : (
           <>
             <div style={{ width: "100%", height: 240 }}>
@@ -365,7 +369,7 @@ export default function DefectAging({ assets, filters }: { assets: MriDashboardA
           </label>
         </div>
         {byType.length === 0 ? (
-          <p className="mrid-note">No open faults.</p>
+          <p className="mrid-note mrid-empty">No open faults.</p>
         ) : (
           <div className="mrid-table-wrap">
             <table className="mrid-table">
@@ -389,6 +393,7 @@ export default function DefectAging({ assets, filters }: { assets: MriDashboardA
           </div>
         )}
       </div>
+      </>)}
 
       <div className="mrid-panel">
         <div className="mrid-panel-head">
@@ -408,7 +413,7 @@ export default function DefectAging({ assets, filters }: { assets: MriDashboardA
           </div>
         )}
         {list.length === 0 ? (
-          <p className="mrid-note">No faults match this selection.</p>
+          <p className="mrid-note mrid-empty">No faults match this selection.</p>
         ) : (
           <div className="mrid-table-wrap">
             <table className="mrid-table">

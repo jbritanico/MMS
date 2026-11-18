@@ -125,7 +125,7 @@ export default function Exemptions({ assets, filters }: { assets: MriDashboardAs
         <div className="mrid-panel">
           <div className="mrid-panel-head"><h3>{pick === "red" ? "Red units" : "Red units without an exemption"} ({unitList.length})</h3></div>
           <DrillChips onClear={() => setPick(null)} chips={[<b>{pick === "red" ? "All Red units" : "No exemption"}</b>]} />
-          {unitList.length === 0 ? <p className="mrid-note">None.</p> : (
+          {unitList.length === 0 ? <p className="mrid-note mrid-empty">None.</p> : (
             <div className="mrid-table-wrap"><table className="mrid-table">
               <thead><tr><th>Unit</th><th>Country</th><th>Equipment type</th><th>Why Red</th><th>Exemption</th><th>MR-I reports</th></tr></thead>
               <tbody>{unitList.map((a) => { const l = liveFor(a.id); return (
@@ -148,7 +148,7 @@ export default function Exemptions({ assets, filters }: { assets: MriDashboardAs
             {pick == null && <label className="mrid-toggle"><input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Include revoked and closed</label>}
           </div>
           <DrillChips onClear={() => setPick(null)} chips={[pick === "soon" && <b>Expiring within {SOON_DAYS} days</b>, pick === "expired" && <b>Past end date</b>, pick === "covered" && <b>In force on Red units</b>]} />
-          {exList.length === 0 ? <p className="mrid-note">No exemptions match.</p> : (
+          {exList.length === 0 ? <p className="mrid-note mrid-empty">No exemptions match.</p> : (
             <div className="mrid-table-wrap"><table className="mrid-table">
               <thead><tr><th>Unit</th><th>MOC</th><th>Valid</th><th>State</th><th>Limitations</th><th>Required controls</th><th>Return to service when</th></tr></thead>
               <tbody>{exList.map((x) => { const st = stateOf(x, now); const dl = daysLeft(x, now); const a = unitOf.get(x.asset_id); return (

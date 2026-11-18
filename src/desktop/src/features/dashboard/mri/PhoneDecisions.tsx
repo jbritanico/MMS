@@ -96,7 +96,7 @@ export default function PhoneDecisions({ assets, filters }: { assets: MriDashboa
   if (loading) return loading;
 
   const table = (l: MriDashDecision[], kind: "confirm" | "ack" | "done") => l.length === 0 ? (
-    <p className="mrid-note">{kind === "done" ? "Nothing confirmed or acknowledged in this time." : "Nothing waiting."}</p>
+    <p className="mrid-note mrid-empty">{kind === "done" ? "Nothing confirmed or acknowledged in this time." : "Nothing waiting."}</p>
   ) : (
     <div className="mrid-table-wrap"><table className="mrid-table">
       <thead><tr><th>Unit</th><th>Item</th><th>Decision</th><th>{kind === "ack" ? "Who must be told" : "Authority / recorded by"}</th><th>Decided</th><th>{kind === "done" ? "Confirmed / acknowledged" : "Waiting"}</th><th>MR-I report</th></tr></thead>
@@ -144,7 +144,7 @@ export default function PhoneDecisions({ assets, filters }: { assets: MriDashboa
 
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>Decisions by month: by phone or direct</h3></div>
-        {trend.length === 0 ? <p className="mrid-note">No fault decisions in these months.</p> : (
+        {trend.length === 0 ? <p className="mrid-note mrid-empty">No fault decisions in these months.</p> : (
           <>
             <div style={{ width: "100%", height: 240 }}>
               <ResponsiveContainer>

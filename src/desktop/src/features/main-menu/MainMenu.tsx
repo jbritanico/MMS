@@ -5,6 +5,7 @@ import { VISIBLE_THEMES, isDarkTheme, type Theme } from "../../lib/theme";
 import fieldOpsImage from "../../assets/FieldMaintenance.png";
 import fieldOpsImageDark from "../../assets/FieldDark.png";
 import { useCurrentUser } from "../../lib/currentUser";
+import { MenuKpis } from "./MenuKpis";
 import { tierAccent } from "../../lib/UserPickerGate";
 import {
   isMapFeatureEnabled,
@@ -225,24 +226,6 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
   const availabilityPct =
     allAssets.length === 0 ? 100 : ((allAssets.length - redUnits) / allAssets.length) * 100;
   const openDefects = pendingApprovals.length + pendingRectifications.length;
-  const kpiData = [
-    {
-      key: "availability",
-      label: "Fleet Availability",
-      value: availabilityPct.toFixed(1),
-      unit: "%",
-      delta: redUnits > 0 ? `${redUnits} not ready` : "",
-      good: redUnits === 0,
-    },
-    {
-      key: "defects",
-      label: "Open Defects",
-      value: String(openDefects),
-      unit: "",
-      delta: "",
-      good: openDefects === 0,
-    },
-  ];
   const canConfirmProvisional = effectivePermissions.includes(
     "mri.confirm_provisional",
   );
@@ -407,61 +390,10 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
               flexDirection: "column",
               gap: 20,
               zIndex: 5,
-              width: 200,
+              width: 210,
             }}
           >
-            {kpiData.map((k) => (
-              <div
-                key={k.key}
-                onClick={() => onNavigate("dashboard")}
-                style={{
-                  background: "none",
-                  boxShadow: "none",
-                  border: "none",
-                  padding: 0,
-                  cursor: "pointer",
-                }}
-              >
-                <span
-                  className="kpi-footer-label"
-                  style={{ textShadow: "var(--text-halo)" }}
-                >
-                  {k.label}
-                </span>
-                <div className="kpi-footer-row">
-                  <span
-                    className={`kpi-footer-value ${k.key === "defects" ? "pale-red" : ""}`}
-                    style={{ textShadow: "var(--text-halo)" }}
-                  >
-                    {k.value}
-                    <span className="kpi-footer-unit">{k.unit}</span>
-                  </span>
-                  <span
-                    className={`kpi-footer-delta ${k.good ? "good" : "bad"}`}
-                  >
-                    {k.delta}
-                  </span>
-                </div>
-                {k.key === "availability" && (
-                  <div
-                    style={{
-                      background: "var(--glass-bg-strong)",
-                      borderRadius: 8,
-                      padding: "4px 6px",
-                      marginTop: 4,
-                      boxShadow: "var(--glass-shadow-strong)",
-                    }}
-                  >
-                    <div className="kpi-gauge-track">
-                      <div
-                        className="kpi-gauge-mask"
-                        style={{ width: `${100 - parseFloat(k.value)}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+            <MenuKpis availability={availabilityPct} notReady={redUnits} openDefects={openDefects} onOpen={() => onNavigate("dashboard")} />
           </div>
         </div>
       </div>

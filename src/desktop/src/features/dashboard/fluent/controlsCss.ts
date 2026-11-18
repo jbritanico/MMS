@@ -90,4 +90,8 @@ ${SEL.filter((s) => s.endsWith("select")).map((s) => s + " option").join(", ")} 
   background: color-mix(in srgb, var(--tone) 13%, transparent); }
 .fl-cnt-state i { width: 7px; height: 7px; border-radius: 50%; background: var(--tone); }
 .fl-shell .fl-cnt-board .mri-stat-grid { margin-top: 14px; }
+/* Simple / Advanced switch on the Overview (same look as on the MR-I dashboards) */
+.fl-shell .fl-ov-mode { display: flex; justify-content: flex-end; margin: -4px 0 -6px; }
+.fl-shell .fl-ov-mode .mrid-mode { display: flex; width: fit-content; align-items: center; gap: 8px; margin: 0; }
+.fl-shell .fl-ov-mode .mrid-mode-label { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-soft); }
 `;

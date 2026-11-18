@@ -273,7 +273,7 @@ export default function FleetStatus({ assets, filters }: { assets: MriDashboardA
             {groupPick && <span className="mrid-chip">{GROUP_LABEL[groupBy]}: <b>{groupPick}</b></span>}
             <button type="button" className="ghost mrid-clear" onClick={() => { setTagPick(null); setGroupPick(null); }}>✕ Clear selection</button>
           </div>
-          {drilled.length === 0 ? <p className="mrid-note">No units match this selection.</p> : <UnitTable rows={drilled} />}
+          {drilled.length === 0 ? <p className="mrid-note mrid-empty">No units match this selection.</p> : <UnitTable rows={drilled} />}
         </div>
       )}
 
@@ -282,7 +282,7 @@ export default function FleetStatus({ assets, filters }: { assets: MriDashboardA
           <h3>Units not ready ({notReady.length})</h3>
         </div>
         {notReady.length === 0 ? (
-          <p className="mrid-note">Every tagged unit is Green.</p>
+          <p className="mrid-note mrid-empty">Every tagged unit is Green.</p>
         ) : (
           <UnitTable rows={notReady} />
         )}

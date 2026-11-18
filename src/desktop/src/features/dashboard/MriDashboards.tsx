@@ -28,6 +28,7 @@ import DueForecast, { DueForecastMini } from "./mri/DueForecast";
 import { DASHBOARDS, DASH_ICONS, DECK_NAME, DECK_SLIDES, GROUPS, USER_GROUPS } from "./dashCatalog";
 import { Inspectors, InspectorsMini, Managers, ManagersMini, Reviewers, ReviewersMini, Supervisors, SupervisorsMini, Technicians, TechniciansMini } from "./mri/UserAnalytics";
 import { setScopeFilter, useScopeFilter } from "./scopeFilter";
+import { ModeToggle, MODE_READY } from "./dashMode";
 
 // The MR-I dashboards, built one at a time. Task 0: the shared filter bar and the viewer's scope.
 // Each dashboard is a card below the filters and receives the filtered units and the period.
@@ -208,6 +209,7 @@ function MriDashboards({ section = "mri", open: openProp }: MriDashboardsProps) 
         <div className="header">
           <h1 className="mrid-title"><span className={`mrid-icon${DECK_SLIDES[openDash.no] ? " is-deck" : ""}`}>{DASH_ICONS[openDash.no]}</span>{openDash.title}<DeckBadge no={openDash.no} large /></h1>
           <span className="sub">{openDash.desc}</span>
+          {MODE_READY.has(openDash.no) && <ModeToggle />}
         </div>
         {!isLoading && !error && <FilterBar filters={filters} onChange={setFilters} assets={assets} />}
       </div>
@@ -247,6 +249,8 @@ const MRID_CSS = `
 .mrid-key-swatch.is-deck { box-shadow: inset 4px 0 0 var(--deck); background: var(--deck-soft); border-color: transparent; }
 .mrid-headrow { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 20px; }
 .mrid-headrow > .header { flex: 1 1 300px; min-width: 0; }
+.mrid-mode { display: flex; width: fit-content; align-items: center; gap: 8px; margin-top: 10px; }
+.mrid-mode-label { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-soft); }
 .mrid-headrow > .mrid-filters { flex: 0 1 auto; margin-top: 0; padding: 4px 0 0; background: none; box-shadow: none; border-radius: 0; }
 .mrid-headrow .mrid-filter-row { gap: 8px 10px; flex-wrap: wrap; justify-content: flex-end; }
 .mrid-headrow .mrid-field > span { font-size: 10.5px; }

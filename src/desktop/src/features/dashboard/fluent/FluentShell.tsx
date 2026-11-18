@@ -9,6 +9,7 @@ import type { InfoResult } from "../info/dashInfo";
 import { LIQUID_CSS } from "./Liquid";
 import { SCOPE_CSS } from "../scopeFilter";
 import { CONTROLS_CSS } from "./controlsCss";
+import { HINTS_CSS, HintsToggle, useHints } from "../hints";
 
 // The dashboard area's shell, in the Fluent 2 + Fluid style: blue sidebar, header with search,
 // notifications and the signed-in user, and the page content. Colours come from the MMS theme
@@ -196,6 +197,7 @@ export function FluentShell({
 }) {
   const { user } = useCurrentUser();
   const motion = useMotion();
+  const hints = useHints();
   const [navOpen, setNavOpen] = useState(false);
   const mainRef = useRef<HTMLDivElement>(null);
   // New page: start at the top.
@@ -215,8 +217,8 @@ export function FluentShell({
   const toggle = (k: string) => setExpanded((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; });
 
   return (
-    <div className={`fl-shell${navOpen ? " nav-open" : ""}`} data-motion={motion} style={{ ["--fl-k" as string]: String(motionFactor(motion) || 0.001) }}>
-      <style>{FLUENT_CSS + INFO_CSS + LIQUID_CSS + SCOPE_CSS + CONTROLS_CSS}</style>
+    <div className={`fl-shell${navOpen ? " nav-open" : ""}${hints ? " show-hints" : ""}`} data-motion={motion} style={{ ["--fl-k" as string]: String(motionFactor(motion) || 0.001) }}>
+      <style>{FLUENT_CSS + INFO_CSS + LIQUID_CSS + SCOPE_CSS + CONTROLS_CSS + HINTS_CSS}</style>
       <aside className="fl-side" aria-label="Dashboards">
         <div className="fl-brand">
           <span className="fl-logo" aria-hidden="true">
@@ -315,6 +317,7 @@ export function FluentShell({
           <div className="fl-header-tools">
             <DashSearch onOpenDash={onOpenDash} />
             <WaitingBell onOpenDash={onOpenDash} />
+            <HintsToggle />
             <SettingsMenu />
             {user && <span className="fl-avatar sm" title={`${user.name} · ${user.role}`}>{initials(user.name)}</span>}
           </div>

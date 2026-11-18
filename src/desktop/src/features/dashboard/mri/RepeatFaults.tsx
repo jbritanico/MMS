@@ -145,7 +145,7 @@ export default function RepeatFaults({ assets, filters }: { assets: MriDashboard
 
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>{is3d ? `Items that fail most often, by unit${shownItems.length > 10 ? " (top 10)" : ""}` : `Items that fail most often${shownItems.length > 15 ? " (top 15)" : ""}`}</h3><ViewToggle is3d={is3d} onChange={set3d} /></div>
-        {chart.length === 0 ? <p className="mrid-note">No faults match.</p> : cube ? (
+        {chart.length === 0 ? <p className="mrid-note mrid-empty">No faults match.</p> : cube ? (
           <>
             <Chart3D rows={cube.rows} cols={cube.cols} cells={cube.cells} rowTitle="Checklist item" colTitle="Unit" valueTitle="Times failed" integer
               fmt={(v) => String(Math.round(v))} onPick={(cell) => setItemPick(cube.rows[cell.row] ?? null)} />
@@ -194,7 +194,7 @@ export default function RepeatFaults({ assets, filters }: { assets: MriDashboard
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>All items ({shownItems.length})</h3></div>
         {!showOcc && <DrillChips onClear={clearAll} chips={[pick === "multi" && <b>Items on 2+ units</b>]} />}
-        {shownItems.length === 0 ? <p className="mrid-note">No faults match.</p> : (
+        {shownItems.length === 0 ? <p className="mrid-note mrid-empty">No faults match.</p> : (
           <div className="mrid-table-wrap"><table className="mrid-table">
             <thead><tr><th>Item</th><th>Times failed</th><th>Units</th><th>Recurred</th><th>Major / Critical</th><th>Moderate</th><th>Minor</th></tr></thead>
             <tbody>{shownItems.map((i) => (

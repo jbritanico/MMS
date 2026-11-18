@@ -35,6 +35,40 @@ function makeDot(host: Element, onOpen: (title: string) => void) {
   return dot;
 }
 
+const CARD = ".mrid-kpi, .fl-kpi, .fl-avail";
+const SUBS = ".mrid-kpi-sub, .fl-kpi-sub, .fl-avail-text";
+const BULB_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg>`;
+/** Cards whose small grey text the user opened, remembered while the app is open (cards are redrawn when filters change). */
+const openSubs = new Set<string>();
+
+/** The lightbulb beside the (i) on a number card: shows or hides the small grey text under that card's number. */
+function makeBulb(host: Element, card: Element, key: () => string) {
+  const b = document.createElement("span");
+  b.className = "sub-bulb";
+  b.setAttribute("role", "button");
+  b.tabIndex = 0;
+  b.innerHTML = BULB_SVG;
+  const sync = () => {
+    const on = card.hasAttribute("data-sub-open");
+    b.setAttribute("aria-pressed", String(on));
+    const t = headText(host) || "this card";
+    b.title = on ? `Hide the note for ${t}` : `Show the note for ${t}`;
+    b.setAttribute("aria-label", b.title);
+  };
+  if (openSubs.has(key())) card.setAttribute("data-sub-open", "");
+  sync();
+  const toggle = (e: Event) => {
+    e.preventDefault(); e.stopPropagation();
+    const on = !card.hasAttribute("data-sub-open");
+    if (on) { card.setAttribute("data-sub-open", ""); openSubs.add(key()); } else { card.removeAttribute("data-sub-open"); openSubs.delete(key()); }
+    sync();
+  };
+  b.addEventListener("click", toggle);
+  b.addEventListener("pointerdown", (e) => e.stopPropagation());
+  b.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") toggle(e); });
+  return b;
+}
+
 /** Adds an (i) button to every card heading inside `root`, now and whenever new cards appear. */
 export function useInfoDots(root: RefObject<HTMLElement | null>, scope: string | null, onOpen: (r: InfoResult) => void) {
   const openRef = useRef(onOpen);
@@ -51,6 +85,14 @@ export function useInfoDots(root: RefObject<HTMLElement | null>, scope: string |
         const dot = makeDot(host, (title) => openRef.current(infoFor(scopeRef.current, title)));
         const h3 = host.matches(".mrid-panel-head") ? host.querySelector(":scope > h3") : null;
         if (h3) h3.after(dot); else host.appendChild(dot);
+      });
+      el.querySelectorAll(".mrid-kpi-head, .fl-kpi-top, .fl-avail-head").forEach((host) => {
+        if (host.querySelector(":scope > .sub-bulb")) return;
+        const card = host.closest(CARD);
+        if (!card || !card.querySelector(SUBS)) return;
+        const dot = host.querySelector(":scope > .info-dot");
+        const bulb = makeBulb(host, card, () => `${scopeRef.current ?? ""}|${headText(host)}`);
+        if (dot) dot.before(bulb); else host.appendChild(bulb);
       });
     };
     attach();
@@ -158,6 +200,19 @@ export const INFO_CSS = `
 .fl-shell .mrid-panel-head > h3 + .info-dot { margin: 0 auto 2px 8px; align-self: center; }
 .fl-shell h2.fl-section-title > .info-dot { margin-left: 8px; vertical-align: 1px; text-transform: none; letter-spacing: 0; }
 .fl-shell .fl-card-head { align-items: flex-start; }
+
+/* lightbulb beside the (i) on number cards: the small grey text under the number shows only when it is on (or when hints are on for the whole screen) */
+.fl-shell:not(.show-hints) :is(.mrid-kpi, .fl-kpi, .fl-avail):not([data-sub-open]) :is(.mrid-kpi-sub, .fl-kpi-sub, .fl-avail-text) { display: none !important; }
+.fl-shell :is(.mrid-kpi, .fl-kpi, .fl-avail)[data-sub-open] :is(.mrid-kpi-sub, .fl-kpi-sub, .fl-avail-text) { animation: hint-in .25s ease-out; }
+.fl-shell .sub-bulb { all: unset; box-sizing: border-box; display: inline-grid; place-items: center; flex: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer;
+  color: var(--text-soft); margin-left: auto; align-self: center; transition: background .15s, color .15s, transform .15s; }
+.fl-shell .sub-bulb svg { width: 13px; height: 13px; }
+.fl-shell .sub-bulb:hover { color: var(--st-amber, #d97706); background: color-mix(in srgb, var(--st-amber, #d97706) 14%, transparent); transform: scale(1.08); }
+.fl-shell .sub-bulb:focus-visible { outline: 2px solid var(--st-amber, #d97706); outline-offset: 2px; }
+.fl-shell .sub-bulb[aria-pressed="true"], .fl-shell.show-hints .sub-bulb { color: #fff; background: var(--st-amber, #d97706); }
+.fl-shell .sub-bulb + .info-dot { margin-left: 4px !important; }
+.fl-shell .fl-avail .sub-bulb:not([aria-pressed="true"]) { color: rgba(255,255,255,.8); }
+.fl-shell.show-hints .fl-avail .sub-bulb { color: #fff; }
 
 .fl-shell .info-head { display: flex; flex-wrap: wrap; gap: 6px 8px; margin-top: 6px; }
 .fl-shell .info-manual, .fl-shell .info-about { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;

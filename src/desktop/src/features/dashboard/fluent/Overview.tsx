@@ -15,6 +15,7 @@ import { FL_ICONS, FlCard, KpiCard, QuickAction, RangeTabs, TrendChip, type FlTo
 import { chartAnim } from "./motion";
 import { FleetHero } from "./FleetHero";
 import { inScope, ScopeFilterBar, useScopeFilter } from "../scopeFilter";
+import { ModeToggle, useAdvanced } from "../dashMode";
 
 // The Dashboard area's landing page: what needs attention now across the units the user can see.
 // Every figure comes from the same data as the MR-I dashboards; nothing here is sample data.
@@ -121,6 +122,7 @@ export default function Overview({ onSection, onOpenDash }: { onSection: (s: She
     return ev.sort((a, b) => b.t - a.t).slice(0, 6);
   }, [more, code]);
 
+  const adv = useAdvanced();
   const loading = scope.isLoading || faultsQ.isLoading;
   if (scope.error) return <div className="empty">Could not load the dashboards: {String(scope.error)}</div>;
   const first = (user?.name ?? "").split(/\s+/)[0];
@@ -130,6 +132,7 @@ export default function Overview({ onSection, onOpenDash }: { onSection: (s: She
   return (
     <>
       <ScopeFilterBar shown={assets.length} total={allActive.length} />
+      <div className="fl-ov-mode"><ModeToggle /></div>
       <FleetHero
         tags={tags}
         prevPct={prevPct}
@@ -165,7 +168,7 @@ export default function Overview({ onSection, onOpenDash }: { onSection: (s: She
               onClick={() => onOpenDash(7)} />
           </div>
 
-          <div className="fl-grid-2">
+          {adv && <div className="fl-grid-2">
             <FlCard title="Faults found and closed" note="Per month, with the faults still open at each month end"
               tools={<RangeTabs label="Time range" value={range} options={RANGES} onChange={setRange} />}>
               <div style={{ width: "100%", height: 270 }}>
@@ -215,7 +218,7 @@ export default function Overview({ onSection, onOpenDash }: { onSection: (s: She
               </div>
               <div className="fl-legend">{usedHealth.map((h) => <span key={h.key}><i style={{ background: h.color }} />{h.label}</span>)}</div>
             </FlCard>
-          </div>
+          </div>}
 
           <h2 className="fl-section-title">Quick actions</h2>
           <div className="fl-qas">
@@ -227,7 +230,7 @@ export default function Overview({ onSection, onOpenDash }: { onSection: (s: She
             <QuickAction tone="green" icon={FL_ICONS.people} label="User Analytics" note="Workload by person" onClick={() => onSection("user-analytics")} />
           </div>
 
-          <div className="fl-grid-3">
+          <div className={adv ? "fl-grid-3" : "fl-grid-2"}>
             <FlCard title="Waiting for review" note="Oldest first" tools={<button type="button" className="fl-link" onClick={() => onOpenDash(5)}>View all {FL_ICONS.chevron}</button>}>
               {waitList.length === 0 ? <div className="fl-empty">Nothing is waiting. Reports and fault decisions are up to date.</div> : (
                 <div className="fl-list">
@@ -266,7 +269,7 @@ export default function Overview({ onSection, onOpenDash }: { onSection: (s: She
               )}
             </FlCard>
 
-            <FlCard title="Recent activity" note="Latest reports, decisions, tags and repairs">
+            {adv && <FlCard title="Recent activity" note="Latest reports, decisions, tags and repairs">
               {activity.length === 0 ? <div className="fl-empty">No activity yet.</div> : (
                 <div className="fl-list">
                   {activity.map((e, n) => (
@@ -278,7 +281,7 @@ export default function Overview({ onSection, onOpenDash }: { onSection: (s: She
                   ))}
                 </div>
               )}
-            </FlCard>
+            </FlCard>}
           </div>
 
         </>

@@ -138,7 +138,7 @@ export default function DueForecast({ assets, filters }: { assets: MriDashboardA
 
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>{is3d ? `% of the ${level} interval used, by unit and counter${units.length > 14 ? " (top 14)" : ""}` : `% of the ${level} interval used${units.length > 20 ? " (top 20)" : ""}`}</h3><ViewToggle is3d={is3d} onChange={set3d} /></div>
-        {chart.length === 0 ? <p className="mrid-note">No units have {level} triggers switched on.</p> : cube ? (
+        {chart.length === 0 ? <p className="mrid-note mrid-empty">No units have {level} triggers switched on.</p> : cube ? (
           <>
             <Chart3D rows={cube.rows} cols={cube.cols} cells={cube.cells} rowTitle="Unit" colTitle="Counter" valueTitle="% used"
               fmt={(v) => `${Math.round(v)}%`} plane={{ value: 100, label: `${level} due (100%)`, color: "var(--danger)" }}
@@ -171,7 +171,7 @@ export default function DueForecast({ assets, filters }: { assets: MriDashboardA
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>Units, soonest first ({list.length})</h3></div>
         <DrillChips onClear={() => setPick(null)} chips={[pick && <b>{{ overdue: "Overdue", soon: "Due soon", horizon: `Within ${HORIZON} days`, nodata: "Not enough use" }[pick]}</b>]} />
-        {list.length === 0 ? <p className="mrid-note">No units match.</p> : (
+        {list.length === 0 ? <p className="mrid-note mrid-empty">No units match.</p> : (
           <div className="mrid-table-wrap"><table className="mrid-table">
             <thead><tr><th>Unit</th><th>Status</th><th>Highest % used</th><th>Expected due</th><th>Counters</th></tr></thead>
             <tbody>{list.map((u) => (

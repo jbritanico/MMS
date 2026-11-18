@@ -184,7 +184,7 @@ export default function DecisionsWaiting({ assets, filters }: { assets: MriDashb
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>Waiting with whom, and for how long</h3></div>
         {byWho.length === 0 ? (
-          <p className="mrid-note">Nothing is waiting for a decision.</p>
+          <p className="mrid-note mrid-empty">Nothing is waiting for a decision.</p>
         ) : (
           <>
             <div style={{ width: "100%", height: Math.max(150, byWho.length * 44 + 60) }}>
@@ -233,7 +233,7 @@ export default function DecisionsWaiting({ assets, filters }: { assets: MriDashb
           </div>
         )}
         {list.length === 0 ? (
-          <p className="mrid-note">Nothing matches this selection.</p>
+          <p className="mrid-note mrid-empty">Nothing matches this selection.</p>
         ) : (
           <div className="mrid-table-wrap">
             <table className="mrid-table">

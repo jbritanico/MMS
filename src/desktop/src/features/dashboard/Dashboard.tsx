@@ -4,9 +4,7 @@ import {
   useAssetMriHistory,
   type AssetMriHistorySummaryRow,
 } from "./hooks/useMriHistory";
-import { useDeleteLastMriReport } from "../mri-reporting/hooks/useMriReports";
 import { useAssetTriggers } from "../asset-registry/hooks/useTriggers";
-import { useCurrentUser } from "../../lib/currentUser";
 import { type Theme } from "../../lib/theme";
 import { useAssets } from "../asset-registry/hooks/useAssets";
 import { useAssetTypes } from "../administration/hooks/useAssetTypes";
@@ -170,15 +168,6 @@ const PDF_ICON = (
     <path d="M7 3h7l4 4v14H7z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
     <path d="M14 3v4h4" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
     <path d="M9 17v-4h1.2a1.2 1.2 0 1 1 0 2.4H9M12.6 17v-4h1.3M12.6 15.2h1.1M16.4 13v4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const TRASH_ICON = (
-  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M4 7h16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    <path d="M9 7V4.8c0-.44.36-.8.8-.8h4.4c.44 0 .8.36.8.8V7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M6.5 7l.7 12.2c.05.98.86 1.8 1.84 1.8h6.92c.98 0 1.79-.82 1.84-1.8L18.5 7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
   </svg>
 );
 
@@ -444,27 +433,10 @@ interface AssetHistoryPanelProps {
 function AssetHistoryPanel({ assetId, assetCode, assetDescription, onBack, onOpenReport, onShowAssetFlow }: AssetHistoryPanelProps) {
   const { data: rows = [], isLoading } = useAssetMriHistory(assetId);
   const { data: triggers = [] } = useAssetTriggers(assetId);
-  const { user: currentUser } = useCurrentUser();
-  const isAdministrator = currentUser?.role === "Administrator";
-  const deleteReport = useDeleteLastMriReport();
   const { data: registryAssets = [] } = useAssets();
   const registryAsset = registryAssets.find((x) => x.id === assetId);
   const tag = registryAsset?.tag_status ?? null;
   const counterGroups = useMemo(() => groupCounters(triggers), [triggers]);
-  const [pendingDelete, setPendingDelete] = useState<{ id: number } | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  async function confirmDeleteReport() {
-    if (!pendingDelete) return;
-    try {
-      await deleteReport.mutateAsync(pendingDelete.id);
-      setDeleteError(null);
-    } catch (err) {
-      setDeleteError(String(err));
-    } finally {
-      setPendingDelete(null);
-    }
-  }
 
   return (
     <div>
@@ -517,8 +489,7 @@ function AssetHistoryPanel({ assetId, assetCode, assetDescription, onBack, onOpe
         <div className="empty" style={{ marginTop: 14 }}>No MR-I reports have been filed for this asset yet.</div>
       ) : (
         <div className="mri-report-timeline">
-          {rows.map((row, index) => {
-            const isLatestEntry = index === 0;
+          {rows.map((row) => {
             const iconStyle = reportIconStyle(row.status);
             const kmTrigger = triggers.find((t) => t.trigger_type === "KM" && t.enabled);
             const ohTrigger = triggers.find((t) => t.trigger_type === "OH" && t.enabled);
@@ -618,16 +589,6 @@ function AssetHistoryPanel({ assetId, assetCode, assetDescription, onBack, onOpe
                       {PDF_ICON}
                       <span>View Report</span>
                     </button>
-                    {isAdministrator && isLatestEntry && (
-                      <button
-                        className="danger mri-report-view-btn"
-                        style={{ background: "var(--danger)", color: "var(--on-status)" }}
-                        onClick={() => setPendingDelete({ id: row.id })}
-                      >
-                        {TRASH_ICON}
-                        <span>Delete</span>
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
@@ -636,27 +597,6 @@ function AssetHistoryPanel({ assetId, assetCode, assetDescription, onBack, onOpe
         </div>
       )}
 
-      {deleteError && (
-        <div className="toast err" style={{ maxWidth: 500, marginTop: 16 }}>{deleteError}</div>
-      )}
-
-      {pendingDelete && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-icon">{TRASH_ICON}</div>
-            <h3>Delete Report #{pendingDelete.id}?</h3>
-            <p>
-              This permanently deletes this report and all its header, checklist, mid-section, footer, and
-              fault-review data. If it was Approved, its KM/OH/EH running totals will be reverted to the previous
-              approved reading. This cannot be undone.
-            </p>
-            <div className="modal-actions">
-              <button className="ghost" onClick={() => setPendingDelete(null)}>Cancel</button>
-              <button className="danger" onClick={confirmDeleteReport}>Delete</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

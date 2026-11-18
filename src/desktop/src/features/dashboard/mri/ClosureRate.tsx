@@ -18,6 +18,7 @@ import { changeLine, Sparkline, StoryStrip, TrendDelta, type StoryLine } from ".
 import { Num, Ring, chartAnim } from "../fluent/motion";
 import { Liquid } from "../fluent/Liquid";
 import { sevLabel } from "../hooks/useMriDashboards";
+import { useAdvanced } from "../dashMode";
 
 // Dashboard 4: Fault closure rate (Faults Severity Classification, "MMS Data Monitoring"):
 //   Closure rate % = faults closed in the period ÷ (backlog at the start + new faults in the period) × 100
@@ -78,6 +79,8 @@ export function ClosureRateMini({ assets }: { assets: MriDashboardAsset[] }) {
 }
 
 export default function ClosureRate({ assets, filters }: { assets: MriDashboardAsset[]; filters: DashboardFilters }) {
+  // Simple view: summary, KPI cards and the list to act on. Advanced adds the charts and breakdowns.
+  const adv = useAdvanced();
   const { faults, isLoading, error, since, isClosed, count } = useClosure(assets);
   const range = periodRange(filters);
   const pStart = Math.floor(range.from.getTime() / 1000);
@@ -194,7 +197,7 @@ export default function ClosureRate({ assets, filters }: { assets: MriDashboardA
           <p className="mrid-note" style={{ margin: 0 }}>
             Of the faults that needed closing in <b>{periodName}</b> (open at the start plus new ones), the share closed in that time.
           </p>
-          <span className="mrid-formula">Closure rate = closed in the period ÷ (backlog at the start + new in the period) × 100 · Target for Major / Critical: above {TARGET}%</span>
+          {adv && <span className="mrid-formula">Closure rate = closed in the period ÷ (backlog at the start + new in the period) × 100 · Target for Major / Critical: above {TARGET}%</span>}
         </div>
         <ExportMenu dashboardNo={4} title="Fault closure rate" filters={filters} tables={exportTables} />
       </div>
@@ -241,10 +244,11 @@ export default function ClosureRate({ assets, filters }: { assets: MriDashboardA
         </button>
       </div>
 
+      {adv && (<>
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>Closure rate by month</h3></div>
         {trend.length === 0 ? (
-          <p className="mrid-note">No faults needed closing in these months.</p>
+          <p className="mrid-note mrid-empty">No faults needed closing in these months.</p>
         ) : (
         <>
         <div style={{ width: "100%", height: 280 }}>
@@ -290,7 +294,9 @@ export default function ClosureRate({ assets, filters }: { assets: MriDashboardA
         </>
         )}
       </div>
+      </>)}
 
+      {(adv || sevPick) && (<>
       <div className="mrid-panel">
         <div className="mrid-panel-head">
           <h3>Faults in {periodName}</h3>
@@ -315,7 +321,7 @@ export default function ClosureRate({ assets, filters }: { assets: MriDashboardA
         )}
         {tab === "closed" ? (
           closedList.length === 0 ? (
-            <p className="mrid-note">No faults were closed in this time.</p>
+            <p className="mrid-note mrid-empty">No faults were closed in this time.</p>
           ) : (
             <div className="mrid-table-wrap">
               <table className="mrid-table">
@@ -341,7 +347,7 @@ export default function ClosureRate({ assets, filters }: { assets: MriDashboardA
             </div>
           )
         ) : notClosed.length === 0 ? (
-          <p className="mrid-note">Every fault that needed closing was closed.</p>
+          <p className="mrid-note mrid-empty">Every fault that needed closing was closed.</p>
         ) : (
           <div className="mrid-table-wrap">
             <table className="mrid-table">
@@ -365,6 +371,7 @@ export default function ClosureRate({ assets, filters }: { assets: MriDashboardA
           </div>
         )}
       </div>
+      </>)}
     </div>
   );
 }

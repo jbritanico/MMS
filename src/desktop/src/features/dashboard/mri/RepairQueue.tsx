@@ -136,7 +136,7 @@ export default function RepairQueue({ assets, filters }: { assets: MriDashboardA
 
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>Queue by technician and parts</h3></div>
-        {byTech.length === 0 ? <p className="mrid-note">The repair queue is empty.</p> : (
+        {byTech.length === 0 ? <p className="mrid-note mrid-empty">The repair queue is empty.</p> : (
           <>
             <div style={{ width: "100%", height: Math.max(130, byTech.length * 42 + 50) }}>
               <ResponsiveContainer>
@@ -162,14 +162,14 @@ export default function RepairQueue({ assets, filters }: { assets: MriDashboardA
         <div className="mrid-panel-head"><h3>{pick === "done" ? `Repairs verified in ${p.label} (${done.length})` : `Repairs waiting, longest first (${list.length})`}</h3></div>
         <DrillChips onClear={clearAll} chips={[pick && pick !== "open" && <b>{{ parts: "Waiting for parts", unassigned: "No technician", done: "Completed", open: "" }[pick]}</b>, techPick && <>Technician: <b>{techPick}</b></>, partsPick && <>Parts: <b>{partsPick}</b></>]} />
         {pick === "done" ? (
-          done.length === 0 ? <p className="mrid-note">No repairs were verified in this period.</p> : (
+          done.length === 0 ? <p className="mrid-note mrid-empty">No repairs were verified in this period.</p> : (
             <div className="mrid-table-wrap"><table className="mrid-table">
               <thead><tr><th>Unit</th><th>Item</th><th>Technician</th><th>Verified by</th><th>In queue since</th><th>Verified</th><th>Repair time</th><th>MR-I report</th></tr></thead>
               <tbody>{done.map(({ r, secs }) => (
                 <tr key={r.rectification_id}><td><b>{code(r.asset_id)}</b></td><td>{r.item ?? "—"}</td><td>{r.technician ?? "—"}</td><td>{r.verified_by ?? "—"}</td>
                   <td>{fmtDate(r.queued_at)}</td><td>{fmtDate(r.verified_at)}</td><td>{fmtDur(secs)}</td><td><PreviewButton reportId={r.report_id} /></td></tr>))}</tbody>
             </table></div>)
-        ) : list.length === 0 ? <p className="mrid-note">Nothing matches this selection.</p> : (
+        ) : list.length === 0 ? <p className="mrid-note mrid-empty">Nothing matches this selection.</p> : (
           <div className="mrid-table-wrap"><table className="mrid-table">
             <thead><tr><th>Unit</th><th>Item</th><th>Technician</th><th>Parts</th><th>In queue since</th><th>Waiting</th><th>Planned repair</th><th>Limitations told to field</th><th>MR-I report</th></tr></thead>
             <tbody>{list.map((r) => {

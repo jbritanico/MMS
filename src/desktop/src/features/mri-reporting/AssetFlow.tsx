@@ -1,7 +1,14 @@
-import { useState } from "react";
-import { useAssetFlow } from "./hooks/useAssetFlow";
+import { useMemo, useState } from "react";
+import { useAssetFlow, type AssetFlowTrigger } from "./hooks/useAssetFlow";
 import { useCurrentUser } from "../../lib/currentUser";
 import { useEffectivePermissions } from "../administration/hooks/useUserAdmin";
+import { useAssets } from "../asset-registry/hooks/useAssets";
+import { useAssetTypes } from "../administration/hooks/useAssetTypes";
+import {
+  DetailPanel, FlowCard, FlowLink, FX_CSS, Icon, Legend, Section,
+  day, tagInfo, TONE_COLOR, when, type FlowItem, type Tone,
+} from "./flowKit";
+import { HintsToggle, useHints } from "../dashboard/hints";
 
 interface AssetFlowProps {
   assetId: number;
@@ -10,87 +17,35 @@ interface AssetFlowProps {
   onShowReportFlow: (reportId: number) => void;
   onOpenAssets: () => void;
   onViewTriggers: (assetId: number, assetCode: string) => void;
+  /** Opened from the dashboards: show only, no links to screens where data can be changed. */
+  viewOnly?: boolean;
 }
 
-type Tone = "neutral" | "danger" | "warn" | "success";
-type Kind = "asset" | "report" | "tag" | "trigger" | "exemption";
+const COUNTER_NAME: Record<string, string> = { OH: "Operating hours", CA: "Calendar days", KM: "Distance", RIF: "Running-in-foot", EH: "Engine hours" };
+const COUNTER_UNIT: Record<string, string> = { OH: "h", CA: "days", KM: "km", RIF: "ft", EH: "h" };
+const counterState = (t: AssetFlowTrigger): { tone: Tone; text: string } =>
+  t.interval_value > 0 && t.running_value >= t.interval_value ? { tone: "danger", text: "Due now" }
+    : t.warning_value > 0 && t.running_value >= t.warning_value ? { tone: "warn", text: "Due soon" }
+    : { tone: "success", text: "On track" };
 
-interface Node {
-  id: string;
-  kind: Kind;
-  x: number;
-  y: number;
-  title: string;
-  lines: string[];
-  tone: Tone;
-  details: [string, string][];
-  open: { label: string; run: () => void; needs?: string[] };
-  also?: { label: string; run: () => void };
-}
-
-interface Edge {
-  from: string;
-  to: string;
-  carry?: boolean;
-}
-
-const NODE_W = 210;
-const NODE_H = 84;
-const COL = 265;
-const ROW = 108;
-const PAD_Y = 56; // room above the report row for the carried-forward arcs
-
-const TONE_STROKE: Record<Tone, string> = {
-  neutral: "var(--border)",
-  danger: "var(--danger)",
-  warn: "var(--warn)",
-  success: "var(--success)",
-};
-
-function wrapText(s: string, max: number): string[] {
-  const out: string[] = [];
-  let cur = "";
-  for (const w of s.split(/\s+/)) {
-    if ((cur + " " + w).trim().length > max && cur) {
-      out.push(cur);
-      cur = w;
-    } else {
-      cur = (cur + " " + w).trim();
-    }
-  }
-  if (cur) out.push(cur);
-  return out;
-}
-
-function tagTone(tag: string | null | undefined): Tone {
-  if (tag === "Red") return "danger";
-  if (tag === "Yellow") return "warn";
-  if (tag === "Green") return "success";
-  return "neutral";
-}
-
-const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-// The backend stores most dates as Unix seconds (an all-digit string); show those in the
-// same DD/Mon/YYYY format as Pending Approvals. ISO-style values keep their first 10 characters.
-function shortDate(raw: string | null | undefined): string {
-  if (!raw) return "";
-  if (/^\d{9,13}$/.test(raw.trim())) {
-    const n = Number(raw);
-    const d = new Date(n < 1e12 ? n * 1000 : n);
-    if (!isNaN(d.getTime())) return `${String(d.getDate()).padStart(2, "0")}/${MONTH_ABBR[d.getMonth()]}/${d.getFullYear()}`;
-  }
-  return raw.length >= 10 ? raw.slice(0, 10) : raw;
-}
-
-// Asset-level document flow: the asset, its reports in order (with faults carried from one
-// report to the next drawn as dashed arcs), every tag change under the report that caused it,
-// and the asset's maintenance triggers and MOC exemptions. Read-only and country-scoped.
-function AssetFlow({ assetId, onBack, onOpenReport, onShowReportFlow, onOpenAssets, onViewTriggers }: AssetFlowProps) {
+// Asset history flow for one unit, laid out so anyone can read it: the unit and its tag now,
+// its MR-I reports in date order from left to right (faults carried from one report to the
+// next shown between them, and the tag changes each report caused shown under it), then its
+// MR-II / MR-III counters and MOC exemptions. Read-only and country-scoped.
+function AssetFlow({ assetId, onBack, onOpenReport, onShowReportFlow, onOpenAssets, onViewTriggers, viewOnly = false }: AssetFlowProps) {
   const { user } = useCurrentUser();
   const { data: flow, isLoading, error } = useAssetFlow(assetId, user?.id ?? 0);
   const { data: permissions = [] } = useEffectivePermissions(user?.id ?? 0);
+  const hints = useHints();
+  const { data: registry = [] } = useAssets();
+  const { data: assetTypes = [] } = useAssetTypes();
   const [selected, setSelected] = useState<string | null>("asset");
+
+  const carriesBetween = useMemo(() => {
+    const m = new Map<string, string[]>();
+    (flow?.carries ?? []).forEach((c) => { const k = `${c.from_report_id}>${c.to_report_id}`; m.set(k, [...(m.get(k) ?? []), c.item_name]); });
+    return m;
+  }, [flow]);
 
   if (isLoading) return <div className="empty">Loading...</div>;
   if (error || !flow) {
@@ -102,212 +57,183 @@ function AssetFlow({ assetId, onBack, onOpenReport, onShowReportFlow, onOpenAsse
     );
   }
 
-  const code = flow.asset_code ?? "Asset";
-  const nodes: Node[] = [];
-  const edges: Edge[] = [];
+  const code = flow.asset_code ?? "Unit";
+  const tag = tagInfo(flow.tag_status);
+  const typeId = registry.find((a) => a.id === flow.asset_id)?.asset_type_id;
+  const pic = typeId != null ? assetTypes.find((t) => t.id === typeId)?.icon : undefined;
+  const items = new Map<string, FlowItem>();
+  const add = (it: FlowItem) => { items.set(it.id, it); return it; };
 
-  nodes.push({
-    id: "asset", kind: "asset", x: 0, y: PAD_Y, title: code,
-    lines: [flow.asset_description ?? "", flow.tag_status ? `${flow.tag_status} Tag` : "Not tagged"].filter(Boolean),
-    tone: tagTone(flow.tag_status),
+  add({
+    id: "asset", icon: "unit", tone: tag.tone, step: "The unit", title: code, chip: flow.tag_status ? `${flow.tag_status} · ${tag.plain}` : tag.plain,
+    lines: [flow.asset_description ?? ""],
     details: [
-      ["Asset", code], ["Description", flow.asset_description ?? "—"], ["Type", flow.asset_type ?? "—"],
+      ["Unit", code], ["Description", flow.asset_description ?? "—"], ["Equipment type", flow.asset_type ?? "—"],
       ["Country", flow.country ?? "—"], ["Service line", flow.service_line ?? "—"],
-      ["Current tag", flow.tag_status ?? "Not tagged"], ["Tag reason", flow.tag_reason ?? "—"],
-      ["Reports", String(flow.reports.length)],
+      ["Tag now", flow.tag_status ?? "Not tagged"], ["Meaning", tag.plain], ["Tag reason", flow.tag_reason ?? "—"],
+      ["MR-I reports", String(flow.reports.length)],
     ],
-    open: { label: "Open Asset Registry", run: onOpenAssets, needs: ["assets.view"] },
+    open: { label: "Open Asset Registry", run: onOpenAssets, needs: ["assets.view"], edit: true },
   });
 
-  // Row 0: reports in order.
-  const colOf = new Map<number, number>();
-  flow.reports.forEach((r, i) => {
-    const id = `r${r.id}`;
-    colOf.set(r.id, i + 1);
-    nodes.push({
-      id, kind: "report", x: COL * (i + 1), y: PAD_Y, title: `Report #${r.id}`,
+  // Reports, oldest first, each with the tag changes it caused.
+  const reports = flow.reports.map((r, i) => {
+    const tone: Tone = r.open_fault_count > 0 ? "danger" : r.status === "Approved" ? "success" : r.status === "Escalated" ? "warn" : r.status === "Draft" ? "neutral" : "info";
+    const item = add({
+      id: `r${r.id}`, icon: "report", tone, step: `Report ${i + 1} of ${flow.reports.length}`, title: `MR-I report #${r.id}`,
+      chip: r.status === "Approved" ? "Closed" : r.status,
       lines: [
-        `${r.status}${r.submitted_date ? ` · ${shortDate(r.submitted_date)}` : ""}`,
-        r.fault_count > 0 ? `${r.fault_count} fault${r.fault_count === 1 ? "" : "s"}, ${r.open_fault_count} open` : "No faults",
+        r.submitted_date ? day(r.submitted_date) : "Not submitted",
+        r.fault_count === 0 ? "No faults found" : `${r.fault_count} fault${r.fault_count === 1 ? "" : "s"}${r.open_fault_count ? `, ${r.open_fault_count} still open` : ", all closed"}`,
       ],
-      tone: r.open_fault_count > 0 ? "danger" : r.status === "Approved" ? "success" : r.status === "Escalated" ? "warn" : "neutral",
       details: [
-        ["Status", r.status], ["Template", r.template_name ?? "—"],
-        ["Submitted by", r.submitted_by ?? "—"], ["Submitted", shortDate(r.submitted_date) || "—"],
-        ["Closed", shortDate(r.approved_date) || "—"], ["MR cost", r.mr_cost != null ? String(r.mr_cost) : "—"],
-        ["Faults", String(r.fault_count)], ["Open faults", String(r.open_fault_count)],
+        ["Status", r.status === "Approved" ? "Closed (Approved)" : r.status], ["Checklist", r.template_name ?? "—"],
+        ["Submitted by", r.submitted_by ?? "—"], ["Submitted", when(r.submitted_date)], ["Closed", when(r.approved_date)],
+        ["Faults found", String(r.fault_count)], ["Still open", String(r.open_fault_count)], ["MR cost", r.mr_cost != null ? r.mr_cost.toLocaleString() : "—"],
       ],
-      open: { label: "Show flow of this report", run: () => onShowReportFlow(r.id) },
+      open: { label: "Show this report's flow", run: () => onShowReportFlow(r.id) },
       also: { label: "Open report", run: () => onOpenReport(r.id) },
     });
-    edges.push({ from: i === 0 ? "asset" : `r${flow.reports[i - 1].id}`, to: id });
+    const tags = flow.tag_changes.map((t, ti) => ({ t, ti })).filter(({ t }) => t.report_id === r.id).map(({ t, ti }) => add({
+      id: `t${ti}`, icon: "tag", tone: tagInfo(t.tag_status).tone, step: "Tag changed", title: `${t.previous_tag_status ?? "Not tagged"} → ${t.tag_status}`,
+      chip: tagInfo(t.tag_status).plain, lines: [t.reason ?? "", day(t.changed_at)],
+      details: [["Change", `${t.previous_tag_status ?? "Not tagged"} → ${t.tag_status}`], ["Meaning", tagInfo(t.tag_status).plain], ["Reason", t.reason ?? "—"],
+        ["Caused by", `Report #${r.id}`], ["Changed by", t.changed_by ?? "—"], ["When", when(t.changed_at)]],
+      open: { label: "Open Asset Registry", run: onOpenAssets, needs: ["assets.view"], edit: true },
+      also: { label: `Show report #${r.id}'s flow`, run: () => onShowReportFlow(r.id) },
+    }));
+    return { r, item, tags };
   });
+  const loose = flow.tag_changes.map((t, ti) => ({ t, ti })).filter(({ t }) => t.report_id == null || !flow.reports.some((r) => r.id === t.report_id)).map(({ t, ti }) => add({
+    id: `t${ti}`, icon: "tag", tone: tagInfo(t.tag_status).tone, step: "Tag changed", title: `${t.previous_tag_status ?? "Not tagged"} → ${t.tag_status}`,
+    chip: tagInfo(t.tag_status).plain, lines: [t.reason ?? "", day(t.changed_at)],
+    details: [["Change", `${t.previous_tag_status ?? "Not tagged"} → ${t.tag_status}`], ["Reason", t.reason ?? "—"], ["Changed by", t.changed_by ?? "—"], ["When", when(t.changed_at)]],
+    open: { label: "Open Asset Registry", run: onOpenAssets, needs: ["assets.view"], edit: true },
+  }));
 
-  // Faults carried forward: dashed arcs between the reports involved (one arc per pair).
-  const seenCarry = new Set<string>();
-  flow.carries.forEach((c) => {
-    if (!colOf.has(c.from_report_id) || !colOf.has(c.to_report_id)) return;
-    const k = `${c.from_report_id}>${c.to_report_id}`;
-    if (seenCarry.has(k)) return;
-    seenCarry.add(k);
-    edges.push({ from: `r${c.from_report_id}`, to: `r${c.to_report_id}`, carry: true });
-  });
-
-  // Under each report: the tag changes it caused. Changes without a report sit after the last report.
-  const stack = new Map<number, number>();
-  const lastTagInCol = new Map<number, string>();
-  flow.tag_changes.forEach((t, i) => {
-    const col = t.report_id != null && colOf.has(t.report_id) ? (colOf.get(t.report_id) as number) : flow.reports.length + 1;
-    const n = stack.get(col) ?? 0;
-    stack.set(col, n + 1);
-    const id = `t${i}`;
-    nodes.push({
-      id, kind: "tag", x: COL * col, y: PAD_Y + ROW * (n + 1),
-      title: `Tag: ${t.previous_tag_status ?? "none"} → ${t.tag_status}`,
-      lines: [t.reason ?? "", `${t.changed_by ?? ""} ${shortDate(t.changed_at)}`.trim()].filter(Boolean),
-      tone: tagTone(t.tag_status),
-      details: [
-        ["Change", `${t.previous_tag_status ?? "Not tagged"} → ${t.tag_status}`], ["Reason", t.reason ?? "—"],
-        ["Caused by report", t.report_id != null ? `#${t.report_id}` : "—"], ["Changed by", t.changed_by ?? "—"], ["Changed", shortDate(t.changed_at) || "—"],
-      ],
-      open: { label: "Open Asset Registry", run: onOpenAssets, needs: ["assets.view"] },
-      also: t.report_id != null ? { label: `Show flow of report #${t.report_id}`, run: () => onShowReportFlow(t.report_id as number) } : undefined,
+  // Counters (MR-II / MR-III) and MOC exemptions.
+  const counters = flow.triggers.filter((t) => t.enabled).map((t, i) => {
+    const s = counterState(t);
+    const unit = COUNTER_UNIT[t.trigger_type] ?? "";
+    const pct = t.interval_value > 0 ? Math.min(100, (t.running_value / t.interval_value) * 100) : 0;
+    const it = add({
+      id: `g${i}`, icon: "counter", tone: s.tone, step: `${t.mr_level} counter`, title: COUNTER_NAME[t.trigger_type] ?? t.trigger_type, chip: s.text,
+      lines: [`${t.running_value.toLocaleString()} of ${t.interval_value.toLocaleString()} ${unit} (${Math.round(pct)}%)`, t.last_reset_date ? `Since ${day(t.last_reset_date)}` : ""],
+      details: [["Level", t.mr_level], ["Counter", COUNTER_NAME[t.trigger_type] ?? t.trigger_type], ["Used so far", `${t.running_value.toLocaleString()} ${unit}`],
+        ["Warning at", `${t.warning_value.toLocaleString()} ${unit}`], ["Due at", `${t.interval_value.toLocaleString()} ${unit}`], ["Last reset", day(t.last_reset_date)], ["Status", s.text]],
+      open: { label: "Open counters (triggers)", run: () => onViewTriggers(flow.asset_id, code), edit: true },
     });
-    const prev = lastTagInCol.get(col);
-    edges.push({ from: prev ?? (t.report_id != null && colOf.has(t.report_id) ? `r${t.report_id}` : "asset"), to: id });
-    lastTagInCol.set(col, id);
+    return { it, pct };
   });
+  const exemptions = flow.exemptions.map((x, i) => add({
+    id: `x${i}`, icon: "shield", tone: x.status === "Active" ? "success" : "neutral", step: "MOC exemption", title: `MOC ${x.moc_reference}`, chip: x.status,
+    lines: [x.valid_until ? `Valid until ${day(x.valid_until)}` : "", x.approved_by ? `Approved by ${x.approved_by}` : ""],
+    details: [["Reference", x.moc_reference], ["Status", x.status], ["Valid", `${day(x.valid_from)} to ${day(x.valid_until)}`], ["Approved by", x.approved_by ?? "—"]],
+    open: { label: "Open Asset Registry", run: onOpenAssets, needs: ["assets.view"], edit: true },
+  }));
 
-  // Under the asset: MOC exemptions, then enabled triggers.
-  let assetRow = 1;
-  flow.exemptions.forEach((x, i) => {
-    const id = `x${i}`;
-    nodes.push({
-      id, kind: "exemption", x: 0, y: PAD_Y + ROW * assetRow++, title: `MOC ${x.moc_reference}`,
-      lines: [x.status, x.valid_until ? `until ${shortDate(x.valid_until)}` : ""].filter(Boolean),
-      tone: x.status === "Active" ? "success" : "neutral",
-      details: [["Reference", x.moc_reference], ["Status", x.status], ["Valid", `${x.valid_from ?? "—"} to ${x.valid_until ?? "—"}`], ["Approved by", x.approved_by ?? "—"]],
-      open: { label: "Open Asset Registry", run: onOpenAssets, needs: ["assets.view"] },
-    });
-    edges.push({ from: "asset", to: id });
-  });
-  flow.triggers.filter((t) => t.enabled).forEach((t, i) => {
-    const id = `g${i}`;
-    const tone: Tone = t.interval_value > 0 && t.running_value >= t.interval_value ? "danger" : t.warning_value > 0 && t.running_value >= t.warning_value ? "warn" : "neutral";
-    nodes.push({
-      id, kind: "trigger", x: 0, y: PAD_Y + ROW * assetRow++, title: `${t.mr_level} ${t.trigger_type}`,
-      lines: [`${t.running_value} / ${t.interval_value}`, t.last_reset_date ? `reset ${shortDate(t.last_reset_date)}` : ""].filter(Boolean),
-      tone,
-      details: [["Level", t.mr_level], ["Trigger", t.trigger_type], ["Running", String(t.running_value)], ["Warning at", String(t.warning_value)], ["Interval", String(t.interval_value)], ["Last reset", t.last_reset_date ?? "—"]],
-      open: { label: "Open triggers", run: () => onViewTriggers(flow.asset_id, code) },
-    });
-    edges.push({ from: "asset", to: id });
-  });
-
-  const byId = new Map(nodes.map((n) => [n.id, n]));
-  const width = Math.max(...nodes.map((n) => n.x)) + NODE_W + 20;
-  const height = Math.max(...nodes.map((n) => n.y)) + NODE_H + 20;
-  const sel = selected ? byId.get(selected) : null;
-  const canOpen = (n: Node) => !n.open.needs || n.open.needs.every((p) => permissions.includes(p));
-
-  function edgePath(a: Node, b: Node, carry?: boolean): string {
-    if (carry) {
-      const sx = a.x + NODE_W / 2, sy = a.y, ex = b.x + NODE_W / 2, ey = b.y;
-      return `M${sx},${sy} C${sx},${sy - 50} ${ex},${ey - 50} ${ex},${ey}`;
-    }
-    if (b.x >= a.x + NODE_W) {
-      const sx = a.x + NODE_W, sy = a.y + NODE_H / 2, ex = b.x, ey = b.y + NODE_H / 2;
-      return `M${sx},${sy} C${sx + 40},${sy} ${ex - 40},${ey} ${ex},${ey}`;
-    }
-    // Same column, below: bottom of the source to top of the target.
-    const sx = a.x + NODE_W / 2, sy = a.y + NODE_H, ex = b.x + NODE_W / 2, ey = b.y;
-    return `M${sx},${sy} C${sx},${sy + 18} ${ex},${ey - 18} ${ex},${ey}`;
-  }
+  // Reports that still have an open fault (a fault carried forward stays on the report that found it).
+  const reportsOpen = flow.reports.filter((r) => r.open_fault_count > 0).length;
+  const last = flow.reports[flow.reports.length - 1];
+  const sel = selected ? items.get(selected) ?? null : null;
+  const pick = (id: string) => setSelected(id);
+  const assetItem = items.get("asset")!;
 
   return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-        <button className="ghost" onClick={onBack} style={{ padding: "6px 12px", fontSize: 12 }}>← Back</button>
-      </div>
-      <div className="header">
-        <h1>{code} — Asset history flow</h1>
-        <span className="sub">
-          {flow.reports.length} report{flow.reports.length === 1 ? "" : "s"} · {flow.tag_status ? `${flow.tag_status} Tag` : "Not tagged"} · dashed arcs = faults carried forward · select a box for details
-        </span>
+    <div className={`fx${hints ? " show-hints" : ""}`}>
+      <style>{FX_CSS}</style>
+      <div className="fx-top">
+        <button type="button" className="fx-back" onClick={onBack}><Icon name="back" size={15} />Back</button>
+        <HintsToggle className="fx-hint-btn" />
       </div>
 
-      <div className="panel" style={{ overflow: "auto", padding: 16 }}>
-        <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="group" aria-label="Asset history flow diagram">
-          <defs>
-            <marker id="aflow-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-              <path d="M0,0 L10,5 L0,10 z" fill="var(--text-soft)" />
-            </marker>
-            <marker id="aflow-arrow-carry" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-              <path d="M0,0 L10,5 L0,10 z" fill="var(--warn)" />
-            </marker>
-          </defs>
-          {edges.map((e, i) => {
-            const A = byId.get(e.from), B = byId.get(e.to);
-            if (!A || !B) return null;
-            return (
-              <path
-                key={i} d={edgePath(A, B, e.carry)} fill="none"
-                stroke={e.carry ? "var(--warn)" : "var(--text-soft)"} strokeWidth={e.carry ? 1.8 : 1.4}
-                strokeDasharray={e.carry ? "6 4" : undefined} opacity={e.carry ? 0.95 : 0.7}
-                markerEnd={e.carry ? "url(#aflow-arrow-carry)" : "url(#aflow-arrow)"}
-              />
-            );
-          })}
-          {nodes.map((n) => (
-            <g
-              key={n.id}
-              transform={`translate(${n.x},${n.y})`}
-              onClick={() => setSelected(n.id)}
-              onDoubleClick={() => canOpen(n) && n.open.run()}
-              style={{ cursor: "pointer" }}
-              tabIndex={0}
-              role="button"
-              aria-label={n.title}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(n.id); } }}
-            >
-              <rect
-                width={NODE_W} height={NODE_H} rx={12}
-                fill="var(--neu-bg)" stroke={selected === n.id ? "var(--accent-blue)" : TONE_STROKE[n.tone]}
-                strokeWidth={selected === n.id ? 3 : 1.8}
-              />
-              {wrapText(n.title, 26).slice(0, 2).map((l, i) => (
-                <text key={i} x={12} y={22 + i * 15} fontSize={12.5} fontWeight={700} fill="var(--text)">{l}</text>
-              ))}
-              {n.lines.slice(0, 2).map((l, i) => (
-                <text key={i} x={12} y={(wrapText(n.title, 26).length > 1 ? 54 : 40) + i * 14} fontSize={11} fill="var(--text-soft)">
-                  {l.length > 32 ? l.slice(0, 31) + "…" : l}
-                </text>
-              ))}
-            </g>
-          ))}
-        </svg>
-      </div>
-
-      {sel && (
-        <div className="panel" style={{ marginTop: 14 }}>
-          <h2 style={{ marginTop: 0 }}>{sel.title}</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "max-content 1fr", gap: "4px 16px", fontSize: 13 }}>
-            {sel.details.map(([k, v], i) => (
-              <div key={i} style={{ display: "contents" }}>
-                <span style={{ color: "var(--text-soft)" }}>{k}</span>
-                <span>{v}</span>
-              </div>
-            ))}
-          </div>
-          <div className="actions" style={{ marginTop: 12 }}>
-            <button className="primary" onClick={sel.open.run} disabled={!canOpen(sel)} title={!canOpen(sel) ? "Your role doesn't have access to that screen" : undefined}>
-              {sel.open.label}
-            </button>
-            {sel.also && <button className="ghost" onClick={sel.also.run}>{sel.also.label}</button>}
-            {!canOpen(sel) && <span style={{ fontSize: 11, color: "var(--text-soft)" }}>Your role doesn't have access to that screen.</span>}
-          </div>
+      <header className="fx-hero">
+        <span className="fx-hero-pic">{pic && pic.trim().startsWith("data:") ? <img src={pic} alt="" /> : <Icon name="unit" />}</span>
+        <div className="fx-hero-body">
+          <span className="fx-eyebrow">Asset history · {flow.asset_type ?? "Unit"}{viewOnly && <span className="fx-badge"><Icon name="shield" size={12} />View only</span>}</span>
+          <h1>{code}{flow.asset_description ? ` · ${flow.asset_description}` : ""}</h1>
+          <p>Everything that happened to this unit, oldest on the left. Select a card to see its details and open its screen.</p>
+          <span className="fx-tagbig" style={{ ["--tone" as string]: TONE_COLOR[tag.tone] }}>
+            <i />{flow.tag_status ? `${flow.tag_status} tag` : "Not tagged"} <small>· {tag.plain}{flow.tag_reason ? ` · ${flow.tag_reason}` : ""}</small>
+          </span>
         </div>
-      )}
+        <div className="fx-hero-stats">
+          <div className="fx-stat"><b>{flow.reports.length}</b><span>MR-I reports</span></div>
+          <div className="fx-stat"><b>{reportsOpen}</b><span>Reports with open faults</span></div>
+          <div className="fx-stat"><b>{last?.submitted_date ? day(last.submitted_date) : "—"}</b><span>Last inspection</span></div>
+        </div>
+      </header>
+
+      <div className="fx-body">
+        <div className="fx-main">
+          <Section
+            title={`Inspection timeline (${flow.reports.length})`}
+            hint="Reports from oldest to newest. Orange badges show faults that stayed open and moved to the next report. Tag changes sit under the report that caused them."
+          >
+            <div className="fx-timeline" role="list">
+              <div className="fx-tl-item" role="listitem"><FlowCard item={assetItem} selected={selected === "asset"} onSelect={pick} /></div>
+              {reports.map(({ r, item, tags }, i) => {
+                const prev = i > 0 ? flow.reports[i - 1].id : null;
+                const carried = prev != null ? carriesBetween.get(`${prev}>${r.id}`) ?? [] : [];
+                const fromOlder = [...carriesBetween.entries()].filter(([k]) => k.endsWith(`>${r.id}`) && k !== `${prev}>${r.id}`).reduce((n, [, v]) => n + v.length, 0);
+                return (
+                  <div key={r.id} style={{ display: "contents" }}>
+                    <div className="fx-tl-link">
+                      <FlowLink tone={carried.length ? "warn" : "info"} live={carried.length > 0} />
+                      {carried.length > 0 && <span className="fx-carry" title={carried.join(", ")}><Icon name="carried" size={12} />{carried.length} carried</span>}
+                    </div>
+                    <div className="fx-tl-item" role="listitem">
+                      <FlowCard item={item} selected={selected === item.id} onSelect={pick} />
+                      {fromOlder > 0 && <span className="fx-carry" style={{ alignSelf: "flex-start" }}><Icon name="carried" size={12} />{fromOlder} from older reports</span>}
+                      {tags.length > 0 && (
+                        <div className="fx-tl-sub">
+                          {tags.map((t) => (
+                            <div key={t.id} style={{ display: "contents" }}>
+                              <FlowLink vertical tone={t.tone} />
+                              <FlowCard item={t} selected={selected === t.id} onSelect={pick} compact />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {flow.reports.length === 0 && <div className="fx-empty">No MR-I reports have been filed for this unit yet.</div>}
+          </Section>
+
+          {counters.length > 0 && (
+            <Section title="MR-II / MR-III counters" hint="How close the unit is to its next MR-II or MR-III. Due when the first counter of a level reaches its limit.">
+              <div className="fx-grid">
+                {counters.map(({ it, pct }) => (
+                  <div key={it.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <FlowCard item={it} selected={selected === it.id} onSelect={pick} compact />
+                    <span className="fx-meter" style={{ ["--tone" as string]: TONE_COLOR[it.tone] }} aria-hidden="true"><i style={{ width: `${pct}%` }} /></span>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {(exemptions.length > 0 || loose.length > 0) && (
+            <Section title="Also linked to this unit">
+              <div className="fx-grid">
+                {[...exemptions, ...loose].map((m) => <FlowCard key={m.id} item={m} selected={selected === m.id} onSelect={pick} compact />)}
+              </div>
+            </Section>
+          )}
+
+          <Legend items={[
+            { tone: "danger", text: "Red tag, open faults, counter due now" },
+            { tone: "warn", text: "Yellow tag, carried faults, due soon" },
+            { tone: "success", text: "Green tag, closed, on track" },
+            { tone: "info", text: "In progress" },
+          ]} />
+        </div>
+
+        <DetailPanel item={sel} permissions={permissions} onClose={() => setSelected(null)} viewOnly={viewOnly} />
+      </div>
     </div>
   );
 }

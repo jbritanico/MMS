@@ -78,7 +78,7 @@ export function BreakdownTable({ rows, picked, onPick, firstCol, hint }: {
   rows: BreakdownRow[]; picked: string | null; onPick: (key: string) => void; firstCol: string; hint: string;
 }) {
   const sorted = [...rows].sort((a, b) => b.Critical - a.Critical || b.Critical + b.Moderate + b.Minor - (a.Critical + a.Moderate + a.Minor) || a.label.localeCompare(b.label));
-  if (sorted.length === 0) return <p className="mrid-note">Nothing to show.</p>;
+  if (sorted.length === 0) return <p className="mrid-note mrid-empty">Nothing to show.</p>;
   return (
     <div className="mrid-table-wrap">
       <table className="mrid-table">

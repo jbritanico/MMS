@@ -94,6 +94,9 @@ function App() {
   type FlowEntry = { type: "report" | "asset"; id: number };
   const [flowStack, setFlowStack] = useState<FlowEntry[]>([]);
   const [flowOrigin, setFlowOrigin] = useState<Screen>("my-reports-queue");
+  // Flows opened from the dashboards (or from a report opened read-only) are view-only:
+  // they do not offer the screens where data can be changed.
+  const [flowViewOnly, setFlowViewOnly] = useState(false);
   // Dashboard view and chosen asset live here so Back from a flow returns to the same panel.
   const [dashboardNav, setDashboardNav] = useState<DashboardNav>({ view: "hub", asset: null });
   const currentFlow = flowStack.length > 0 ? flowStack[flowStack.length - 1] : null;
@@ -101,6 +104,7 @@ function App() {
   function openFlow(entry: FlowEntry) {
     if (screen !== "report-flow" && screen !== "asset-flow") {
       setFlowOrigin(screen);
+      setFlowViewOnly(screen === "dashboard" || (screen === "report-wizard" && viewOnlyReport));
       setFlowStack([entry]);
     } else {
       setFlowStack((s) => [...s, entry]);
@@ -2542,6 +2546,7 @@ function App() {
                     onNavigate={(target) => setScreen(target)}
                     onShowAssetFlow={handleOpenAssetFlow}
                     onShowReportFlow={handleOpenFlow}
+                    viewOnly={flowViewOnly}
                   />
                 )}
                 {screen === "asset-flow" && currentFlow?.type === "asset" && (
@@ -2552,6 +2557,7 @@ function App() {
                     onShowReportFlow={handleOpenFlow}
                     onOpenAssets={() => setScreen("assets")}
                     onViewTriggers={handleViewTriggers}
+                    viewOnly={flowViewOnly}
                   />
                 )}
                 {screen === "dashboard" && (

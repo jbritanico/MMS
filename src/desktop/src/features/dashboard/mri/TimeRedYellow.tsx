@@ -179,7 +179,7 @@ export default function TimeRedYellow({ assets, filters }: { assets: MriDashboar
 
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>{is3d ? `Days Red or Yellow, by unit and month${ranked.length > 12 ? " (top 12 units)" : ""}` : `Days Red or Yellow, by unit${ranked.length > 20 ? " (top 20)" : ""}`}</h3><ViewToggle is3d={is3d} onChange={set3d} /></div>
-        {chart.length === 0 ? <p className="mrid-note">No unit was Red or Yellow in this period.</p> : cube ? (
+        {chart.length === 0 ? <p className="mrid-note mrid-empty">No unit was Red or Yellow in this period.</p> : cube ? (
           <>
             <Chart3D rows={cube.rows} cols={cube.cols} cells={cube.cells} rowTitle="Unit" colTitle="Month" valueTitle="Days"
               fmt={(v) => `${Math.round(v * 10) / 10} d`} onPick={(cell) => setUnitPick(cube.ids[cell.row] ?? null)} />
@@ -209,7 +209,7 @@ export default function TimeRedYellow({ assets, filters }: { assets: MriDashboar
         <div className="mrid-panel">
           <div className="mrid-panel-head"><h3>Tag changes for {unit.asset.asset_code}</h3></div>
           <DrillChips onClear={() => setUnitPick(null)} chips={[<>Unit: <b>{unit.asset.asset_code}</b></>]} />
-          {unit.changes.length === 0 ? <p className="mrid-note">No tag changes recorded for this unit.</p> : (
+          {unit.changes.length === 0 ? <p className="mrid-note mrid-empty">No tag changes recorded for this unit.</p> : (
             <div className="mrid-table-wrap"><table className="mrid-table">
               <thead><tr><th>Changed</th><th>From</th><th>To</th><th>Reason</th><th>By</th><th>MR-I report</th></tr></thead>
               <tbody>{[...unit.changes].reverse().map((c, i) => (
@@ -228,7 +228,7 @@ export default function TimeRedYellow({ assets, filters }: { assets: MriDashboar
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>Units out of action ({ranked.length})</h3></div>
         <DrillChips onClear={clearAll} chips={[pick === "red" && <b>Red</b>, pick === "yellow" && <b>Yellow</b>]} />
-        {ranked.length === 0 ? <p className="mrid-note">No units match.</p> : (
+        {ranked.length === 0 ? <p className="mrid-note mrid-empty">No units match.</p> : (
           <div className="mrid-table-wrap"><table className="mrid-table">
             <thead><tr><th>Unit</th><th>Tag now</th><th>Days Red</th><th>Days Yellow</th><th>Out of action</th><th>Turned Red</th><th>Longest Red spell</th></tr></thead>
             <tbody>{ranked.map((t) => (

@@ -76,8 +76,8 @@ const fmt = (s: string | null) => {
 /** Every MR-I report of one unit, newest first, each with a Preview button. */
 export function UnitReports({ assetId }: { assetId: number }) {
   const { data = [], isLoading } = useAssetMriHistory(assetId);
-  if (isLoading) return <p className="mrid-note">Loading reports...</p>;
-  if (data.length === 0) return <p className="mrid-note">This unit has no MR-I reports yet.</p>;
+  if (isLoading) return <p className="mrid-note mrid-empty">Loading reports...</p>;
+  if (data.length === 0) return <p className="mrid-note mrid-empty">This unit has no MR-I reports yet.</p>;
   return (
     <table className="mrid-table mrid-subtable">
       <thead>
