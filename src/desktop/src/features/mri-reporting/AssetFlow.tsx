@@ -9,6 +9,7 @@ import {
   day, tagInfo, TONE_COLOR, when, type FlowItem, type Tone,
 } from "./flowKit";
 import { HintsToggle, useHints } from "../dashboard/hints";
+import { triggerColor, triggerIcon, triggerIconBg } from "../../components/triggerIcons";
 
 interface AssetFlowProps {
   assetId: number;
@@ -117,7 +118,7 @@ function AssetFlow({ assetId, onBack, onOpenReport, onShowReportFlow, onOpenAsse
     const unit = COUNTER_UNIT[t.trigger_type] ?? "";
     const pct = t.interval_value > 0 ? Math.min(100, (t.running_value / t.interval_value) * 100) : 0;
     const it = add({
-      id: `g${i}`, icon: "counter", tone: s.tone, step: `${t.mr_level} counter`, title: COUNTER_NAME[t.trigger_type] ?? t.trigger_type, chip: s.text,
+      id: `g${i}`, icon: "counter", glyph: { node: triggerIcon(t.trigger_type), color: triggerColor(t.trigger_type), bg: triggerIconBg(t.trigger_type) }, tone: s.tone, step: `${t.mr_level} counter`, title: COUNTER_NAME[t.trigger_type] ?? t.trigger_type, chip: s.text,
       lines: [`${t.running_value.toLocaleString()} of ${t.interval_value.toLocaleString()} ${unit} (${Math.round(pct)}%)`, t.last_reset_date ? `Since ${day(t.last_reset_date)}` : ""],
       details: [["Level", t.mr_level], ["Counter", COUNTER_NAME[t.trigger_type] ?? t.trigger_type], ["Used so far", `${t.running_value.toLocaleString()} ${unit}`],
         ["Warning at", `${t.warning_value.toLocaleString()} ${unit}`], ["Due at", `${t.interval_value.toLocaleString()} ${unit}`], ["Last reset", day(t.last_reset_date)], ["Status", s.text]],

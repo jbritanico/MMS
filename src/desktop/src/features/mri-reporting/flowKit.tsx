@@ -33,16 +33,19 @@ export interface FlowItem {
   also?: FlowAction;
   /** A future step that has not happened yet: drawn faded, not selectable. */
   ghost?: boolean;
+  /** Own picture and colour instead of the line icon, e.g. a counter's icon so it matches
+   *  Asset MR-I History and the Asset Registry. */
+  glyph?: { node: ReactNode; color: string; bg: string };
 }
 
 export const ICONS = {
   unit: "M3 7h11v9H3zM14 10h4l3 3v3h-7zM6.5 19.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17.5 19.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z",
-  report: "M6 3h9l4 4v14H6zM15 3v4h4M9 12h7M9 16h7M9 8h3",
-  fault: "M12 3 2 20h20zM12 10v4M12 17h.01",
+  report: "M7 3h7l4 4v14H7zM14 3v4h4",
+  fault: "M12 3.5 22 20H2zM12 10v4.5M12 17.3h.01",
   decision: "M9 12l2 2 4-4M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z",
-  waiting: "M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z",
+  waiting: "M12 7v5l4 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z",
   repair: "M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z",
-  done: "M20 6 9 17l-5-5",
+  done: "M5 13l4 4 10-10",
   tag: "M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8zM7.5 7.5h.01",
   cost: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM15 9.5c0-1.4-1.3-2.5-3-2.5s-3 1-3 2.3c0 3.2 6 1.8 6 5 0 1.4-1.3 2.7-3 2.7s-3-1.1-3-2.5M12 5v2M12 17v2",
   carried: "M4 12h13M13 6l6 6-6 6M4 5v14",
@@ -53,6 +56,18 @@ export const ICONS = {
   arrow: "M5 12h14M13 6l6 6-6 6",
   back: "M19 12H5M11 18l-6-6 6-6",
 };
+
+/** Card icon: the item's own glyph (counters) or its line icon, in a tinted square. */
+function ItemIcon({ item, large = false }: { item: FlowItem; large?: boolean }) {
+  if (item.glyph) {
+    return (
+      <span className={`fx-ico fx-glyph${large ? " lg" : ""}`} style={{ color: item.glyph.color, background: item.glyph.bg }}>
+        {item.glyph.node}
+      </span>
+    );
+  }
+  return <span className={`fx-ico${large ? " lg" : ""}`}><Icon name={item.icon} size={large ? 22 : 20} /></span>;
+}
 
 export const Icon = ({ name, size = 20 }: { name: keyof typeof ICONS; size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -109,7 +124,7 @@ export function FlowCard({ item, selected, onSelect, compact }: { item: FlowItem
       onKeyDown={(e) => { if (!item.ghost && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onSelect(item.id); } }}
     >
       <div className="fx-card-top">
-        <span className="fx-ico"><Icon name={item.icon} /></span>
+        <ItemIcon item={item} />
         <div className="fx-card-head">
           {item.step && <span className="fx-step">{item.step}</span>}
           <b className="fx-title" title={item.title}>{item.title}</b>
@@ -166,7 +181,7 @@ export function DetailPanel({ item, permissions, onClose, viewOnly }: { item: Fl
   return (
     <aside className="fx-detail" style={{ ["--tone" as string]: col }} aria-live="polite">
       <div className="fx-detail-head">
-        <span className="fx-ico lg"><Icon name={item.icon} size={22} /></span>
+        <ItemIcon item={item} large />
         <div>
           {item.step && <span className="fx-step">{item.step}</span>}
           <h2>{item.title}</h2>
@@ -311,6 +326,7 @@ export const FX_CSS = `
 .fx-card-top { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .fx-ico { width: 34px; height: 34px; flex: none; border-radius: 10px; display: grid; place-items: center; color: var(--tone); background: color-mix(in srgb, var(--tone) 14%, transparent); }
 .fx-ico.lg { width: 44px; height: 44px; border-radius: 13px; }
+.fx-glyph svg { width: 20px; height: 20px; } .fx-glyph.lg svg { width: 24px; height: 24px; }
 .fx-card-head { display: flex; flex-direction: column; min-width: 0; }
 .fx-step { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-soft); }
 .fx-title { font-size: 13.5px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

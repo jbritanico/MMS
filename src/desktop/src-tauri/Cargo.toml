@@ -31,3 +31,5 @@ serde_json = "1"
 rusqlite = { version = "0.31", features = ["bundled-sqlcipher"] }
 reqwest = { version = "0.12", features = ["json"] }
 urlencoding = "2"
+# Support bundle (.mmsbundle) files are ZIP files. Free, open source (MIT licence).
+zip = { version = "2.6", default-features = false, features = ["deflate"] }

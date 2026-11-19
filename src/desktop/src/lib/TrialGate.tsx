@@ -66,7 +66,7 @@ export default function TrialGate({ children }: { children: ReactNode }) {
     <TrialContext.Provider value={status}>
       {children}
       {left != null && left <= 5 && (
-        <div style={S.banner} role="status" title={`Beta test period ends ${fmtTrialDate(status!.expires_at)}`}>
+        <div className="trial-banner" style={S.banner} role="status" title={`Beta test period ends ${fmtTrialDate(status!.expires_at)}`}>
           Beta: {left} day{left === 1 ? "" : "s"} left on this computer
         </div>
       )}

@@ -7,6 +7,7 @@ import {
   type AppUser,
 } from "./hooks/useUserAdmin";
 import { getPermissionIcon } from "./permissionIcons";
+import { dashPermRank } from "../dashboard/dashAccess";
 
 interface UserPermissionsProps {
   user: AppUser;
@@ -51,6 +52,31 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
   }
 
   const categories = Array.from(new Set(permissions.map((p) => p.category)));
+  /** Permissions of one category; Dashboards in catalogue order (area, Overview, History, 1-18). */
+  const inCategory = (cat: string) => {
+    const list = permissions.filter((p) => p.category === cat);
+    return cat === "Dashboards" ? [...list].sort((a, b) => dashPermRank(a.code) - dashPermRank(b.code)) : list;
+  };
+  const [bulkBusy, setBulkBusy] = useState(false);
+  /** All on / all off (as overrides for this user), or back to the role defaults. */
+  async function setAll(cat: string, mode: "on" | "off" | "default") {
+    setBulkBusy(true);
+    try {
+      for (const p of inCategory(cat)) {
+        const st = stateFor(p.code);
+        if (mode === "default") { if (st === "granted" || st === "revoked") await setOverride.mutateAsync({ permissionCode: p.code, granted: null }); }
+        else {
+          const on = st === "default-on" || st === "granted";
+          if (on !== (mode === "on")) await setOverride.mutateAsync({ permissionCode: p.code, granted: mode === "on" });
+        }
+      }
+      flash(mode === "default" ? `${cat}: back to the role defaults` : `${cat}: all turned ${mode} for ${user.name}`, "ok");
+    } catch (err) {
+      flash(String(err), "err");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   const stateColor: Record<EffectiveState, string> = {
     "default-on": "var(--success)",
@@ -77,7 +103,16 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
 
       {categories.map((cat) => (
         <div key={cat} style={{ marginBottom: 26 }}>
-          <div className="mri-preview-section-label">{cat}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+            <div className="mri-preview-section-label" style={{ marginBottom: 0 }}>{cat}</div>
+            {cat === "Dashboards" && (
+              <>
+                <button type="button" className="ghost" style={{ padding: "4px 10px", fontSize: 12 }} disabled={bulkBusy} onClick={() => setAll(cat, "on")}>All on</button>
+                <button type="button" className="ghost" style={{ padding: "4px 10px", fontSize: 12 }} disabled={bulkBusy} onClick={() => setAll(cat, "off")}>All off</button>
+                <button type="button" className="ghost" style={{ padding: "4px 10px", fontSize: 12 }} disabled={bulkBusy} onClick={() => setAll(cat, "default")}>Role defaults</button>
+              </>
+            )}
+          </div>
           <div
             style={{
               display: "grid",
@@ -85,7 +120,7 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
               gap: 12,
             }}
           >
-            {permissions.filter((p) => p.category === cat).map((p) => {
+            {inCategory(cat).map((p) => {
               const state = stateFor(p.code);
               const isOverride = state === "granted" || state === "revoked";
               const isOn = state === "default-on" || state === "granted";

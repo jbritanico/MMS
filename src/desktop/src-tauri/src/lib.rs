@@ -3,6 +3,9 @@ use serde::{Deserialize, Serialize};
 use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+// Support bundle file format (.mmsbundle). Used by "Send to IT" and the Support viewer.
+#[allow(dead_code)]
+mod bundle;
 // Support and debugging helpers: app log, system info, Check my data, report export, crash detection.
 mod diag;
 
@@ -1093,6 +1096,76 @@ fn get_connection() -> Result<MutexGuard<'static, Connection>, String> {
         .map_err(|_| "Database connection lock was poisoned by an earlier error".to_string())
 }
 
+// One on/off switch per dashboard item, shown under "Dashboards" in Administration > Roles and
+// Users > Permissions. The first time this runs, every existing role gets all of them, so
+// nobody loses a dashboard they can see today; after that the Administrator decides.
+const DASHBOARD_PERMS: [(&str, &str); 21] = [
+    ("dashboard.view", "Open the Dashboard area"),
+    ("dash.overview", "Overview"),
+    ("dash.history", "Asset MR-I History"),
+    ("dash.1", "1 · Fleet status by tag colour"),
+    ("dash.2", "2 · Open defects by severity"),
+    ("dash.3", "3 · Defect aging"),
+    ("dash.4", "4 · Fault closure rate"),
+    ("dash.5", "5 · Decisions waiting, by reviewer"),
+    ("dash.6", "6 · Review turnaround"),
+    ("dash.7", "7 · Repair queue and repair time"),
+    ("dash.8", "8 · Time spent Red or Yellow"),
+    ("dash.9", "9 · Repeat faults"),
+    ("dash.10", "10 · Phone decisions and acknowledgements"),
+    ("dash.11", "11 · MR-I reports per period"),
+    ("dash.12", "12 · Red units under exemption (MOC)"),
+    ("dash.13", "13 · MR-II due forecast"),
+    ("dash.14", "14 · Inspectors"),
+    ("dash.15", "15 · Supervisors"),
+    ("dash.16", "16 · Reviewers"),
+    ("dash.17", "17 · Technicians"),
+    ("dash.18", "18 · Managers and FSM"),
+];
+
+fn seed_dashboard_permissions(conn: &Connection) -> Result<(), String> {
+    for (code, label) in DASHBOARD_PERMS.iter() {
+        conn.execute(
+            "INSERT OR IGNORE INTO permissions (code, label, category) VALUES (?1, ?2, 'Dashboards')",
+            rusqlite::params![code, label],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    conn.execute("CREATE TABLE IF NOT EXISTS app_migrations (name TEXT PRIMARY KEY)", [])
+        .map_err(|e| e.to_string())?;
+    let done: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM app_migrations WHERE name = 'dashboard_permissions'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if done > 0 {
+        return Ok(());
+    }
+    let roles: Vec<String> = {
+        let mut stmt = conn
+            .prepare("SELECT DISTINCT role FROM role_permissions UNION SELECT DISTINCT role FROM app_users")
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|e| e.to_string())?;
+        rows.filter_map(|r| r.ok()).collect()
+    };
+    for role in roles.iter() {
+        for (code, _) in DASHBOARD_PERMS.iter() {
+            conn.execute(
+                "INSERT OR IGNORE INTO role_permissions (role, permission_code) VALUES (?1, ?2)",
+                rusqlite::params![role, code],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+    }
+    conn.execute("INSERT OR IGNORE INTO app_migrations (name) VALUES ('dashboard_permissions')", [])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 fn seed_permissions(conn: &Connection) -> Result<(), String> {
     let perms: [(&str, &str, &str); 25] = [
         ("assets.view", "View assets", "Asset Registry"),
@@ -1275,6 +1348,7 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
             )
             .map_err(|e| e.to_string())?;
         }
+        seed_dashboard_permissions(conn)?;
         return Ok(());
     }
 
@@ -1388,6 +1462,7 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
         }
     }
 
+    seed_dashboard_permissions(conn)?;
     Ok(())
 }
 
@@ -10223,7 +10298,14 @@ pub fn run() {
             diag::diag_system_info,
             diag::diag_check_data,
             diag::diag_export_report,
-            diag::diag_session_start
+            diag::diag_session_start,
+            diag::diag_session_history,
+            diag::diag_build_bundle,
+            diag::diag_bundle_preview,
+            diag::diag_show_bundle,
+            diag::diag_open_bundle,
+            diag::diag_bundle_part,
+            diag::diag_close_bundle
         ])
         .setup(|app| {
             // Decide where the database lives before any command opens it.

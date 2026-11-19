@@ -10,6 +10,8 @@ import { LIQUID_CSS } from "./Liquid";
 import { SCOPE_CSS } from "../scopeFilter";
 import { CONTROLS_CSS } from "./controlsCss";
 import { HINTS_CSS, HintsToggle, useHints } from "../hints";
+import { resetDashMode } from "../dashMode";
+import { useDashAccess } from "../dashAccess";
 
 // The dashboard area's shell, in the Fluent 2 + Fluid style: blue sidebar, header with search,
 // notifications and the signed-in user, and the page content. Colours come from the MMS theme
@@ -61,7 +63,7 @@ const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2)
 const daysAgo = (t: number | null) => (t == null ? null : Math.max(0, Math.floor((Date.now() / 1000 - t) / 86400)));
 
 /** Search the dashboards by name and open one. */
-function DashSearch({ onOpenDash }: { onOpenDash: (no: number) => void }) {
+function DashSearch({ onOpenDash, allowed }: { onOpenDash: (no: number) => void; allowed: number[] }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [hi, setHi] = useState(0);
@@ -69,8 +71,8 @@ function DashSearch({ onOpenDash }: { onOpenDash: (no: number) => void }) {
   const hits = useMemo(() => {
     const t = q.trim().toLowerCase();
     if (!t) return [];
-    return DASHBOARDS.filter((d) => `${d.title} ${d.desc}`.toLowerCase().includes(t)).slice(0, 7);
-  }, [q]);
+    return DASHBOARDS.filter((d) => allowed.includes(d.no) && `${d.title} ${d.desc}`.toLowerCase().includes(t)).slice(0, 7);
+  }, [q, allowed]);
   useEffect(() => {
     const out = (e: MouseEvent) => { if (wrap.current && !wrap.current.contains(e.target as Node)) setOpen(false); };
     document.addEventListener("mousedown", out);
@@ -198,6 +200,8 @@ export function FluentShell({
   const { user } = useCurrentUser();
   const motion = useMotion();
   const hints = useHints();
+  // Every visit to the Dashboard area starts in Simple view.
+  useEffect(() => () => resetDashMode(), []); // back to Simple when the user leaves the Dashboard area
   const [navOpen, setNavOpen] = useState(false);
   const mainRef = useRef<HTMLDivElement>(null);
   // New page: start at the top.
@@ -208,11 +212,14 @@ export function FluentShell({
   const closeInfo = useCallback(() => setInfo(null), []);
   useInfoDots(mainRef, infoScope, setInfo);
   useEffect(() => { setInfo(null); }, [section, dash, title]);
+  // Dashboard items the user may open (Administration > Roles / Users > Permissions, "Dashboards").
+  const access = useDashAccess();
+  const accs = ACCS.map((a) => ({ ...a, nos: a.nos.filter(access.dash) })).filter((a) => a.nos.length > 0);
   const go = (s: ShellSection) => { onSection(s); setNavOpen(false); };
   const pick = (no: number) => { onOpenDash(no); setNavOpen(false); };
   const activeAcc = section === "mri-dashboards" || section === "user-analytics" ? accOf(dash) : undefined;
   // Accordions: the one holding the open dashboard starts expanded; the user can open or close any.
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(activeAcc ? [activeAcc] : [ACCS[0].key]));
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(activeAcc ? [activeAcc] : accs[0] ? [accs[0].key] : []));
   useEffect(() => { if (activeAcc) setExpanded((s) => (s.has(activeAcc) ? s : new Set([...s, activeAcc]))); }, [activeAcc]);
   const toggle = (k: string) => setExpanded((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; });
 
@@ -227,17 +234,19 @@ export function FluentShell({
           <span className="fl-brand-text"><b>Sprint MMS</b><small>Dashboards</small></span>
         </div>
         <nav className="fl-nav">
+          {access.overview && (
           <button type="button" className={`fl-nav-item${section === "overview" ? " is-on" : ""}`} aria-current={section === "overview" ? "page" : undefined} onClick={() => go("overview")}>
             <span className="fl-nav-ico">{FL_ICONS.home}</span><span className="fl-nav-label">Overview</span>
           </button>
+          )}
 
-          <div className="fl-nav-sep">MR-I Dashboards</div>
-          {ACCS.map((acc, n) => {
+          {accs.some((a) => a.key !== "users") && <div className="fl-nav-sep">MR-I Dashboards</div>}
+          {accs.map((acc, n) => {
             const isOpen = expanded.has(acc.key);
             const holdsActive = activeAcc === acc.key;
             return (
               <div key={acc.key} className={`fl-acc${isOpen ? " is-open" : ""}${holdsActive ? " has-active" : ""}`}>
-                {n === ACCS.length - 1 && <div className="fl-nav-sep">People</div>}
+                {acc.key === "users" && <div className="fl-nav-sep">People</div>}
                 <button type="button" className="fl-nav-item fl-acc-head" aria-expanded={isOpen} aria-controls={`fl-acc-${n}`}
                   title={acc.title}
                   onClick={() => toggle(acc.key)}>
@@ -273,10 +282,12 @@ export function FluentShell({
             );
           })}
 
+          {access.history && <>
           <div className="fl-nav-sep">Records</div>
           <button type="button" className={`fl-nav-item${section === "mri-history" ? " is-on" : ""}`} aria-current={section === "mri-history" ? "page" : undefined} onClick={() => go("mri-history")}>
             <span className="fl-nav-ico">{FL_ICONS.history}</span><span className="fl-nav-label">Asset MR-I History</span>
           </button>
+          </>}
 
           <div className="fl-nav-sep">Coming soon</div>
           {SOON.map((n) => (
@@ -315,7 +326,7 @@ export function FluentShell({
             <DashInfoHead scope={infoScope} onOpen={setInfo} />
           </div>
           <div className="fl-header-tools">
-            <DashSearch onOpenDash={onOpenDash} />
+            <DashSearch onOpenDash={onOpenDash} allowed={access.allowed} />
             <WaitingBell onOpenDash={onOpenDash} />
             <HintsToggle />
             <SettingsMenu />

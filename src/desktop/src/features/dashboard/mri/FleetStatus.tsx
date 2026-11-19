@@ -9,6 +9,7 @@ import { Sparkline, StoryStrip, TrendDelta, type StoryLine } from "./fluid";
 import { HealthStream, useHealthSeries } from "./health";
 import { Num, chartAnim } from "../fluent/motion";
 import Chart3D, { use3DMode, ViewToggle, type Cell3D } from "../fluent/Chart3D";
+import { useAdvanced } from "../dashMode";
 
 // Dashboard 1: Fleet status by tag colour.
 // Current tag of every active unit the viewer may see (after the country / service line /
@@ -66,6 +67,7 @@ const GROUP_LABEL: Record<GroupBy, string> = { country: "Country", service_line:
 const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
 
 export default function FleetStatus({ assets, filters }: { assets: MriDashboardAsset[]; filters: DashboardFilters }) {
+  const adv = useAdvanced();
   const [groupBy, setGroupBy] = useState<GroupBy>("country");
   const [is3d, set3d] = use3DMode(1);
   const [showUntagged, setShowUntagged] = useState(false);
@@ -205,6 +207,7 @@ export default function FleetStatus({ assets, filters }: { assets: MriDashboardA
         ))}
       </div>
 
+      {adv && (<>
       <HealthStream
         title="Tag colour over the last 12 months"
         data={history}
@@ -264,6 +267,7 @@ export default function FleetStatus({ assets, filters }: { assets: MriDashboardA
         </div>
         <p className="mrid-note" style={{ textAlign: "center" }}>Click a coloured bar to list those units.</p>
       </div>
+      </>)}
 
       {drilling && (
         <div className="mrid-panel" id="mrid-drill">

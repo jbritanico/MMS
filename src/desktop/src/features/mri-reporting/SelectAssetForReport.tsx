@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from "react";
+import { useState } from "react";
 import { useAssetsForViewer } from "../asset-registry/hooks/useAssets";
 import { useAssetTypes } from "../administration/hooks/useAssetTypes";
 import { useMriTemplates } from "../administration/hooks/useMriTemplates";
@@ -6,6 +6,7 @@ import { useAssetTriggers } from "../asset-registry/hooks/useTriggers";
 import { useAllTemplateComponents } from "../mri-template-builder/hooks/useTemplateComponents";
 import type { Asset } from "../asset-registry/types";
 import { TagLamp } from "../../components/Instruments";
+import { DEFAULT_TRIGGER_ICON, TRIGGER_TYPE_COLORS, TRIGGER_TYPE_ICONS } from "../../components/triggerIcons";
 import {
   useCreateMriReport,
   useCreateMriReportFromLastPostJob,
@@ -29,53 +30,8 @@ const TRIGGER_TYPE_LABELS: Record<string, string> = {
 
 // Distinct accent colors per trigger type, using the app's existing theme-aware
 // color tokens so they adapt correctly across light/dark/other themes.
-const TRIGGER_TYPE_COLORS: Record<string, string> = {
-  OH: "var(--accent-blue)",
-  CA: "var(--warn)",
-  KM: "var(--success)",
-  RIF: "var(--accent)",
-  EH: "var(--danger)",
-};
 
-const TRIGGER_TYPE_ICONS: Record<string, ReactElement> = {
-  OH: (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M12 7v5l3 2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  ),
-  CA: (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M4 9h16M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  ),
-  KM: (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 21s7-7.5 7-12a7 7 0 1 0-14 0c0 4.5 7 12 7 12z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-      <circle cx="12" cy="9" r="2.3" stroke="currentColor" strokeWidth="1.6" />
-    </svg>
-  ),
-  RIF: (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="3" y="9" width="18" height="6" rx="1.2" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M7 9v3M11 9v3M15 9v3M19 9v3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  ),
-  EH: (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M4 15a8 8 0 1 1 16 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      <path d="M12 15l4-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      <circle cx="12" cy="15" r="1.2" fill="currentColor" />
-    </svg>
-  ),
-};
 
-const DEFAULT_TRIGGER_ICON = (
-  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="12" r="4" fill="currentColor" />
-  </svg>
-);
 interface AssetSelectCardProps {
   asset: Asset;
   icon: string | undefined;

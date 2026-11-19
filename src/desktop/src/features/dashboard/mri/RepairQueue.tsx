@@ -7,6 +7,7 @@ import { AX, avg, DAY, DrillChips, fmtDur, inRange, Loading, median, monthsFor, 
 import { FlowSteps, Sparkline, StoryStrip, TrendDelta, type StoryLine } from "./fluid";
 import { chartAnim } from "../fluent/motion";
 import { sevLabel } from "../hooks/useMriDashboards";
+import { useAdvanced } from "../dashMode";
 
 // Dashboard 7: Repair queue and repair time.
 // The repair queue = faults that left the unit Red-Tagged and are not yet verified as repaired.
@@ -31,6 +32,7 @@ export function RepairQueueMini({ assets }: { assets: MriDashboardAsset[] }) {
 }
 
 export default function RepairQueue({ assets, filters }: { assets: MriDashboardAsset[]; filters: DashboardFilters }) {
+  const adv = useAdvanced();
   const { repairs, unitOf, isLoading, error } = useMore(assets);
   const p = period(filters);
   const [pick, setPick] = useState<Pick>(null);
@@ -123,6 +125,7 @@ export default function RepairQueue({ assets, filters }: { assets: MriDashboardA
         <Tile k="done" pick={pick} setPick={setPick} color="var(--success)" label="Average repair time" value={fmtDur(avg(doneSecs))} sub={`${done.length} repair${done.length === 1 ? "" : "s"} verified in the period · median ${fmtDur(median(doneSecs))}`} />
       </div>
 
+      {adv && (<>
       <FlowSteps
         title="Repair flow"
         steps={[
@@ -157,6 +160,7 @@ export default function RepairQueue({ assets, filters }: { assets: MriDashboardA
           </>
         )}
       </div>
+      </>)}
 
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>{pick === "done" ? `Repairs verified in ${p.label} (${done.length})` : `Repairs waiting, longest first (${list.length})`}</h3></div>

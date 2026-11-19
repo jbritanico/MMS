@@ -8,6 +8,7 @@ import { Sparkline, StoryStrip, TrendDelta, type StoryLine } from "./fluid";
 import { Num, chartAnim } from "../fluent/motion";
 import Chart3D, { use3DMode, ViewToggle, type Cell3D } from "../fluent/Chart3D";
 import { sevLabel } from "../hooks/useMriDashboards";
+import { useAdvanced } from "../dashMode";
 
 // Dashboard 9: Repeat faults.
 // New faults found in the period (a fault carried to a later report is not counted again),
@@ -50,6 +51,7 @@ export function RepeatFaultsMini({ assets }: { assets: MriDashboardAsset[] }) {
 type Pick = "all" | "multi" | "back" | null;
 
 export default function RepeatFaults({ assets, filters }: { assets: MriDashboardAsset[]; filters: DashboardFilters }) {
+  const adv = useAdvanced();
   const p = period(filters);
   const { fresh, cameBack, isLoading, error } = useRepeat(assets, p.s, p.e);
   // ---- fluid layer: new faults and recurrences per month ----
@@ -143,6 +145,7 @@ export default function RepeatFaults({ assets, filters }: { assets: MriDashboard
         </div>
       </div>
 
+      {adv && (<>
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>{is3d ? `Items that fail most often, by unit${shownItems.length > 10 ? " (top 10)" : ""}` : `Items that fail most often${shownItems.length > 15 ? " (top 15)" : ""}`}</h3><ViewToggle is3d={is3d} onChange={set3d} /></div>
         {chart.length === 0 ? <p className="mrid-note mrid-empty">No faults match.</p> : cube ? (
@@ -172,6 +175,7 @@ export default function RepeatFaults({ assets, filters }: { assets: MriDashboard
           </>
         )}
       </div>
+      </>)}
 
       {showOcc && (
         <div className="mrid-panel">

@@ -85,6 +85,21 @@ export const SUPPORT_CSS = `
 .sup-done-ico { width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center; color: var(--success, #1f7a4d); background: color-mix(in srgb, var(--success, #1f7a4d) 14%, transparent); }
 .sup-done-ico svg { width: 22px; height: 22px; }
 .sup-done p { margin: 4px 0 0; }
+.sup-h4 { margin: 14px 0 6px; font-size: 13px; font-weight: 700; }
+.sup-options { display: flex; flex-direction: column; gap: 8px; margin: 2px 0 6px; }
+.sup-options small { color: var(--text-soft); font-weight: 400; }
+.sup-contents, .sup-notes { list-style: none; margin: 0; padding: 0; }
+.sup-contents li, .sup-notes li { display: flex; gap: 9px; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid var(--sup-line); font-size: 13px; }
+.sup-contents li:last-child, .sup-notes li:last-child { border-bottom: 0; }
+.sup-contents li svg { width: 16px; height: 16px; flex: none; margin-top: 1px; color: var(--success, #1f7a4d); }
+.sup-contents li span, .sup-notes li span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.sup-contents li small { color: var(--text-soft); }
+.sup-notes { margin: 10px 0 0; }
+.sup-notes li svg, .sup-never svg { width: 16px; height: 16px; flex: none; margin-top: 1px; color: var(--warn, #a3591b); }
+.sup-never { display: flex; gap: 9px; align-items: flex-start; margin: 10px 0 0; padding: 9px 12px; border-radius: 10px; font-size: 13px; background: color-mix(in srgb, var(--warn, #a3591b) 10%, transparent); }
+.sup-howto { margin: 0 0 8px; padding-left: 20px; font-size: 13px; }
+.sup-howto li { padding: 3px 0; }
+.sup-plain { margin: 0; padding-left: 18px; font-size: 12.5px; color: var(--text-soft); }
 .sup-spin { display: inline-block; width: 14px; height: 14px; margin-right: 6px; vertical-align: -2px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--sup-blue) 25%, transparent);
   border-top-color: var(--sup-blue); animation: sup-rot 0.8s linear infinite; }
 .sup-pre { max-height: 140px; overflow: auto; font-size: 11.5px; padding: 8px; border-radius: 8px; background: color-mix(in srgb, var(--text) 5%, transparent); white-space: pre-wrap; }

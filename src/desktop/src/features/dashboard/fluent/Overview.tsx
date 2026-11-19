@@ -16,6 +16,7 @@ import { chartAnim } from "./motion";
 import { FleetHero } from "./FleetHero";
 import { inScope, ScopeFilterBar, useScopeFilter } from "../scopeFilter";
 import { ModeToggle, useAdvanced } from "../dashMode";
+import { useDashAccess } from "../dashAccess";
 
 // The Dashboard area's landing page: what needs attention now across the units the user can see.
 // Every figure comes from the same data as the MR-I dashboards; nothing here is sample data.
@@ -123,6 +124,9 @@ export default function Overview({ onSection, onOpenDash }: { onSection: (s: She
   }, [more, code]);
 
   const adv = useAdvanced();
+  // Links only to dashboard items this user may open.
+  const access = useDashAccess();
+  const openIf = (no: number) => (access.dash(no) ? () => onOpenDash(no) : undefined);
   const loading = scope.isLoading || faultsQ.isLoading;
   if (scope.error) return <div className="empty">Could not load the dashboards: {String(scope.error)}</div>;
   const first = (user?.name ?? "").split(/\s+/)[0];
@@ -137,7 +141,7 @@ export default function Overview({ onSection, onOpenDash }: { onSection: (s: She
         tags={tags}
         prevPct={prevPct}
         greeting={<>{greeting()}{first ? `, ${first}` : ""} · MR-I overview for {scopeF.country || (scope.data?.allowed_countries ? scope.data.allowed_countries.join(", ") : "all countries")}{scopeF.serviceLine ? ` · ${scopeF.serviceLine}` : ""}</>}
-        onOpenFleet={() => onOpenDash(1)}
+        onOpenFleet={() => { if (access.dash(1)) onOpenDash(1); }}
         chips={<>
           <span className="fl-chip"><i style={{ color: "#5ef0b0" }} />Working offline</span>
           <span className="fl-chip">{assets.length} unit{assets.length === 1 ? "" : "s"} in view</span>
@@ -152,20 +156,20 @@ export default function Overview({ onSection, onOpenDash }: { onSection: (s: She
           <div className="fl-kpis">
             <KpiCard tone="blue" icon={DASH_ICONS[1]} label="Units by tag" value={assets.length}
               sub={<>{tags.Green} Green · {tags.Yellow} Yellow · {tags.Red} Red{tags.None ? ` · ${tags.None} not tagged` : ""}</>}
-              onClick={() => onOpenDash(1)}>
+              onClick={openIf(1)}>
               <div className="fl-split" aria-hidden="true">{split.map((k) => <i key={k} style={{ flexGrow: tags[k], background: tagColor[k] }} />)}</div>
             </KpiCard>
             <KpiCard tone="red" icon={DASH_ICONS[2]} label="Open faults" value={openNow.length}
               trend={<TrendChip delta={openNow.length - open30} good={openNow.length <= open30} label="vs 30 days ago" />}
               sub={<>{sevCount("Critical")} Major / Critical · {sevCount("Moderate")} Moderate · {sevCount("Minor")} Minor</>}
-              onClick={() => onOpenDash(2)} />
+              onClick={openIf(2)} />
             <KpiCard tone="amber" icon={DASH_ICONS[5]} label="Waiting for review" value={waiting.length}
               sub={oldestWait ? <>Oldest has waited {Math.max(0, Math.floor((now() - oldestWait) / DAY))} days</> : "Nothing waiting"}
-              onClick={() => onOpenDash(5)} />
+              onClick={openIf(5)} />
             <KpiCard tone="teal" icon={DASH_ICONS[7]} label="Repairs in progress" value={repairsOpen.length}
               trend={<TrendChip delta={repairsOpen.length - repairs30} good={repairsOpen.length <= repairs30} label="vs 30 days ago" />}
               sub={<>{repairsParts} waiting for parts</>}
-              onClick={() => onOpenDash(7)} />
+              onClick={openIf(7)} />
           </div>
 
           {adv && <div className="fl-grid-2">
@@ -222,16 +226,16 @@ export default function Overview({ onSection, onOpenDash }: { onSection: (s: She
 
           <h2 className="fl-section-title">Quick actions</h2>
           <div className="fl-qas">
-            <QuickAction tone="red" icon={DASH_ICONS[2]} label="Open defects" note={`${openNow.length} open`} onClick={() => onOpenDash(2)} />
-            <QuickAction tone="amber" icon={DASH_ICONS[5]} label="Decisions waiting" note={`${waiting.length} waiting`} onClick={() => onOpenDash(5)} />
-            <QuickAction tone="teal" icon={DASH_ICONS[7]} label="Repair queue" note={`${repairsOpen.length} in progress`} onClick={() => onOpenDash(7)} />
-            <QuickAction tone="violet" icon={DASH_ICONS[13]} label="MR-II due forecast" note="From MR-I counters" onClick={() => onOpenDash(13)} />
-            <QuickAction tone="blue" icon={FL_ICONS.history} label="Asset MR-I History" note="Report timeline per unit" onClick={() => onSection("mri-history")} />
-            <QuickAction tone="green" icon={FL_ICONS.people} label="User Analytics" note="Workload by person" onClick={() => onSection("user-analytics")} />
+            {access.dash(2) && <QuickAction tone="red" icon={DASH_ICONS[2]} label="Open defects" note={`${openNow.length} open`} onClick={() => onOpenDash(2)} />}
+            {access.dash(5) && <QuickAction tone="amber" icon={DASH_ICONS[5]} label="Decisions waiting" note={`${waiting.length} waiting`} onClick={() => onOpenDash(5)} />}
+            {access.dash(7) && <QuickAction tone="teal" icon={DASH_ICONS[7]} label="Repair queue" note={`${repairsOpen.length} in progress`} onClick={() => onOpenDash(7)} />}
+            {access.dash(13) && <QuickAction tone="violet" icon={DASH_ICONS[13]} label="MR-II due forecast" note="From MR-I counters" onClick={() => onOpenDash(13)} />}
+            {access.history && <QuickAction tone="blue" icon={FL_ICONS.history} label="Asset MR-I History" note="Report timeline per unit" onClick={() => onSection("mri-history")} />}
+            {access.firstUser != null && <QuickAction tone="green" icon={FL_ICONS.people} label="User Analytics" note="Workload by person" onClick={() => onSection("user-analytics")} />}
           </div>
 
           <div className={adv ? "fl-grid-3" : "fl-grid-2"}>
-            <FlCard title="Waiting for review" note="Oldest first" tools={<button type="button" className="fl-link" onClick={() => onOpenDash(5)}>View all {FL_ICONS.chevron}</button>}>
+            <FlCard title="Waiting for review" note="Oldest first" tools={access.dash(5) ? <button type="button" className="fl-link" onClick={() => onOpenDash(5)}>View all {FL_ICONS.chevron}</button> : undefined}>
               {waitList.length === 0 ? <div className="fl-empty">Nothing is waiting. Reports and fault decisions are up to date.</div> : (
                 <div className="fl-list">
                   {waitList.map((w) => {
@@ -249,7 +253,7 @@ export default function Overview({ onSection, onOpenDash }: { onSection: (s: She
               )}
             </FlCard>
 
-            <FlCard title="Closest to MR-II / MR-III" note="Counter used, from the latest MR-I readings" tools={<button type="button" className="fl-link" onClick={() => onOpenDash(13)}>Forecast {FL_ICONS.chevron}</button>}>
+            <FlCard title="Closest to MR-II / MR-III" note="Counter used, from the latest MR-I readings" tools={access.dash(13) ? <button type="button" className="fl-link" onClick={() => onOpenDash(13)}>Forecast {FL_ICONS.chevron}</button> : undefined}>
               {due.length === 0 ? <div className="fl-empty">No maintenance counters are set for these units yet.</div> : (
                 <div className="fl-list">
                   {due.map((t, n) => {

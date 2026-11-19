@@ -6,6 +6,7 @@ import fieldOpsImage from "../../assets/FieldMaintenance.png";
 import fieldOpsImageDark from "../../assets/FieldDark.png";
 import { useCurrentUser } from "../../lib/currentUser";
 import { MenuKpis } from "./MenuKpis";
+import { useDashAccess } from "../dashboard/dashAccess";
 import { tierAccent } from "../../lib/UserPickerGate";
 import {
   isMapFeatureEnabled,
@@ -253,6 +254,9 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
     (!isAdministrator && canRectify ? pendingRectificationsCount : 0) +
     (!isAdministrator && canReviewReports ? reportsNeedingActionCount : 0) +
     myOpenReportsCount;
+  // The Dashboard tile is hidden when "Open the Dashboard area" is off for this user.
+  const dashAccess = useDashAccess();
+
   function handleSwitchUser() {
     setDrawerOpen(false);
     clearCurrentUser();
@@ -344,7 +348,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
           onClick={() => setReportsExpanded(false)}
         >
           <div className="menu-grid">
-            {OPTIONS.map((opt) => (
+            {OPTIONS.filter((opt) => opt.id !== "dashboard" || dashAccess.area).map((opt) => (
               <div
                 key={opt.id}
                 className="menu-card"
@@ -393,7 +397,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
               width: 210,
             }}
           >
-            <MenuKpis availability={availabilityPct} notReady={redUnits} openDefects={openDefects} onOpen={() => onNavigate("dashboard")} />
+            <MenuKpis availability={availabilityPct} notReady={redUnits} openDefects={openDefects} onOpen={() => { if (dashAccess.area) onNavigate("dashboard"); }} />
           </div>
         </div>
       </div>

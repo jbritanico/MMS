@@ -6,6 +6,7 @@ import { PreviewButton } from "./ReportPreview";
 import { AX, DrillChips, inRange, Loading, monthsFor, period, Tile, TT, useMore } from "./kit";
 import { Sparkline, StoryStrip, TrendDelta, type StoryLine } from "./fluid";
 import { chartAnim } from "../fluent/motion";
+import { useAdvanced } from "../dashMode";
 
 // Dashboard 11: MR-I reports per period, by compliance stage (Pre-Mob, Pre-Job, Post Job, Yard).
 // Counts reports SUBMITTED in the period. Drafts are shown separately as "not yet submitted".
@@ -41,6 +42,7 @@ export function ReportsPerPeriodMini({ assets }: { assets: MriDashboardAsset[] }
 }
 
 export default function ReportsPerPeriod({ assets, filters }: { assets: MriDashboardAsset[]; filters: DashboardFilters }) {
+  const adv = useAdvanced();
   const { reports, unitOf, isLoading, error } = useMore(assets);
   const p = period(filters);
   const [pick, setPick] = useState<Pick>(null);
@@ -123,6 +125,7 @@ export default function ReportsPerPeriod({ assets, filters }: { assets: MriDashb
         </div>
       </div>
 
+      {adv && (<>
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>Reports submitted over the period</h3></div>
         {submitted.length === 0 ? <p className="mrid-note mrid-empty">No reports were submitted in this period.</p> : (
@@ -154,6 +157,7 @@ export default function ReportsPerPeriod({ assets, filters }: { assets: MriDashb
           </>
         )}
       </div>
+      </>)}
 
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>{pick === "drafts" ? "Drafts not yet submitted" : "Reports"} ({list.length})</h3></div>

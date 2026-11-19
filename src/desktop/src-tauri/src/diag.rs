@@ -8,20 +8,33 @@
 // - "Export this report for support": one report and its rows as JSON (photos left out).
 // - Crash detection: a session marker is written at start and removed on a clean exit.
 //   If it is still there at the next start, the previous session did not close properly.
+// - Session history (support bundle, checklist item 8): sessions.log next to the logs folder,
+//   one JSON object per line: {"event":"start"|"end"|"unclean_end", "at", "version", ...}.
+//   Kept to the newest 500 lines. This is the crash history the Support viewer shows.
+// - Performance (checklist item 7): the database size is logged at every start as
+//   "<time> INFO [rust] PERF {"kind":"db_size","bytes":...,"wal_bytes":...}".
 //
-// Nothing here changes business data. Every command is read-only except the log and the
-// session marker files.
+// Log line format (both sides):  <time> <LEVEL> [<screen or rust>] <message>
+//   Rust lines use UTC time ("2026-11-19 08:00:00 UTC"); screen lines use the laptop's local
+//   time with milliseconds ("2026-11-19 12:00:00.123"). Messages that start with CALL or PERF
+//   carry one JSON object after the word, so the Support viewer can read them reliably.
+//
+// - Support bundle ("Send to IT", checklist items 9 to 13): diag_build_bundle, at the end.
+//
+// Nothing here changes business data. Every command is read-only except the log, the session
+// marker and the session history files, and the support bundle file it writes.
 
 use rusqlite::Connection;
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 static DIAG_DIR: OnceLock<PathBuf> = OnceLock::new();
 static SESSION: OnceLock<SessionStart> = OnceLock::new();
+static SESSION_VERSION: OnceLock<String> = OnceLock::new();
 
 const LOG_KEEP_DAYS: usize = 14;
 const LOG_MAX_BYTES: u64 = 5 * 1024 * 1024;
@@ -435,10 +448,46 @@ pub fn diag_export_report(report_id: i64) -> Result<String, String> {
             tables.insert(t.into(), json!(r));
         }
     }
+    // Labels and history for the Support viewer's Record inspector (checklist item 28), so it can
+    // show "Client = PDO" instead of "field 104 = PDO", and why a unit is Red. Older exports
+    // (export_version 1) have none of these; the inspector then shows numbers.
+    let tid = rep.get("template_id").and_then(|v| v.as_i64());
+    let aid = rep.get("asset_id").and_then(|v| v.as_i64());
+    let mut extra = |name: &str, sql: &str, id: Option<i64>| {
+        let r = match id {
+            Some(id) => rows(&conn, sql, &[&id]),
+            None if !sql.contains("?1") => rows(&conn, sql, &[]),
+            None => return,
+        }
+        .unwrap_or_default();
+        if !r.is_empty() {
+            tables.insert(name.into(), json!(r));
+        }
+    };
+    extra("template_header_fields", "SELECT * FROM template_header_fields WHERE template_id = ?1", tid);
+    extra("template_mid_fields", "SELECT * FROM template_mid_fields WHERE template_id = ?1", tid);
+    extra("template_footer_fields", "SELECT * FROM template_footer_fields WHERE template_id = ?1", tid);
+    extra("template_checklist_items", "SELECT * FROM template_checklist_items WHERE template_id = ?1", tid);
+    extra("template_components", "SELECT * FROM template_components WHERE template_id = ?1", tid);
+    extra("checklist_databank", "SELECT * FROM checklist_databank WHERE id IN (SELECT checklist_item_id FROM template_checklist_items WHERE template_id = ?1)", tid);
+    extra("header_field_catalog", "SELECT * FROM header_field_catalog", None);
+    extra("mid_field_catalog", "SELECT * FROM mid_field_catalog", None);
+    extra("footer_field_catalog", "SELECT * FROM footer_field_catalog", None);
+    extra("checklist_sections", "SELECT * FROM checklist_sections", None);
+    extra("asset_tag_history", "SELECT * FROM asset_tag_history WHERE asset_id = ?1", aid);
+    extra("asset_moc_exemptions", "SELECT * FROM asset_moc_exemptions WHERE asset_id = ?1", aid);
+    extra("asset_types", "SELECT * FROM asset_types WHERE id = (SELECT asset_type_id FROM assets WHERE id = ?1)", aid);
+    // Other reports on the same unit (headline columns only), for links to earlier and later reports.
+    extra("mri_reports_same_unit", "SELECT id, status, created_date, submitted_by, submitted_date, approved_by, approved_date FROM mri_reports WHERE asset_id = ?1", aid);
+    // Faults from earlier reports that were carried forward into this one.
+    extra("mri_fault_approvals_carried_in", "SELECT * FROM mri_fault_approvals WHERE carried_to_report_id = ?1", Some(report_id));
+    drop(extra);
+
     let total: usize = tables.values().map(|v| v.as_array().map(|a| a.len()).unwrap_or(0)).sum();
     write_lines(&[format!("{} INFO [rust] Exported report #{report_id} for support ({total} rows)", stamp())]);
     serde_json::to_string_pretty(&json!({
         "kind": "MMS report export for support",
+        "export_version": 2,
         "report_id": report_id,
         "exported_at": stamp(),
         "rows": total,
@@ -469,9 +518,39 @@ pub fn diag_session_start(app: tauri::AppHandle) -> SessionStart {
             let crash_note = std::fs::read_to_string(&crash_path).ok();
             let _ = std::fs::remove_file(&crash_path);
             let version = app.package_info().version.to_string();
+            let _ = SESSION_VERSION.set(version.clone());
             let _ = std::fs::write(&marker, format!("{}|{}", stamp(), version));
             // Developer runs are stopped by killing the process, so they never count as a crash.
             let unclean = !cfg!(debug_assertions) && (previous.is_some() || crash_note.is_some());
+            if unclean {
+                let mut prev = previous.as_deref().unwrap_or("").splitn(2, '|');
+                let prev_started = prev.next().unwrap_or("").trim().to_string();
+                let prev_version = prev.next().unwrap_or("").trim().to_string();
+                append_session_event(json!({
+                    "event": "unclean_end",
+                    "at": stamp(),
+                    "previous_started": prev_started,
+                    "previous_version": prev_version,
+                    "crash_note": crash_note.as_deref().map(|n| n.lines().take(2).collect::<Vec<_>>().join(" ").chars().take(300).collect::<String>()),
+                }));
+            }
+            let db = crate::db_path();
+            let db_bytes = std::fs::metadata(&db).map(|m| m.len()).unwrap_or(0);
+            let mut wal = db.clone().into_os_string();
+            wal.push("-wal");
+            let wal_bytes = std::fs::metadata(PathBuf::from(wal)).map(|m| m.len()).unwrap_or(0);
+            append_session_event(json!({
+                "event": "start",
+                "at": stamp(),
+                "version": version,
+                "build": if cfg!(debug_assertions) { "Developer run" } else { "Installed" },
+                "db_bytes": db_bytes,
+            }));
+            write_lines(&[format!(
+                "{} INFO [rust] PERF {}",
+                stamp(),
+                json!({ "kind": "db_size", "bytes": db_bytes, "wal_bytes": wal_bytes })
+            )]);
             write_lines(&[format!(
                 "{} INFO [rust] Session start, MMS {}{}",
                 stamp(),
@@ -490,5 +569,697 @@ pub fn diag_session_start(app: tauri::AppHandle) -> SessionStart {
 /// Called on a clean exit.
 pub fn session_end() {
     write_lines(&[format!("{} INFO [rust] Session end", stamp())]);
+    append_session_event(json!({
+        "event": "end",
+        "at": stamp(),
+        "version": SESSION_VERSION.get().cloned().unwrap_or_default(),
+    }));
     let _ = std::fs::remove_file(base_dir().join("session.lock"));
+}
+
+// ---------------------------------------------------------------- session history
+
+const SESSIONS_FILE: &str = "sessions.log";
+const SESSIONS_KEEP: usize = 500;
+
+/// sessions.log in the MMS data folder (next to the logs folder).
+pub fn sessions_path() -> PathBuf {
+    base_dir().join(SESSIONS_FILE)
+}
+
+/// Appends one event to sessions.log, keeping the newest SESSIONS_KEEP lines. Never fails the caller.
+fn append_session_event(event: Value) {
+    append_session_event_to(&sessions_path(), event, SESSIONS_KEEP);
+}
+
+fn append_session_event_to(path: &Path, event: Value, keep: usize) {
+    if let Ok(text) = std::fs::read_to_string(path) {
+        let lines: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
+        if keep > 0 && lines.len() >= keep {
+            let newest = &lines[lines.len() + 1 - keep..];
+            let mut out = newest.join("\n");
+            out.push('\n');
+            let _ = std::fs::write(path, out);
+        }
+    }
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+        let _ = writeln!(f, "{}", event);
+    }
+}
+
+/// The session history, oldest first. Lines that cannot be read are skipped.
+pub fn read_session_history(path: &Path) -> Vec<Value> {
+    std::fs::read_to_string(path)
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|l| serde_json::from_str::<Value>(l.trim()).ok())
+        .filter(|v| v.get("event").is_some())
+        .collect()
+}
+
+/// The newest `limit` session events (default 100), oldest first.
+#[tauri::command]
+pub fn diag_session_history(limit: Option<usize>) -> Vec<Value> {
+    let all = read_session_history(&sessions_path());
+    let n = limit.unwrap_or(100).clamp(1, SESSIONS_KEEP);
+    all[all.len().saturating_sub(n)..].to_vec()
+}
+
+#[cfg(test)]
+mod session_history_tests {
+    use super::*;
+
+    #[test]
+    fn keeps_newest_lines_and_reads_back() {
+        let dir = std::env::temp_dir().join(format!("mms-sessions-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("sessions.log");
+        let _ = std::fs::remove_file(&path);
+        for i in 0..7 {
+            append_session_event_to(&path, json!({ "event": "start", "n": i }), 5);
+        }
+        std::fs::OpenOptions::new().append(true).open(&path).unwrap().write_all(b"not json\n").unwrap();
+        let events = read_session_history(&path);
+        let ns: Vec<i64> = events.iter().map(|e| e["n"].as_i64().unwrap()).collect();
+        assert_eq!(ns, vec![2, 3, 4, 5, 6]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+// ---------------------------------------------------------------- support bundle ("Send to IT")
+//
+// Checklist items 9 to 13. Builds one .mmsbundle file (see bundle.rs) with:
+//   logs/...      the app log files, newest days first within the size budget
+//   system.json   same details as About MMS
+//   checks.json   "Check my data" results
+//   sessions.log  start / end history (crash history)
+//   screen.json   steps, recent errors, recent calls and timings, sent by the screen side
+//   report.json   optional: the report the user was on (photo contents left out)
+//   backup.json   optional, off by default: the full backup, with photo contents, drawings
+//                 and anything that looks like a password or key left out
+// The file is written to the user's Downloads folder (or the MMS data folder if that is not
+// available). Nothing here changes business data, and the database key is never read.
+
+use crate::bundle::{part, BundleManifest, BundlePart, BundleUser, BundleWriter, BUNDLE_EXTENSION};
+
+/// Above this the user is warned that the file may be too big to email.
+const BUNDLE_WARN_BYTES: u64 = 20 * 1024 * 1024;
+/// Log text compresses to roughly an eighth; keep the logs' share of the bundle near 15 MB.
+const LOG_RAW_BUDGET: u64 = 15 * 1024 * 1024 * 8;
+/// Largest screen-side record accepted (it is normally well under 1 MB).
+const SCREEN_PART_MAX: usize = 4 * 1024 * 1024;
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BundleRequest {
+    /// The user's own words about the problem.
+    #[serde(default)]
+    note: String,
+    #[serde(default)]
+    user_name: Option<String>,
+    #[serde(default)]
+    user_role: Option<String>,
+    /// Screen the user was on.
+    #[serde(default)]
+    screen: String,
+    /// Report number to include as report.json.
+    #[serde(default)]
+    include_report: Option<i64>,
+    /// Off by default.
+    #[serde(default)]
+    include_backup: bool,
+    /// Steps, errors, calls and timings from the screen side (lib/support/bundle.ts).
+    #[serde(default)]
+    screen_part: Value,
+}
+
+#[derive(Serialize)]
+pub struct BundleResult {
+    path: String,
+    file_name: String,
+    folder: String,
+    bytes: u64,
+    parts: Vec<BundlePart>,
+    /// Plain-language notes for the user (size, left-out log days, parts that could not be added).
+    warnings: Vec<String>,
+    /// What the safety filter left out, e.g. "mri_report_attachments.data (photo contents, 3 rows)".
+    removed: Vec<String>,
+    log_days_included: usize,
+    log_days_dropped: usize,
+}
+
+/// One day's log file and its roll-over (.log.1), newest day first.
+fn log_days() -> Vec<(PathBuf, Option<PathBuf>)> {
+    let mut days: Vec<(PathBuf, Option<PathBuf>)> = log_files()
+        .into_iter()
+        .map(|p| {
+            let rolled = p.with_extension("log.1");
+            let rolled = if rolled.exists() { Some(rolled) } else { None };
+            (p, rolled)
+        })
+        .collect();
+    days.reverse();
+    days
+}
+
+fn file_len(p: &Path) -> u64 {
+    std::fs::metadata(p).map(|m| m.len()).unwrap_or(0)
+}
+
+/// Picks the newest log days that fit in `raw_budget` bytes; always keeps today's.
+fn choose_log_days(days: &[(PathBuf, Option<PathBuf>)], raw_budget: u64) -> (usize, usize) {
+    let mut used = 0u64;
+    let mut keep = 0usize;
+    for (i, (p, rolled)) in days.iter().enumerate() {
+        let size = file_len(p) + rolled.as_deref().map(file_len).unwrap_or(0);
+        if i > 0 && used + size > raw_budget {
+            break;
+        }
+        used += size;
+        keep += 1;
+    }
+    (keep, days.len() - keep)
+}
+
+/// Columns whose contents never go into a bundle, by name.
+fn is_secret_column(col: &str) -> bool {
+    let c = col.to_ascii_lowercase();
+    ["password", "passcode", "pin_hash", "secret", "token", "api_key", "private_key", "credential", "db_key", "encryption_key"]
+        .iter()
+        .any(|w| c.contains(w))
+        || c == "pin"
+}
+
+/// What to put in place of a left-out value, and why it was left out (None = keep the value).
+fn filter_value(table: &str, col: &str, v: &Value) -> Option<(Value, &'static str)> {
+    if is_secret_column(col) {
+        return Some((Value::Null, "password or key"));
+    }
+    let text = v.as_str()?;
+    if table == "mri_report_attachments" && col == "data" {
+        return Some((json!(format!("<photo left out, {} characters>", text.len())), "photo contents"));
+    }
+    if table == "template_drawings" && col == "image_data" {
+        return Some((json!(format!("<drawing left out, {} characters>", text.len())), "template drawing"));
+    }
+    // Any other embedded file or picture (for tables added later).
+    if text.len() > 2000 && text.starts_with("data:") {
+        return Some((json!(format!("<file left out, {} characters>", text.len())), "embedded file"));
+    }
+    None
+}
+
+/// Applies the safety filter to a full backup (the export_full_backup JSON) in place.
+/// Returns a plain-language list of what was left out.
+pub fn filter_backup(backup: &mut Value) -> Vec<String> {
+    let mut counts: std::collections::BTreeMap<(String, String, &'static str), usize> = Default::default();
+    if let Some(tables) = backup.get_mut("tables").and_then(|t| t.as_object_mut()) {
+        for (table, t) in tables.iter_mut() {
+            let columns: Vec<String> = t
+                .get("columns")
+                .and_then(|c| c.as_array())
+                .map(|a| a.iter().map(|c| c.as_str().unwrap_or("").to_string()).collect())
+                .unwrap_or_default();
+            if let Some(rows) = t.get_mut("rows").and_then(|r| r.as_array_mut()) {
+                for row in rows.iter_mut() {
+                    if let Some(cells) = row.as_array_mut() {
+                        for (i, cell) in cells.iter_mut().enumerate() {
+                            let col = columns.get(i).map(|s| s.as_str()).unwrap_or("");
+                            if let Some((replacement, why)) = filter_value(table, col, cell) {
+                                *cell = replacement;
+                                *counts.entry((table.clone(), col.to_string(), why)).or_default() += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if let Some(obj) = backup.as_object_mut() {
+        obj.insert("filtered_for_support".into(), json!(true));
+    }
+    counts
+        .into_iter()
+        .map(|((t, c, why), n)| format!("{t}.{c} ({why}, {n} row{})", if n == 1 { "" } else { "s" }))
+        .collect()
+}
+
+fn bundle_file_name(user: Option<&str>, stamp_utc: (i64, u32, u32, u32, u32, u32)) -> String {
+    let (y, m, d, hh, mm, _) = stamp_utc;
+    let who: String = user
+        .unwrap_or("user")
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect::<String>()
+        .split('-')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join("-");
+    let who = if who.is_empty() { "user".to_string() } else { who.chars().take(40).collect() };
+    format!("MMS-Support-{who}-{y:04}{m:02}{d:02}-{hh:02}{mm:02}.{BUNDLE_EXTENSION}")
+}
+
+fn unique_path(folder: &Path, name: &str) -> PathBuf {
+    let first = folder.join(name);
+    if !first.exists() {
+        return first;
+    }
+    let stem = name.trim_end_matches(&format!(".{BUNDLE_EXTENSION}"));
+    (2..1000)
+        .map(|n| folder.join(format!("{stem}-{n}.{BUNDLE_EXTENSION}")))
+        .find(|p| !p.exists())
+        .unwrap_or(first)
+}
+
+fn bundle_folder(app: &tauri::AppHandle) -> PathBuf {
+    use tauri::Manager;
+    let downloads = app.path().download_dir().ok().filter(|d| d.is_dir());
+    downloads.unwrap_or_else(|| {
+        let d = base_dir().join("support-bundles");
+        let _ = std::fs::create_dir_all(&d);
+        d
+    })
+}
+
+/// Builds the support bundle. Runs off the window's thread so MMS stays responsive.
+#[tauri::command]
+pub async fn diag_build_bundle(app: tauri::AppHandle, request: BundleRequest) -> Result<BundleResult, String> {
+    let folder = bundle_folder(&app);
+    let version = app.package_info().version.to_string();
+    let system = diag_system_info(app.clone()).unwrap_or_else(|e| json!({ "error": e }));
+    build_bundle_into(&folder, &version, system, request)
+}
+
+/// The bundle builder without the Tauri parts, so it can be tested on its own.
+pub fn build_bundle_into(folder: &Path, version: &str, system: Value, req: BundleRequest) -> Result<BundleResult, String> {
+    let mut warnings: Vec<String> = Vec::new();
+    let mut removed: Vec<String> = Vec::new();
+    let now = civil(now_secs());
+    let name = bundle_file_name(req.user_name.as_deref(), now);
+    let path = unique_path(folder, &name);
+    let tmp = path.with_extension(format!("{BUNDLE_EXTENSION}.part"));
+    let file = std::fs::File::create(&tmp).map_err(|e| format!("Could not create the support bundle in {}: {e}", folder.display()))?;
+    let mut w = BundleWriter::new(std::io::BufWriter::new(file));
+
+    let result = (|| -> Result<(BundleManifest, usize, usize), String> {
+        // Logs: newest days that fit the budget.
+        let days = log_days();
+        let (keep, dropped) = choose_log_days(&days, LOG_RAW_BUDGET);
+        for (p, rolled) in days.iter().take(keep) {
+            for src in std::iter::once(p).chain(rolled.iter()) {
+                let fname = src.file_name().and_then(|n| n.to_str()).unwrap_or("log");
+                if let Err(e) = w.add_file(&format!("{}{fname}", part::LOGS_DIR), src) {
+                    warnings.push(format!("Log file {fname} could not be added: {e}"));
+                }
+            }
+        }
+        if dropped > 0 {
+            warnings.push(format!("The {dropped} oldest day(s) of logs were left out to keep the file small enough to email."));
+        }
+
+        w.add_json(part::SYSTEM, &system)?;
+
+        match diag_check_data() {
+            Ok(checks) => w.add_json(part::CHECKS, &checks)?,
+            Err(e) => {
+                warnings.push(format!("Check my data could not run: {e}"));
+                w.add_json(part::CHECKS, &json!({ "error": e }))?;
+            }
+        }
+
+        let sessions = sessions_path();
+        if sessions.exists() {
+            w.add_file(part::SESSIONS, &sessions)?;
+        }
+
+        let screen = serde_json::to_vec_pretty(&req.screen_part).unwrap_or_default();
+        if screen.len() > SCREEN_PART_MAX {
+            warnings.push("The screen record was too large and was left out.".into());
+        } else if !req.screen_part.is_null() {
+            w.add_bytes(part::SCREEN, &screen)?;
+        }
+
+        let mut report_included = None;
+        if let Some(id) = req.include_report {
+            match diag_export_report(id) {
+                Ok(text) => {
+                    w.add_text(part::REPORT, &text)?;
+                    report_included = Some(id);
+                    removed.push(format!("report #{id}: photo contents left out (sizes kept)"));
+                }
+                Err(e) => warnings.push(format!("Report #{id} could not be added: {e}")),
+            }
+        }
+
+        let mut backup_included = false;
+        if req.include_backup {
+            match crate::export_full_backup().and_then(|s| serde_json::from_str::<Value>(&s).map_err(|e| e.to_string())) {
+                Ok(mut backup) => {
+                    removed.extend(filter_backup(&mut backup));
+                    w.add_json(part::BACKUP, &backup)?;
+                    backup_included = true;
+                }
+                Err(e) => warnings.push(format!("The full backup could not be added: {e}")),
+            }
+        }
+
+        let mut m = BundleManifest::new(stamp(), version.to_string());
+        m.build = if cfg!(debug_assertions) { "Developer run".into() } else { "Installed".into() };
+        m.computer = std::env::var("COMPUTERNAME").unwrap_or_default();
+        m.user = req.user_name.clone().map(|n| BundleUser { name: n, role: req.user_role.clone().unwrap_or_default() });
+        m.screen = req.screen.clone();
+        m.note = req.note.chars().take(4000).collect();
+        m.includes_backup = backup_included;
+        m.includes_report = report_included;
+        Ok((m, keep, dropped))
+    })();
+
+    let (manifest, keep, dropped) = match result {
+        Ok(v) => v,
+        Err(e) => {
+            drop(w);
+            let _ = std::fs::remove_file(&tmp);
+            return Err(format!("The support bundle could not be made: {e}"));
+        }
+    };
+    let (out, manifest) = match w.finish(manifest) {
+        Ok(v) => v,
+        Err(e) => {
+            let _ = std::fs::remove_file(&tmp);
+            return Err(format!("The support bundle could not be made: {e}"));
+        }
+    };
+    drop(out.into_inner().map_err(|e| e.to_string())?);
+    std::fs::rename(&tmp, &path).map_err(|e| {
+        let _ = std::fs::remove_file(&tmp);
+        format!("The support bundle could not be saved: {e}")
+    })?;
+
+    let bytes = file_len(&path);
+    if bytes > BUNDLE_WARN_BYTES {
+        warnings.push(format!(
+            "The file is {:.1} MB, which may be too big to email. Send it by Teams, or ask IT for another way.",
+            bytes as f64 / 1_048_576.0
+        ));
+    }
+    let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+    write_lines(&[format!(
+        "{} INFO [rust] Support bundle saved: {} ({} bytes, {} parts)",
+        stamp(),
+        file_name,
+        bytes,
+        manifest.parts.len()
+    )]);
+    Ok(BundleResult {
+        path: path.to_string_lossy().to_string(),
+        file_name,
+        folder: folder.to_string_lossy().to_string(),
+        bytes,
+        parts: manifest.parts,
+        warnings,
+        removed,
+        log_days_included: keep,
+        log_days_dropped: dropped,
+    })
+}
+
+/// What the Send to IT window lists before the file is made (sizes before packing).
+#[derive(Serialize)]
+pub struct BundlePreview {
+    log_days: usize,
+    log_bytes: u64,
+    log_days_over_budget: usize,
+    has_sessions: bool,
+    database_bytes: u64,
+    folder: String,
+}
+
+#[tauri::command]
+pub fn diag_bundle_preview(app: tauri::AppHandle) -> BundlePreview {
+    let days = log_days();
+    let (keep, dropped) = choose_log_days(&days, LOG_RAW_BUDGET);
+    let log_bytes = days
+        .iter()
+        .take(keep)
+        .map(|(p, r)| file_len(p) + r.as_deref().map(file_len).unwrap_or(0))
+        .sum();
+    BundlePreview {
+        log_days: keep,
+        log_bytes,
+        log_days_over_budget: dropped,
+        has_sessions: sessions_path().exists(),
+        database_bytes: file_len(&crate::db_path()),
+        folder: bundle_folder(&app).to_string_lossy().to_string(),
+    }
+}
+
+/// Opens the folder that holds a support bundle, with the file selected (Windows).
+/// Only accepts an existing .mmsbundle file.
+#[tauri::command]
+pub fn diag_show_bundle(path: String) -> Result<(), String> {
+    let p = PathBuf::from(&path);
+    let ok = p.is_file() && p.extension().and_then(|e| e.to_str()) == Some(BUNDLE_EXTENSION);
+    if !ok {
+        return Err("The support bundle file was not found. It may have been moved or deleted.".into());
+    }
+    #[cfg(windows)]
+    let result = {
+        // Explorer wants the quotes around the path only: /select,"C:\...\file.mmsbundle"
+        use std::os::windows::process::CommandExt;
+        std::process::Command::new("explorer").raw_arg(format!("/select,\"{}\"", p.display())).spawn()
+    };
+    #[cfg(target_os = "macos")]
+    let result = std::process::Command::new("open").arg("-R").arg(&p).spawn();
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let result = std::process::Command::new("xdg-open").arg(p.parent().unwrap_or(&p)).spawn();
+    result.map(|_| ()).map_err(|e| format!("Could not open the folder: {e}"))
+}
+
+// ---------------------------------------------------------------- Support viewer (Administration › Diagnostics)
+//
+// Checklist items 17 and 19. Opening and reading a support bundle is for the Administrator tier
+// only: every command below checks that the user is an active Administrator. This is fixed to
+// the tier, not a permission switch, so it cannot be given to other roles or users.
+// The bundle is read into memory only. Nothing from it is written to this laptop's database or
+// unpacked to disk; closing it (or opening another) forgets it.
+
+use crate::bundle::BundleReader;
+
+/// Largest bundle the viewer will open.
+const OPEN_BUNDLE_MAX: usize = 300 * 1024 * 1024;
+
+struct OpenBundle {
+    file_name: String,
+    bytes: Vec<u8>,
+}
+static OPEN_BUNDLE: std::sync::Mutex<Option<OpenBundle>> = std::sync::Mutex::new(None);
+
+/// The Administrator-only check for the Support viewer. Refusals are logged.
+fn require_administrator(user_id: i64, what: &str) -> Result<(), String> {
+    let role: Option<(String, i64)> = crate::get_connection()?
+        .query_row("SELECT role, active FROM app_users WHERE id = ?1", [user_id], |r| Ok((r.get(0)?, r.get(1)?)))
+        .ok();
+    match role {
+        Some((role, active)) if role == "Administrator" && active != 0 => Ok(()),
+        other => {
+            let who = other.map(|(r, _)| r).unwrap_or_else(|| "unknown user".into());
+            write_lines(&[format!("{} WARN [rust] Refused: {what} (user {user_id}, {who}). Only an Administrator can do this.", stamp())]);
+            Err("Only an Administrator can open support bundles.".into())
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub struct BundleOverview {
+    file_name: String,
+    bytes: u64,
+    manifest: BundleManifest,
+    /// Every part actually in the file.
+    names: Vec<String>,
+    /// Parts listed in manifest.json that are not in the file (damaged or edited bundle).
+    missing: Vec<String>,
+}
+
+/// Checks the bytes are a support bundle MMS can read and keeps them in memory.
+pub fn open_bundle_bytes(file_name: &str, bytes: Vec<u8>) -> Result<BundleOverview, String> {
+    if bytes.len() > OPEN_BUNDLE_MAX {
+        return Err(format!("This file is too large to open ({} MB).", bytes.len() / 1_048_576));
+    }
+    let reader = BundleReader::open(std::io::Cursor::new(bytes.as_slice()))?;
+    let names = reader.names();
+    let missing: Vec<String> = reader
+        .manifest
+        .parts
+        .iter()
+        .filter(|p| !names.contains(&p.path))
+        .map(|p| p.path.clone())
+        .collect();
+    let overview = BundleOverview {
+        file_name: file_name.to_string(),
+        bytes: bytes.len() as u64,
+        manifest: reader.manifest.clone(),
+        names,
+        missing,
+    };
+    drop(reader);
+    *OPEN_BUNDLE.lock().map_err(|_| "The Support viewer is busy. Try again.".to_string())? =
+        Some(OpenBundle { file_name: file_name.to_string(), bytes });
+    Ok(overview)
+}
+
+/// Reads one part of the open bundle as text (JSON parts are returned as their JSON text).
+pub fn open_bundle_part(path: &str) -> Result<String, String> {
+    let guard = OPEN_BUNDLE.lock().map_err(|_| "The Support viewer is busy. Try again.".to_string())?;
+    let open = guard.as_ref().ok_or_else(|| "No support bundle is open.".to_string())?;
+    let mut reader = BundleReader::open(std::io::Cursor::new(open.bytes.as_slice()))?;
+    reader.read_text(path)
+}
+
+fn header_text(request: &tauri::ipc::Request<'_>, name: &str) -> Option<String> {
+    request.headers().get(name).and_then(|v| v.to_str().ok()).map(|s| s.to_string())
+}
+
+/// Opens a support bundle chosen in the Support viewer. The file's bytes come as the raw body;
+/// headers: x-mms-user-id (signed-in user), x-mms-file-name (URL-encoded).
+#[tauri::command]
+pub fn diag_open_bundle(request: tauri::ipc::Request<'_>) -> Result<BundleOverview, String> {
+    let user_id: i64 = header_text(&request, "x-mms-user-id").and_then(|v| v.parse().ok()).unwrap_or(0);
+    require_administrator(user_id, "open a support bundle")?;
+    let file_name = header_text(&request, "x-mms-file-name")
+        .and_then(|v| urlencoding::decode(&v).ok().map(|c| c.into_owned()))
+        .unwrap_or_else(|| "support bundle".into());
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("The support bundle did not arrive as a file. Try opening it again.".into());
+    };
+    let overview = open_bundle_bytes(&file_name, bytes.clone())?;
+    write_lines(&[format!(
+        "{} INFO [rust] Support viewer opened {} ({} bytes, made {} by {})",
+        stamp(),
+        overview.file_name,
+        overview.bytes,
+        overview.manifest.created_at,
+        overview.manifest.user.as_ref().map(|u| u.name.as_str()).unwrap_or("unknown")
+    )]);
+    Ok(overview)
+}
+
+/// Reads one part of the open bundle, e.g. "system.json" or "logs/mms-2026-11-19.log".
+#[tauri::command]
+pub fn diag_bundle_part(user_id: i64, path: String) -> Result<String, String> {
+    require_administrator(user_id, "read a support bundle")?;
+    open_bundle_part(&path)
+}
+
+/// Forgets the open bundle.
+#[tauri::command]
+pub fn diag_close_bundle() {
+    if let Ok(mut g) = OPEN_BUNDLE.lock() {
+        if let Some(b) = g.take() {
+            write_lines(&[format!("{} INFO [rust] Support viewer closed {}", stamp(), b.file_name)]);
+        }
+    }
+}
+
+#[cfg(test)]
+mod support_viewer_tests {
+    use super::*;
+    use crate::bundle::{BundleWriter, BundleManifest as M};
+
+    fn sample() -> Vec<u8> {
+        let mut w = BundleWriter::new(std::io::Cursor::new(Vec::new()));
+        w.add_text("logs/mms-2026-11-19.log", "line\n").unwrap();
+        w.add_json(part::SYSTEM, &json!({ "version": "0.9.0" })).unwrap();
+        let mut m = M::new("2026-11-19 09:45:00 UTC".into(), "0.9.0".into());
+        m.note = "Save failed".into();
+        w.finish(m).unwrap().0.into_inner()
+    }
+
+    #[test]
+    fn opens_reads_and_closes() {
+        let ov = open_bundle_bytes("x.mmsbundle", sample()).unwrap();
+        assert_eq!(ov.manifest.note, "Save failed");
+        assert!(ov.names.contains(&"system.json".to_string()) && ov.missing.is_empty());
+        assert!(open_bundle_part("system.json").unwrap().contains("0.9.0"));
+        assert_eq!(open_bundle_part("logs/mms-2026-11-19.log").unwrap(), "line\n");
+        assert!(open_bundle_part("backup.json").is_err());
+        diag_close_bundle();
+        assert!(open_bundle_part("system.json").unwrap_err().contains("No support bundle is open"));
+        assert!(open_bundle_bytes("y", b"not a zip".to_vec()).is_err());
+    }
+
+    #[test]
+    fn only_active_administrators() {
+        let conn = crate::get_connection().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS app_users (id INTEGER PRIMARY KEY, name TEXT, role TEXT, active INTEGER);
+             DELETE FROM app_users;
+             INSERT INTO app_users VALUES (1,'Jess','Administrator',1),(2,'Suganya','Operator',1),(3,'Old admin','Administrator',0);",
+        )
+        .unwrap();
+        drop(conn);
+        assert!(require_administrator(1, "test").is_ok());
+        assert!(require_administrator(2, "test").is_err());
+        assert!(require_administrator(3, "test").is_err());
+        assert!(require_administrator(99, "test").is_err());
+    }
+}
+
+#[cfg(test)]
+mod bundle_builder_tests {
+    use super::*;
+
+    #[test]
+    fn safety_filter_leaves_out_photos_drawings_and_secrets() {
+        let mut b = json!({ "backup_type": "full_data", "tables": {
+            "mri_report_attachments": { "columns": ["id", "file_name", "data"], "rows": [[1, "a.jpg", "data:image/jpeg;base64,AAAA"], [2, "b.jpg", "xyz"]] },
+            "template_drawings": { "columns": ["id", "image_data"], "rows": [[1, "data:image/png;base64,BBBB"]] },
+            "app_users": { "columns": ["id", "name", "password_hash", "pin"], "rows": [[1, "Jess", "h", "1234"]] },
+            "notes": { "columns": ["id", "blob"], "rows": [[1, format!("data:application/pdf;base64,{}", "C".repeat(3000))], [2, "short text"]] },
+            "assets": { "columns": ["id", "asset_code"], "rows": [[2, "ASSET2"]] }
+        }});
+        let removed = filter_backup(&mut b);
+        let t = &b["tables"];
+        assert_eq!(t["mri_report_attachments"]["rows"][0][2], "<photo left out, 27 characters>");
+        assert_eq!(t["mri_report_attachments"]["rows"][0][1], "a.jpg");
+        assert!(t["template_drawings"]["rows"][0][1].as_str().unwrap().starts_with("<drawing left out"));
+        assert_eq!(t["app_users"]["rows"][0][2], Value::Null);
+        assert_eq!(t["app_users"]["rows"][0][3], Value::Null);
+        assert_eq!(t["app_users"]["rows"][0][1], "Jess");
+        assert!(t["notes"]["rows"][0][1].as_str().unwrap().starts_with("<file left out"));
+        assert_eq!(t["notes"]["rows"][1][1], "short text");
+        assert_eq!(t["assets"]["rows"][0][1], "ASSET2");
+        assert_eq!(b["filtered_for_support"], true);
+        assert!(removed.iter().any(|r| r.starts_with("mri_report_attachments.data (photo contents, 2 rows)")), "{removed:?}");
+        let text = serde_json::to_string(&b).unwrap();
+        assert!(!text.contains("base64,AAAA") && !text.contains("1234"));
+    }
+
+    #[test]
+    fn file_names_are_safe_and_unique() {
+        let n = bundle_file_name(Some("Jan-Albert Victorino"), (2026, 11, 19, 8, 5, 0));
+        assert_eq!(n, "MMS-Support-Jan-Albert-Victorino-20261119-0805.mmsbundle");
+        assert_eq!(bundle_file_name(Some("../..\\x"), (2026, 1, 2, 3, 4, 5)), "MMS-Support-x-20260102-0304.mmsbundle");
+        assert_eq!(bundle_file_name(None, (2026, 1, 2, 3, 4, 5)), "MMS-Support-user-20260102-0304.mmsbundle");
+        let dir = std::env::temp_dir().join(format!("mms-unique-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("a.mmsbundle"), "x").unwrap();
+        assert_eq!(unique_path(&dir, "a.mmsbundle").file_name().unwrap(), "a-2.mmsbundle");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn log_budget_keeps_newest_days_and_always_today() {
+        let dir = std::env::temp_dir().join(format!("mms-logbudget-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let mk = |n: &str, size: usize| {
+            let p = dir.join(n);
+            std::fs::write(&p, vec![b'x'; size]).unwrap();
+            (p, None)
+        };
+        let days = vec![mk("mms-2026-11-19.log", 600), mk("mms-2026-11-18.log", 300), mk("mms-2026-11-17.log", 300)];
+        assert_eq!(choose_log_days(&days, 1000), (2, 1));
+        assert_eq!(choose_log_days(&days, 100), (1, 2)); // today is kept even when over budget
+        assert_eq!(choose_log_days(&days, 10_000), (3, 0));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

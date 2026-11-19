@@ -1,3 +1,5 @@
+import { DASH_ICONS } from "../dashboard/dashCatalog";
+import { FL_ICONS } from "../dashboard/fluent/FluentShell";
 // Maps each permission code to its own distinct icon (no two permissions share one).
 // Matched by exact code, not by keyword, so "assets.edit" and "references.edit" don't collide.
 import type { JSX } from "react";
@@ -222,6 +224,12 @@ const ICON_BY_CODE: Record<string, () => JSX.Element> = {
 };
 
 export function getPermissionIcon(code: string): JSX.Element {
+  // Dashboard items use the same icon as in the Dashboard area.
+  const dash = /^dash\.(\d+)$/.exec(code);
+  if (dash && DASH_ICONS[Number(dash[1])]) return <span style={{ display: "inline-flex", width: 20, height: 20 }}>{DASH_ICONS[Number(dash[1])]}</span>;
+  if (code === "dash.overview") return <span style={{ display: "inline-flex", width: 20, height: 20 }}>{FL_ICONS.home}</span>;
+  if (code === "dash.history") return <span style={{ display: "inline-flex", width: 20, height: 20 }}>{FL_ICONS.history}</span>;
+  if (code === "dashboard.view") return <span style={{ display: "inline-flex", width: 20, height: 20 }}>{DASH_ICONS[11]}</span>;
   const Icon = ICON_BY_CODE[code] ?? KeyIcon;
   return <Icon />;
 }

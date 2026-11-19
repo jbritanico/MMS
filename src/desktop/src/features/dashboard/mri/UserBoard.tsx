@@ -7,6 +7,7 @@ import { DrillChips } from "./kit";
 import { Sparkline, StoryStrip, type StoryLine } from "./fluid";
 import { Num } from "../fluent/motion";
 import { Liquid, pctOf } from "../fluent/Liquid";
+import { useAdvanced } from "../dashMode";
 
 // Shared view for the User Analytics dashboards: one row per person with neutral measures,
 // the team average for comparison, a 12-month sparkline, and a drill-down to their records.
@@ -50,6 +51,9 @@ export default function UserBoard({ dashboardNo, title, filters, intro, people, 
   tiles: UserTile[]; story: StoryLine[]; itemsTitle: string; personLabel: string;
 }) {
   const { me, seeAll } = useUserScope();
+  const adv = useAdvanced();
+  /** Simple view: the first three figures per person; Advanced: every figure and the 12-month trend. */
+  const cols = adv ? columns : columns.slice(0, 3);
   const [pick, setPick] = useState<string | null>(null);
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 }>({ key: columns[0].key, dir: -1 });
 
@@ -105,26 +109,26 @@ export default function UserBoard({ dashboardNo, title, filters, intro, people, 
               <thead>
                 <tr>
                   <th>{personLabel}</th>
-                  {columns.map((c) => (
+                  {cols.map((c) => (
                     <th key={c.key} className="mrid-sortable" onClick={() => setSort((s) => ({ key: c.key, dir: s.key === c.key ? (s.dir === 1 ? -1 : 1) : -1 }))}>
                       {c.label}{sort.key === c.key ? (sort.dir === -1 ? " ▾" : " ▴") : ""}
                     </th>
                   ))}
-                  <th style={{ width: 130 }}>Last 12 months</th>
+                  {adv && <th style={{ width: 130 }}>Last 12 months</th>}
                 </tr>
               </thead>
               <tbody>
                 {sorted.map((p) => (
                   <tr key={p.name} className="mrid-click" onClick={() => setPick((v) => (v === p.name ? null : p.name))} style={pick === p.name ? { outline: "2px solid var(--accent)" } : undefined}>
                     <td><b>{p.name}</b>{sameName(p.name, me) ? <span className="mrid-soft"> (you)</span> : null}</td>
-                    {columns.map((c) => <td key={c.key}>{fmt(c, p.values[c.key])}</td>)}
-                    <td><Sparkline values={p.spark} color="var(--accent-blue, #2f6fed)" height={22} title={`${p.name}, by month`} /></td>
+                    {cols.map((c) => <td key={c.key}>{fmt(c, p.values[c.key])}</td>)}
+                    {adv && <td><Sparkline values={p.spark} color="var(--accent-blue, #2f6fed)" height={22} title={`${p.name}, by month`} /></td>}
                   </tr>
                 ))}
                 <tr className="mrid-team-row">
                   <td>Team average</td>
-                  {columns.map((c) => <td key={c.key}>{fmt(c, teamAvg(c))}</td>)}
-                  <td />
+                  {cols.map((c) => <td key={c.key}>{fmt(c, teamAvg(c))}</td>)}
+                  {adv && <td />}
                 </tr>
               </tbody>
             </table>

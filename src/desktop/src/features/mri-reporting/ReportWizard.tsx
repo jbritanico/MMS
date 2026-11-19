@@ -80,6 +80,11 @@ const STEPS: { id: Step; label: string }[] = [
   { id: "review", label: "Review & Submit" },
 ];
 
+// One shared empty list for "saved values not loaded yet". A fresh `[]` on every render
+// looks like new data each time, so an effect keyed on the saved values would run on every
+// render while they load and loop ("Maximum update depth exceeded", seen on Draft reports).
+const NO_ROWS: never[] = [];
+
 interface ReportWizardProps {
   reportId: number;
   onBack: () => void;
@@ -727,7 +732,7 @@ function HeaderEntryStep({
 }) {
   const { data: templateFields = [] } = useTemplateHeaderFields(templateId);
   const { data: catalog = [] } = useHeaderFieldCatalog();
-  const { data: savedValues = [], isSuccess: savedValuesLoaded } = useMriReportHeaderValues(reportId);
+  const { data: savedValues = NO_ROWS, isSuccess: savedValuesLoaded } = useMriReportHeaderValues(reportId);
   const setValue = useSetMriReportHeaderValue(reportId);
   const { data: previousEngineHours } = usePreviousEngineHours(
     asset?.id ?? 0,
@@ -1179,7 +1184,7 @@ function MidEntryStep({
 }) {
   const { data: templateFields = [] } = useTemplateMidFields(templateId);
   const { data: catalog = [] } = useMidFieldCatalog();
-  const { data: savedValues = [] } = useMriReportMidValues(reportId);
+  const { data: savedValues = NO_ROWS } = useMriReportMidValues(reportId);
   const setValue = useSetMriReportMidValue(reportId);
   const { data: previousComplianceStage } = usePreviousComplianceStage(
     assetId,
@@ -1392,7 +1397,7 @@ function FooterEntryStep({
 }) {
   const { data: templateFields = [] } = useTemplateFooterFields(templateId);
   const { data: catalog = [] } = useFooterFieldCatalog();
-  const { data: savedValues = [] } = useMriReportFooterValues(reportId);
+  const { data: savedValues = NO_ROWS, isSuccess: savedValuesLoaded } = useMriReportFooterValues(reportId);
   const setValue = useSetMriReportFooterValue(reportId);
   const { user: currentUser } = useCurrentUser();
   const { data: allUsers = [] } = useAppUsers();
@@ -1420,7 +1425,8 @@ function FooterEntryStep({
   // signed in gets their own field auto-filled and locked, and the OTHER field becomes a
   // dropdown of the matching role's users (see the render branches below).
   useEffect(() => {
-    if (locked || !currentUser) return;
+    // Wait for the saved values, or the name is saved again on every render while they load.
+    if (locked || !currentUser || !savedValuesLoaded) return;
     const operatorField = sortedFields.find(
       (tf) =>
         fieldLabel(tf.footer_field_id).trim().toLowerCase() === "operator",
@@ -1452,7 +1458,7 @@ function FooterEntryStep({
         });
       }
     }
-  }, [currentUser, sortedFields, savedValues, locked]);
+  }, [currentUser, sortedFields, savedValues, savedValuesLoaded, locked]);
 
   function handleChange(fieldId: number, value: string) {
     setLocalValues((prev) => ({ ...prev, [fieldId]: value }));

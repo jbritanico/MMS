@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactElement, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactElement, type ReactNode } from "react";
 import {
   useAssetsWithMriHistorySummary,
   useAssetMriHistory,
@@ -9,11 +9,13 @@ import { type Theme } from "../../lib/theme";
 import { useAssets } from "../asset-registry/hooks/useAssets";
 import { useAssetTypes } from "../administration/hooks/useAssetTypes";
 import { TagLamp } from "../../components/Instruments";
+import { DEFAULT_TRIGGER_ICON, TRIGGER_TYPE_COLORS, TRIGGER_TYPE_ICONS, triggerIconBg } from "../../components/triggerIcons";
 import MriDashboards from "./MriDashboards";
 import { FL_ICONS, FluentShell, HeroBanner, RangeTabs, sectionOfDash, type FlTone, type ShellSection } from "./fluent/FluentShell";
 import Overview from "./fluent/Overview";
-import { GROUPS, USER_GROUPS } from "./dashCatalog";
+import { DASHBOARDS, GROUPS, USER_GROUPS } from "./dashCatalog";
 import { inScope, ScopeFilterBar, useScopeFilter } from "./scopeFilter";
+import { useDashAccess, type DashAccess } from "./dashAccess";
 import { useMriDashboardScope } from "./hooks/useMriDashboards";
 
 const STATUS_COLOR: Record<string, string> = {
@@ -34,64 +36,9 @@ const TRIGGER_TYPE_LABELS: Record<string, string> = {
   EH: "Engine hours",
 };
 
-const TRIGGER_TYPE_COLORS: Record<string, string> = {
-  OH: "var(--accent-blue)",
-  CA: "var(--warn)",
-  KM: "var(--success)",
-  RIF: "var(--accent)",
-  EH: "var(--danger)",
-};
 
-// Soft tint backgrounds for the stat-card icon chips -- reusing the theme's existing soft
-// tokens where one lines up with the trigger color; OH's blue has no themed soft token, so
-// it gets a fixed low-alpha tint instead.
-const TRIGGER_STAT_ICON_BG: Record<string, string> = {
-  CA: "color-mix(in srgb, var(--warn) 14%, transparent)",
-  RIF: "color-mix(in srgb, var(--accent) 14%, transparent)",
-  KM: "var(--success-soft)",
-  OH: "rgba(47, 111, 237, 0.14)",
-  EH: "var(--danger-soft)",
-};
 
-const TRIGGER_TYPE_ICONS: Record<string, ReactElement> = {
-  OH: (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M12 7v5l3 2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  ),
-  CA: (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M4 9h16M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  ),
-  KM: (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 21s7-7.5 7-12a7 7 0 1 0-14 0c0 4.5 7 12 7 12z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-      <circle cx="12" cy="9" r="2.3" stroke="currentColor" strokeWidth="1.6" />
-    </svg>
-  ),
-  RIF: (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="3" y="9" width="18" height="6" rx="1.2" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M7 9v3M11 9v3M15 9v3M19 9v3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  ),
-  EH: (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M4 15a8 8 0 1 1 16 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      <path d="M12 15l4-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      <circle cx="12" cy="15" r="1.2" fill="currentColor" />
-    </svg>
-  ),
-};
 
-const DEFAULT_TRIGGER_ICON = (
-  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="12" r="4" fill="currentColor" />
-  </svg>
-);
 
 
 
@@ -373,7 +320,7 @@ const STAT_UNITS: Record<string, string> = { KM: "km", OH: "h", EH: "h", CA: "da
 // and a status pill (On track / Due soon / Overdue) driven by the trigger's own thresholds.
 function StatCard({ type, label, runningValue, intervalValue, warningValue }: StatCardProps) {
   const color = TRIGGER_TYPE_COLORS[type] ?? "var(--text-soft)";
-  const iconBg = TRIGGER_STAT_ICON_BG[type] ?? "var(--chip-bg)";
+  const iconBg = triggerIconBg(type);
   const unit = STAT_UNITS[type] ?? "";
   const pct = intervalValue > 0 ? Math.min(100, Math.max(0, (runningValue / intervalValue) * 100)) : 0;
   const warnPct = intervalValue > 0 && warningValue ? Math.min(100, (warningValue / intervalValue) * 100) : null;
@@ -623,6 +570,27 @@ const HEAD: Record<DashboardView, [string, string]> = {
   "mri-history": ["Asset MR-I History", "Every unit's MR-I report timeline, trigger status and trend"],
 };
 
+/** Shown when the item the user opened is turned off for them; lists what they can open instead. */
+function NoDashAccess({ access, onOpenDash, onSection }: { access: DashAccess; onOpenDash: (no: number) => void; onSection: (s: ShellSection) => void }) {
+  const any = access.overview || access.history || access.allowed.length > 0;
+  return (
+    <div className="empty" style={{ display: "grid", gap: 12, justifyItems: "center", padding: "48px 16px" }}>
+      <b style={{ fontSize: 16 }}>This dashboard is not available for your account</b>
+      <span>{any ? "Your Administrator has turned it off for you. You can open:" : "Your Administrator has not given you access to any dashboard yet."}</span>
+      {any && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", maxWidth: 720 }}>
+          {access.overview && <button type="button" className="ghost" onClick={() => onSection("overview")}>Overview</button>}
+          {access.history && <button type="button" className="ghost" onClick={() => onSection("mri-history")}>Asset MR-I History</button>}
+          {access.allowed.map((no) => {
+            const d = DASHBOARDS.find((x) => x.no === no);
+            return d ? <button key={no} type="button" className="ghost" onClick={() => onOpenDash(no)}>{d.title}</button> : null;
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Dashboard({ onOpenReport, onShowAssetFlow, nav, onNavChange }: DashboardProps) {
   const view = nav.view;
   const selectedAsset = nav.asset;
@@ -631,11 +599,29 @@ function Dashboard({ onOpenReport, onShowAssetFlow, nav, onNavChange }: Dashboar
   const setSelectedAsset = (a: DashboardNav["asset"]) => onNavChange({ ...nav, asset: a });
   const { data: assets = [], isLoading } = useAssetsWithMriHistorySummary();
   const [title, subtitle] = HEAD[view];
-  // The dashboard on screen in the MR-I / User Analytics sections (first of the section until one is picked).
-  const activeDash = view === "mri-dashboards" ? nav.dash ?? GROUPS[0].nos[0] : view === "user-analytics" ? nav.dash ?? USER_GROUPS[0].nos[0] : null;
+  const access = useDashAccess();
+  // The dashboard on screen in the MR-I / User Analytics sections (first one the user may open until one is picked).
+  const activeDash = view === "mri-dashboards" ? nav.dash ?? access.firstMri ?? GROUPS[0].nos[0] : view === "user-analytics" ? nav.dash ?? access.firstUser ?? USER_GROUPS[0].nos[0] : null;
+  // Items turned off for this user (Administration > Roles / Users > Permissions) are not shown.
+  const blocked =
+    (view === "hub" && !access.overview) ||
+    (view === "mri-history" && !access.history) ||
+    ((view === "mri-dashboards" || view === "user-analytics") && (activeDash == null || !access.dash(activeDash)));
+
+  // Overview turned off: open the first item the user may see instead of an empty landing page.
+  const landing = view === "hub" && !access.overview
+    ? (access.firstMri ?? access.firstUser) != null ? `d${access.firstMri ?? access.firstUser}` : access.history ? "history" : null
+    : null;
+  useEffect(() => {
+    if (landing === "history") setSection("mri-history");
+    else if (landing) openDash(Number(landing.slice(1)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [landing]);
 
   let body: ReactNode;
-  if (view === "mri-history" && selectedAsset) {
+  if (blocked) {
+    body = <NoDashAccess access={access} onOpenDash={openDash} onSection={setSection} />;
+  } else if (view === "mri-history" && selectedAsset) {
     body = (
       <AssetHistoryPanel
         assetId={selectedAsset.id}

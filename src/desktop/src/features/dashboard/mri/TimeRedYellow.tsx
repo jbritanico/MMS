@@ -10,6 +10,7 @@ import { HealthStream, useHealthSeries } from "./health";
 import { Num, chartAnim } from "../fluent/motion";
 import Chart3D, { use3DMode, ViewToggle, type Cell3D } from "../fluent/Chart3D";
 import { Liquid } from "../fluent/Liquid";
+import { useAdvanced } from "../dashMode";
 
 // Dashboard 8: Time spent Red or Yellow.
 // From the tag history, how long each unit was Red (not safe to use) or Yellow (under repair)
@@ -69,6 +70,7 @@ export function TimeRedYellowMini({ assets }: { assets: MriDashboardAsset[] }) {
 type Pick = "red" | "yellow" | "out" | null;
 
 export default function TimeRedYellow({ assets, filters }: { assets: MriDashboardAsset[]; filters: DashboardFilters }) {
+  const adv = useAdvanced();
   const p = period(filters);
   const { times, tag_changes, isLoading, error } = useTimes(assets, p.s, p.e);
   // ---- fluid layer: health stream over the period, and Red / Yellow unit-days by month ----
@@ -171,6 +173,7 @@ export default function TimeRedYellow({ assets, filters }: { assets: MriDashboar
         </div>
       </div>
 
+      {adv && (<>
       <HealthStream
         title="Fleet health over the period"
         data={health}
@@ -204,6 +207,7 @@ export default function TimeRedYellow({ assets, filters }: { assets: MriDashboar
           </>
         )}
       </div>
+      </>)}
 
       {unit && (
         <div className="mrid-panel">

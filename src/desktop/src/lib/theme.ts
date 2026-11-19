@@ -1,4 +1,4 @@
-export type Theme = "light" | "dark" | "ocean" | "sepia" | "sprint" | "macos" | "macos-dark";
+export type Theme = "light" | "dark" | "ocean" | "sepia" | "sprint" | "macos" | "macos-dark" | "fluent";
 
 export const THEMES: { id: Theme; label: string; swatch: string; hidden?: boolean }[] = [
   { id: "light", label: "Light", swatch: "#e7eaf0" },
@@ -8,6 +8,7 @@ export const THEMES: { id: Theme; label: string; swatch: string; hidden?: boolea
   { id: "sprint", label: "Sprint", swatch: "#05a1c7", hidden: true },
   { id: "macos", label: "macOS Light", swatch: "#ffffff" },
   { id: "macos-dark", label: "macOS Dark", swatch: "#2c2c2e", hidden: true },
+  { id: "fluent", label: "Fluent", swatch: "#2f6fed" },
 ];
 
 // Themes shown in the picker. Hidden themes keep their CSS and can be re-enabled by removing "hidden: true" above.

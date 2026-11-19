@@ -3,6 +3,7 @@ import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import { useCurrentUser } from "../currentUser";
 import { copyText, diag, fileStamp, flush, installDiag, localStamp, saveFile, timeOnly, type ErrItem, type IpcItem, type SystemInfo, type TrailItem } from "./diag";
 import { SUPPORT_CSS } from "./supportCss";
+import { buildSupportBundle, fmtBundleSize, type BundleResult } from "./supportBundle";
 
 // The support tools, available on every screen:
 //   Help button (bottom right) -> About MMS (#4), Report a problem (#5), Save diagnostics file (#3),
@@ -20,7 +21,7 @@ const SCREEN_NAMES: Record<string, string> = {
   "report-flow": "Report flow", "asset-flow": "Asset flow",
 };
 
-type Modal = null | "about" | "problem" | "diagnostics" | "check" | "export" | "crash";
+type Modal = null | "send" | "about" | "problem" | "diagnostics" | "check" | "export" | "crash";
 interface DataCheck { key: string; name: string; status: "ok" | "warn" | "error" | "skip"; count: number; detail: string; examples: number[] }
 interface SessionStart { unclean: boolean; previous_started: string | null; crash_note: string | null }
 
@@ -40,6 +41,7 @@ const ICON = {
   folder: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>,
   bug: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="7" y="7" width="10" height="13" rx="5" /><path d="M12 7v13M4 12h3M17 12h3M5 18l2.5-1.5M19 18l-2.5-1.5M5 6l2.5 1.5M19 6l-2.5 1.5M9.5 4.5 10.5 7M14.5 4.5 13.5 7" /></svg>,
   warn: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3.5 2.5 20h19z" /><path d="M12 10v4.5M12 17.2v.1" /></svg>,
+  send: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M21 3 10 14" /><path d="M21 3l-7 18-4-7-7-4z" /></svg>,
 };
 
 // ---------------------------------------------------------------- HTML files
@@ -141,6 +143,7 @@ export default function SupportCenter({ screen, context }: { screen: string; con
   const openLogs = () => call("diag_open_log_folder").catch((e) => notify(String(e)));
 
   const items: { key: string; icon: ReactNode; label: string; hint?: string; run: () => void; admin?: boolean }[] = [
+    { key: "send", icon: ICON.send, label: "Send to IT", hint: "One file with everything IT needs", run: () => setModal("send") },
     { key: "about", icon: ICON.info, label: "About MMS", hint: "Version, computer and database", run: () => setModal("about") },
     { key: "problem", icon: ICON.flag, label: "Report a problem", hint: "Ctrl + Shift + F", run: () => setModal("problem") },
     { key: "diag", icon: ICON.box, label: "Save diagnostics file", hint: "One file for Jess", run: () => setModal("diagnostics") },
@@ -184,6 +187,7 @@ export default function SupportCenter({ screen, context }: { screen: string; con
 
       {support && isAdmin && <SupportPanel onClose={() => setSupport(false)} />}
 
+      {modal === "send" && <SendToItModal report={context?.report ?? null} onClose={() => setModal(null)} />}
       {modal === "about" && <AboutModal onClose={() => setModal(null)} onCopy={notify} onLogs={openLogs} onDiagnostics={() => setModal("diagnostics")} />}
       {modal === "problem" && <ProblemModal onClose={() => setModal(null)} onSaved={notify} />}
       {modal === "diagnostics" && <DiagnosticsModal onClose={() => setModal(null)} onSaved={notify} />}
@@ -379,6 +383,107 @@ function CheckModal({ onClose, onSaved }: { onClose: () => void; onSaved: (m: st
           </ul>
         </>
       )}
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------- Send to IT (support bundle)
+
+interface BundlePreview { log_days: number; log_bytes: number; log_days_over_budget: number; has_sessions: boolean; database_bytes: number; folder: string }
+
+/** Checklist items 14 to 16: the user writes a note, chooses the optional parts, sees what goes
+ *  into the file, saves it to Downloads and gets help attaching it to an e-mail or Teams message. */
+function SendToItModal({ report, onClose }: { report: string | number | null; onClose: () => void }) {
+  const reportNo = report != null ? Number(String(report).replace(/\D/g, "")) || null : null;
+  const [note, setNote] = useState("");
+  const [withReport, setWithReport] = useState(reportNo != null);
+  const [withBackup, setWithBackup] = useState(false);
+  const [preview, setPreview] = useState<BundlePreview | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState<BundleResult | null>(null);
+  const [copied, setCopied] = useState(false);
+  const s = diag.state;
+  useEffect(() => { call<BundlePreview>("diag_bundle_preview").then(setPreview).catch(() => setPreview(null)); }, []);
+
+  const make = async () => {
+    if (!note.trim() || busy) return;
+    setBusy(true); setErr(null);
+    try {
+      setDone(await buildSupportBundle({ note, includeReport: withReport ? reportNo : null, includeBackup: withBackup }));
+    } catch (e) {
+      setErr(String(e).replace(/^Error:\s*/, ""));
+    } finally { setBusy(false); }
+  };
+  const showFile = () => { if (done) call("diag_show_bundle", { path: done.path }).catch((e) => setErr(String(e))); };
+  const copyPath = async () => { if (done) { const ok = await copyText(done.path); setCopied(ok); } };
+
+  if (done) {
+    return (
+      <Dialog title="Send to IT" icon={ICON.send} onClose={onClose}
+        footer={<>
+          <button type="button" className="ghost" onClick={copyPath}>{ICON.copy} {copied ? "Copied" : "Copy file location"}</button>
+          <button type="button" className="ghost" onClick={showFile}>{ICON.folder} Show the file</button>
+          <button type="button" className="primary" onClick={onClose}>Done</button>
+        </>}>
+        <div className="sup-done"><span className="sup-done-ico">{ICON.check}</span><div>
+          <b>{done.file_name}</b>
+          <p>Saved in your <b>Downloads</b> folder ({fmtBundleSize(done.bytes)}).</p>
+        </div></div>
+        {done.warnings.length > 0 && <ul className="sup-notes">{done.warnings.map((w) => <li key={w}>{ICON.warn}<span>{w}</span></li>)}</ul>}
+        <h4 className="sup-h4">Now send it to IT</h4>
+        <ol className="sup-howto">
+          <li>Press <b>Show the file</b> below. The Downloads folder opens with the file selected.</li>
+          <li>In <b>Outlook</b>, start an e-mail to IT, or in <b>Teams</b> open a chat with IT.</li>
+          <li>Drag the file into the e-mail or chat (or use <b>Attach</b> and pick it from Downloads).</li>
+          <li>Add one line about what went wrong, then send.</li>
+        </ol>
+        <p className="sup-muted">Please send the file as it is. Do not open, rename or change it.</p>
+        {done.removed.length > 0 && (
+          <details className="sup-details"><summary>Left out for safety ({done.removed.length})</summary>
+            <ul className="sup-plain">{done.removed.map((r) => <li key={r}>{r}</li>)}</ul></details>
+        )}
+        {err && <p className="sup-err">{err}</p>}
+      </Dialog>
+    );
+  }
+
+  const logLine = preview
+    ? `Last ${preview.log_days} day${preview.log_days === 1 ? "" : "s"} of the MMS log (${fmtBundleSize(preview.log_bytes)} before packing)`
+    : "The MMS log of the last 14 days";
+  const contents: [string, string | null][] = [
+    ["Your note", note.trim() ? "Ready" : "Write it above"],
+    [logLine, preview?.log_days_over_budget ? `${preview.log_days_over_budget} older day(s) left out to keep the file small` : null],
+    ["This laptop's MMS details (version, Windows, database size)", null],
+    ["Check my data results", null],
+    ["When MMS was started and closed (crash history)", preview && !preview.has_sessions ? "None recorded yet" : null],
+    [`Your last steps, errors and timings on screen (${s.trail.length} steps, ${s.errors.length} errors)`, null],
+  ];
+  if (withReport && reportNo) contents.push([`MR-I report #${reportNo}`, "Photos left out"]);
+  if (withBackup) contents.push(["A full copy of your MMS data", preview ? `About ${fmtBundleSize(preview.database_bytes)} before packing · photos and drawings left out` : "Photos and drawings left out"]);
+
+  return (
+    <Dialog title="Send to IT" icon={ICON.send} onClose={busy ? () => {} : onClose} wide
+      footer={<>
+        <button type="button" className="ghost" onClick={onClose} disabled={busy}>Cancel</button>
+        <button type="button" className="primary" onClick={make} disabled={!note.trim() || busy}>{busy ? <><span className="sup-spin" /> Making the file…</> : <>{ICON.box} Make the file</>}</button>
+      </>}>
+      <p className="sup-muted">MMS packs everything IT needs to find the problem into <b>one file</b> in your Downloads folder. Nothing is sent automatically: you attach the file to an e-mail or Teams message yourself.</p>
+      <label className="sup-field"><span>What went wrong? <b>*</b></span>
+        <textarea autoFocus value={note} onChange={(e) => setNote(e.target.value)} rows={3} disabled={busy}
+          placeholder="e.g. Saving the Footer of the MR-I report for unit 12 did nothing." /></label>
+      <div className="sup-options">
+        {reportNo != null && (
+          <label className="sup-check"><input type="checkbox" checked={withReport} disabled={busy} onChange={(e) => setWithReport(e.target.checked)} /> Include the report I am on (#{reportNo})</label>
+        )}
+        <label className="sup-check"><input type="checkbox" checked={withBackup} disabled={busy} onChange={(e) => setWithBackup(e.target.checked)} /> Include a full copy of my MMS data <small>(only when IT asks for it)</small></label>
+      </div>
+      <h4 className="sup-h4">What goes into the file</h4>
+      <ul className="sup-contents">
+        {contents.map(([label, note2]) => <li key={label}>{ICON.check}<span>{label}{note2 && <small>{note2}</small>}</span></li>)}
+      </ul>
+      <p className="sup-never">{ICON.warn}<span><b>Never included:</b> photos, drawings, passwords and the database key.</span></p>
+      {err && <p className="sup-err">{err}</p>}
     </Dialog>
   );
 }

@@ -6,6 +6,7 @@ import {
   ROLES,
 } from "./hooks/useUserAdmin";
 import { getPermissionIcon } from "./permissionIcons";
+import { dashPermRank } from "../dashboard/dashAccess";
 
 function Roles() {
   const [selectedRole, setSelectedRole] = useState<string>(ROLES[0]);
@@ -30,6 +31,26 @@ function Roles() {
   }
 
   const categories = Array.from(new Set(permissions.map((p) => p.category)));
+  /** Permissions of one category; Dashboards in catalogue order (area, Overview, History, 1-18). */
+  const inCategory = (cat: string) => {
+    const list = permissions.filter((p) => p.category === cat);
+    return cat === "Dashboards" ? [...list].sort((a, b) => dashPermRank(a.code) - dashPermRank(b.code)) : list;
+  };
+  const [bulkBusy, setBulkBusy] = useState(false);
+  /** Turn every switch of a category on or off for the selected role. */
+  async function setAll(cat: string, on: boolean) {
+    setBulkBusy(true);
+    try {
+      for (const p of inCategory(cat)) {
+        if (rolePerms.includes(p.code) !== on) await setRolePermission.mutateAsync({ permissionCode: p.code, granted: on });
+      }
+      flash(`${cat}: all turned ${on ? "on" : "off"} for ${selectedRole}`, "ok");
+    } catch (err) {
+      flash(String(err), "err");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   return (
     <div>
@@ -57,7 +78,15 @@ function Roles() {
 
       {categories.map((cat) => (
         <div key={cat} style={{ marginBottom: 26 }}>
-          <div className="mri-preview-section-label">{cat}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+            <div className="mri-preview-section-label" style={{ marginBottom: 0 }}>{cat}</div>
+            {cat === "Dashboards" && (
+              <>
+                <button type="button" className="ghost" style={{ padding: "4px 10px", fontSize: 12 }} disabled={bulkBusy} onClick={() => setAll(cat, true)}>All on</button>
+                <button type="button" className="ghost" style={{ padding: "4px 10px", fontSize: 12 }} disabled={bulkBusy} onClick={() => setAll(cat, false)}>All off</button>
+              </>
+            )}
+          </div>
           <div
             style={{
               display: "grid",
@@ -65,7 +94,7 @@ function Roles() {
               gap: 12,
             }}
           >
-            {permissions.filter((p) => p.category === cat).map((p) => {
+            {inCategory(cat).map((p) => {
               const isOn = rolePerms.includes(p.code);
               return (
                 <div

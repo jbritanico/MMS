@@ -6,6 +6,7 @@ import { PreviewButton } from "./ReportPreview";
 import { FlowSteps, StoryStrip, type StoryLine } from "./fluid";
 import { LiveAge, Num, chartAnim } from "../fluent/motion";
 import { sevLabel } from "../hooks/useMriDashboards";
+import { useAdvanced } from "../dashMode";
 
 // Dashboard 5: Decisions waiting, by reviewer.
 // Everything waiting for a reviewer NOW: fault decisions (Pending) and reports waiting for the
@@ -55,6 +56,7 @@ export function DecisionsWaitingMini({ assets }: { assets: MriDashboardAsset[] }
 type Pick = "faults" | "reports" | "unnamed" | "late" | null;
 
 export default function DecisionsWaiting({ assets, filters }: { assets: MriDashboardAsset[]; filters: DashboardFilters }) {
+  const adv = useAdvanced();
   const { rows, isLoading, error } = useScoped(assets);
   const unitOf = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets]);
   const [pick, setPick] = useState<Pick>(null);
@@ -171,6 +173,7 @@ export default function DecisionsWaiting({ assets, filters }: { assets: MriDashb
         {tile("late", "Waiting over 7 days", late.length, late.length ? `Oldest ${oldest(late)} days` : "Nothing waiting that long", "var(--text-soft)")}
       </div>
 
+      {adv && (<>
       <FlowSteps
         title="Where things are waiting in the review flow"
         steps={[
@@ -221,6 +224,7 @@ export default function DecisionsWaiting({ assets, filters }: { assets: MriDashb
           </>
         )}
       </div>
+      </>)}
 
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>{picking ? "Selected items" : "Everything waiting, longest first"} ({list.length})</h3></div>

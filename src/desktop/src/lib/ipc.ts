@@ -5,6 +5,7 @@ import { diag } from "./support/diag";
 // took and whether it failed (command log, error details, app log file).
 export async function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
     const started = performance.now();
+    diag.ipcStart();
     try {
         const result = await tauriInvoke<T>(command, args);
         diag.ipcDone(command, args, performance.now() - started, true, result);

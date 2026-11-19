@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import MainMenu from "./features/main-menu/MainMenu";
 import AssetRegistry from "./features/asset-registry/AssetRegistry";
@@ -21,6 +21,7 @@ import MyReportsQueue from "./features/mri-reporting/MyReportsQueue";
 import ReportFlow from "./features/mri-reporting/ReportFlow";
 import AssetFlow from "./features/mri-reporting/AssetFlow";
 import type { Theme } from "./lib/theme";
+import { FLUENT_THEME_CSS } from "./lib/fluentTheme";
 import { CurrentUserProvider } from "./lib/currentUser";
 import WindowTitle from "./lib/WindowTitle";
 import UserPickerGate from "./lib/UserPickerGate";
@@ -136,6 +137,12 @@ function App() {
   function handleThemeChange(t: Theme) {
     setTheme(t);
   }
+
+  // Fluent theme: also mark the page root, so pop-ups drawn outside the app frame (side drawers,
+  // dialogs) get the Fluent look too. Only Fluent uses this; the other themes are unchanged.
+  useEffect(() => {
+    document.documentElement.toggleAttribute("data-fluent", theme === "fluent");
+  }, [theme]);
 
   function handleNavigate(target: Screen, level?: MrLevel) {
     if (level) setMrLevel(level);
@@ -2494,6 +2501,7 @@ function App() {
           .app[data-theme^="macos"] .instr-lamp { font-weight: 600; letter-spacing: 0; text-transform: none; font-size: 12px; }
           .app[data-theme^="macos"] .instr-gauge { padding: 4px; border-radius: 12px; background: var(--neu-bg); box-shadow: inset 0 0 0 1px var(--border); }
         `}</style>
+          <style>{FLUENT_THEME_CSS}</style>
 
           <UserPickerGate theme={theme} onThemeChange={handleThemeChange}>
             {screen !== "menu" && (

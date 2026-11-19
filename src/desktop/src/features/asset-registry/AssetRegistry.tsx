@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ReactElement } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   useAssetsForViewer, useCreateAsset, useUpdateAsset, useDeleteAsset, useAssetTagHistory,
   useMocExemptions, useCreateMocExemption, useRevokeMocExemption,
@@ -11,8 +11,9 @@ import { useMriTemplates } from "../administration/hooks/useMriTemplates";
 import { useLookups } from "../administration/hooks/useLookups";
 import AssetTypeCombobox from "../administration/AssetTypeCombobox";
 import { TagLamp } from "../../components/Instruments";
+import { DEFAULT_TRIGGER_ICON, TRIGGER_TYPE_COLORS, TRIGGER_TYPE_ICONS } from "../../components/triggerIcons";
 import { useCurrentUser } from "../../lib/currentUser";
-import { useEffectivePermissions } from "../administration/hooks/useUserAdmin";
+import { useEffectivePermissions, useUserCountryAccess } from "../administration/hooks/useUserAdmin";
 
 // Same mapping/icons/colors used on the MR-I "Select Asset" cards.
 const TRIGGER_TYPE_LABELS: Record<string, string> = {
@@ -23,53 +24,8 @@ const TRIGGER_TYPE_LABELS: Record<string, string> = {
   EH: "Engine hours",
 };
 
-const TRIGGER_TYPE_COLORS: Record<string, string> = {
-  OH: "var(--accent-blue)",
-  CA: "var(--warn)",
-  KM: "var(--success)",
-  RIF: "var(--accent)",
-  EH: "var(--danger)",
-};
 
-const TRIGGER_TYPE_ICONS: Record<string, ReactElement> = {
-  OH: (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M12 7v5l3 2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  ),
-  CA: (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M4 9h16M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  ),
-  KM: (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 21s7-7.5 7-12a7 7 0 1 0-14 0c0 4.5 7 12 7 12z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-      <circle cx="12" cy="9" r="2.3" stroke="currentColor" strokeWidth="1.6" />
-    </svg>
-  ),
-  RIF: (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="3" y="9" width="18" height="6" rx="1.2" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M7 9v3M11 9v3M15 9v3M19 9v3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  ),
-  EH: (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M4 15a8 8 0 1 1 16 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      <path d="M12 15l4-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      <circle cx="12" cy="15" r="1.2" fill="currentColor" />
-    </svg>
-  ),
-};
 
-const DEFAULT_TRIGGER_ICON = (
-  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="12" r="4" fill="currentColor" />
-  </svg>
-);
 
 interface AssetRegistryCardProps {
   asset: Asset;
@@ -231,6 +187,87 @@ function AssetMocExemptions({
   );
 }
 
+// One row of the list view: the same facts and actions as a card, in a compact table row.
+function AssetRegistryRow({ asset: a, assetTypeLabel, canEdit, canDelete, onRowClick, onEdit, onDelete, onShowFlow }: AssetRegistryCardProps) {
+  const { data: triggers = [] } = useAssetTriggers(a.id);
+  const activeTriggers = triggers.filter((t) => t.enabled);
+  return (
+    <tr className="asset-row" onClick={() => onRowClick(a)}>
+      <td>{a.tag_status ? <TagLamp status={a.tag_status} size={16} title={a.tag_reason ?? undefined} /> : <span className="asset-row-soft">—</span>}</td>
+      <td><div className="review-card-code">{a.asset_code}</div><div className="asset-row-soft">{a.asset_description || "—"}</div></td>
+      <td>{assetTypeLabel ?? <span className="asset-row-soft">No type</span>}</td>
+      <td>{a.country || <span className="asset-row-soft">—</span>}</td>
+      <td>{a.service_line || <span className="asset-row-soft">—</span>}</td>
+      <td>
+        <div className="asset-row-trig">
+          {activeTriggers.length === 0 ? <span className="asset-row-soft">—</span> : activeTriggers.map((t) => (
+            <span key={t.id} className="trigger-icon-chip" title={TRIGGER_TYPE_LABELS[t.trigger_type] ?? t.trigger_type}>
+              <span style={{ color: TRIGGER_TYPE_COLORS[t.trigger_type] ?? "var(--text-soft)", display: "inline-flex" }}>
+                {TRIGGER_TYPE_ICONS[t.trigger_type] ?? DEFAULT_TRIGGER_ICON}
+              </span>
+              <span>{t.running_value}/{t.interval_value}</span>
+            </span>
+          ))}
+        </div>
+      </td>
+      <td><span className={`pill ${a.active ? "active" : "inactive"}`}>{a.active ? "Active" : "Inactive"}</span></td>
+      <td>
+        <div className="asset-row-actions">
+          {onShowFlow && a.id !== null && (
+            <button className="icon-btn" aria-label="Show flow" title="Show history flow" onClick={(e) => { e.stopPropagation(); onShowFlow(a.id as number); }}>
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="3" y="4" width="6" height="5" rx="1" stroke="currentColor" strokeWidth="1.6" />
+                <rect x="15" y="4" width="6" height="5" rx="1" stroke="currentColor" strokeWidth="1.6" />
+                <rect x="9" y="15" width="6" height="5" rx="1" stroke="currentColor" strokeWidth="1.6" />
+                <path d="M9 6.5h6M6 9v3a2 2 0 0 0 2 2h1M18 9v3a2 2 0 0 1-2 2h-1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+            </button>
+          )}
+          <button className="icon-btn" aria-label="Edit" onClick={(e) => onEdit(e, a)} disabled={!canEdit} title={!canEdit ? "Your role doesn't have permission to edit assets" : "Edit"}>
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+            </svg>
+          </button>
+          <button className="icon-btn icon-danger" aria-label="Delete" onClick={(e) => onDelete(e, a)} disabled={!canDelete} title={!canDelete ? "Your role doesn't have permission to delete assets" : "Delete"}>
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+const VIEW_KEY = "mms.assets.view";
+type RegistryView = "cards" | "list";
+const readView = (): RegistryView => {
+  try { return localStorage.getItem(VIEW_KEY) === "list" ? "list" : "cards"; } catch { return "cards"; }
+};
+
+const REGISTRY_CSS = `
+.asset-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin: -4px 0 14px; }
+.asset-filters label { display: inline-flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 600; color: var(--text-soft); text-transform: uppercase; letter-spacing: .04em; }
+.asset-filters select { min-width: 150px; max-width: 220px; }
+.asset-view-toggle { display: inline-flex; gap: 2px; padding: var(--seg-track-pad, 3px); border-radius: var(--seg-track-radius, 10px); background: var(--tab-track, rgba(0,0,0,0.05)); }
+.asset-view-toggle button { display: inline-flex; align-items: center; gap: 6px; padding: var(--seg-pad, 6px 12px) !important; min-height: 0 !important; font-size: var(--seg-font, 12.5px) !important;
+  border: var(--seg-border, 0) !important; border-radius: var(--seg-radius, 8px) !important; background: transparent !important; box-shadow: none !important; color: var(--seg-off-color, var(--text-soft)) !important; font-weight: var(--seg-off-weight, 500) !important; }
+.asset-view-toggle button[aria-pressed="true"] { background: var(--seg-on-bg, var(--surface)) !important; color: var(--seg-on-color, var(--text)) !important; font-weight: var(--seg-on-weight, 600) !important; box-shadow: var(--seg-on-shadow, 0 1px 3px rgba(0,0,0,0.12)) !important; }
+.asset-view-toggle svg { width: 15px; height: 15px; }
+.asset-table-wrap { overflow-x: auto; }
+.asset-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.asset-table th { text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-soft); padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.asset-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.asset-table .asset-row { cursor: pointer; }
+.asset-table .asset-row:hover td { background: var(--hover-highlight); }
+.asset-row-soft { font-size: 12px; color: var(--text-soft); }
+.asset-row-trig { display: flex; gap: 4px; flex-wrap: wrap; }
+.asset-row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.asset-row-actions .icon-btn { width: 30px !important; height: 30px !important; }
+.asset-row-actions .icon-btn svg { width: 15px !important; height: 15px !important; }
+`;
+
 function AssetRegistryCard({ asset: a, assetTypeLabel, assetTypeIcon, canEdit, canDelete, onRowClick, onEdit, onDelete, onShowFlow }: AssetRegistryCardProps) {
   const { data: triggers = [] } = useAssetTriggers(a.id);
   const activeTriggers = triggers.filter((t) => t.enabled);
@@ -351,6 +388,14 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
   const [mode, setMode] = useState<Mode>("create");
   const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
   const [query, setQuery] = useState("");
+  const [view, setViewState] = useState<RegistryView>(readView);
+  const setView = (v: RegistryView) => { setViewState(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* not remembered */ } };
+  const [typeFilter, setTypeFilter] = useState("");
+  const [countryFilter, setCountryFilter] = useState("");
+  const [serviceFilter, setServiceFilter] = useState("");
+  // Country filter follows the user's country access (Administration > Users > Countries);
+  // an empty list means no restriction, the same rule the backend uses for the asset list.
+  const { data: myCountries = [] } = useUserCountryAccess(currentUser?.id ?? 0);
   const [pendingDelete, setPendingDelete] = useState<Asset | null>(null);
 
   useEffect(() => {
@@ -450,10 +495,20 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
     if (form.id === pendingDelete.id) resetForm();
   }
 
+  const countryFilterOptions = (myCountries.length > 0
+    ? [...myCountries]
+    : countryOptions.filter((c) => c.active).map((c) => c.name)
+  ).sort((x, y) => x.localeCompare(y));
+  const serviceFilterOptions = serviceLineOptions.filter((s) => s.active).map((s) => s.name).sort((x, y) => x.localeCompare(y));
+  const typeFilterOptions = [...assetTypes].sort((x, y) => x.description.localeCompare(y.description));
+  const filtersOn = !!(typeFilter || countryFilter || serviceFilter || query);
   const filtered = assets.filter((a) =>
     `${a.asset_code} ${a.asset_description} ${a.country}`
       .toLowerCase()
-      .includes(query.toLowerCase())
+      .includes(query.toLowerCase()) &&
+    (!typeFilter || (typeFilter === "none" ? !a.asset_type_id : String(a.asset_type_id) === typeFilter)) &&
+    (!countryFilter || a.country === countryFilter) &&
+    (!serviceFilter || a.service_line === serviceFilter)
   );
 
   const isView = mode === "view";
@@ -466,6 +521,7 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
 
   return (
     <>
+      <style>{REGISTRY_CSS}</style>
       <div className="header">
         <h1>Asset registry</h1>
         <span className="sub">local · sqlite · tanstack query</span>
@@ -641,6 +697,16 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
             <input className="search" type="text" placeholder="Search assets..."
               value={query} onChange={(e) => setQuery(e.target.value)} />
             <span className="count">{filtered.length} of {assets.length}</span>
+            <div className="asset-view-toggle" role="group" aria-label="View">
+              <button type="button" aria-pressed={view === "cards"} onClick={() => setView("cards")} title="Card view">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.7" /><rect x="13" y="4" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.7" /><rect x="4" y="13" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.7" /><rect x="13" y="13" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.7" /></svg>
+                Cards
+              </button>
+              <button type="button" aria-pressed={view === "list"} onClick={() => setView("list")} title="List view">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>
+                List
+              </button>
+            </div>
             <input ref={importFileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <button className="ghost icon-btn" aria-label="Export Backup" onClick={() => exportBackup()} title="Export Backup: download a full backup of all assets and their triggers">
@@ -655,12 +721,62 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
             </button>
             </div>
           </div>
+          <div className="asset-filters">
+            <label>Asset type
+              <select className="neu-select" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+                <option value="">All asset types</option>
+                {typeFilterOptions.map((t) => <option key={t.id} value={String(t.id)}>{t.description}</option>)}
+                <option value="none">No type assigned</option>
+              </select>
+            </label>
+            <label>Country
+              <select className="neu-select" value={countryFilter} onChange={(e) => setCountryFilter(e.target.value)}>
+                <option value="">{myCountries.length > 0 ? "All my countries" : "All countries"}</option>
+                {countryFilterOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </label>
+            <label>Service line
+              <select className="neu-select" value={serviceFilter} onChange={(e) => setServiceFilter(e.target.value)}>
+                <option value="">All service lines</option>
+                {serviceFilterOptions.map((sl) => <option key={sl} value={sl}>{sl}</option>)}
+              </select>
+            </label>
+            {filtersOn && (
+              <button type="button" className="ghost" onClick={() => { setTypeFilter(""); setCountryFilter(""); setServiceFilter(""); setQuery(""); }}>
+                Reset filters
+              </button>
+            )}
+          </div>
 
           {isLoading ? (
             <div className="empty">Loading...</div>
           ) : filtered.length === 0 ? (
             <div className="empty">
-              {assets.length === 0 ? "No assets yet — create one to get started" : "No matches for your search"}
+              {assets.length === 0 ? "No assets yet — create one to get started" : "No assets match your search or filters"}
+            </div>
+          ) : view === "list" ? (
+            <div className="asset-table-wrap">
+              <table className="asset-table">
+                <thead>
+                  <tr><th>Tag</th><th>Asset</th><th>Asset type</th><th>Country</th><th>Service line</th><th>Counters</th><th>Status</th><th aria-label="Actions" /></tr>
+                </thead>
+                <tbody>
+                  {filtered.map((a) => (
+                    <AssetRegistryRow
+                      key={a.id}
+                      asset={a}
+                      assetTypeLabel={a.asset_type_id ? assetTypes.find((t) => t.id === a.asset_type_id)?.description ?? "Type" : null}
+                      assetTypeIcon={null}
+                      canEdit={canEdit}
+                      canDelete={canDelete}
+                      onRowClick={handleRowClick}
+                      onEdit={handleEdit}
+                      onDelete={requestDelete}
+                      onShowFlow={onShowAssetFlow}
+                    />
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
             <div className="review-card-grid">

@@ -3,24 +3,23 @@ import { RangeTabs } from "./fluent/FluentShell";
 
 // Simple / Advanced view for the dashboards. Simple shows only what is needed to decide
 // (the summary, the KPI cards and the list to act on); Advanced adds every chart, trend and
-// breakdown. The choice is remembered on this computer and applies to every dashboard.
+// breakdown. Every visit to the Dashboard area opens in Simple; a switch to Advanced lasts
+// until the user leaves the Dashboard area, and applies to every dashboard.
 
 export type DashMode = "simple" | "advanced";
-const KEY = "mms.dashboards.mode";
-/** Dashboards that have a Simple view so far (Faults and defects: 2, 3, 4). */
-export const MODE_READY = new Set([2, 3, 4]);
+/** Dashboards with a Simple view: all except 12 (Red units under exemption), which has no charts to hide. */
+export const MODE_READY = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18]);
 
-const read = (): DashMode => {
-  try { return localStorage.getItem(KEY) === "advanced" ? "advanced" : "simple"; } catch { return "simple"; }
-};
-let mode: DashMode = read();
+let mode: DashMode = "simple";
 const listeners = new Set<() => void>();
 
 export function setDashMode(m: DashMode) {
+  if (mode === m) return;
   mode = m;
-  try { localStorage.setItem(KEY, m); } catch { /* not saved: still applies for this session */ }
   listeners.forEach((fn) => fn());
 }
+/** Back to the default (Simple). Called when the user leaves the Dashboard area. */
+export const resetDashMode = () => setDashMode("simple");
 export const useDashMode = (): DashMode =>
   useSyncExternalStore((fn) => { listeners.add(fn); return () => { listeners.delete(fn); }; }, () => mode, () => mode);
 /** True when the dashboard should show everything. */

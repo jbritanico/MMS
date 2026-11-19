@@ -7,6 +7,7 @@ import { FlowSteps, StoryStrip, type StoryLine } from "./fluid";
 import { AX, avg, DAY, DrillChips, fmtDur, inRange, Loading, monthsFor, nowSecs, period, Tile, toDays, trimLeading, TT, useMore } from "./kit";
 import { chartAnim } from "../fluent/motion";
 import { sevLabel } from "../hooks/useMriDashboards";
+import { useAdvanced } from "../dashMode";
 
 // Dashboard 10: Phone decisions and acknowledgements.
 // Phone decision = a decision phoned in and recorded on the authority's behalf ("Provisional").
@@ -29,6 +30,7 @@ export function PhoneDecisionsMini({ assets }: { assets: MriDashboardAsset[] }) 
 }
 
 export default function PhoneDecisions({ assets, filters }: { assets: MriDashboardAsset[]; filters: DashboardFilters }) {
+  const adv = useAdvanced();
   const { decisions, unitOf, isLoading, error } = useMore(assets);
   const p = period(filters);
   const [pick, setPick] = useState<Pick>(null);
@@ -132,6 +134,7 @@ export default function PhoneDecisions({ assets, filters }: { assets: MriDashboa
         <Tile k="done" pick={pick} setPick={setPick} color="var(--success)" label="Time to confirm" value={fmtDur(avg(confSecs))} sub={`average of ${confirmedIn.length} · time to acknowledge ${fmtDur(avg(ackSecs))}`} />
       </div>
 
+      {adv && (<>
       <FlowSteps
         title="Phone decision flow"
         steps={[
@@ -179,6 +182,7 @@ export default function PhoneDecisions({ assets, filters }: { assets: MriDashboa
           </>
         )}
       </div>
+      </>)}
 
       <div className="mrid-panel">
         <div className="mrid-panel-head">

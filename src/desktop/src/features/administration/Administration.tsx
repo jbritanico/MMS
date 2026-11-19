@@ -11,6 +11,8 @@ import DataPurging from "./DataPurging";
 import DataBackup from "./DataBackup";
 import DataBrowser from "./DataBrowser";
 import { useCurrentUserPermissionCodes } from "../../lib/useCurrentUserPermissions";
+import { useCurrentUser } from "../../lib/currentUser";
+import SupportViewer from "../support/SupportViewer";
 
 export type AdminSection =
   | "users"
@@ -25,9 +27,10 @@ export type AdminSection =
   | "data-backup"
   | "mri-template"
   | "mrii-template"
-  | "mriii-template";
+  | "mriii-template"
+  | "support-viewer";
 
-export type GroupId = "users" | "references" | "data-tools" | "mr-templates";
+export type GroupId = "users" | "references" | "data-tools" | "mr-templates" | "diagnostics";
 
 interface Child {
   id: AdminSection;
@@ -224,6 +227,27 @@ const GROUPS: Group[] = [
       },
     ],
   },
+  {
+    id: "diagnostics",
+    label: "Diagnostics",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 12h4l2.5-6 4 12 2.5-6H21" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+    children: [
+      {
+        id: "support-viewer",
+        label: "Support viewer",
+        icon: (
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 7l8-4 8 4v10l-8 4-8-4z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+            <path d="M4 7l8 4 8-4M12 11v10" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+          </svg>
+        ),
+      },
+    ],
+  },
 ];
 
 // Permission required to see each section's nav item and content. A section with
@@ -244,6 +268,10 @@ const SECTION_PERMISSION: Partial<Record<AdminSection, string>> = {
   "mriii-template": "mri_templates.view",
 };
 
+// Sections for the Administrator tier only. Fixed to the tier (not a permission switch), so they
+// cannot be given to other roles or users. The Rust side checks again.
+const ADMINISTRATOR_ONLY: AdminSection[] = ["support-viewer"];
+
 const LABELS: Record<AdminSection, string> = {
   users: "Users",
   roles: "Roles",
@@ -258,6 +286,7 @@ const LABELS: Record<AdminSection, string> = {
   "mrii-template": "MR-II Template",
   "mriii-template": "MR-III Template",
   "lookups": "Lookups",
+  "support-viewer": "Support viewer",
 };
 
 interface AdministrationProps {
@@ -272,8 +301,11 @@ interface AdministrationProps {
 function Administration({ onOpenTemplate, active, setActive, openGroup, setOpenGroup, selectedTemplateId }: AdministrationProps) {
 
   const permCodes = useCurrentUserPermissionCodes();
+  const { user: currentUser } = useCurrentUser();
 
   function canSee(section: AdminSection): boolean {
+    // Administrator tier only, and hidden while the user is not known yet (fails closed).
+    if (ADMINISTRATOR_ONLY.includes(section)) return currentUser?.role === "Administrator";
     if (permCodes === null) return true; // fail-open: still loading, or no matching user yet
     if (section === "data-backup") return permCodes.has("backups.export") || permCodes.has("backups.import");
     const required = SECTION_PERMISSION[section];
@@ -296,7 +328,7 @@ function Administration({ onOpenTemplate, active, setActive, openGroup, setOpenG
       setActive(fallback.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, permCodes]);
+  }, [active, permCodes, currentUser?.role]);
 
   function toggleGroup(id: GroupId) {
     setOpenGroup(id);
@@ -374,6 +406,8 @@ function Administration({ onOpenTemplate, active, setActive, openGroup, setOpenG
           <DataPurging />
         ) : active === "data-backup" ? (
           <DataBackup />
+        ) : active === "support-viewer" ? (
+          <SupportViewer />
         ) : (
           <div className="placeholder-screen">
             <h2>{LABELS[active]}</h2>

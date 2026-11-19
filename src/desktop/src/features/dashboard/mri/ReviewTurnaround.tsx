@@ -7,6 +7,7 @@ import { changeLine, FlowSteps, Sparkline, StoryStrip, TrendDelta, type StoryLin
 import { AX, avg, DrillChips, fmtDur, inRange, Loading, median, monthsFor, period, Tile, toDays, trimLeading, TT, useMore } from "./kit";
 import { chartAnim } from "../fluent/motion";
 import { sevLabel } from "../hooks/useMriDashboards";
+import { useAdvanced } from "../dashMode";
 
 // Dashboard 6: Review turnaround.
 // (1) Submit -> fault decision: from the report's Submit to the recorded decision on each escalated fault.
@@ -31,6 +32,7 @@ export function ReviewTurnaroundMini({ assets }: { assets: MriDashboardAsset[] }
 }
 
 export default function ReviewTurnaround({ assets, filters }: { assets: MriDashboardAsset[]; filters: DashboardFilters }) {
+  const adv = useAdvanced();
   const { decisions, reports, unitOf, isLoading, error } = useMore(assets);
   const p = period(filters);
   const [pick, setPick] = useState<Pick>(null);
@@ -145,6 +147,7 @@ export default function ReviewTurnaround({ assets, filters }: { assets: MriDashb
         </div>
       </div>
 
+      {adv && (<>
       <FlowSteps
         title="Journey of a report"
         steps={[
@@ -213,6 +216,7 @@ export default function ReviewTurnaround({ assets, filters }: { assets: MriDashb
           <p className="mrid-note" style={{ textAlign: "center" }}>Click a reviewer to list their decisions.</p>
         </div>
       )}
+      </>)}
 
       <div className="mrid-panel">
         <div className="mrid-panel-head">

@@ -7,6 +7,7 @@ import { StoryStrip, type StoryLine } from "./fluid";
 import { AX, DAY, DrillChips, Loading, nowSecs, Tile, TT, useMore } from "./kit";
 import { chartAnim, Meter } from "../fluent/motion";
 import Chart3D, { use3DMode, ViewToggle, type Cell3D } from "../fluent/Chart3D";
+import { useAdvanced } from "../dashMode";
 
 // Dashboard 13: MR-II due forecast.
 // From the maintenance-trigger counters that MR-I reports keep up to date (distance, operating
@@ -61,6 +62,7 @@ export function DueForecastMini({ assets }: { assets: MriDashboardAsset[] }) {
 type Pick = "overdue" | "soon" | "horizon" | "nodata" | null;
 
 export default function DueForecast({ assets, filters }: { assets: MriDashboardAsset[]; filters: DashboardFilters }) {
+  const adv = useAdvanced();
   const [level, setLevel] = useState<"MR-II" | "MR-III">("MR-II");
   const { units, isLoading, error, noTriggers } = useForecast(assets, level);
   const [pick, setPick] = useState<Pick>(null);
@@ -136,6 +138,7 @@ export default function DueForecast({ assets, filters }: { assets: MriDashboardA
         <Tile k="nodata" pick={pick} setPick={setPick} color="var(--text-soft)" label="Not enough use to estimate" value={nodata.length} sub={`${noTriggers} active unit${noTriggers === 1 ? " has" : "s have"} no ${level} triggers set`} />
       </div>
 
+      {adv && (<>
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>{is3d ? `% of the ${level} interval used, by unit and counter${units.length > 14 ? " (top 14)" : ""}` : `% of the ${level} interval used${units.length > 20 ? " (top 20)" : ""}`}</h3><ViewToggle is3d={is3d} onChange={set3d} /></div>
         {chart.length === 0 ? <p className="mrid-note mrid-empty">No units have {level} triggers switched on.</p> : cube ? (
@@ -167,6 +170,7 @@ export default function DueForecast({ assets, filters }: { assets: MriDashboardA
           </>
         )}
       </div>
+      </>)}
 
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>Units, soonest first ({list.length})</h3></div>
