@@ -32,7 +32,7 @@ export function useDashAccess(): DashAccess {
   return { area: can(DASH_AREA), overview: can(DASH_OVERVIEW), history: can(DASH_HISTORY), dash, allowed, firstMri, firstUser };
 }
 
-/** Order for the "Dashboards" switches in Roles / User permissions: area, Overview, History, then 1-18. */
+/** Order for the "Dashboards" switches in Roles / User permissions: area, Overview, History, then 1-19. */
 export function dashPermRank(code: string): number {
   if (code === DASH_AREA) return 0;
   if (code === DASH_OVERVIEW) return 1;

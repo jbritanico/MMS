@@ -4,19 +4,20 @@ import React from "react";
 // and the Fluent dashboard shell (sidebar search, overview quick actions).
 
 export const DASHBOARDS: { no: number; title: string; desc: string }[] = [
-  { no: 1, title: "Fleet status by tag colour", desc: "How many units are Green, Yellow or Red." },
-  { no: 2, title: "Open defects by severity", desc: "Faults not yet fixed, Minor / Moderate / Critical, and the trend." },
-  { no: 3, title: "Defect aging", desc: "How long open faults have waited; overdue ones flagged." },
-  { no: 4, title: "Fault closure rate", desc: "Faults closed in the period, against the backlog plus new faults." },
-  { no: 5, title: "Decisions waiting, by reviewer", desc: "Fault decisions and report reviews waiting now, and with whom." },
-  { no: 6, title: "Review turnaround", desc: "Time from Submit to the fault decision and to report closure." },
-  { no: 7, title: "Repair queue and repair time", desc: "Repairs waiting, who is assigned, parts, days to repair." },
-  { no: 8, title: "Time spent Red or Yellow", desc: "How long units were out of action." },
-  { no: 9, title: "Repeat faults", desc: "Inspection items that fail most often." },
-  { no: 10, title: "Phone decisions and acknowledgements", desc: "Decisions still to confirm or acknowledge." },
-  { no: 11, title: "MR-I reports per period", desc: "Inspections by stage: Pre-Mob, Pre-Job, Post Job, Yard." },
-  { no: 12, title: "Red units under exemption (MOC)", desc: "Exemptions in force, their limits and expiry dates." },
-  { no: 13, title: "MR-II due forecast", desc: "Units close to their next MR-II (or MR-III), from the MR-I counters." },
+  { no: 1, title: "Fleet Status by Tag Colour", desc: "How many units are Green, Yellow or Red." },
+  { no: 2, title: "Open Defects by Severity", desc: "Faults not yet fixed, Minor / Moderate / Critical, and the trend." },
+  { no: 3, title: "Defect Aging", desc: "How long open faults have waited; overdue ones flagged." },
+  { no: 4, title: "Fault Closure Rate", desc: "Faults closed in the period, against the backlog plus new faults." },
+  { no: 19, title: "Fault Trends by Equipment", desc: "Faults by equipment type, drill down to each unit and checklist item; year on year." },
+  { no: 5, title: "Decisions Waiting, by Reviewer", desc: "Fault decisions and report reviews waiting now, and with whom." },
+  { no: 6, title: "Review Turnaround", desc: "Time from Submit to the fault decision and to report closure." },
+  { no: 7, title: "Repair Queue and Repair Time", desc: "Repairs waiting, who is assigned, parts, days to repair." },
+  { no: 8, title: "Time Spent Red or Yellow", desc: "How long units were out of action." },
+  { no: 9, title: "Repeat Faults", desc: "Inspection items that fail most often." },
+  { no: 10, title: "Phone Decisions and Acknowledgements", desc: "Decisions still to confirm or acknowledge." },
+  { no: 11, title: "MR-I Reports per Period", desc: "Inspections by stage: Pre-Mob, Pre-Job, Post Job, Yard." },
+  { no: 12, title: "Red Units Under Exemption (MOC)", desc: "Exemptions in force, their limits and expiry dates." },
+  { no: 13, title: "MR-II Due Forecast", desc: "Units close to their next MR-II (or MR-III), from the MR-I counters." },
   { no: 14, title: "Inspectors", desc: "Reports submitted, faults found, and faults rejected or downgraded on review." },
   { no: 15, title: "Supervisors", desc: "Reports closed, time from Submit to closure, endorsed reports still open." },
   { no: 16, title: "Reviewers", desc: "Fault decisions, time to decide, reclassified or rejected, decisions waiting." },
@@ -29,13 +30,21 @@ export const DASHBOARDS: { no: number; title: string; desc: string }[] = [
 // dashboards added for the MR-I follow-up.
 export const DECK_SLIDES: Record<number, string> = { 2: "Slides 9 and 15", 3: "Slides 10 and 15", 4: "Slide 11" };
 export const DECK_NAME = "MMS Dashboard Visualization design (08.10.2026)";
+// Dashboards asked for after the deck, marked the same way (dot / badge) as the deck dashboards.
+export const REQUESTED: Record<number, { name: string; date: string }> = { 19: { name: "\"Recurring Issues\"", date: "20.11.2026" } };
+/** True for a dashboard that carries the design mark (from the deck or a later request). */
+export const isMarked = (no: number) => !!(DECK_SLIDES[no] || REQUESTED[no]);
+/** Tooltip for the mark. */
+export const markTip = (no: number) => (DECK_SLIDES[no] ? `From the ${DECK_NAME}, ${DECK_SLIDES[no]}` : REQUESTED[no] ? `Asked for in the ${REQUESTED[no].name} request (${REQUESTED[no].date})` : "");
+/** Badge text for the mark; large adds where it comes from. */
+export const markBadge = (no: number, large: boolean) => (DECK_SLIDES[no] ? `Dashboard design${large ? ` · ${DECK_SLIDES[no]}` : ""}` : `Requested${large ? ` · ${REQUESTED[no]?.name} (${REQUESTED[no]?.date})` : ""}`);
 
 // The dashboard list, grouped by topic.
 export const GROUPS: { title: string; nos: number[] }[] = [
-  { title: "Faults and defects", nos: [2, 3, 4, 9] },
-  { title: "Reviews and decisions", nos: [5, 6, 10] },
-  { title: "Fleet condition and repairs", nos: [1, 8, 7, 12] },
-  { title: "Inspections and maintenance due", nos: [11, 13] },
+  { title: "Faults and Defects", nos: [2, 3, 4, 19, 9] },
+  { title: "Reviews and Decisions", nos: [5, 6, 10] },
+  { title: "Fleet Condition and Repairs", nos: [1, 8, 7, 12] },
+  { title: "Inspections and Maintenance Due", nos: [11, 13] },
 ];
 
 // One line icon per dashboard type (24x24, stroke = currentColor), same style as the hub tiles.
@@ -74,12 +83,14 @@ export const DASH_ICONS: Record<number, React.ReactElement> = {
   16: svg(<><circle cx="9" cy="7.5" r="3" /><path d="M3.5 19.5a5.5 5.5 0 0 1 11 0" /><path d="M18 8v9M15.5 10h5M15.5 10l-1.2 3h2.4zM20.5 10l-1.2 3h2.4z" /></>),
   17: svg(<><circle cx="9" cy="7.5" r="3" /><path d="M3.5 19.5a5.5 5.5 0 0 1 11 0" /><path d="M20.5 9.5a2.5 2.5 0 0 1-3.3 2.4l-2.4 2.4-1.2-1.2 2.4-2.4a2.5 2.5 0 0 1 3.1-3.2l-1.4 1.4.8.8z" /></>),
   18: svg(<><circle cx="9" cy="7.5" r="3" /><path d="M3.5 19.5a5.5 5.5 0 0 1 11 0" /><path d="M18 8.5l1 2 2.2.3-1.6 1.5.4 2.2-2-1-2 1 .4-2.2-1.6-1.5 2.2-.3z" /></>),
+  // 19 fault trends by equipment: rising bars with a magnifier
+  19: svg(<><path d="M4 20V14M8.5 20v-8M13 20v-5" /><circle cx="17" cy="8.5" r="3.5" /><path d="m19.6 11.1 2.4 2.4M3 20h18" /></>),
   13: svg(<><rect x="3.5" y="5" width="17" height="15.5" rx="2" /><path d="M3.5 9.5h17M8 3v4M16 3v4" /><path d="M8.5 17a3.5 3.5 0 0 1 7 0M12 17l1.8-2" /></>),
 };
 
 
 // User Analytics is its own group on the Dashboard hub, separate from the MR-I dashboards.
 export const USER_GROUPS: { title: string; nos: number[] }[] = [
-  { title: "By role in the MR-I process", nos: [14, 15, 16, 17, 18] },
+  { title: "By Role in the MR-I Process", nos: [14, 15, 16, 17, 18] },
 ];
 

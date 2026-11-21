@@ -5,7 +5,7 @@ import { AX, TT } from "./kit";
 import { chartAnim } from "../fluent/motion";
 
 // Fleet health over time from the tag history: how many units were Green, Yellow, Red or not
-// tagged at each point. Used by "Fleet status by tag colour" and "Time spent Red or Yellow".
+// tagged at each point. Used by "Fleet Status by Tag Colour" and "Time Spent Red or Yellow".
 
 export type HTag = "Green" | "Yellow" | "Red" | "None";
 export const HEALTH: { key: HTag; label: string; color: string }[] = [

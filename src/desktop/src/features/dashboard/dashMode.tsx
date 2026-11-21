@@ -8,7 +8,7 @@ import { RangeTabs } from "./fluent/FluentShell";
 
 export type DashMode = "simple" | "advanced";
 /** Dashboards with a Simple view: all except 12 (Red units under exemption), which has no charts to hide. */
-export const MODE_READY = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18]);
+export const MODE_READY = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19]);
 
 let mode: DashMode = "simple";
 const listeners = new Set<() => void>();

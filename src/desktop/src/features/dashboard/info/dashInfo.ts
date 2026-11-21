@@ -95,7 +95,7 @@ export const DASH_INFO: Record<string, DashInfo> = {
   },
 
   "1": {
-    name: "Fleet status by tag colour",
+    name: "Fleet Status by Tag Colour",
     what: "How many units are Green (ready for service), Yellow (under maintenance), Red (not ready for service) or not tagged yet, and where they are.",
     how: "Click a colour tile to list those units. Use \"Group by\" to compare countries, service lines or equipment types.",
     why: "The manual says MMS must clearly show the status of every unit, so Operations know what can be sent to a job.",
@@ -112,7 +112,7 @@ export const DASH_INFO: Record<string, DashInfo> = {
   },
 
   "2": {
-    name: "Open defects by severity",
+    name: "Open Defects by Severity",
     what: "Faults found during MR-I that are not fixed and closed yet, split into Minor, Moderate and Major / Critical, and how the number changes month by month.",
     how: "Click a severity tile to narrow everything below. Click a month on the chart to see the faults that were open at that time.",
     why: "This is the Pending Fault Analysis the manual asks for: it shows the repair backlog and where it sits.",
@@ -130,7 +130,7 @@ export const DASH_INFO: Record<string, DashInfo> = {
   },
 
   "3": {
-    name: "Defect aging",
+    name: "Defect Aging",
     what: "How long open faults have been waiting to be fixed. A fault is overdue when it is older than its limit: Major / Critical 7 days, Moderate and Minor 30 days.",
     how: "Click an \"overdue\" tile to list those faults, oldest first.",
     why: "The manual asks for faults to be fixed within defined timeframes and for aging trends to be watched. The 7- and 30-day limits are set in MMS; the manual does not give the number of days.",
@@ -147,7 +147,7 @@ export const DASH_INFO: Record<string, DashInfo> = {
   },
 
   "4": {
-    name: "Fault closure rate",
+    name: "Fault Closure Rate",
     what: "Of all the faults there were to fix in the period (those already open at the start plus the new ones), the share that was closed. Higher is better.",
     how: "Compare the severities: Major / Critical should have the highest rate.",
     why: "The manual asks for faults to be fixed within defined timeframes and for the defect backlog to be monitored.",
@@ -163,7 +163,7 @@ export const DASH_INFO: Record<string, DashInfo> = {
   },
 
   "5": {
-    name: "Decisions waiting, by reviewer",
+    name: "Decisions Waiting, by Reviewer",
     what: "MR-I reports and fault decisions that are waiting for someone to act right now, and who they are waiting with. The period filter does not change this dashboard.",
     how: "Click a tile or a stage to list what is waiting. Follow up on anything waiting over 7 days.",
     why: "The manual sets who must review each fault (Table 3) and how reports move to closure (Figure 1). Items left waiting keep units out of action.",
@@ -180,7 +180,7 @@ export const DASH_INFO: Record<string, DashInfo> = {
   },
 
   "6": {
-    name: "Review turnaround",
+    name: "Review Turnaround",
     what: "How long reviews take: from Submit to the fault decision, and from Submit to the report being closed.",
     how: "Look for months, severities or reviewers where the time goes up.",
     why: "While a review is waiting, the unit may stay Red or the fault may stay unfixed. The manual defines who reviews and closes reports.",
@@ -198,7 +198,7 @@ export const DASH_INFO: Record<string, DashInfo> = {
   },
 
   "7": {
-    name: "Repair queue and repair time",
+    name: "Repair Queue and Repair Time",
     what: "Repairs still to be done after a fault is confirmed: who is assigned, whether parts are available, and how long repairs take.",
     how: "Click a tile or a stage to list those repairs.",
     why: "The manual asks MMS to manage corrective actions, resources and spare parts, and to check the repair before the unit is released.",
@@ -215,7 +215,7 @@ export const DASH_INFO: Record<string, DashInfo> = {
   },
 
   "8": {
-    name: "Time spent Red or Yellow",
+    name: "Time Spent Red or Yellow",
     what: "How long units were out of action in the period (Red = not ready for service, Yellow = under maintenance), counted in unit-days. One unit Red for 3 days is 3 unit-days.",
     how: "Click a tile to list the units. Look for units that are Red or Yellow again and again.",
     why: "The manual asks the Country Maintenance Manager to monitor equipment availability.",
@@ -233,7 +233,7 @@ export const DASH_INFO: Record<string, DashInfo> = {
   },
 
   "9": {
-    name: "Repeat faults",
+    name: "Repeat Faults",
     what: "Which inspection items fail most often, which fail on many units, and which faults recurred on the same unit after being fixed.",
     how: "Items on many units may point to a design or parts problem. Faults that recurred may mean the repair did not fix the cause.",
     why: "The manual says the fault process must help identify recurring faults and root causes of the maintenance backlog. This dashboard is not in the 08.10.2026 deck.",
@@ -249,8 +249,32 @@ export const DASH_INFO: Record<string, DashInfo> = {
     ],
   },
 
+  "19": {
+    name: "Fault Trends by Equipment",
+    what: "Faults recorded on MR-I reports, counted by equipment type, with a drill-down to each unit (fixed asset) and to each checklist item. Every level compares the period with the same period a year earlier.",
+    how: "Click a type to see its units, then a unit to see which checklist items keep failing. Use the breadcrumb above the summary to go back up.",
+    why: "Asked for in the \"Recurring Issues\" request: to spot recurring faults, follow trends, improve the MR checklists and find equipment that needs further investigation. The manual says the fault process must help identify recurring faults and their root causes. This dashboard is not in the 08.10.2026 deck.",
+    refs: [R.s615, R.s44, R.kpi],
+    items: [
+      { match: /^Faults recorded/i, what: "New faults found in the period (a fault carried forward is counted once), and the change against the same period a year earlier.", refs: [R.s615] },
+      { match: /^Recurring items/i, what: "Checklist items that failed two or more times on the same unit in the period.", how: "Recurring items point to a cause that the repair did not remove.", refs: [R.s615, R.s44] },
+      { match: /^Units needing attention|^Needs investigation/i, what: "Units with at least 3 faults and 1.5 times the average of their equipment type, or with two or more recurring items.", refs: [R.s615] },
+      { match: /^Most faults per unit/i, what: "The equipment type with the most faults per unit, so large and small fleets compare fairly.", refs: [R.s615] },
+      { match: /^Faults by equipment type/i, what: "Faults per equipment type in the period, against the same period a year earlier.", how: "Click a bar to see the units of that type.", refs: [R.s615] },
+      { match: /^Equipment types/i, what: "Every equipment type: units, faults, change, faults per unit, recurring items, the item that fails most often, and units needing attention.", how: "Click a row to see its units.", refs: [R.s615] },
+      { match: /^Faults per unit, month by month/i, what: "Faults per unit for each equipment type, month by month. The 3D view shows types against months; flick it to turn it.", how: "A rising row means that type is getting worse. Click a type to see its units.", refs: [R.s615] },
+      { match: /^Checklist items with no fault/i, what: "Items on the active MR-I templates that have had no fault in the last 24 months.", how: "Worth checking whether they are still useful or need clearer wording.", refs: [R.s615] },
+      { match: /units \(/i, what: "Each unit of the type: faults now and a year earlier, recurring items, the item that fails most often and the last fault.", how: "Click a unit to see its faults item by item.", refs: [R.s615] },
+      { match: /^Where faults repeat/i, what: "Checklist items against units. A dark row means many units fail the item (a common cause); a dark cell means one unit keeps failing it.", refs: [R.s615] },
+      { match: /^Faults by checklist item/i, what: "On one unit: faults per checklist item, now and a year earlier.", refs: [R.s615] },
+      { match: /^Faults per month/i, what: "On one unit: faults found each month, now and a year earlier.", refs: [R.s615] },
+      { match: /^Recurring on this unit/i, what: "Checklist items that failed more than once on this unit, with the dates.", refs: [R.s615, R.s44] },
+      { match: /^Every fault on/i, what: "Each fault on the unit in the period, with its MR-I report.", refs: [R.s9644] },
+    ],
+  },
+
   "10": {
-    name: "Phone decisions and acknowledgements",
+    name: "Phone Decisions and Acknowledgements",
     what: "Fault decisions given by phone take effect straight away, but the real reviewer must confirm them in MMS later. Moderate decisions must also be acknowledged by the FSM / Maintenance Manager.",
     how: "Click a tile to list what is still waiting, then follow up with the person named.",
     why: "Table 3 says the FSM / Maintenance Manager must be informed of Moderate faults. Phone approval is not in the manual; Clarifications 1 and 2 cover how MMS records it.",
@@ -267,12 +291,13 @@ export const DASH_INFO: Record<string, DashInfo> = {
   },
 
   "11": {
-    name: "MR-I reports per period",
+    name: "MR-I Reports per Period",
     what: "How many MR-I inspections were done, by stage (Pre-Mob, Pre-Job, Post Job, Yard), and how many found faults.",
     how: "Compare months and stages. A drop may mean inspections are being missed.",
     why: "The manual sets when MR-I must be done and asks for a month-on-month count of maintenance activity.",
     refs: [R.s613, R.f2, R.s9643, R.s45],
     items: [
+      { match: /^Reports by stage, month by month/i, what: "3D view: reports submitted per compliance stage and month. Gaps in a row show months when that stage was not inspected.", how: "Click a bar to list those reports. Drag or flick to turn the chart.", refs: [R.s613] },
       { match: /^Reports submitted over/i, what: "Reports submitted each month, by stage.", how: "Click a month to list its reports.", refs: [R.s9643] },
       { match: /^Reports submitted/i, what: "MR-I reports submitted in the period and on how many units.", how: SEL_HOW, refs: [R.s9643, R.s613] },
       { match: /^Reports with faults/i, what: "Reports that found at least one fault, and their share of all reports.", how: SEL_HOW, refs: [R.s615] },
@@ -283,7 +308,7 @@ export const DASH_INFO: Record<string, DashInfo> = {
   },
 
   "12": {
-    name: "Red units under exemption (MOC)",
+    name: "Red Units Under Exemption (MOC)",
     what: "Red units, and whether each has an approved MOC exemption that allows limited use, with its limits and end date.",
     how: "Red units without an exemption must not be deployed. Watch exemptions that are about to end.",
     why: "The manual says Red-tagged units must not be deployed without an exemption approved through MOC, with limits, controls and a validity period.",
@@ -300,7 +325,7 @@ export const DASH_INFO: Record<string, DashInfo> = {
   },
 
   "13": {
-    name: "MR-II due forecast",
+    name: "MR-II Due Forecast",
     what: "Which units are close to their next MR-II (or MR-III), worked out from the counters (kilometres, engine hours and so on) read at each MR-I.",
     how: "Plan the units marked Overdue and Due soon first.",
     why: "The manual asks MMS to forecast MR-II (250 hours or 90 days) and MR-III (3,000 hours or 3 years) from actual use.",

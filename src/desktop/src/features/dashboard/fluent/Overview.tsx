@@ -227,9 +227,9 @@ export default function Overview({ onSection, onOpenDash }: { onSection: (s: She
           <h2 className="fl-section-title">Quick actions</h2>
           <div className="fl-qas">
             {access.dash(2) && <QuickAction tone="red" icon={DASH_ICONS[2]} label="Open defects" note={`${openNow.length} open`} onClick={() => onOpenDash(2)} />}
-            {access.dash(5) && <QuickAction tone="amber" icon={DASH_ICONS[5]} label="Decisions waiting" note={`${waiting.length} waiting`} onClick={() => onOpenDash(5)} />}
-            {access.dash(7) && <QuickAction tone="teal" icon={DASH_ICONS[7]} label="Repair queue" note={`${repairsOpen.length} in progress`} onClick={() => onOpenDash(7)} />}
-            {access.dash(13) && <QuickAction tone="violet" icon={DASH_ICONS[13]} label="MR-II due forecast" note="From MR-I counters" onClick={() => onOpenDash(13)} />}
+            {access.dash(5) && <QuickAction tone="amber" icon={DASH_ICONS[5]} label="Decisions Waiting" note={`${waiting.length} waiting`} onClick={() => onOpenDash(5)} />}
+            {access.dash(7) && <QuickAction tone="teal" icon={DASH_ICONS[7]} label="Repair Queue" note={`${repairsOpen.length} in progress`} onClick={() => onOpenDash(7)} />}
+            {access.dash(13) && <QuickAction tone="violet" icon={DASH_ICONS[13]} label="MR-II Due Forecast" note="From MR-I counters" onClick={() => onOpenDash(13)} />}
             {access.history && <QuickAction tone="blue" icon={FL_ICONS.history} label="Asset MR-I History" note="Report timeline per unit" onClick={() => onSection("mri-history")} />}
             {access.firstUser != null && <QuickAction tone="green" icon={FL_ICONS.people} label="User Analytics" note="Workload by person" onClick={() => onSection("user-analytics")} />}
           </div>

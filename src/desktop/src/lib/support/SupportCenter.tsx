@@ -85,6 +85,10 @@ function systemRows(sys: SystemInfo | null): [string, unknown][] {
 
 // ---------------------------------------------------------------- main component
 
+// Hidden 20 Nov 2026: Send to IT packs all of these into one file, so their separate
+// Help menu buttons are not shown. Their code stays; take a key out to show it again.
+const HIDDEN_HELP = new Set(["problem", "diag", "export", "copy", "logs"]);
+
 export default function SupportCenter({ screen, context }: { screen: string; context?: Record<string, string | number | null | undefined> }) {
   const { user } = useCurrentUser();
   useDiag();
@@ -122,7 +126,7 @@ export default function SupportCenter({ screen, context }: { screen: string; con
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey && e.shiftKey)) return;
       const k = e.key.toLowerCase();
-      if (k === "f") { e.preventDefault(); setModal("problem"); setMenuOpen(false); }
+      if (k === "f") { e.preventDefault(); setModal(HIDDEN_HELP.has("problem") ? "send" : "problem"); setMenuOpen(false); }
       if (k === "d" && isAdmin) { e.preventDefault(); setSupport((v) => !v); }
     };
     window.addEventListener("keydown", onKey);
@@ -138,7 +142,7 @@ export default function SupportCenter({ screen, context }: { screen: string; con
   const notify = (msg: string) => { setToast(msg); window.setTimeout(() => setToast((t) => (t === msg ? null : t)), 6000); };
   const copyDetails = async (err?: ErrItem | null) => {
     const ok = await copyText(diag.detailsText(err));
-    notify(ok ? "Details copied. Paste them into the testing form or a Teams message (Ctrl + V)." : "Could not copy. Use Help → Save diagnostics file instead.");
+    notify(ok ? "Details copied. Paste them into the testing form or a Teams message (Ctrl + V)." : "Could not copy. Use Help → Send to IT instead.");
   };
   const openLogs = () => call("diag_open_log_folder").catch((e) => notify(String(e)));
 
@@ -162,7 +166,8 @@ export default function SupportCenter({ screen, context }: { screen: string; con
         <div className="sup-pill" role="status">
           <span className="sup-pill-ico">{ICON.warn}</span>
           <span className="sup-pill-text"><b>Something went wrong</b><small>{pillFor.message.slice(0, 90)}{pillFor.message.length > 90 ? "…" : ""}</small></span>
-          <button type="button" className="sup-pill-btn" onClick={() => copyDetails(pillFor)}>Copy details</button>
+          {!HIDDEN_HELP.has("copy") && <button type="button" className="sup-pill-btn" onClick={() => copyDetails(pillFor)}>Copy details</button>}
+          {HIDDEN_HELP.has("copy") && <button type="button" className="sup-pill-btn" onClick={() => { setPillFor(null); setModal("send"); }}>Send to IT</button>}
           <button type="button" className="sup-x" aria-label="Hide" onClick={() => setPillFor(null)}>×</button>
         </div>
       )}
@@ -172,7 +177,7 @@ export default function SupportCenter({ screen, context }: { screen: string; con
         {menuOpen && (
           <div className="sup-menu" role="menu">
             <div className="sup-menu-head">Help and support</div>
-            {items.filter((it) => !it.admin || isAdmin).map((it) => (
+            {items.filter((it) => (!it.admin || isAdmin) && !HIDDEN_HELP.has(it.key)).map((it) => (
               <button key={it.key} type="button" role="menuitem" className="sup-menu-item" onClick={() => { setMenuOpen(false); it.run(); }}>
                 <span className="sup-menu-ico">{it.icon}</span>
                 <span className="sup-menu-text"><b>{it.label}</b>{it.hint && <small>{it.hint}</small>}</span>
@@ -188,12 +193,12 @@ export default function SupportCenter({ screen, context }: { screen: string; con
       {support && isAdmin && <SupportPanel onClose={() => setSupport(false)} />}
 
       {modal === "send" && <SendToItModal report={context?.report ?? null} onClose={() => setModal(null)} />}
-      {modal === "about" && <AboutModal onClose={() => setModal(null)} onCopy={notify} onLogs={openLogs} onDiagnostics={() => setModal("diagnostics")} />}
+      {modal === "about" && <AboutModal onClose={() => setModal(null)} onCopy={notify} onLogs={openLogs} onDiagnostics={() => setModal("diagnostics")} onSend={() => setModal("send")} hideOld={HIDDEN_HELP.has("diag")} />}
       {modal === "problem" && <ProblemModal onClose={() => setModal(null)} onSaved={notify} />}
       {modal === "diagnostics" && <DiagnosticsModal onClose={() => setModal(null)} onSaved={notify} />}
       {modal === "check" && <CheckModal onClose={() => setModal(null)} onSaved={notify} />}
       {modal === "export" && <ExportModal initial={context?.report ?? null} onClose={() => setModal(null)} onSaved={notify} />}
-      {modal === "crash" && session && <CrashModal session={session} onClose={() => setModal(null)} onSave={() => setModal("diagnostics")} />}
+      {modal === "crash" && session && <CrashModal session={session} onClose={() => setModal(null)} onSave={() => setModal(HIDDEN_HELP.has("diag") ? "send" : "diagnostics")} sendToIt={HIDDEN_HELP.has("diag")} />}
     </div>
   );
 }
@@ -221,7 +226,7 @@ function Dialog({ title, icon, children, onClose, wide = false, footer }: { titl
   );
 }
 
-function AboutModal({ onClose, onCopy, onLogs, onDiagnostics }: { onClose: () => void; onCopy: (m: string) => void; onLogs: () => void; onDiagnostics: () => void }) {
+function AboutModal({ onClose, onCopy, onLogs, onDiagnostics, onSend, hideOld }: { onClose: () => void; onCopy: (m: string) => void; onLogs: () => void; onDiagnostics: () => void; onSend?: () => void; hideOld?: boolean }) {
   const [sys, setSys] = useState<SystemInfo | null>(diag.state.system);
   const [err, setErr] = useState<string | null>(null);
   const [showTables, setShowTables] = useState(false);
@@ -232,8 +237,9 @@ function AboutModal({ onClose, onCopy, onLogs, onDiagnostics }: { onClose: () =>
   return (
     <Dialog title="About MMS" icon={ICON.info} onClose={onClose}
       footer={<>
-        <button type="button" className="ghost" onClick={onLogs}>{ICON.folder} Open log folder</button>
-        <button type="button" className="ghost" onClick={onDiagnostics}>{ICON.box} Save diagnostics file</button>
+        {!hideOld && <button type="button" className="ghost" onClick={onLogs}>{ICON.folder} Open log folder</button>}
+        {!hideOld && <button type="button" className="ghost" onClick={onDiagnostics}>{ICON.box} Save diagnostics file</button>}
+        {hideOld && onSend && <button type="button" className="ghost" onClick={onSend}>{ICON.send} Send to IT</button>}
         <button type="button" className="primary" onClick={async () => { const ok = await copyText(text()); onCopy(ok ? "About MMS copied. Paste it with Ctrl + V." : "Could not copy."); }}>{ICON.copy} Copy</button>
       </>}>
       {err && <p className="sup-err">{err}</p>}
@@ -516,15 +522,15 @@ function ExportModal({ initial, onClose, onSaved }: { initial: string | number |
   );
 }
 
-function CrashModal({ session, onClose, onSave }: { session: SessionStart; onClose: () => void; onSave: () => void }) {
+function CrashModal({ session, onClose, onSave, sendToIt }: { session: SessionStart; onClose: () => void; onSave: () => void; sendToIt?: boolean }) {
   const prev = diag.state.previous;
   return (
     <Dialog title="MMS did not close properly last time" icon={ICON.warn} onClose={onClose}
-      footer={<><button type="button" className="ghost" onClick={onClose}>Not now</button><button type="button" className="primary" onClick={onSave}>Save diagnostics file</button></>}>
+      footer={<><button type="button" className="ghost" onClick={onClose}>Not now</button><button type="button" className="primary" onClick={onSave}>{sendToIt ? "Send to IT" : "Save diagnostics file"}</button></>}>
       <p>The last session{session.previous_started ? ` (started ${session.previous_started})` : ""} ended without closing normally, for example the program stopped or the computer was switched off.</p>
       {prev?.trail?.length ? <p className="sup-muted">Last thing recorded: <b>{prev.trail[prev.trail.length - 1].text}</b> on {prev.screen}, {localStamp(prev.savedAt)}.</p> : null}
       {session.crash_note && <pre className="sup-pre">{session.crash_note}</pre>}
-      <p>If something went wrong, save a diagnostics file and send it to Jess. It includes what you did just before.</p>
+      <p>{sendToIt ? "If something went wrong, use Send to IT to make one file for IT. It includes what you did just before." : "If something went wrong, save a diagnostics file and send it to Jess. It includes what you did just before."}</p>
     </Dialog>
   );
 }

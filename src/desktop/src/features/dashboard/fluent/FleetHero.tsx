@@ -60,7 +60,7 @@ export function FleetHero({ tags, prevPct, greeting, chips, onOpenFleet }: {
 
       <div className="fl-avail-side">
         {stats.map((s) => (
-          <button key={s.key} type="button" className={`fl-avail-stat t-${s.tone}`} onClick={onOpenFleet} title="Open Fleet status by tag colour">
+          <button key={s.key} type="button" className={`fl-avail-stat t-${s.tone}`} onClick={onOpenFleet} title="Open Fleet Status by Tag Colour">
             <b><Num v={tags[s.key]} /></b><span>{s.label}</span>
           </button>
         ))}

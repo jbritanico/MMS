@@ -7,6 +7,7 @@ import {
   day, sevName, sevTone, tagInfo, TONE_COLOR, when, type FlowItem, type Tone,
 } from "./flowKit";
 import { HintsToggle, useHints } from "../dashboard/hints";
+import IsoFlowMap, { FXI_CSS, IsoMapToggle, useIsoMap, type IsoLine, type IsoStep } from "./IsoFlowMap";
 
 export type FlowTarget = "assets" | "pending-approvals" | "rectification-queue";
 
@@ -45,6 +46,7 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
   const { data: permissions = [] } = useEffectivePermissions(user?.id ?? 0);
   const hints = useHints();
   const [selected, setSelected] = useState<string | null>("report");
+  const [isoOn, setIsoOn] = useIsoMap();
 
   if (isLoading) return <div className="empty">Loading...</div>;
   if (error || !flow) {
@@ -203,12 +205,34 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
     : !reviewed ? "Waiting for the Supervisor to review the report."
     : "Everything is done. Waiting for the report to be closed.";
 
+  // ---- isometric map: the same five steps, each with a small card of what is in it ----
+  const MAXL = 3;
+  const faultLines: IsoLine[] = lanes.map((l) => ({ text: `${l.decision.chip}: ${l.fault.title}`, tone: l.decision.tone, id: l.decision.id }));
+  const repairLanes = lanes.filter((l) => !l.repair.ghost);
+  const repairLines: IsoLine[] = repairLanes.map((l) => ({ text: `${l.repair.chip ?? l.repair.title}: ${l.fault.title}`, tone: l.repair.tone, id: l.repair.id }));
+  const firstPending = lanes.find((l) => l.livePending) ?? lanes[0];
+  const firstRepair = repairLanes.find((l) => l.liveRepair) ?? repairLanes[0];
+  const lastTag = flow.tag_changes.length ? flow.tag_changes[flow.tag_changes.length - 1].tag_status : flow.asset_tag_status;
+  const isoSteps: IsoStep[] = [
+    { label: "Submitted", sub: stepsShown[0].sub ?? "", state: stepsShown[0].state, icon: "report", cardTitle: `Report #${flow.report_id}`, selectId: "report",
+      lines: [{ text: flow.template_name ?? "MR-I checklist", tone: "info" }, { text: flow.submitted_by ? `By ${flow.submitted_by}` : "Not submitted yet", tone: submitted ? "success" : "neutral" }, { text: `${flow.faults.length} fault${flow.faults.length === 1 ? "" : "s"} for decision`, tone: flow.faults.length ? "warn" : "success" }] },
+    { label: "Supervisor review", sub: stepsShown[1].sub ?? "", state: stepsShown[1].state, icon: "people", cardTitle: "Review", selectId: "report",
+      lines: [{ text: reviewed ? `${flow.status} by ${flow.approved_by ?? "Supervisor"}` : "Waiting for the Supervisor", tone: reviewed ? "success" : "warn" }, { text: `Status: ${closed ? "Closed" : flow.status}`, tone: reportTone }] },
+    { label: "Fault decisions", sub: stepsShown[2].sub ?? "", state: stepsShown[2].state, icon: "decide", cardTitle: `Decisions (${lanes.length})`, selectId: firstPending ? firstPending.decision.id : null,
+      lines: faultLines.length ? faultLines.slice(0, MAXL) : [{ text: "No decisions needed", tone: "success" }], more: Math.max(0, faultLines.length - MAXL) },
+    { label: "Repairs", sub: stepsShown[3].sub ?? "", state: stepsShown[3].state, icon: "repair", cardTitle: `Repairs (${repairLanes.length})`, selectId: firstRepair ? firstRepair.repair.id : null,
+      lines: repairLines.length ? repairLines.slice(0, MAXL) : [{ text: "No repairs needed", tone: "success" }], more: Math.max(0, repairLines.length - MAXL) },
+    { label: "Report closed", sub: stepsShown[4].sub ?? "", state: stepsShown[4].state, icon: "archive", cardTitle: closed ? "Closed" : "Not closed yet", selectId: tagItem ? tagItem.id : "report",
+      lines: [{ text: closed ? `Closed ${day(flow.approved_date)}` : "Still open", tone: closed ? "success" : "warn" }, { text: `Tag now: ${lastTag ?? "Not tagged"}`, tone: tagInfo(lastTag).tone }, ...(more.length ? [{ text: `${more.length} more linked item${more.length === 1 ? "" : "s"}`, tone: "neutral" as const }] : [])] },
+  ];
+
   const sel = selected ? items.get(selected) ?? null : null;
   const pick = (id: string) => setSelected(id);
 
   return (
     <div className={`fx${hints ? " show-hints" : ""}`}>
       <style>{FX_CSS}</style>
+      <style>{FXI_CSS}</style>
       <div className="fx-top">
         <button type="button" className="fx-back" onClick={onBack}><Icon name="back" size={15} />Back</button>
         <HintsToggle className="fx-hint-btn" />
@@ -229,10 +253,16 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
         </div>
       </header>
 
-      <Stepper steps={stepsShown} />
+      <IsoMapToggle iso={isoOn} onChange={setIsoOn} />
+      <div className={isoOn ? "fxi-print-only" : undefined}><Stepper steps={stepsShown} /></div>
 
       <div className="fx-body">
         <div className="fx-main">
+          {isoOn && (
+            <IsoFlowMap steps={isoSteps} selected={selected} onSelect={pick}
+              aside={{ title: unit, sub: flow.asset_description ?? "No description", tag: { text: flow.asset_tag_status ?? "Not tagged", tone: tag.tone },
+                rows: [["Report", `#${flow.report_id}`], ["Checklist", flow.template_name ?? "—"], ["Country", flow.country ?? "—"]] }} />
+          )}
           <Section title="The unit and the report" hint="Where this inspection started.">
             <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 56px minmax(0,1fr)", alignItems: "stretch" }}>
               <FlowCard item={unitItem} selected={selected === unitItem.id} onSelect={pick} />

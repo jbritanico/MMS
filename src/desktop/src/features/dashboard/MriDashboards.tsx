@@ -21,11 +21,12 @@ import ReviewTurnaround, { ReviewTurnaroundMini } from "./mri/ReviewTurnaround";
 import RepairQueue, { RepairQueueMini } from "./mri/RepairQueue";
 import TimeRedYellow, { TimeRedYellowMini } from "./mri/TimeRedYellow";
 import RepeatFaults, { RepeatFaultsMini } from "./mri/RepeatFaults";
+import FaultTrends, { FaultTrendsMini } from "./mri/FaultTrends";
 import PhoneDecisions, { PhoneDecisionsMini } from "./mri/PhoneDecisions";
 import ReportsPerPeriod, { ReportsPerPeriodMini } from "./mri/ReportsPerPeriod";
 import Exemptions, { ExemptionsMini } from "./mri/Exemptions";
 import DueForecast, { DueForecastMini } from "./mri/DueForecast";
-import { DASHBOARDS, DASH_ICONS, DECK_NAME, DECK_SLIDES, GROUPS, USER_GROUPS } from "./dashCatalog";
+import { DASHBOARDS, DASH_ICONS, GROUPS, USER_GROUPS, isMarked, markBadge, markTip } from "./dashCatalog";
 import { Inspectors, InspectorsMini, Managers, ManagersMini, Reviewers, ReviewersMini, Supervisors, SupervisorsMini, Technicians, TechniciansMini } from "./mri/UserAnalytics";
 import { setScopeFilter, useScopeFilter } from "./scopeFilter";
 import { ModeToggle, MODE_READY } from "./dashMode";
@@ -52,13 +53,14 @@ const BUILT: Record<number, { Mini: (p: { assets: MriDashboardAsset[] }) => Reac
   16: { Mini: ReviewersMini, Full: Reviewers },
   17: { Mini: TechniciansMini, Full: Technicians },
   18: { Mini: ManagersMini, Full: Managers },
+  19: { Mini: FaultTrendsMini, Full: FaultTrends },
 };
 
 function DeckBadge({ no, large = false }: { no: number; large?: boolean }) {
-  if (!DECK_SLIDES[no]) return null;
+  if (!isMarked(no)) return null;
   return (
-    <span className={`mrid-deck-badge${large ? " is-large" : ""}`} title={`From the ${DECK_NAME}, ${DECK_SLIDES[no]}`}>
-      <i aria-hidden="true" />Dashboard design{large ? ` · ${DECK_SLIDES[no]}` : ""}
+    <span className={`mrid-deck-badge${large ? " is-large" : ""}`} title={markTip(no)}>
+      <i aria-hidden="true" />{markBadge(no, large)}
     </span>
   );
 }
@@ -207,7 +209,7 @@ function MriDashboards({ section = "mri", open: openProp }: MriDashboardsProps) 
       <style>{MRID_CSS + FLUID_CSS + CHART3D_CSS}</style>
       <div className="mrid-headrow">
         <div className="header">
-          <h1 className="mrid-title"><span className={`mrid-icon${DECK_SLIDES[openDash.no] ? " is-deck" : ""}`}>{DASH_ICONS[openDash.no]}</span>{openDash.title}<DeckBadge no={openDash.no} large /></h1>
+          <h1 className="mrid-title"><span className={`mrid-icon${isMarked(openDash.no) ? " is-deck" : ""}`}>{DASH_ICONS[openDash.no]}</span>{openDash.title}<DeckBadge no={openDash.no} large /></h1>
           <span className="sub">{openDash.desc}</span>
           {MODE_READY.has(openDash.no) && <ModeToggle />}
         </div>

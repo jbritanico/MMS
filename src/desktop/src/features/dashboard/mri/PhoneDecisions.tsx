@@ -121,7 +121,7 @@ export default function PhoneDecisions({ assets, filters }: { assets: MriDashboa
     <div className="mrid-dash">
       <div className="mrid-dash-bar">
         <p className="mrid-note">Phone decisions take effect at once but must be <b>confirmed</b> by the real authority. Moderate fault decisions must be <b>acknowledged</b> by the Maintenance Manager / FSM. Waiting items are shown as they are now; the rest is for <b>{periodName}</b>.</p>
-        <ExportMenu dashboardNo={10} title="Phone decisions and acknowledgements" filters={filters} tables={exportTables} />
+        <ExportMenu dashboardNo={10} title="Phone Decisions and Acknowledgements" filters={filters} tables={exportTables} />
       </div>
 
       <StoryStrip lines={story} />

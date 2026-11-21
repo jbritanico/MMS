@@ -6,6 +6,9 @@ import { getMotion, motionFactor, useMotion } from "./motion";
 // Drag to turn, scroll to zoom, double-click to reset, hover for values, click a bar to drill.
 // Fluid style: each bar is a column of liquid with soft gradients, a gloss streak, a shadow on
 // the floor and a gently moving wave on its surface (follows the dashboard animation setting).
+// Optional light physics (prop `physics`): bars land one after another with a small spring
+// bounce, a flick keeps the chart turning and it slows down by friction, and the liquid in the
+// bars sloshes against the turn and settles. Off when the dashboard animation setting is Off.
 
 export interface Seg { key: string; label: string; value: number; color: string }
 export interface Cell3D { row: number; col: number; segs: Seg[] }
@@ -24,13 +27,17 @@ interface Props {
   /** Whole numbers only (counts): the scale uses whole-number steps. */
   integer?: boolean;
   onPick?: (cell: Cell3D, seg: Seg) => void;
+  /** Light physics: staggered spring landing, turn inertia, liquid slosh. */
+  physics?: boolean;
 }
 
 type V3 = [number, number, number];
 interface Face { pts: [number, number][]; depth: number; fill: string | CanvasGradient; stroke: string; gloss?: [number, number][]; cell?: Cell3D; seg?: Seg }
 
 const DEG = Math.PI / 180;
-const DEFAULT_VIEW = { yaw: -38 * DEG, pitch: 30 * DEG, zoom: 1 };
+// True isometric starting view: 45° turn and arctan(1/√2) ≈ 35.26° tilt, drawn without perspective,
+// so the three axes are foreshortened equally. Reset and double-click return to it.
+const DEFAULT_VIEW = { yaw: -45 * DEG, pitch: Math.atan(1 / Math.SQRT2), zoom: 1 };
 
 /** CSS colour (also var(...)) to [r, g, b]. The probe sits inside the chart, so the
  *  colours come from the theme the chart is shown in (Light, Dark, macOS). */
@@ -68,7 +75,11 @@ const niceMax = (v: number) => {
 };
 const short = (s: string, n = 16) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 
-export default function Chart3D({ rows, cols, cells, rowTitle, colTitle, valueTitle, fmt = (v) => String(Math.round(v * 10) / 10), plane, height = 420, integer = false, onPick }: Props) {
+/** Damped spring from 0 to 1 (small overshoot). t in ms since the bar started. */
+const springAt = (t: number, mf: number) => (t <= 0 ? 0 : 1 - Math.exp(-t / (120 * mf)) * Math.cos((t * 0.011) / mf));
+const STAGGER = 45; // ms between neighbouring bars landing
+
+export default function Chart3D({ rows, cols, cells, rowTitle, colTitle, valueTitle, fmt = (v) => String(Math.round(v * 10) / 10), plane, height = 420, integer = false, onPick, physics = false }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [width, setWidth] = useState(800);
@@ -78,6 +89,10 @@ export default function Chart3D({ rows, cols, cells, rowTitle, colTitle, valueTi
   const faces = useRef<Face[]>([]);
   const drag = useRef<{ x: number; y: number; yaw: number; pitch: number; moved: boolean } | null>(null);
   const resolve = useColorResolver(wrapRef);
+  // Light physics state (only used when `physics` is on and animations are not Off).
+  const [growT, setGrowT] = useState(0);
+  const [slosh, setSlosh] = useState(0);
+  const phys = useRef({ vYaw: 0, vPitch: 0, s: 0, sv: 0, raf: 0, last: 0, moveT: 0, moveX: 0, moveY: 0 });
 
   // Liquid surface clock: ~30 frames a second while the chart is on screen and animations are on.
   const motion = useMotion();
@@ -120,7 +135,21 @@ export default function Chart3D({ rows, cols, cells, rowTitle, colTitle, valueTi
   const dataKey = useMemo(() => JSON.stringify([rows, cols, cells.map((c) => [c.row, c.col, c.segs.map((s) => s.value)])]), [rows, cols, cells]);
   useEffect(() => {
     const level = getMotion();
-    if (level === 0) { setGrow(1); return; }
+    if (level === 0) { setGrow(1); setGrowT(1e9); return; }
+    if (physics) {
+      const mf = motionFactor(level);
+      const total = 1400 * mf + (rows.length + cols.length) * STAGGER;
+      const t0 = performance.now();
+      let raf = 0;
+      const step = (t: number) => {
+        const el = t - t0;
+        setGrowT(el);
+        if (el < total) raf = requestAnimationFrame(step); else setGrowT(1e9);
+      };
+      setGrow(1); setGrowT(0);
+      raf = requestAnimationFrame(step);
+      return () => cancelAnimationFrame(raf);
+    }
     const dur = 900 * motionFactor(level);
     const t0 = performance.now();
     let raf = 0;
@@ -132,7 +161,41 @@ export default function Chart3D({ rows, cols, cells, rowTitle, colTitle, valueTi
     setGrow(0);
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [dataKey]);
+  }, [dataKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Turn inertia and liquid slosh: one animation loop that runs only while something moves.
+  const physOn = physics && motion !== 0;
+  const kick = useCallback(() => {
+    const ph = phys.current;
+    if (ph.raf) return;
+    ph.last = performance.now();
+    const step = (t: number) => {
+      const dt = Math.min(40, t - ph.last); ph.last = t;
+      const dragging = !!drag.current;
+      if (!dragging && (Math.abs(ph.vYaw) > 1e-6 || Math.abs(ph.vPitch) > 1e-6)) {
+        const fr = Math.pow(0.9955, dt); // friction
+        setView((v) => {
+          let pitch = v.pitch + ph.vPitch * dt;
+          if (pitch < 8 * DEG || pitch > 80 * DEG) { pitch = Math.max(8 * DEG, Math.min(80 * DEG, pitch)); ph.vPitch = -ph.vPitch * 0.35; }
+          return { ...v, yaw: v.yaw + ph.vYaw * dt, pitch };
+        });
+        ph.vYaw *= fr; ph.vPitch *= fr;
+        if (Math.abs(ph.vYaw) < 2e-5) ph.vYaw = 0;
+        if (Math.abs(ph.vPitch) < 2e-5) ph.vPitch = 0;
+      }
+      // Slosh: a damped spring that leans against the turn and wobbles back to level.
+      const target = Math.max(-0.9, Math.min(0.9, -ph.vYaw * 100));
+      const w = 11, z = 0.22, sec = dt / 1000;
+      ph.sv += (w * w * (target - ph.s) - 2 * z * w * ph.sv) * sec;
+      ph.s += ph.sv * sec;
+      setSlosh(ph.s);
+      const moving = dragging || ph.vYaw !== 0 || ph.vPitch !== 0 || Math.abs(ph.s) > 0.004 || Math.abs(ph.sv) > 0.02;
+      if (moving) ph.raf = requestAnimationFrame(step);
+      else { ph.raf = 0; ph.s = 0; ph.sv = 0; setSlosh(0); }
+    };
+    ph.raf = requestAnimationFrame(step);
+  }, []);
+  useEffect(() => () => cancelAnimationFrame(phys.current.raf), []);
 
   const vmax = useMemo(() => {
     const top = Math.max(plane?.value ?? 0, ...cells.map((c) => c.segs.reduce((a, s) => a + s.value, 0)), 0);
@@ -228,11 +291,16 @@ export default function Chart3D({ rows, cols, cells, rowTitle, colTitle, valueTi
       const mx = (c.row + 0.5) * ux, mz = (c.col + 0.5) * uz, e = foot * 0.62;
       poly([P(mx - e + 0.06, 0, mz - e + 0.08), P(mx + e + 0.06, 0, mz - e + 0.08), P(mx + e + 0.06, 0, mz + e + 0.08), P(mx - e + 0.06, 0, mz + e + 0.08)], rgb(shadowC, 1, 0.07), null);
     }
+    const mfNow = motionFactor(motion) || 1;
     for (const c of cells) {
       let base = 0;
       const live = c.segs.filter((sg) => sg.value > 0);
+      // With a limit plane (e.g. 100% of an interval) bars never bounce past their value, so a bar
+      // never looks over the limit for a moment.
+      const gc0 = physOn ? (growT >= 1e9 ? 1 : springAt(growT - (c.row + c.col) * STAGGER, mfNow)) : grow;
+      const gc = plane ? Math.min(1, gc0) : gc0;
       live.forEach((sg, si) => {
-        const h = (sg.value / vmax) * H * grow;
+        const h = (sg.value / vmax) * H * gc;
         if (h <= 0) return;
         const isTop = si === live.length - 1;
         const mx = (c.row + 0.5) * ux, mz = (c.col + 0.5) * uz;
@@ -240,7 +308,9 @@ export default function Chart3D({ rows, cols, cells, rowTitle, colTitle, valueTi
         base = y1;
         const amp = isTop ? Math.min(ampBase, h * 0.25) : 0;
         const seed = c.row * 1.9 + c.col * 1.3;
-        const wy = (x: number, z: number) => y1 + amp * Math.sin(phase + seed + (x - x0) * 9 + (z - z0) * 7);
+        // Slosh tilt: the surface leans along the screen's left-right direction while the chart turns.
+        const tilt = isTop && physOn ? Math.min(h * 0.25, H * 0.035) * slosh / (foot / 2) : 0;
+        const wy = (x: number, z: number) => y1 + amp * Math.sin(phase + seed + (x - x0) * 9 + (z - z0) * 7) + tilt * ((x - mx) * cy - (z - mz) * sy);
         const edge = (a: V3, bq: V3): V3[] => Array.from({ length: WN + 1 }, (_, k) => {
           const t = k / WN, x = a[0] + (bq[0] - a[0]) * t, z = a[2] + (bq[2] - a[2]) * t;
           return [x, wy(x, z), z];
@@ -347,7 +417,7 @@ export default function Chart3D({ rows, cols, cells, rowTitle, colTitle, valueTi
     ctx.textAlign = "center";
     const top = P(farCorner.x, H, farCorner.z);
     ctx.fillText(valueTitle.toUpperCase(), top[0], Math.max(10, top[1] - 14));
-  }, [rows, cols, cells, view, width, height, grow, vmax, plane, rowTitle, colTitle, valueTitle, fmt, resolve, themeTick, phase, motion]);
+  }, [rows, cols, cells, view, width, height, grow, growT, slosh, physOn, vmax, plane, rowTitle, colTitle, valueTitle, fmt, resolve, themeTick, phase, motion]);
 
   // Hit test: the front-most face under the pointer.
   const hit = (x: number, y: number) => {
@@ -393,6 +463,7 @@ export default function Chart3D({ rows, cols, cells, rowTitle, colTitle, valueTi
         onPointerDown={(e) => {
           (e.target as HTMLCanvasElement).setPointerCapture(e.pointerId);
           drag.current = { x: e.clientX, y: e.clientY, yaw: view.yaw, pitch: view.pitch, moved: false };
+          const ph = phys.current; ph.vYaw = 0; ph.vPitch = 0; ph.moveT = performance.now(); ph.moveX = e.clientX; ph.moveY = e.clientY;
         }}
         onPointerMove={(e) => {
           const d = drag.current;
@@ -401,6 +472,14 @@ export default function Chart3D({ rows, cols, cells, rowTitle, colTitle, valueTi
             if (Math.abs(dx) + Math.abs(dy) > 3) d.moved = true;
             setView((v) => ({ ...v, yaw: d.yaw + dx * 0.008, pitch: Math.max(8 * DEG, Math.min(80 * DEG, d.pitch + dy * 0.006)) }));
             setTip(null);
+            if (physOn) {
+              // Track the turning speed (smoothed) for the flick, and let the liquid react while dragging.
+              const ph = phys.current, now = performance.now(), dtm = Math.max(1, now - ph.moveT);
+              ph.vYaw = ph.vYaw * 0.6 + (((e.clientX - ph.moveX) * 0.008) / dtm) * 0.4;
+              ph.vPitch = ph.vPitch * 0.6 + (((e.clientY - ph.moveY) * 0.006) / dtm) * 0.4;
+              ph.moveT = now; ph.moveX = e.clientX; ph.moveY = e.clientY;
+              kick();
+            }
             return;
           }
           const [x, y] = local(e);
@@ -410,6 +489,13 @@ export default function Chart3D({ rows, cols, cells, rowTitle, colTitle, valueTi
         onPointerUp={(e) => {
           const d = drag.current;
           drag.current = null;
+          if (physOn) {
+            const ph = phys.current;
+            // A pause before letting go means no flick.
+            if (!d?.moved || performance.now() - ph.moveT > 90) { ph.vYaw = 0; ph.vPitch = 0; }
+            ph.vYaw = Math.max(-0.02, Math.min(0.02, ph.vYaw)); ph.vPitch = Math.max(-0.01, Math.min(0.01, ph.vPitch));
+            kick();
+          }
           if (d && !d.moved && onPick) {
             const [x, y] = local(e);
             const f = hit(x, y);
@@ -417,7 +503,7 @@ export default function Chart3D({ rows, cols, cells, rowTitle, colTitle, valueTi
           }
         }}
         onPointerLeave={() => setTip(null)}
-        onDoubleClick={() => setView(DEFAULT_VIEW)}
+        onDoubleClick={() => { phys.current.vYaw = 0; phys.current.vPitch = 0; setView(DEFAULT_VIEW); }}
         onKeyDown={(e) => {
           const step = 8 * DEG;
           if (e.key === "ArrowLeft") setView((v) => ({ ...v, yaw: v.yaw - step }));
@@ -439,10 +525,10 @@ export default function Chart3D({ rows, cols, cells, rowTitle, colTitle, valueTi
         </div>
       )}
       <div className="fl-3d-bar">
-        <span><b className="fl-3d-axes">{rowTitle} × {colTitle} · height: {valueTitle.toLowerCase()}</b> · drag to turn · scroll to zoom · double-click to reset{onPick ? " · click a bar to list it" : ""}</span>
+        <span><b className="fl-3d-axes">{rowTitle} × {colTitle} · height: {valueTitle.toLowerCase()}</b> · drag to turn{physOn ? " (flick to spin)" : ""} · scroll to zoom · double-click to reset{onPick ? " · click a bar to list it" : ""}</span>
         <span className="fl-3d-btns">
-          <button type="button" className="ghost" onClick={() => setView((v) => ({ ...v, yaw: v.yaw - 30 * DEG }))} aria-label="Turn left">⟲</button>
-          <button type="button" className="ghost" onClick={() => setView((v) => ({ ...v, yaw: v.yaw + 30 * DEG }))} aria-label="Turn right">⟳</button>
+          <button type="button" className="ghost" onClick={() => { if (physOn) { phys.current.vYaw = -0.0024; kick(); } else setView((v) => ({ ...v, yaw: v.yaw - 30 * DEG })); }} aria-label="Turn left">⟲</button>
+          <button type="button" className="ghost" onClick={() => { if (physOn) { phys.current.vYaw = 0.0024; kick(); } else setView((v) => ({ ...v, yaw: v.yaw + 30 * DEG })); }} aria-label="Turn right">⟳</button>
           <button type="button" className="ghost" onClick={() => setView(DEFAULT_VIEW)}>Reset view</button>
         </span>
       </div>

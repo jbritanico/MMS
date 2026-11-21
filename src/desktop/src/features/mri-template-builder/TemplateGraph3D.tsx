@@ -254,7 +254,17 @@ const TemplateGraph3D = forwardRef<TemplateGraph3DHandle, TemplateGraph3DProps>(
       await new Promise((resolve) => requestAnimationFrame(resolve));
 
       try {
-        const canvas = await html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+        const canvas = await html2canvas(el, {
+          scale: 2, backgroundColor: "#ffffff", useCORS: true,
+          // Holo HUD (checklist item 36): the PDF keeps the light document look. The copy html2canvas
+          // draws from is switched to Fluent, so the dark screen colours never reach the paper.
+          onclone: (doc) => {
+            if (!doc.documentElement.hasAttribute("data-holo")) return;
+            doc.documentElement.removeAttribute("data-holo");
+            doc.documentElement.setAttribute("data-fluent", "");
+            doc.querySelectorAll('.app[data-theme="holo"]').forEach((a) => a.setAttribute("data-theme", "fluent"));
+          },
+        });
         const imgData = canvas.toDataURL("image/png");
         const pdf = new jsPDF({
           orientation: canvas.height >= canvas.width ? "portrait" : "landscape",

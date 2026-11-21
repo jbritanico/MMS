@@ -199,7 +199,7 @@ export default function ClosureRate({ assets, filters }: { assets: MriDashboardA
           </p>
           {adv && <span className="mrid-formula">Closure rate = closed in the period ÷ (backlog at the start + new in the period) × 100 · Target for Major / Critical: above {TARGET}%</span>}
         </div>
-        <ExportMenu dashboardNo={4} title="Fault closure rate" filters={filters} tables={exportTables} />
+        <ExportMenu dashboardNo={4} title="Fault Closure Rate" filters={filters} tables={exportTables} />
       </div>
 
       <StoryStrip lines={story} />

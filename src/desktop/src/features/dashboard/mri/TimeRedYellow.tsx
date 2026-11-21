@@ -154,7 +154,7 @@ export default function TimeRedYellow({ assets, filters }: { assets: MriDashboar
     <div className="mrid-dash">
       <div className="mrid-dash-bar">
         <p className="mrid-note">Time each unit spent Red (not safe to use) or Yellow (under repair) in <b>{p.label}</b>{p.isCurrent ? " so far" : ""}, from the tag history. Unit-days add up the days of every unit.</p>
-        <ExportMenu dashboardNo={8} title="Time spent Red or Yellow" filters={filters} tables={exportTables} />
+        <ExportMenu dashboardNo={8} title="Time Spent Red or Yellow" filters={filters} tables={exportTables} />
       </div>
 
       <StoryStrip lines={story} />
@@ -184,7 +184,7 @@ export default function TimeRedYellow({ assets, filters }: { assets: MriDashboar
         <div className="mrid-panel-head"><h3>{is3d ? `Days Red or Yellow, by unit and month${ranked.length > 12 ? " (top 12 units)" : ""}` : `Days Red or Yellow, by unit${ranked.length > 20 ? " (top 20)" : ""}`}</h3><ViewToggle is3d={is3d} onChange={set3d} /></div>
         {chart.length === 0 ? <p className="mrid-note mrid-empty">No unit was Red or Yellow in this period.</p> : cube ? (
           <>
-            <Chart3D rows={cube.rows} cols={cube.cols} cells={cube.cells} rowTitle="Unit" colTitle="Month" valueTitle="Days"
+            <Chart3D physics rows={cube.rows} cols={cube.cols} cells={cube.cells} rowTitle="Unit" colTitle="Month" valueTitle="Days"
               fmt={(v) => `${Math.round(v * 10) / 10} d`} onPick={(cell) => setUnitPick(cube.ids[cell.row] ?? null)} />
             <div className="mrid-legend"><span><i style={{ background: RED }} />Red</span><span><i style={{ background: YEL }} />Yellow</span></div>
           </>

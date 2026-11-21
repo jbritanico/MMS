@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import { useCurrentUser } from "../../lib/currentUser";
-import { diag } from "../../lib/support/diag";
+import { diag, fileStamp, saveFile } from "../../lib/support/diag";
 import { fmtBundleSize } from "../../lib/support/supportBundle";
 import { parseSessions, PART, type BundleManifest, type SessionEvent } from "../../lib/support/bundleFormat";
 import {
@@ -10,6 +10,11 @@ import {
 } from "./bundleAnalysis";
 import RecordInspector, { RI_CSS } from "./RecordInspector";
 import { RecordStore } from "./recordStore";
+import {
+  CAUSE_TEXT, LEVEL_TEXT, OVERALL_TEXT, prognosisReportHtml, runPrognosis,
+  type Finding, type Level, type Prognosis, type PrognosisInput, type Trend,
+} from "./prognosis";
+import { developerBrief, FIX_ORDER, FIX_TEXT, needsBrief, type FixType } from "./fixplan";
 
 // Support viewer (Administration › Diagnostics), Administrator tier only.
 //  Item 19  open a .mmsbundle (read into memory on the Rust side, never imported)
@@ -22,6 +27,8 @@ import { RecordStore } from "./recordStore";
 //  Item 26  Call log tab           (logs)
 //  Item 27  Rejected actions tab   (logs)
 //  Item 28  Record inspector tab   (report.json, backup.json; read when the tab is first opened)
+//  Items 29-34  Prognosis card at the top (prognosis.ts): rating, findings with cause and fix, outlook, one-page report
+//  Items 41-45  Fix plan tab (fixplan.ts): do this now, permanent fix, fix type, developer brief
 // Later items add tabs for the Error inbox, Action replay, Call log, Rejected actions and the
 // Record inspector, and fill in the prognosis.
 //
@@ -47,7 +54,7 @@ type SystemInfo = Record<string, unknown> & {
 };
 interface Loaded { system?: SystemInfo; sessions?: SessionEvent[]; checks?: DataCheck[]; logs?: LogData; problems: string[] }
 
-type Tab = "environment" | "errors" | "replay" | "calls" | "rejected" | "records" | "crashes" | "checks" | "contents";
+type Tab = "fixplan" | "environment" | "errors" | "replay" | "calls" | "rejected" | "records" | "crashes" | "checks" | "contents";
 
 /** Reads one part of the open bundle (Administrator only, checked again on the Rust side). */
 export function readBundlePart(userId: number, path: string) {
@@ -163,7 +170,7 @@ export default function SupportViewer() {
         headers: { "x-mms-user-id": String(user.id), "x-mms-file-name": encodeURIComponent(file.name) },
       });
       const parts = await readParts(ov, user.id);
-      setOverview(ov); setLoaded(parts); setRecords(null); setTab("environment");
+      setOverview(ov); setLoaded(parts); setRecords(null); setSaved(null); setTab("fixplan");
       diag.step(`Opened support bundle ${ov.file_name}`);
     } catch (e) {
       setErr(String(e).replace(/^Error:\s*/, ""));
@@ -199,9 +206,27 @@ export default function SupportViewer() {
   const sessions = loaded?.sessions ? sessionRows(loaded.sessions) : [];
   const crashes = sessions.filter((s) => s.ended === "unclean").length;
   const checkIssues = (loaded?.checks ?? []).filter((c) => c.status === "warn" || c.status === "error").length;
+  const pInput = useMemo<PrognosisInput | null>(() => (overview && loaded ? {
+    manifest: overview.manifest, missingParts: overview.missing, system: loaded.system,
+    thisVersion: diag.state.system?.version as string | undefined,
+    thisMigrations: diag.state.system?.schema_migrations as number | undefined,
+    sessions: loaded.sessions ? sessionRows(loaded.sessions) : undefined, checks: loaded.checks, logs: loaded.logs,
+  } : null), [overview, loaded]);
+  const prognosis = useMemo(() => (pInput ? runPrognosis(pInput) : null), [pInput]);
+  const devFixes = (prognosis?.findings ?? []).filter((f) => f.plan?.release).length;
+  const [saved, setSaved] = useState<string | null>(null);
+  function saveReport() {
+    if (!overview || !prognosis) return;
+    const who = (overview.manifest.user?.name ?? "user").replace(/[^A-Za-z0-9]+/g, "-");
+    const name = `MMS-Prognosis-${who}-${fileStamp()}.html`;
+    saveFile(name, prognosisReportHtml(prognosis, overview.manifest, overview.file_name, user ? `${user.name} (${user.role})` : "IT", new Date().toLocaleString()));
+    diag.step(`Saved prognosis report ${name}`);
+    setSaved(name);
+  }
   const errorCount = loaded?.logs ? inboxGroups(loaded.logs).length : 0;
   const bugCount = loaded?.logs ? rejections(loaded.logs).filter((r) => r.kind === "bug").length : 0;
   const tabs: { id: Tab; label: string; badge?: number; tone?: "warn" | "bad" }[] = [
+    { id: "fixplan", label: "Fix plan", badge: devFixes || undefined, tone: "bad" },
     { id: "environment", label: "Environment" },
     { id: "errors", label: "Error inbox", badge: errorCount || undefined, tone: "bad" },
     { id: "replay", label: "Action replay" },
@@ -241,7 +266,8 @@ export default function SupportViewer() {
           <button className="primary" onClick={pick} disabled={busy || !user}>{busy ? "Opening…" : "Open a support bundle"}</button>
         </div>
       ) : (
-        <>
+        <div className="sv-cols">
+          <div className="sv-side">
           {/* Summary */}
           <div className="panel sv-panel">
             <div className="sv-head">
@@ -267,14 +293,14 @@ export default function SupportViewer() {
           </div>
 
           {/* Prognosis (items 29 to 34) */}
-          <div className="panel sv-panel sv-prog">
-            <span className="sv-tile is-soft">{I.pulse}</span>
-            <div className="sv-head-text">
-              <div className="sv-label">Prognosis</div>
-              <div className="sv-soft">MMS will rate this bundle here (Healthy, Needs attention or Action required) with the likely cause and what to do. Until then, use the tabs below.</div>
-            </div>
+          {prognosis && (
+            <PrognosisCard p={prognosis} tabLabel={(id) => tabs.find((t) => t.id === id)?.label ?? id}
+              onOpenTab={(id) => setTab(id as Tab)} onSave={saveReport} saved={saved} pulse={I.pulse} />
+          )}
+
           </div>
 
+          <div className="sv-main">
           {/* Tabs */}
           <div className="sv-tabs" role="tablist" aria-label="Support bundle">
             {tabs.map((t) => {
@@ -295,6 +321,8 @@ export default function SupportViewer() {
           </div>
 
           <div className="panel sv-panel">
+            {tab === "fixplan" && prognosis && pInput && <FixPlanTab p={prognosis} input={pInput} fileName={overview.file_name}
+              tabLabel={(id) => tabs.find((t) => t.id === id)?.label ?? id} onOpenTab={(id) => setTab(id as Tab)} />}
             {tab === "environment" && <EnvironmentTab system={loaded.system} />}
             {tab === "crashes" && <CrashTab rows={sessions} has={loaded.sessions != null} />}
             {tab === "checks" && <ChecksTab checks={loaded.checks} />}
@@ -305,7 +333,8 @@ export default function SupportViewer() {
             {tab === "records" && <RecordInspector store={records?.store ?? null} loading={!records || records.loading} problem={records?.problem} />}
             {tab === "contents" && <ContentsTab overview={overview} />}
           </div>
-        </>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -754,8 +783,189 @@ function ContentsTab({ overview }: { overview: BundleOverview }) {
   );
 }
 
+// ---------------------------------------------------------------- items 29-34: Prognosis
+
+const LEVEL_DOT: Record<Level, string> = { action: "bad", attention: "warn", info: "info" };
+const LEVEL_CHIP: Record<Level, string> = { action: "bad", attention: "warn", info: "info" };
+
+function PrognosisCard({ p, tabLabel, onOpenTab, onSave, saved, pulse }: {
+  p: Prognosis; tabLabel: (id: string) => string; onOpenTab: (id: string) => void; onSave: () => void; saved: string | null; pulse: ReactNode;
+}) {
+  const [open, setOpen] = useState<string | null>(null);
+  const [all, setAll] = useState(false);
+  const shown = all ? p.findings : p.findings.slice(0, 6);
+  const summary = [
+    p.counts.action ? `${p.counts.action} action required` : "",
+    p.counts.attention ? `${p.counts.attention} need${p.counts.attention === 1 ? "s" : ""} attention` : "",
+    p.counts.info ? `${p.counts.info} good to know` : "",
+  ].filter(Boolean).join(" · ");
+  return (
+    <div className={`panel sv-panel pg is-${p.overall}`}>
+      <div className="pg-head">
+        <span className="sv-tile pg-tile">{pulse}</span>
+        <div className="sv-head-text">
+          <div className="sv-label">Prognosis</div>
+          <div className="pg-overall">{OVERALL_TEXT[p.overall]}</div>
+          <div className="sv-soft">{summary || "Nothing needs attention"} · {p.rulesChecked} checks run</div>
+        </div>
+        <button type="button" className="pg-save" onClick={onSave} title="Save a one-page report to your Downloads folder">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
+          Save report
+        </button>
+      </div>
+      {saved && <div className="toast ok sv-toast">Saved {saved} in your Downloads folder. Open it in a browser to print it or save it as PDF.</div>}
+
+      {p.findings.length === 0 ? (
+        <p className="sv-soft">MMS found nothing that needs attention in this bundle: no errors, crashes, refused actions, data problems or slow saves. If the user still has a problem, use Action replay to see what they did.</p>
+      ) : (
+        <ul className="sv-events sv-groups">
+          {shown.map((f, i) => {
+            const key = `${f.rule}-${i}`;
+            return (
+              <Group key={key} open={open === key} onToggle={() => setOpen(open === key ? null : key)} dot={LEVEL_DOT[f.level]}
+                title={f.title} sub={`Likely cause: ${CAUSE_TEXT[f.cause]}${f.plan ? ` · Fix: ${FIX_TEXT[f.plan.type].label}` : ""}`}
+                side={<span className={`sv-chip is-${LEVEL_CHIP[f.level]}`}>{LEVEL_TEXT[f.level]}</span>}>
+                <FindingBody f={f} tabLabel={tabLabel} onOpenTab={onOpenTab} />
+              </Group>
+            );
+          })}
+        </ul>
+      )}
+      {p.findings.length > 6 && (
+        <button type="button" className="ri-link" onClick={() => setAll((x) => !x)}>{all ? "Show the first 6" : `Show all ${p.findings.length} findings`}</button>
+      )}
+
+      {p.trends.length > 0 && (
+        <>
+          <div className="sv-label pg-sub">Outlook: what happens if nothing changes</div>
+          <div className="pg-trends">{p.trends.map((t) => <TrendCard key={t.id} t={t} />)}</div>
+        </>
+      )}
+      <p className="sv-soft pg-foot">MMS's best judgement from fixed checks built into MMS. Confirm before acting.</p>
+    </div>
+  );
+}
+
+function FindingBody({ f, tabLabel, onOpenTab }: { f: Finding; tabLabel: (id: string) => string; onOpenTab: (id: string) => void }) {
+  return (
+    <div className="pg-body">
+      <p>{f.why}</p>
+      <p><b>What to do:</b> {f.fix}</p>
+      {f.ifLeft && <p><b>If left:</b> {f.ifLeft}</p>}
+      {f.evidence.length > 0 && <ul className="pg-evidence">{f.evidence.map((e, i) => <li key={i}>{e}</li>)}</ul>}
+      <div className="pg-links">
+        {f.tab && <button type="button" className="ri-link pg-open" onClick={() => onOpenTab(f.tab!)}>Open {tabLabel(f.tab)} →</button>}
+        {f.plan && <button type="button" className="ri-link pg-open" onClick={() => onOpenTab("fixplan")}>Fix plan: {FIX_TEXT[f.plan.type].label} →</button>}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- items 41 to 45: Fix plan
+
+const FIX_TONE: Record<FixType, string> = { code: "bad", structure: "bad", data: "warn", setup: "info", none: "muted" };
+
+function FixPlanTab({ p, input, fileName, tabLabel, onOpenTab }: {
+  p: Prognosis; input: PrognosisInput; fileName: string; tabLabel: (id: string) => string; onOpenTab: (id: string) => void;
+}) {
+  const [open, setOpen] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const planned = p.findings.filter((f) => f.plan);
+  const byType = (t: FixType) => planned.filter((f) => f.plan!.type === t);
+  const releases = planned.filter((f) => f.plan!.release).length;
+
+  async function copyBrief(f: Finding) {
+    const text = developerBrief(f, f.plan!, input, fileName);
+    try { await navigator.clipboard.writeText(text); setMsg("Developer brief copied. Paste it into the ticket, e-mail or Claude Code."); }
+    catch { saveBrief(f); }
+  }
+  function saveBrief(f: Finding) {
+    const who = (input.manifest.user?.name ?? "user").replace(/[^A-Za-z0-9]+/g, "-");
+    const name = `MMS-Dev-Brief-${f.rule}-${who}-${fileStamp()}.txt`;
+    saveFile(name, developerBrief(f, f.plan!, input, fileName), "text/plain");
+    diag.step(`Saved developer brief ${name}`);
+    setMsg(`Saved ${name} in your Downloads folder.`);
+  }
+
+  return (
+    <div className="sv-tab">
+      <div className="sv-tab-head">
+        <div><div className="sv-title">Fix plan</div>
+          <div className="sv-soft">For each finding: what to do today without a new MMS version, and what kind of permanent fix it needs. MMS cannot see its own code here, so a code change is its best judgement from the errors; the developer brief gives the evidence to confirm it.</div></div>
+      </div>
+      <div className="sv-facts fp-facts">
+        {FIX_ORDER.map((t) => {
+          const n = byType(t).length;
+          return <Fact key={t} label={FIX_TEXT[t].label} value={n} tone={n && (t === "code" || t === "structure") ? "bad" : n && t === "data" ? "warn" : undefined} sub={FIX_TEXT[t].who} />;
+        })}
+      </div>
+      <p className="sv-soft">{planned.length === 0 ? "Nothing to fix in this bundle." : releases ? `${plural(releases, "issue")} need${releases === 1 ? "s" : ""} a new MMS version. Everything else can be fixed on the laptop or in the data.` : "No new MMS version is needed: everything can be fixed on the laptop, in the data or by guiding the user."}</p>
+      {msg && <div className="toast ok sv-toast">{msg}</div>}
+
+      {FIX_ORDER.map((t) => {
+        const fs = byType(t);
+        if (!fs.length) return null;
+        return (
+          <div key={t} className="fp-group">
+            <div className="fp-group-head"><span className={`sv-chip is-${FIX_TONE[t]}`}>{FIX_TEXT[t].label}</span><span className="sv-soft">{FIX_TEXT[t].blurb}</span></div>
+            <ul className="sv-events sv-groups">
+              {fs.map((f, i) => {
+                const key = `${t}-${f.rule}-${i}`;
+                const pl = f.plan!;
+                return (
+                  <Group key={key} open={open === key} onToggle={() => setOpen(open === key ? null : key)} dot={LEVEL_DOT[f.level]}
+                    title={f.title} sub={`${pl.who} · new MMS version: ${pl.release ? "yes" : "no"}${pl.confidence === "possible" ? " · confirm first" : ""}`}
+                    side={<span className={`sv-chip is-${LEVEL_CHIP[f.level]}`}>{LEVEL_TEXT[f.level]}</span>}>
+                    <div className="pg-body">
+                      <div className="fp-step is-now"><span className="sv-label">Do this now</span><p>{pl.now}</p></div>
+                      <div className="fp-step"><span className="sv-label">Permanent fix</span><p>{pl.permanent}</p></div>
+                      {pl.alsoCheck && <p className="sv-soft">May also need: <b>{FIX_TEXT[pl.alsoCheck].label.toLowerCase()}</b>, once the cause is confirmed.</p>}
+                      {f.evidence.length > 0 && <ul className="pg-evidence">{f.evidence.map((e, j) => <li key={j}>{e}</li>)}</ul>}
+                      <div className="pg-links">
+                        {needsBrief(pl) && <>
+                          <button type="button" className="pg-save" onClick={() => copyBrief(f)}>Copy developer brief</button>
+                          <button type="button" className="ri-link pg-open" onClick={() => saveBrief(f)}>Save brief as text</button>
+                        </>}
+                        {f.tab && <button type="button" className="ri-link pg-open" onClick={() => onOpenTab(f.tab!)}>Open {tabLabel(f.tab)} →</button>}
+                      </div>
+                    </div>
+                  </Group>
+                );
+              })}
+            </ul>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TrendCard({ t }: { t: Trend }) {
+  const max = Math.max(1, ...t.days.map((d) => d.value));
+  return (
+    <div className={`pg-trend is-${t.tone}`}>
+      <div className="pg-trend-head"><b>{t.title}</b><span className="sv-soft">{t.days.length} day{t.days.length === 1 ? "" : "s"}</span></div>
+      <div className="pg-bars" role="img" aria-label={`${t.title}: ${t.days.map((d) => `${d.day} ${d.value} ${t.unit}`).join(", ")}`}>
+        {t.days.slice(-14).map((d) => (
+          <span key={d.day} title={`${d.day}: ${d.value} ${t.unit}`}><i style={{ height: `${Math.max(4, Math.round((d.value / max) * 100))}%` }} /></span>
+        ))}
+      </div>
+      <div className="pg-bar-days"><span>{t.days[0]?.day.slice(5)}</span><span>{t.days[t.days.length - 1]?.day.slice(5)}</span></div>
+      <p className="sv-soft">{t.text}</p>
+    </div>
+  );
+}
+
 const SV_CSS = `
-.sv { font-family: var(--sans); color: var(--text); display: grid; gap: 16px; max-width: 920px; }
+.sv { font-family: var(--sans); color: var(--text); display: grid; gap: 16px; max-width: 1760px; container-type: inline-size; }
+.sv > * { max-width: 920px; min-width: 0; }
+.sv-cols { display: grid; gap: 16px; align-items: start; }
+.sv-side, .sv-main { display: grid; gap: 16px; align-content: start; min-width: 0; }
+@container (min-width: 1240px) {
+  .sv > .sv-cols, .sv > .sv-top, .sv > .toast { max-width: none; }
+  .sv-cols { grid-template-columns: minmax(440px, 5fr) minmax(0, 7fr); }
+  .sv-side .pg-trends { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+}
 .sv b { font-weight: 600; }
 .sv-top { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between; }
 .sv-top-text { min-width: 0; flex: 1 1 360px; }
@@ -872,5 +1082,42 @@ const SV_CSS = `
 .sv-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .sv-table tr.is-bad td { color: var(--danger); }
 .sv-table small { color: var(--text-soft); }
+.pg { gap: 12px; }
+.pg-head { display: flex; gap: 14px; align-items: center; }
+.sv button.pg-save { margin-left: auto; flex-shrink: 0; display: inline-flex !important; align-items: center; gap: 7px; min-height: 34px; padding: 6px 14px !important; font-size: 12.5px !important; font-weight: 600 !important; color: var(--accent, var(--primary)) !important; background: var(--surface, var(--panel, transparent)) !important; border: 1px solid color-mix(in srgb, var(--accent, var(--primary)) 45%, var(--border)) !important; border-radius: var(--radius-sm, 8px) !important; box-shadow: none !important; cursor: pointer; white-space: nowrap; }
+.sv button.pg-save:hover { background: color-mix(in srgb, var(--accent, var(--primary)) 10%, transparent) !important; border-color: var(--accent, var(--primary)) !important; }
+.sv button.pg-save:focus-visible { outline: 2px solid var(--accent, var(--primary)); outline-offset: 2px; }
+.pg-tile { color: var(--success); background: color-mix(in srgb, var(--success) 13%, transparent); }
+.pg.is-attention .pg-tile { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.pg.is-action .pg-tile { color: var(--danger); background: color-mix(in srgb, var(--danger) 13%, transparent); }
+.pg-overall { font-size: 16px; font-weight: 700; line-height: 1.3; color: var(--success); }
+.pg.is-attention .pg-overall { color: var(--warn); }
+.pg.is-action .pg-overall { color: var(--danger); }
+.pg.is-action { box-shadow: inset 3px 0 0 var(--danger), var(--shadow-card, none); }
+.pg.is-attention { box-shadow: inset 3px 0 0 var(--warn), var(--shadow-card, none); }
+.pg-body { display: grid; gap: 6px; font-size: 13.5px; line-height: 1.5; }
+.pg-body p { margin: 0; }
+.pg-evidence { margin: 2px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--text-soft); display: grid; gap: 2px; overflow-wrap: anywhere; }
+.sv button.ri-link.pg-open { padding-left: 0 !important; }
+.pg-sub { margin-top: 4px; }
+.pg-links { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; }
+.sv .pg-links button.pg-save { margin-left: 0; }
+.fp-facts { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+.fp-group { display: grid; gap: 6px; }
+.fp-group-head { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding-top: 6px; }
+.fp-step { display: grid; gap: 2px; }
+.fp-step.is-now { padding: 8px 12px; border-left: 3px solid var(--accent-blue); border-radius: 0 var(--radius, 10px) var(--radius, 10px) 0; background: color-mix(in srgb, var(--accent-blue) 7%, transparent); }
+.pg-trends { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.pg-trend { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius, 10px); background: color-mix(in srgb, var(--text) 2.5%, transparent); --pg-c: var(--success); }
+.pg-trend.is-warn { --pg-c: var(--warn); }
+.pg-trend.is-bad { --pg-c: var(--danger); }
+.pg-trend.is-muted { --pg-c: var(--text-soft); }
+.pg-trend-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; font-size: 13.5px; }
+.pg-bars { display: flex; gap: 3px; align-items: flex-end; height: 38px; }
+.pg-bars span { flex: 1; height: 100%; display: flex; align-items: flex-end; }
+.pg-bars i { display: block; width: 100%; border-radius: 3px 3px 0 0; background: color-mix(in srgb, var(--pg-c) 75%, transparent); }
+.pg-bar-days { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-soft); font-variant-numeric: tabular-nums; }
+.pg-foot { font-size: 12px; }
+.sv-chip.is-info { color: var(--accent-blue); background: color-mix(in srgb, var(--accent-blue) 12%, transparent); }
 @media (max-width: 640px) { .sv-list li { grid-template-columns: 22px minmax(0, 1fr) 64px; } .sv-bar { display: none; } .sv-rows > div { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
 `;

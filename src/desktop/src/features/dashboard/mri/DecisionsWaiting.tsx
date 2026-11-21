@@ -161,7 +161,7 @@ export default function DecisionsWaiting({ assets, filters }: { assets: MriDashb
         <p className="mrid-note">
           Decisions waiting <b>now</b>, and who they are waiting with. The period filter does not change this dashboard.
         </p>
-        <ExportMenu dashboardNo={5} title="Decisions waiting by reviewer" filters={filters} tables={exportTables} periodApplies={false} />
+        <ExportMenu dashboardNo={5} title="Decisions Waiting, by Reviewer" filters={filters} tables={exportTables} periodApplies={false} />
       </div>
 
       <StoryStrip lines={story} />

@@ -22,6 +22,7 @@ import ReportFlow from "./features/mri-reporting/ReportFlow";
 import AssetFlow from "./features/mri-reporting/AssetFlow";
 import type { Theme } from "./lib/theme";
 import { FLUENT_THEME_CSS } from "./lib/fluentTheme";
+import { HOLO_THEME_CSS } from "./lib/holoTheme";
 import { CurrentUserProvider } from "./lib/currentUser";
 import WindowTitle from "./lib/WindowTitle";
 import UserPickerGate from "./lib/UserPickerGate";
@@ -132,7 +133,8 @@ function App() {
     }
   }
 
-  const [theme, setTheme] = useState<Theme>("light");
+  // Default theme is Fluent. Light and Dark are hidden from the picker (lib/theme.ts) but their styles stay.
+  const [theme, setTheme] = useState<Theme>("fluent");
 
   function handleThemeChange(t: Theme) {
     setTheme(t);
@@ -142,6 +144,8 @@ function App() {
   // dialogs) get the Fluent look too. Only Fluent uses this; the other themes are unchanged.
   useEffect(() => {
     document.documentElement.toggleAttribute("data-fluent", theme === "fluent");
+    // Holo HUD: same idea, so pop-ups outside the app frame get the Holo HUD look too.
+    document.documentElement.toggleAttribute("data-holo", theme === "holo");
   }, [theme]);
 
   function handleNavigate(target: Screen, level?: MrLevel) {
@@ -2502,6 +2506,7 @@ function App() {
           .app[data-theme^="macos"] .instr-gauge { padding: 4px; border-radius: 12px; background: var(--neu-bg); box-shadow: inset 0 0 0 1px var(--border); }
         `}</style>
           <style>{FLUENT_THEME_CSS}</style>
+          <style>{HOLO_THEME_CSS}</style>
 
           <UserPickerGate theme={theme} onThemeChange={handleThemeChange}>
             {screen !== "menu" && (

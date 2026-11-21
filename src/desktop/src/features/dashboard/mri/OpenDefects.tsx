@@ -210,7 +210,7 @@ export default function OpenDefects({ assets, filters }: { assets: MriDashboardA
         <p className="mrid-note">
           Faults not yet fixed {isCurrent ? <b>now</b> : <>at the <b>end of {range.label}</b></>}, by severity. A fault carried forward to a later report is counted once.
         </p>
-        <ExportMenu dashboardNo={2} title="Open defects by severity" filters={filters} tables={exportTables} />
+        <ExportMenu dashboardNo={2} title="Open Defects by Severity" filters={filters} tables={exportTables} />
       </div>
 
       <StoryStrip lines={story} />

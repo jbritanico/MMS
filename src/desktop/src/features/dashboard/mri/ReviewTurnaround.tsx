@@ -124,7 +124,7 @@ export default function ReviewTurnaround({ assets, filters }: { assets: MriDashb
     <div className="mrid-dash">
       <div className="mrid-dash-bar">
         <p className="mrid-note">How long reviews took, for decisions and closures made in <b>{periodName}</b>. Both are counted from the moment the report was submitted.</p>
-        <ExportMenu dashboardNo={6} title="Review turnaround" filters={filters} tables={exportTables} />
+        <ExportMenu dashboardNo={6} title="Review Turnaround" filters={filters} tables={exportTables} />
       </div>
 
       <StoryStrip lines={story} />

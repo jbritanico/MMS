@@ -23,6 +23,8 @@ export interface LogData {
   events: Ev[];
   sessions: { n: number; start: number; end: number; users: string[]; version: string | null; steps: number; errors: number }[];
   offsetKnown: boolean;
+  /** Milliseconds added to UTC times to get the user's clock (0 when not known). */
+  offset: number;
 }
 
 function parseTime(time: string): number {
@@ -71,7 +73,7 @@ export function buildLogData(files: { name: string; text: string }[], offset: nu
     if (e.line.kind === "STEP") s.steps++;
     if (e.line.level === "ERROR" || e.line.level === "PANIC") s.errors++;
   }
-  return { events, sessions: [...map.values()].sort((a, b) => b.start - a.start), offsetKnown: offset != null };
+  return { events, sessions: [...map.values()].sort((a, b) => b.start - a.start), offsetKnown: offset != null, offset: off };
 }
 
 // ---------------------------------------------------------------- item 24: Error inbox

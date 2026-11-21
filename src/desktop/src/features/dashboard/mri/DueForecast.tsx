@@ -125,7 +125,7 @@ export default function DueForecast({ assets, filters }: { assets: MriDashboardA
           <div className="mrid-tabs">
             {(["MR-II", "MR-III"] as const).map((l) => <button key={l} type="button" className={level === l ? "is-on" : ""} onClick={() => { setLevel(l); setPick(null); }}>{l}</button>)}
           </div>
-          <ExportMenu dashboardNo={13} title={`${level} due forecast`} filters={filters} tables={exportTables} periodApplies={false} />
+          <ExportMenu dashboardNo={13} title={`${level} Due Forecast`} filters={filters} tables={exportTables} periodApplies={false} />
         </div>
       </div>
 
@@ -143,7 +143,7 @@ export default function DueForecast({ assets, filters }: { assets: MriDashboardA
         <div className="mrid-panel-head"><h3>{is3d ? `% of the ${level} interval used, by unit and counter${units.length > 14 ? " (top 14)" : ""}` : `% of the ${level} interval used${units.length > 20 ? " (top 20)" : ""}`}</h3><ViewToggle is3d={is3d} onChange={set3d} /></div>
         {chart.length === 0 ? <p className="mrid-note mrid-empty">No units have {level} triggers switched on.</p> : cube ? (
           <>
-            <Chart3D rows={cube.rows} cols={cube.cols} cells={cube.cells} rowTitle="Unit" colTitle="Counter" valueTitle="% used"
+            <Chart3D physics rows={cube.rows} cols={cube.cols} cells={cube.cells} rowTitle="Unit" colTitle="Counter" valueTitle="% used"
               fmt={(v) => `${Math.round(v)}%`} plane={{ value: 100, label: `${level} due (100%)`, color: "var(--danger)" }}
               onPick={(cell) => { const id = cube.ids[cell.row]; if (id != null) { setOpenUnit(id); setPick(null); } }} />
             <div className="mrid-legend">{(Object.keys(STATUS_COLOR) as Status[]).map((st) => <span key={st}><i style={{ background: STATUS_COLOR[st] }} />{st}</span>)}</div>

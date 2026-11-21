@@ -173,7 +173,7 @@ export default function FleetStatus({ assets, filters }: { assets: MriDashboardA
         Current tag of each unit. This dashboard shows the situation <b>now</b>, so the period filter does not change it.
         {counts.inactive > 0 && <> {counts.inactive} inactive unit{counts.inactive === 1 ? " is" : "s are"} left out.</>}
       </p>
-      <ExportMenu dashboardNo={1} title="Fleet status by tag colour" filters={filters} tables={exportTables} periodApplies={false} />
+      <ExportMenu dashboardNo={1} title="Fleet Status by Tag Colour" filters={filters} tables={exportTables} periodApplies={false} />
       </div>
 
       <StoryStrip lines={story} />
@@ -228,7 +228,7 @@ export default function FleetStatus({ assets, filters }: { assets: MriDashboardA
           <ViewToggle is3d={is3d} onChange={set3d} />
         </div>
         {cube ? (
-          <Chart3D rows={cube.rows} cols={cube.cols} cells={cube.cells} rowTitle={GROUP_LABEL[groupBy]} colTitle={GROUP_LABEL[other]} valueTitle="Units" integer
+          <Chart3D physics rows={cube.rows} cols={cube.cols} cells={cube.cells} rowTitle={GROUP_LABEL[groupBy]} colTitle={GROUP_LABEL[other]} valueTitle="Units" integer
             fmt={(v) => String(Math.round(v))} onPick={(cell, seg) => { setGroupPick(cube.rows[cell.row]); setTagPick(seg.key as Tag); }} />
         ) : (
         <div style={{ width: "100%", height: Math.max(160, groups.length * 44 + 70) }}>

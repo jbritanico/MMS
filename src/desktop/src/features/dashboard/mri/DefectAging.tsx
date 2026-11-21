@@ -242,7 +242,7 @@ export default function DefectAging({ assets, filters }: { assets: MriDashboardA
         <p className="mrid-note">
           Age of each open fault {whenText}, counted from the day it was first found. Overdue: Major / Critical older than {AGING_LIMIT_DAYS.Critical} days; Moderate and Minor older than {AGING_LIMIT_DAYS.Moderate} days.
         </p>
-        <ExportMenu dashboardNo={3} title="Defect aging" filters={filters} tables={exportTables} />
+        <ExportMenu dashboardNo={3} title="Defect Aging" filters={filters} tables={exportTables} />
       </div>
 
       <StoryStrip lines={story} />

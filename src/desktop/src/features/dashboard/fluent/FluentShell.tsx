@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useCurrentUser } from "../../../lib/currentUser";
 import { useMriDashboardScope, useMriDashboardWaiting } from "../hooks/useMriDashboards";
-import { DASHBOARDS, DASH_ICONS, DECK_SLIDES, GROUPS, USER_GROUPS } from "../dashCatalog";
+import { DASHBOARDS, DASH_ICONS, GROUPS, USER_GROUPS, isMarked, markTip } from "../dashCatalog";
 import { FLUENT_CSS } from "./fluentCss";
 import { MotionSetting, Num, motionFactor, useMotion } from "./motion";
 import { DashInfoHead, InfoDialog, INFO_CSS, useInfoDots } from "../info/InfoLayer";
@@ -42,7 +42,7 @@ export const FL_ICONS = {
 // Sidebar accordions: one per dashboard group. Each lists its dashboards.
 type Acc = { key: string; title: string; nos: number[]; icon: ReactNode };
 const SHORT: Record<number, string> = {
-  1: "Fleet status by tag", 5: "Decisions waiting", 7: "Repair queue", 10: "Phone decisions", 12: "Red units under MOC", 13: "MR-II due forecast", 18: "Managers and FSM",
+  1: "Fleet Status by Tag", 5: "Decisions Waiting", 7: "Repair Queue", 10: "Phone Decisions", 12: "Red Units Under MOC", 13: "MR-II Due Forecast", 18: "Managers and FSM",
 };
 const ACCS: Acc[] = [
   ...GROUPS.map((g) => ({ key: g.title, title: g.title, nos: g.nos, icon: DASH_ICONS[g.nos[0]] })),
@@ -172,7 +172,7 @@ function WaitingBell({ onOpenDash }: { onOpenDash: (no: number) => void }) {
               </div>
             );
           })}
-          <button type="button" className="fl-pop-foot" onClick={() => { setOpen(false); onOpenDash(5); }}>Open "Decisions waiting" {FL_ICONS.chevron}</button>
+          <button type="button" className="fl-pop-foot" onClick={() => { setOpen(false); onOpenDash(5); }}>Open "Decisions Waiting" {FL_ICONS.chevron}</button>
         </div>
       )}
     </div>
@@ -266,13 +266,13 @@ export function FluentShell({
                       const on = holdsActive && dash === no;
                       return (
                         <button key={no} type="button" tabIndex={isOpen ? 0 : -1}
-                          className={`fl-sub-item${on ? " is-on" : ""}${DECK_SLIDES[no] ? " is-deck" : ""}`}
+                          className={`fl-sub-item${on ? " is-on" : ""}${isMarked(no) ? " is-deck" : ""}`}
                           aria-current={on ? "page" : undefined}
-                          title={DECK_SLIDES[no] ? `${d.desc}\nFrom the MMS Dashboard Visualization design, ${DECK_SLIDES[no]}` : d.desc}
+                          title={isMarked(no) ? `${d.desc}\n${markTip(no)}` : d.desc}
                           onClick={() => pick(no)}>
                           <span className="fl-sub-ico">{DASH_ICONS[no]}</span>
                           <span className="fl-sub-label">{SHORT[no] ?? d.title}</span>
-                          {DECK_SLIDES[no] && <i className="fl-deck-dot" aria-label="From the dashboard design" />}
+                          {isMarked(no) && <i className="fl-deck-dot" aria-label={markTip(no)} />}
                         </button>
                       );
                     })}

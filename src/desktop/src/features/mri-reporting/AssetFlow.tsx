@@ -10,6 +10,7 @@ import {
 } from "./flowKit";
 import { HintsToggle, useHints } from "../dashboard/hints";
 import { triggerColor, triggerIcon, triggerIconBg } from "../../components/triggerIcons";
+import IsoFlowMap, { FXI_CSS, IsoMapToggle, IsoTimeline, useIsoMap, type IsoLine, type IsoState, type IsoStep, type IsoTlNode } from "./IsoFlowMap";
 
 interface AssetFlowProps {
   assetId: number;
@@ -41,6 +42,7 @@ function AssetFlow({ assetId, onBack, onOpenReport, onShowReportFlow, onOpenAsse
   const { data: registry = [] } = useAssets();
   const { data: assetTypes = [] } = useAssetTypes();
   const [selected, setSelected] = useState<string | null>("asset");
+  const [isoOn, setIsoOn] = useIsoMap();
 
   const carriesBetween = useMemo(() => {
     const m = new Map<string, string[]>();
@@ -140,9 +142,46 @@ function AssetFlow({ assetId, onBack, onOpenReport, onShowReportFlow, onOpenAsse
   const pick = (id: string) => setSelected(id);
   const assetItem = items.get("asset")!;
 
+  // ---- isometric map: the unit's story in five platforms ----
+  const MAXL = 3;
+  const newest = [...reports].reverse();
+  const reportLines: IsoLine[] = newest.map(({ r, item }) => ({ text: `#${r.id} · ${item.chip ?? r.status} · ${r.submitted_date ? day(r.submitted_date) : "draft"}`, tone: item.tone, id: item.id }));
+  const openReports = newest.filter(({ r }) => r.open_fault_count > 0);
+  const totalFaults = flow.reports.reduce((n, r) => n + r.fault_count, 0);
+  const carriedN = (flow.carries ?? []).length;
+  const faultLines: IsoLine[] = [
+    ...openReports.map(({ r, item }) => ({ text: `#${r.id}: ${r.open_fault_count} still open`, tone: "danger" as const, id: item.id })),
+    ...(carriedN ? [{ text: `${carriedN} carried to a later report`, tone: "warn" as const }] : []),
+  ];
+  const tagItems = flow.tag_changes.map((_, ti) => items.get(`t${ti}`)).filter((x): x is FlowItem => !!x).reverse();
+  const tagLines: IsoLine[] = tagItems.map((t) => ({ text: `${t.title}${t.lines[1] ? ` · ${t.lines[1]}` : ""}`, tone: t.tone, id: t.id }));
+  const dueNow = counters.filter((c) => c.it.tone === "danger"), dueSoon = counters.filter((c) => c.it.tone === "warn");
+  const counterLines: IsoLine[] = [
+    ...[...dueNow, ...dueSoon, ...counters.filter((c) => c.it.tone === "success")].map(({ it, pct }) => ({ text: `${(it.step ?? "").replace(" counter", "")} ${it.title}: ${Math.round(pct)}%`, tone: it.tone, id: it.id })),
+    ...exemptions.map((x) => ({ text: `${x.title} · ${x.chip ?? ""}`, tone: x.tone, id: x.id })),
+  ];
+  const cut = (l: IsoLine[]) => ({ lines: l.slice(0, MAXL), more: Math.max(0, l.length - MAXL) });
+  const faultState: IsoState = openReports.length ? "now" : totalFaults ? "done" : flow.reports.length ? "skip" : "todo";
+  const counterState2: IsoState = dueNow.length || dueSoon.length ? "now" : counters.length ? "done" : "skip";
+  const isoSteps: IsoStep[] = [
+    { label: "The unit", sub: flow.asset_type ?? "Unit", state: "done", stateLabel: flow.tag_status ? `${flow.tag_status} tag` : "Not tagged", stateTone: tag.tone, icon: "unit", cardTitle: code, selectId: "asset",
+      lines: [{ text: flow.tag_status ? `${flow.tag_status} · ${tag.plain}` : tag.plain, tone: tag.tone }, ...(flow.tag_reason ? [{ text: flow.tag_reason, tone: tag.tone }] : []), { text: `${flow.country ?? "—"} · ${flow.service_line ?? "—"}`, tone: "neutral" as const }] },
+    { label: "Inspections", sub: `${flow.reports.length} MR-I report${flow.reports.length === 1 ? "" : "s"}`, state: flow.reports.length ? "done" : "todo", stateLabel: flow.reports.length ? `Last ${last?.submitted_date ? day(last.submitted_date) : "—"}` : "None yet",
+      icon: "report", cardTitle: `Reports (${flow.reports.length})`, selectId: newest[0]?.item.id ?? null, ...cut(reportLines.length ? reportLines : [{ text: "No reports yet", tone: "neutral" }]) },
+    { label: "Faults", sub: openReports.length ? `${openReports.length} report${openReports.length === 1 ? "" : "s"} with open faults` : totalFaults ? `${totalFaults} found, all closed` : "None found", state: faultState,
+      stateLabel: openReports.length ? "Needs attention" : undefined, stateTone: openReports.length ? "danger" : undefined, icon: "decide", cardTitle: `Faults (${totalFaults})`, selectId: openReports[0]?.item.id ?? newest[0]?.item.id ?? null,
+      ...cut(faultLines.length ? faultLines : [{ text: totalFaults ? "All faults closed" : "No faults found", tone: "success" }]) },
+    { label: "Tag changes", sub: `${flow.tag_changes.length} change${flow.tag_changes.length === 1 ? "" : "s"}`, state: flow.tag_changes.length ? "done" : "skip", icon: "tag", cardTitle: "Tag history", selectId: tagItems[0]?.id ?? null,
+      ...cut(tagLines.length ? tagLines : [{ text: "No tag changes", tone: "neutral" }]) },
+    { label: "MR-II / MR-III", sub: dueNow.length ? `${dueNow.length} due now` : dueSoon.length ? `${dueSoon.length} due soon` : counters.length ? "On track" : "No counters", state: counterState2,
+      stateLabel: dueNow.length ? "Due now" : dueSoon.length ? "Due soon" : undefined, stateTone: dueNow.length ? "danger" : dueSoon.length ? "warn" : undefined, icon: "gauge", cardTitle: "Counters", selectId: (dueNow[0] ?? dueSoon[0] ?? counters[0])?.it.id ?? exemptions[0]?.id ?? null,
+      ...cut(counterLines.length ? counterLines : [{ text: "No counters set", tone: "neutral" }]) },
+  ];
+
   return (
     <div className={`fx${hints ? " show-hints" : ""}`}>
       <style>{FX_CSS}</style>
+      <style>{FXI_CSS}</style>
       <div className="fx-top">
         <button type="button" className="fx-back" onClick={onBack}><Icon name="back" size={15} />Back</button>
         <HintsToggle className="fx-hint-btn" />
@@ -165,12 +204,32 @@ function AssetFlow({ assetId, onBack, onOpenReport, onShowReportFlow, onOpenAsse
         </div>
       </header>
 
+      <IsoMapToggle iso={isoOn} onChange={setIsoOn} />
+
       <div className="fx-body">
         <div className="fx-main">
+          {isoOn && (
+            <IsoFlowMap steps={isoSteps} selected={selected} onSelect={pick} label="Asset history map"
+              loop={{ title: "Next MR-I inspection", sub: "Each new report adds to this unit's history" }}
+              aside={{ title: code, sub: flow.asset_description ?? "No description", tag: { text: flow.tag_status ?? "Not tagged", tone: tag.tone },
+                rows: [["Type", flow.asset_type ?? "—"], ["Reports", String(flow.reports.length)], ["Country", flow.country ?? "—"]] }} />
+          )}
           <Section
             title={`Inspection timeline (${flow.reports.length})`}
             hint="Reports from oldest to newest. Orange badges show faults that stayed open and moved to the next report. Tag changes sit under the report that caused them."
           >
+            {isoOn ? (
+              <IsoTimeline selected={selected} onSelect={pick} nodes={[
+                { id: "asset", kind: "unit", title: code, sub: flow.asset_type ?? "The unit", chip: flow.tag_status ? `${flow.tag_status} tag` : "Not tagged", tone: tag.tone, tags: [] },
+                ...reports.map(({ r, item, tags }, i): IsoTlNode => {
+                  const prev = i > 0 ? flow.reports[i - 1].id : null;
+                  const carried = prev != null ? carriesBetween.get(`${prev}>${r.id}`) ?? [] : [];
+                  const fromOlder = [...carriesBetween.entries()].filter(([k]) => k.endsWith(`>${r.id}`) && k !== `${prev}>${r.id}`).reduce((n, [, v]) => n + v.length, 0);
+                  return { id: item.id, kind: "report", title: `#${r.id}`, sub: r.submitted_date ? day(r.submitted_date) : "Not submitted", chip: item.chip ?? r.status, tone: item.tone,
+                    tags: tags.map((t) => ({ id: t.id, text: `${t.title}`, tone: t.tone })), carriedIn: carried, fromOlder };
+                }),
+              ]} />
+            ) : (
             <div className="fx-timeline" role="list">
               <div className="fx-tl-item" role="listitem"><FlowCard item={assetItem} selected={selected === "asset"} onSelect={pick} /></div>
               {reports.map(({ r, item, tags }, i) => {
@@ -201,6 +260,7 @@ function AssetFlow({ assetId, onBack, onOpenReport, onShowReportFlow, onOpenAsse
                 );
               })}
             </div>
+            )}
             {flow.reports.length === 0 && <div className="fx-empty">No MR-I reports have been filed for this unit yet.</div>}
           </Section>
 

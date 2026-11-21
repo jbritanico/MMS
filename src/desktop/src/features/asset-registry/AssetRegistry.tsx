@@ -276,7 +276,7 @@ function AssetRegistryCard({ asset: a, assetTypeLabel, assetTypeIcon, canEdit, c
     <div className="review-card" onClick={() => onRowClick(a)} style={{ cursor: "pointer" }}>
       <div className="review-card-top">
         <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
-          <div style={{ width: 99, height: 99, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div className="asset-type-pic" style={{ width: 99, height: 99, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
             {assetTypeIcon && assetTypeIcon.trim().startsWith("data:") ? (
               <img src={assetTypeIcon} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
             ) : (

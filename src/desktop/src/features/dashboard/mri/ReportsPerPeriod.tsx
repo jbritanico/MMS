@@ -7,6 +7,7 @@ import { AX, DrillChips, inRange, Loading, monthsFor, period, Tile, TT, useMore 
 import { Sparkline, StoryStrip, TrendDelta, type StoryLine } from "./fluid";
 import { chartAnim } from "../fluent/motion";
 import { useAdvanced } from "../dashMode";
+import Chart3D, { use3DMode, ViewToggle, type Cell3D } from "../fluent/Chart3D";
 
 // Dashboard 11: MR-I reports per period, by compliance stage (Pre-Mob, Pre-Job, Post Job, Yard).
 // Counts reports SUBMITTED in the period. Drafts are shown separately as "not yet submitted".
@@ -49,6 +50,7 @@ export default function ReportsPerPeriod({ assets, filters }: { assets: MriDashb
   const [stagePick, setStagePick] = useState<Stage | null>(null);
   const [bucketPick, setBucketPick] = useState<{ name: string; s: number; e: number } | null>(null);
   const clearAll = () => { setPick(null); setStagePick(null); setBucketPick(null); };
+  const [is3d, set3d] = use3DMode(11);
 
   const submitted = reports.filter((r) => r.status !== "Draft" && inRange(r.submitted_at, p.s, p.e));
   const drafts = reports.filter((r) => r.status === "Draft");
@@ -70,7 +72,7 @@ export default function ReportsPerPeriod({ assets, filters }: { assets: MriDashb
     return { key: st.key, color: st.color, n: l.length, faults: l.filter((r) => r.fault_count > 0).length, units: new Set(l.map((r) => r.asset_id)).size };
   });
 
-  const list = (pick === "drafts" ? drafts : submitted)
+  const list = (pick === "drafts" ? drafts : bucketPick ? reports.filter((r) => r.status !== "Draft") : submitted)
     .filter((r) => (pick !== "faults" || r.fault_count > 0) && (stagePick == null || stageOf(r) === stagePick) && (bucketPick == null || inRange(r.submitted_at, bucketPick.s, bucketPick.e)))
     .sort((a, b) => (b.submitted_at ?? b.created_at ?? 0) - (a.submitted_at ?? a.created_at ?? 0));
   const code = (id: number) => unitOf.get(id)?.asset_code ?? String(id);
@@ -103,7 +105,7 @@ export default function ReportsPerPeriod({ assets, filters }: { assets: MriDashb
     <div className="mrid-dash">
       <div className="mrid-dash-bar">
         <p className="mrid-note">MR-I reports submitted in <b>{p.label}</b>, by compliance stage. Drafts not yet submitted are counted as they are now.</p>
-        <ExportMenu dashboardNo={11} title="MR-I reports per period" filters={filters} tables={exportTables} />
+        <ExportMenu dashboardNo={11} title="MR-I Reports per Period" filters={filters} tables={exportTables} />
       </div>
 
       <StoryStrip lines={story} />
@@ -127,8 +129,24 @@ export default function ReportsPerPeriod({ assets, filters }: { assets: MriDashb
 
       {adv && (<>
       <div className="mrid-panel">
-        <div className="mrid-panel-head"><h3>Reports submitted over the period</h3></div>
-        {submitted.length === 0 ? <p className="mrid-note mrid-empty">No reports were submitted in this period.</p> : (
+        <div className="mrid-panel-head"><h3>{is3d ? "Reports by stage, month by month" : "Reports submitted over the period"}</h3><ViewToggle is3d={is3d} onChange={set3d} /></div>
+        {is3d ? (() => {
+          // 3D: stage × month × reports submitted (the 12 months up to the period for a week or a month).
+          const subAll = reports.filter((r) => r.status !== "Draft");
+          const cells: Cell3D[] = [];
+          usedStages.forEach((st, i) => months.forEach((m, j) => {
+            const n = subAll.filter((r) => stageOf(r) === st.key && inRange(r.submitted_at, m.s, m.e)).length;
+            if (n) cells.push({ row: i, col: j, segs: [{ key: st.key, label: st.key === "Other" ? "Other / not set" : st.key, value: n, color: st.color }] });
+          }));
+          return !cells.length ? <p className="mrid-note mrid-empty">No reports were submitted in these months.</p> : (
+            <>
+              <Chart3D rows={usedStages.map((st) => (st.key === "Other" ? "Other / not set" : st.key))} cols={months.map((m) => m.name)} cells={cells} integer physics
+                rowTitle="Stage" colTitle="Month" valueTitle="Reports" fmt={(v) => String(Math.round(v))}
+                onPick={(c) => { const st = usedStages[c.row], m = months[c.col]; if (st && m) { setStagePick(st.key); setBucketPick({ name: m.name, s: m.s, e: m.e }); } }} />
+              <p className="mrid-note" style={{ textAlign: "center" }}>A row with gaps means that stage was not inspected in those months. Click a bar to list those reports.</p>
+            </>
+          );
+        })() : submitted.length === 0 ? <p className="mrid-note mrid-empty">No reports were submitted in this period.</p> : (
           <>
             <div style={{ width: "100%", height: 250 }}>
               <ResponsiveContainer>

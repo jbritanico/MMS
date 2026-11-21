@@ -112,7 +112,7 @@ export default function RepairQueue({ assets, filters }: { assets: MriDashboardA
     <div className="mrid-dash">
       <div className="mrid-dash-bar">
         <p className="mrid-note">The queue is shown as it is <b>now</b>. Repair times are for repairs verified in <b>{p.label}</b> (from entering the queue to the verified repair).</p>
-        <ExportMenu dashboardNo={7} title="Repair queue and repair time" filters={filters} tables={exportTables} />
+        <ExportMenu dashboardNo={7} title="Repair Queue and Repair Time" filters={filters} tables={exportTables} />
       </div>
 
       <StoryStrip lines={story} />

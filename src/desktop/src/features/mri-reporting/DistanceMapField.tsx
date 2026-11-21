@@ -91,7 +91,8 @@ function DistanceMapField({
         ensurePmtilesProtocol();
         setMapError(null);
 
-        const flavor = namedFlavor("light");
+        // Holo HUD (checklist item 32): the dark map style; every other theme keeps the light map.
+        const flavor = namedFlavor(document.documentElement.hasAttribute("data-holo") ? "dark" : "light");
         let map: MaplibreMap;
         try {
             map = new MaplibreMap({

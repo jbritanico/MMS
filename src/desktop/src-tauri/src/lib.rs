@@ -1099,40 +1099,60 @@ fn get_connection() -> Result<MutexGuard<'static, Connection>, String> {
 // One on/off switch per dashboard item, shown under "Dashboards" in Administration > Roles and
 // Users > Permissions. The first time this runs, every existing role gets all of them, so
 // nobody loses a dashboard they can see today; after that the Administrator decides.
-const DASHBOARD_PERMS: [(&str, &str); 21] = [
+const DASHBOARD_PERMS: [(&str, &str); 22] = [
     ("dashboard.view", "Open the Dashboard area"),
     ("dash.overview", "Overview"),
     ("dash.history", "Asset MR-I History"),
-    ("dash.1", "1 · Fleet status by tag colour"),
-    ("dash.2", "2 · Open defects by severity"),
-    ("dash.3", "3 · Defect aging"),
-    ("dash.4", "4 · Fault closure rate"),
-    ("dash.5", "5 · Decisions waiting, by reviewer"),
-    ("dash.6", "6 · Review turnaround"),
-    ("dash.7", "7 · Repair queue and repair time"),
-    ("dash.8", "8 · Time spent Red or Yellow"),
-    ("dash.9", "9 · Repeat faults"),
-    ("dash.10", "10 · Phone decisions and acknowledgements"),
-    ("dash.11", "11 · MR-I reports per period"),
-    ("dash.12", "12 · Red units under exemption (MOC)"),
-    ("dash.13", "13 · MR-II due forecast"),
+    ("dash.1", "1 · Fleet Status by Tag Colour"),
+    ("dash.2", "2 · Open Defects by Severity"),
+    ("dash.3", "3 · Defect Aging"),
+    ("dash.4", "4 · Fault Closure Rate"),
+    ("dash.5", "5 · Decisions Waiting, by Reviewer"),
+    ("dash.6", "6 · Review Turnaround"),
+    ("dash.7", "7 · Repair Queue and Repair Time"),
+    ("dash.8", "8 · Time Spent Red or Yellow"),
+    ("dash.9", "9 · Repeat Faults"),
+    ("dash.10", "10 · Phone Decisions and Acknowledgements"),
+    ("dash.11", "11 · MR-I Reports per Period"),
+    ("dash.12", "12 · Red Units Under Exemption (MOC)"),
+    ("dash.13", "13 · MR-II Due Forecast"),
     ("dash.14", "14 · Inspectors"),
     ("dash.15", "15 · Supervisors"),
     ("dash.16", "16 · Reviewers"),
     ("dash.17", "17 · Technicians"),
     ("dash.18", "18 · Managers and FSM"),
+    ("dash.19", "19 · Fault Trends by Equipment"),
 ];
 
 fn seed_dashboard_permissions(conn: &Connection) -> Result<(), String> {
     for (code, label) in DASHBOARD_PERMS.iter() {
         conn.execute(
-            "INSERT OR IGNORE INTO permissions (code, label, category) VALUES (?1, ?2, 'Dashboards')",
+            "INSERT INTO permissions (code, label, category) VALUES (?1, ?2, 'Dashboards')
+             ON CONFLICT(code) DO UPDATE SET label = excluded.label",
             rusqlite::params![code, label],
         )
         .map_err(|e| e.to_string())?;
     }
     conn.execute("CREATE TABLE IF NOT EXISTS app_migrations (name TEXT PRIMARY KEY)", [])
         .map_err(|e| e.to_string())?;
+    // Dashboard 19 (Fault trends by equipment, added 20 Nov 2026): once, give it to every role
+    // that can already open Dashboard 9 (Repeat faults), so nobody has to switch it on by hand.
+    let done19: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM app_migrations WHERE name = 'dashboard_permission_19'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if done19 == 0 {
+        conn.execute(
+            "INSERT OR IGNORE INTO role_permissions (role, permission_code) SELECT role, 'dash.19' FROM role_permissions WHERE permission_code = 'dash.9'",
+            [],
+        )
+        .map_err(|e| e.to_string())?;
+        conn.execute("INSERT OR IGNORE INTO app_migrations (name) VALUES ('dashboard_permission_19')", [])
+            .map_err(|e| e.to_string())?;
+    }
     let done: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM app_migrations WHERE name = 'dashboard_permissions'",

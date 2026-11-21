@@ -109,7 +109,7 @@ export default function Exemptions({ assets, filters }: { assets: MriDashboardAs
     <div className="mrid-dash">
       <div className="mrid-dash-bar">
         <p className="mrid-note">A Red-Tagged unit must not be deployed without an approved exemption (MOC). Shown as it is <b>now</b>; the period filter does not change this dashboard.</p>
-        <ExportMenu dashboardNo={12} title="Red units under exemption (MOC)" filters={filters} tables={exportTables} periodApplies={false} />
+        <ExportMenu dashboardNo={12} title="Red Units Under Exemption (MOC)" filters={filters} tables={exportTables} periodApplies={false} />
       </div>
 
       <StoryStrip lines={story} />
