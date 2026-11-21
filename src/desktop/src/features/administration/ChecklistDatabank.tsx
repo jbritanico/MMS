@@ -10,6 +10,11 @@ import {
     type ChecklistItem,
     type MrLevel,
 } from "./hooks/useChecklistDataBank";
+import { useQueries } from "@tanstack/react-query";
+import { invoke } from "../../lib/ipc";
+import { useMriTemplates } from "./hooks/useMriTemplates";
+import type { TemplateChecklistItem } from "../mri-template-builder/hooks/useTemplateChecklistItems";
+import { FilterChips, IsoBars, useReportAdminHints, useReportAdminKpis } from "./AdminIsoGuide";
 
 interface ParsedRow {
     code: string;
@@ -50,7 +55,35 @@ function ChecklistDatabank() {
         setTimeout(() => setStatus(null), 4000);
     }
 
-    const filteredItems = items.filter((i) => i.level === activeTab);
+    // How many MR-I templates use each check — read from the same queries the template builder uses. Display only.
+    const { data: templates = [] } = useMriTemplates();
+    const usageQueries = useQueries({
+        queries: templates.map((t) => ({
+            queryKey: ["template-checklist-items", t.id],
+            queryFn: () => invoke<TemplateChecklistItem[]>("get_template_checklist_items", { templateId: t.id }),
+        })),
+    });
+    const usageReady = usageQueries.every((q) => q.isSuccess);
+    const usage = useMemo(() => {
+        const m = new Map<number, number>();
+        usageQueries.forEach((q) => new Set((q.data ?? []).map((x) => x.checklist_item_id)).forEach((id) => m.set(id, (m.get(id) ?? 0) + 1)));
+        return m;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [usageQueries.map((q) => q.dataUpdatedAt).join(",")]);
+    const notUsed = (i: ChecklistItem) => i.level === "MR-I" && usageReady && !usage.get(i.id);
+    const notUsedCount = items.filter(notUsed).length;
+    useReportAdminHints("checklist-bank", notUsedCount ? [`${notUsedCount} MR-I ${notUsedCount === 1 ? "check isn't" : "checks aren't"} on any template yet`] : []);
+    useReportAdminKpis("checklist-bank", [
+      { label: "checks in the bank", value: items.length, tone: "blue" },
+      { label: "MR-I checks", value: items.filter((i) => i.level === "MR-I").length, tone: "blue" },
+      { label: "not on any template", value: usageReady ? notUsedCount : "…", tone: notUsedCount ? "look" : "ok" },
+    ]);
+    const [q, setQ] = useState("");
+    const [show, setShow] = useState<"all" | "unused">("all");
+
+    const filteredItems = items.filter((i) => i.level === activeTab
+        && (show === "all" || notUsed(i))
+        && (!q.trim() || `${i.code} ${i.description}`.toLowerCase().includes(q.trim().toLowerCase())));
     const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
     const pagedItems = useMemo(
         () => filteredItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
@@ -60,6 +93,7 @@ function ChecklistDatabank() {
     function switchTab(lvl: MrLevel) {
         setActiveTab(lvl);
         setPage(1);
+        setShow("all");
         setEditingId(null);
     }
 
@@ -70,7 +104,7 @@ function ChecklistDatabank() {
             setNewCode("");
             setNewDescription("");
             setPage(1);
-            flash(`Checklist item added to ${activeTab}`, "ok");
+            flash(`Check added to ${activeTab}`, "ok");
         } catch (err) {
             flash(String(err), "err");
         }
@@ -88,7 +122,7 @@ function ChecklistDatabank() {
         try {
             await updateItem.mutateAsync({ id: item.id, code: editCode.trim(), description: editDescription.trim(), level: editLevel, active: item.active });
             setEditingId(null);
-            flash("Checklist item updated", "ok");
+            flash("Check updated", "ok");
         } catch (err) {
             flash(String(err), "err");
         }
@@ -182,11 +216,12 @@ function ChecklistDatabank() {
 
     return (
         <div>
-            <h2 style={{ marginBottom: 4 }}>Checklist Databank</h2>
-            <p style={{ fontSize: 13, color: "var(--text-soft)", marginBottom: 16 }}>
-                Master list of reusable checklist items for MR-I, MR-II, and MR-III templates.
-                Section and asset-type scoping happens per template, not here.
-            </p>
+            <IsoBars label="How many checks there are per report level" items={[
+                { label: "MR-I", value: items.filter((i) => i.level === "MR-I").length, tone: "blue" },
+                { label: "MR-II", value: items.filter((i) => i.level === "MR-II").length, tone: "blue" },
+                { label: "MR-III", value: items.filter((i) => i.level === "MR-III").length, tone: "blue" },
+                ...(usageReady ? [{ label: "Not on a template", value: notUsedCount, tone: (notUsedCount ? "look" : "ok") as "look" | "ok", note: "MR-I checks that no MR-I template uses yet" }] : []),
+            ]} />
 
             <div style={{ display: "flex", gap: 4, marginBottom: 18, padding: "var(--seg-track-pad, 4px)", background: "var(--tab-track)", borderRadius: "var(--seg-track-radius, 12px)", width: "fit-content" }}>
                 {LEVELS.map((lvl) => (
@@ -217,12 +252,12 @@ function ChecklistDatabank() {
                         onChange={(e) => setNewCode(e.target.value)} />
                 </div>
                 <div className="field" style={{ flex: 1, minWidth: 200, marginBottom: 0 }}>
-                    <label>Description</label>
+                    <label>What to check</label>
                     <input type="text" value={newDescription} placeholder="e.g. Check hydraulic hose for leaks"
                         onChange={(e) => setNewDescription(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleCreate()} />
                 </div>
-                <button className="primary" onClick={handleCreate}>Add to {activeTab}</button>
+                <button className="primary" onClick={handleCreate}>+ Add check to {activeTab}</button>
             </div>
 
             <div style={{ marginBottom: 18 }}>
@@ -263,10 +298,18 @@ function ChecklistDatabank() {
                 </div>
             )}
 
+            <div className="adm-toolbar">
+                <input type="search" className="search" aria-label="Find a check" placeholder="Find by code or words…" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} />
+                {activeTab === "MR-I" && (
+                    <FilterChips value={show} onChange={(v) => { setShow(v); setPage(1); }} options={[{ id: "all", label: "All" }, { id: "unused", label: "Not on any template" }]} />
+                )}
+                <span style={{ fontSize: 12.5, color: "var(--text-soft)" }}>{filteredItems.length} {filteredItems.length === 1 ? "check" : "checks"}</span>
+            </div>
+
             {isLoading ? (
                 <div className="empty">Loading...</div>
             ) : filteredItems.length === 0 ? (
-                <div className="empty">No {activeTab} checklist items yet — add one above to get started</div>
+                <div className="empty">{q.trim() || show !== "all" ? "Nothing matches" : `No ${activeTab} checks yet — add one above to get started`}</div>
             ) : (
                 <>
                     <div className="grid-table">
@@ -294,7 +337,12 @@ function ChecklistDatabank() {
                                     <>
                                         <span className="code">{item.code}</span>
                                         <span className="desc" style={{ whiteSpace: "normal" }}>{item.description}</span>
-                                        <span><span className="pill neutral">{item.level}</span></span>
+                                        <span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                                            <span className="pill neutral">{item.level}</span>
+                                            {item.level === "MR-I" && usageReady && (usage.get(item.id)
+                                                ? <span className="pill active" title="MR-I templates using this check">On {usage.get(item.id)} {usage.get(item.id) === 1 ? "template" : "templates"}</span>
+                                                : <span className="pill adm-pill-look">Not on any template</span>)}
+                                        </span>
                                     </>
                                 )}
                                 <div className="card-actions">

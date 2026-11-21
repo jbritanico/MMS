@@ -209,7 +209,8 @@ function AssetFlow({ assetId, onBack, onOpenReport, onShowReportFlow, onOpenAsse
       <div className="fx-body">
         <div className="fx-main">
           {isoOn && (
-            <IsoFlowMap steps={isoSteps} selected={selected} onSelect={pick} label="Asset history map"
+            <IsoFlowMap steps={isoSteps.slice(1)} selected={selected} onSelect={pick} label="Asset history map"
+              hub={{ title: code, sub: `${flow.asset_type ?? "Unit"}${flow.country ? " · " + flow.country : ""}`, icon: "unit", selectId: "asset", tag: { text: flow.tag_status ? `${flow.tag_status} tag` : "Not tagged", tone: tag.tone } }}
               loop={{ title: "Next MR-I inspection", sub: "Each new report adds to this unit's history" }}
               aside={{ title: code, sub: flow.asset_description ?? "No description", tag: { text: flow.tag_status ?? "Not tagged", tone: tag.tone },
                 rows: [["Type", flow.asset_type ?? "—"], ["Reports", String(flow.reports.length)], ["Country", flow.country ?? "—"]] }} />

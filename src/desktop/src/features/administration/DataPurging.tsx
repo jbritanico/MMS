@@ -14,6 +14,7 @@ import { useCurrentUser } from "../../lib/currentUser";
 import { useLookupCriteria, useLookups } from "./hooks/useLookups";
 import { useAssets } from "../asset-registry/hooks/useAssets";
 import { useAssetTypes } from "./hooks/useAssetTypes";
+import { IsoSteps, backupHint, fmtDay, readBackups, useReportAdminHints, useReportAdminKpis } from "./AdminIsoGuide";
 
 type PendingPurge = {
   label: string;
@@ -102,19 +103,27 @@ function DataPurging() {
     });
   }
 
+  const bh = backupHint();
+  useReportAdminHints("data-purge", bh ? [`${bh} — save one before clearing anything`] : []);
+  const lastBackup = readBackups()[0];
+  const backupDays = lastBackup ? Math.floor((Date.now() - lastBackup) / 86400000) : null;
+  useReportAdminKpis("data-purge", [
+    { label: "last backup from this PC", value: lastBackup ? fmtDay(lastBackup) : "none yet", tone: backupDays === null || backupDays > 7 ? "look" : "ok" },
+    { label: "units", value: assets.length, tone: "blue" },
+    { label: "kinds of unit", value: assetTypes.length, tone: "blue" },
+    { label: "drop-down lists", value: criteriaList.length, tone: "blue" },
+  ]);
+
   return (
     <div>
-      <h2 style={{ marginBottom: 4 }}>Data Purging</h2>
-      <p style={{ fontSize: 13, color: "var(--text-soft)", marginBottom: 4 }}>
-        Permanently remove reference data or MR-I reports. All actions require confirmation and cannot be undone.
-      </p>
-      <p style={{ fontSize: 11.5, color: "var(--warn)", marginBottom: 20 }}>
-        ⚠ Reference purges skip any row still referenced elsewhere (e.g. an asset type used by a template).
-      </p>
+      <div className="tig-hint" role="note" style={{ marginBottom: 16, maxWidth: 820 }}>
+        Everything on this screen deletes data for good and can't be undone. Save a backup first (Data tools › Back up &amp; restore).
+        List clean-ups skip anything still in use (for example a kind of unit used by a template).
+      </div>
 
       {status && <div className={`toast ${status.kind}`} style={{ maxWidth: 600, marginBottom: 16 }}>{status.msg}</div>}
 
-      <div className="mri-preview-section-label">Clean Slate (MR-I Testing)</div>
+      <div className="mri-preview-section-label">Start MR-I again from empty (testing only)</div>
       <p style={{ fontSize: 12.5, color: "var(--text-soft)", marginBottom: 14 }}>
         Starts MR-I from scratch: deletes every MR-I report with its faults, decisions, repairs and photos, clears MOC exemptions and tag history,
         resets every trigger running total to zero and sets every asset to <strong>Green</strong>. Assets, templates, trigger thresholds, users and
@@ -139,12 +148,12 @@ function DataPurging() {
         </button>
       </div>
 
-      <div className="mri-preview-section-label">Reference Data</div>
+      <div className="mri-preview-section-label">Lists &amp; libraries — remove what isn't used</div>
       <div className="cards" style={{ marginBottom: 24 }}>
         <div className="card" style={{ cursor: "default" }}>
           <div className="card-main">
-            <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500 }}>Asset Types</div>
-            <div className="desc">Removes all asset types not currently in use</div>
+            <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500 }}>Kinds of units <span style={{ fontWeight: 400, color: "var(--text-soft)" }}>· Asset Types</span></div>
+            <div className="desc">Removes every kind of unit that nothing uses</div>
           </div>
           <div className="card-actions">
             <button
@@ -162,8 +171,8 @@ function DataPurging() {
 
         <div className="card" style={{ cursor: "default" }}>
           <div className="card-main">
-            <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500 }}>Checklist Sections</div>
-            <div className="desc">Removes all sections not currently in use</div>
+            <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500 }}>Check groups <span style={{ fontWeight: 400, color: "var(--text-soft)" }}>· Checklist Sections</span></div>
+            <div className="desc">Removes every group no template uses</div>
           </div>
           <div className="card-actions">
             <button
@@ -181,8 +190,8 @@ function DataPurging() {
 
         <div className="card" style={{ cursor: "default" }}>
           <div className="card-main">
-            <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500 }}>Checklist Databank</div>
-            <div className="desc">Removes all checklist items not currently in use</div>
+            <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500 }}>Checklist Bank <span style={{ fontWeight: 400, color: "var(--text-soft)" }}>· Checklist Databank</span></div>
+            <div className="desc">Removes every check no template uses</div>
           </div>
           <div className="card-actions">
             <button
@@ -200,8 +209,8 @@ function DataPurging() {
 
         <div className="card" style={{ cursor: "default" }}>
           <div className="card-main">
-            <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500 }}>Lookups (All Criteria)</div>
-            <div className="desc">Removes every value under every lookup criteria (Country, Client, Service Line, etc.)</div>
+            <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500 }}>All drop-down lists <span style={{ fontWeight: 400, color: "var(--text-soft)" }}>· Lookups</span></div>
+            <div className="desc">Removes every choice in every list (Country, Client, Service Line and the rest)</div>
           </div>
           <div className="card-actions">
             <button
@@ -220,8 +229,8 @@ function DataPurging() {
         {criteriaList.map((c) => (
           <div className="card" key={c} style={{ cursor: "default" }}>
             <div className="card-main">
-              <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500 }}>Lookups: {c}</div>
-              <div className="desc">Removes only values under this criteria</div>
+              <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500 }}>Drop-down list: {c}</div>
+              <div className="desc">Removes only the choices in this list</div>
             </div>
             <div className="card-actions">
               <button
@@ -239,9 +248,10 @@ function DataPurging() {
         ))}
       </div>
 
-      <div className="mri-preview-section-label">MR-I Reports</div>
+      <div className="mri-preview-section-label">MR-I reports</div>
+      <IsoSteps steps={["Choose what to clear", "Check how many match", "Confirm"]} current={pendingPurge ? 2 : hasAnyFilter ? 1 : 0} />
       <p style={{ fontSize: 12.5, color: "var(--text-soft)", marginBottom: 14 }}>
-        Select any combination of filters below. Reports matching <strong>all</strong> selected filters will be purged, including their full header/checklist/mid/footer data.
+        Pick any of the filters below. Only reports that match <strong>all</strong> of them are removed, with everything on them.
       </p>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 16 }}>
@@ -267,7 +277,7 @@ function DataPurging() {
           </select>
         </div>
         <div className="field" style={{ marginBottom: 0 }}>
-          <label>Asset Type</label>
+          <label>Kind of unit</label>
           <select className="neu-select" value={filterAssetType} onChange={(e) => setFilterAssetType(e.target.value)}>
             <option value="">— Any —</option>
             {assetTypes.map((a) => <option key={a.id} value={a.id}>{a.description}</option>)}
@@ -278,8 +288,8 @@ function DataPurging() {
       <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
         <span className="count">
           {hasAnyFilter
-            ? (previewCount !== null ? `${previewCount} report(s) match` : "Calculating...")
-            : "No filters selected"}
+            ? (previewCount !== null ? `${previewCount} ${previewCount === 1 ? "report matches" : "reports match"}` : "Counting…")
+            : "Choose at least one filter"}
         </span>
         <button className="danger" disabled={!hasAnyFilter} onClick={requestReportsPurge}>
           Purge Matching Reports
@@ -298,7 +308,7 @@ function DataPurging() {
         </button>
       </div>
 
-      <div className="mri-preview-section-label" style={{ marginTop: 24 }}>Maintenance Trigger Running Totals</div>
+      <div className="mri-preview-section-label" style={{ marginTop: 24 }}>Maintenance counters (running totals)</div>
       <p style={{ fontSize: 12.5, color: "var(--text-soft)", marginBottom: 14 }}>
         Zeroes out the running total (e.g. Engine Hours, Distance Travelled) on maintenance triggers, for one asset or all of them. Thresholds and the enabled toggle are left untouched — only the running count resets.
       </p>

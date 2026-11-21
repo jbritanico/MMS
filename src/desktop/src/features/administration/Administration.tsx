@@ -13,6 +13,8 @@ import DataBrowser from "./DataBrowser";
 import { useCurrentUserPermissionCodes } from "../../lib/useCurrentUserPermissions";
 import { useCurrentUser } from "../../lib/currentUser";
 import SupportViewer from "../support/SupportViewer";
+import { TIG_CSS } from "../mri-template-builder/TemplateIsoGuide";
+import { ADMIN_CSS, ADMIN_META, AdminHintsProvider, AdminScreenIntro, AdminTile, GROUP_NAMES, IsoScaffold, useAdminHints } from "./AdminIsoGuide";
 
 export type AdminSection =
   | "users"
@@ -298,7 +300,16 @@ interface AdministrationProps {
   selectedTemplateId: number | null;
 }
 
-function Administration({ onOpenTemplate, active, setActive, openGroup, setOpenGroup, selectedTemplateId }: AdministrationProps) {
+function Administration(props: AdministrationProps) {
+  return (
+    <AdminHintsProvider>
+      <AdministrationInner {...props} />
+    </AdminHintsProvider>
+  );
+}
+
+function AdministrationInner({ onOpenTemplate, active, setActive, openGroup, setOpenGroup, selectedTemplateId }: AdministrationProps) {
+  const adminHints = useAdminHints();
 
   const permCodes = useCurrentUserPermissionCodes();
   const { user: currentUser } = useCurrentUser();
@@ -340,8 +351,9 @@ function Administration({ onOpenTemplate, active, setActive, openGroup, setOpenG
   }
 
   return (
-    <div className="admin-layout">
-      <div className="admin-sidebar">
+    <div className="admin-layout tig">
+      <style>{TIG_CSS + ADMIN_CSS}</style>
+      <div className="admin-sidebar" aria-label="Administration">
         {visibleGroups.map((group) => {
           const isOpen = openGroup === group.id;
           const hasActiveChild = group.children.some((c) => c.id === active);
@@ -352,7 +364,7 @@ function Administration({ onOpenTemplate, active, setActive, openGroup, setOpenG
                 onClick={() => toggleGroup(group.id)}
               >
                 <span className="admin-nav-icon">{group.icon}</span>
-                <span className="admin-group-label">{group.label}</span>
+                <span className="admin-group-label">{GROUP_NAMES[group.id]}</span>
                 <svg
                   className={`admin-chevron ${isOpen ? "open" : ""}`}
                   viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
@@ -363,16 +375,27 @@ function Administration({ onOpenTemplate, active, setActive, openGroup, setOpenG
 
               <div className={`admin-group-body ${isOpen ? "open" : ""}`}>
                 <div className="admin-group-body-inner">
-                  {group.children.map((child) => (
-                    <button
-                      key={child.id}
-                      className={`admin-child-item ${active === child.id ? "active" : ""}`}
-                      onClick={() => selectChild(group.id, child.id)}
-                    >
-                      <span className="admin-child-icon">{child.icon}</span>
-                      <span>{child.label}</span>
-                    </button>
-                  ))}
+                  {group.children.map((child) => {
+                    const meta = ADMIN_META[child.id];
+                    const n = adminHints[child.id]?.length ?? 0;
+                    const cur = active === child.id;
+                    return (
+                      <button
+                        key={child.id}
+                        className={`admin-child-item ${cur ? "active" : ""}`}
+                        aria-current={cur ? "page" : undefined}
+                        onClick={() => selectChild(group.id, child.id)}
+                        title={n ? `${n} ${n === 1 ? "thing" : "things"} worth a look` : undefined}
+                      >
+                        <AdminTile state={cur ? "current" : meta.soon ? "soon" : n ? "look" : "ok"} />
+                        <span className="adm-child-text">
+                          <span className="adm-child-name">{meta.name}</span>
+                          <span className="adm-child-tech">{meta.tech}</span>
+                        </span>
+                        {meta.soon ? <span className="adm-badge is-soon">Soon</span> : n > 0 && <span className="adm-badge">{n}</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -381,6 +404,9 @@ function Administration({ onOpenTemplate, active, setActive, openGroup, setOpenG
       </div>
 
       <div className="panel admin-content">
+        {canSee(active) && (
+          <AdminScreenIntro section={active} groupId={GROUPS.find((g) => g.children.some((c) => c.id === active))?.id ?? "users"} />
+        )}
         {!canSee(active) ? (
           <div className="placeholder-screen">
             <h2>Restricted</h2>
@@ -409,9 +435,13 @@ function Administration({ onOpenTemplate, active, setActive, openGroup, setOpenG
         ) : active === "support-viewer" ? (
           <SupportViewer />
         ) : (
-          <div className="placeholder-screen">
-            <h2>{LABELS[active]}</h2>
-            <p>Coming soon — {LABELS[active].toLowerCase()} management will land here.</p>
+          <div className="placeholder-screen" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+            <IsoScaffold />
+            <h2 style={{ textTransform: "none", letterSpacing: 0 }}>{ADMIN_META[active].name} is coming soon</h2>
+            <p style={{ maxWidth: 520 }}>{ADMIN_META[active].explain}</p>
+            {active !== "data-removal" && canSee("mri-template") && (
+              <button className="ghost" onClick={() => selectChild("mr-templates", "mri-template")}>Go to MR-I templates</button>
+            )}
           </div>
         )}
       </div>

@@ -12,6 +12,7 @@ import {
   useDeleteLookupCriteria,
   type LookupValue,
 } from "./hooks/useLookups";
+import { RowTile, useReportAdminHints, useReportAdminKpis } from "./AdminIsoGuide";
 
 function LookupsManager() {
   const { data: criteriaList = [] } = useLookupCriteria();
@@ -233,12 +234,18 @@ function LookupsManager() {
     }
   }
 
+  const offCount = values.filter((v) => !v.active).length;
+  useReportAdminHints("lookups", offCount ? [`${offCount} ${offCount === 1 ? "choice" : "choices"} in ${effectiveCriteria} ${offCount === 1 ? "is" : "are"} switched off`] : []);
+  useReportAdminKpis("lookups", [
+    { label: "drop-down lists", value: criteriaList.length, tone: "blue" },
+    { label: `choices in ${effectiveCriteria || "this list"}`, value: values.length, tone: "blue" },
+    { label: "in use", value: values.length - offCount, tone: "ok" },
+    { label: "switched off", value: offCount, tone: offCount ? "look" : "skip" },
+  ]);
+
   return (
     <div>
-      <h2 style={{ marginBottom: 4 }}>Lookups</h2>
-      <p style={{ fontSize: 13, color: "var(--text-soft)", marginBottom: 16 }}>
-        Shared dropdown values used across the app (Country, Client, etc.), grouped by criteria. Will sync from SharePoint once authentication is available.
-      </p>
+      <div className="adm-section-h">Lists</div>
 
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 18 }}>
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap", padding: "var(--seg-track-pad, 4px)", background: "var(--tab-track)", borderRadius: "var(--seg-track-radius, 12px)" }}>
@@ -276,7 +283,11 @@ function LookupsManager() {
               <div key={c} style={{ display: "flex", alignItems: "center", gap: isActive ? 2 : 0 }}>
                 <button
                   onClick={() => selectCriteria(c)}
+                  aria-pressed={isActive}
+                  className="adm-lift"
                   style={{
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    transform: isActive ? "translateY(-3px)" : undefined,
                     padding: "var(--seg-pad, 7px 16px)", border: "var(--seg-border, none)", borderRadius: "var(--seg-radius, 9px)", fontSize: "var(--seg-font, 13px)", fontWeight: isActive ? "var(--seg-on-weight, 600)" : "var(--seg-off-weight, 600)",
                     background: isActive ? "var(--seg-on-bg, var(--neu-bg))" : "transparent",
                     color: isActive ? "var(--seg-on-color, var(--accent-blue))" : "var(--seg-off-color, var(--text-soft))",
@@ -285,11 +296,17 @@ function LookupsManager() {
                       : "none",
                   }}
                 >
+                  <svg width="26" height="16" viewBox="0 0 64 40" aria-hidden="true" style={{ overflow: "visible", flexShrink: 0 }}>
+                    <polygon points="2,16 32,30 32,36 2,22" className="tig-slab-l" />
+                    <polygon points="32,30 62,16 62,22 32,36" className="tig-slab-r" />
+                    <polygon points="32,2 62,16 32,30 2,16" fill={isActive ? "var(--tig-blue-soft)" : "var(--tig-top)"} stroke={isActive ? "var(--tig-blue)" : "none"} strokeWidth={2.5} />
+                  </svg>
                   {c}
+                  {isActive && <span style={{ fontSize: 11.5, opacity: 0.8 }}>· {values.length}</span>}
                 </button>
                 {isActive && (
                   <>
-                    <button className="icon-btn" aria-label="Rename criteria" title="Rename criteria" onClick={startRenameCriteria}>
+                    <button className="icon-btn" aria-label="Rename list" title="Rename list" onClick={startRenameCriteria}>
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 15, height: 15 }}>
                         <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"
                           stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
@@ -297,8 +314,8 @@ function LookupsManager() {
                     </button>
                     <button
                       className="icon-btn icon-danger"
-                      aria-label="Delete criteria"
-                      title="Delete criteria"
+                      aria-label="Delete list"
+                      title="Delete list"
                       onClick={() => setPendingDeleteCriteria(c)}
                     >
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: 15, height: 15 }}>
@@ -317,23 +334,24 @@ function LookupsManager() {
           <input
             type="text"
             className="trigger-input"
-            placeholder="New criteria (e.g. CLIENT)"
+            placeholder="New list, e.g. CLIENT"
+            aria-label="New list"
             value={newCriteriaInput}
             onChange={(e) => setNewCriteriaInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addNewCriteria()}
             style={{ width: 200 }}
           />
-          <button className="ghost" onClick={addNewCriteria}>+ Add criteria</button>
+          <button className="ghost" onClick={addNewCriteria}>+ Add list</button>
         </div>
       </div>
 
       {!effectiveCriteria ? (
-        <div className="empty">No criteria yet — add one above to get started (e.g. COUNTRY, CLIENT)</div>
+        <div className="empty">No lists yet — add one above to get started (e.g. COUNTRY, CLIENT)</div>
       ) : (
         <>
           <div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginBottom: 12 }}>
             <div className="field" style={{ flex: 1, maxWidth: 320, marginBottom: 0 }}>
-              <label>New value for {effectiveCriteria}</label>
+              <label>New choice for {effectiveCriteria}</label>
               <input
                 type="text"
                 value={newValue}
@@ -342,7 +360,7 @@ function LookupsManager() {
                 onKeyDown={(e) => e.key === "Enter" && handleAddValue()}
               />
             </div>
-            <button className="primary" onClick={handleAddValue}>Add</button>
+            <button className="primary" onClick={handleAddValue}>+ Add choice</button>
           </div>
 
           <div style={{ marginBottom: 18 }}>
@@ -413,11 +431,11 @@ function LookupsManager() {
           {isLoading ? (
             <div className="empty">Loading...</div>
           ) : values.length === 0 ? (
-            <div className="empty">No values yet for {effectiveCriteria}</div>
+            <div className="empty">No choices yet for {effectiveCriteria}</div>
           ) : (
             <div className="cards">
               {values.map((v) => (
-                <div className="card" key={v.id} style={{ cursor: "default" }}>
+                <div className="card adm-lift" key={v.id} style={{ cursor: "default", opacity: v.active ? 1 : 0.75 }}>
                   {editingId === v.id ? (
                     <div className="card-main">
                       <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)}
@@ -425,9 +443,9 @@ function LookupsManager() {
                     </div>
                   ) : (
                     <div className="card-main">
-                      <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500 }}>{v.name}</div>
+                      <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500, display: "flex", alignItems: "center", gap: 8 }}><RowTile tone={v.active ? "ok" : "skip"} />{v.name}</div>
                       <div className="meta">
-                        <span className={`pill ${v.active ? "active" : "inactive"}`}>{v.active ? "Active" : "Inactive"}</span>
+                        <span className={`pill ${v.active ? "active" : "inactive"}`}>{v.active ? "In use" : "Switched off"}</span>
                       </div>
                     </div>
                   )}
@@ -447,7 +465,7 @@ function LookupsManager() {
                       </>
                     ) : (
                       <>
-                        <button className="icon-btn" aria-label={v.active ? "Deactivate" : "Activate"} onClick={() => toggleActive(v)}>
+                        <button className="icon-btn" aria-label={v.active ? "Switch off" : "Switch on"} title={v.active ? "Switch off (hides it, old reports keep it)" : "Switch on"} onClick={() => toggleActive(v)}>
                           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             {v.active ? (
                               <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -506,7 +524,7 @@ function LookupsManager() {
                   stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            <h3>Delete criteria?</h3>
+            <h3>Delete this list?</h3>
             <p>
               This will permanently delete <strong>{pendingDeleteCriteria}</strong> and every value under it. This cannot be undone.
             </p>

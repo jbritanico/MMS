@@ -50,6 +50,9 @@ function TemplateDrawingStep({ templateId }: TemplateDrawingStepProps) {
   const [selectedHotspotId, setSelectedHotspotId] = useState<number | null>(null);
   const [labelDraft, setLabelDraft] = useState("");
   const [pendingRemoveDrawing, setPendingRemoveDrawing] = useState(false);
+  const [pendingClearPoints, setPendingClearPoints] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [clearError, setClearError] = useState<string | null>(null);
   const [dragState, setDragState] = useState<{ id: number; x: number; y: number } | null>(null);
 
   function startDrag(e: React.PointerEvent<HTMLButtonElement>, h: (typeof hotspots)[number]) {
@@ -174,6 +177,23 @@ function TemplateDrawingStep({ templateId }: TemplateDrawingStepProps) {
     setHotspotItems.mutate({ hotspotId: selectedHotspot.id, checklistItemIds: Array.from(current) });
   }
 
+  // Clear all points: deletes each point one by one with the same delete used by "Delete this point".
+  // The picture stays; only the points (and the checks ticked on them) are removed.
+  async function clearAllHotspots() {
+    setClearing(true);
+    setClearError(null);
+    setPlacing(false);
+    setSelectedHotspotId(null);
+    try {
+      for (const h of hotspots) await deleteHotspot.mutateAsync(h.id);
+      setPendingClearPoints(false);
+    } catch (err) {
+      setClearError(`Some points could not be cleared: ${String(err)}`);
+    } finally {
+      setClearing(false);
+    }
+  }
+
   function removeHotspot(id: number) {
     deleteHotspot.mutate(id);
     if (selectedHotspotId === id) setSelectedHotspotId(null);
@@ -211,6 +231,14 @@ function TemplateDrawingStep({ templateId }: TemplateDrawingStepProps) {
             title={atLimit ? (maxPoints === 0 ? "Add checks in “Things to check” first" : "Every check already has a point") : undefined}
           >
             {placing ? "Now click the picture…" : "+ Add point"}
+          </button>
+          <button
+            className="ghost"
+            onClick={() => { setClearError(null); setPendingClearPoints(true); }}
+            disabled={hotspots.length === 0 || clearing}
+            title={hotspots.length === 0 ? "There are no points to clear" : "Delete every point on the picture (the picture stays)"}
+          >
+            {clearing ? "Clearing…" : `Clear all points${hotspots.length ? ` (${hotspots.length})` : ""}`}
           </button>
           <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFile} />
           <button className="ghost" onClick={() => fileInputRef.current?.click()}>Replace picture</button>
@@ -345,6 +373,31 @@ function TemplateDrawingStep({ templateId }: TemplateDrawingStepProps) {
           </div>
         )}
       </div>
+
+      {pendingClearPoints && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 9V13M12 17H12.01M10.29 3.86L1.82 18A2 2 0 0 0 3.54 21H20.46A2 2 0 0 0 22.18 18L13.71 3.86A2 2 0 0 0 10.29 3.86Z"
+                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <h3>Clear all {hotspots.length} points?</h3>
+            <p>
+              This deletes every point on the picture and the checks ticked on them. The picture stays, so you can add
+              points again — up to {maxPoints} ({maxPoints === 1 ? "one check" : `one for each of the ${maxPoints} checks`}).
+            </p>
+            {clearError && <div className="toast err" style={{ margin: "8px 0" }}>{clearError}</div>}
+            <div className="modal-actions">
+              <button className="ghost" onClick={() => setPendingClearPoints(false)} disabled={clearing}>Cancel</button>
+              <button className="danger" onClick={clearAllHotspots} disabled={clearing}>
+                {clearing ? "Clearing…" : "Clear all points"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {pendingRemoveDrawing && (
         <div className="modal-overlay">

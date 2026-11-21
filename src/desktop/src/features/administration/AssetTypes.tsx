@@ -10,6 +10,9 @@ import {
     type AssetType,
 } from "./hooks/useAssetTypes";
 import IconUpload from "./IconUpload";
+import { useMriTemplates } from "./hooks/useMriTemplates";
+import { IsoIconPlatform } from "../mri-template-builder/TemplateIsoGuide";
+import { FilterChips, useReportAdminHints, useReportAdminKpis } from "./AdminIsoGuide";
 
 function AssetTypes() {
     const { data: types = [], isLoading } = useAssetTypes();
@@ -19,6 +22,23 @@ function AssetTypes() {
     const bulkCreate = useBulkCreateAssetTypes();
     const [pickingIconFor, setPickingIconFor] = useState<AssetType | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
+    const { data: templates = [], isSuccess: templatesReady } = useMriTemplates();
+    const hasTemplate = (id: number) => templates.some((tp) => tp.asset_type_id === id);
+    const hasIcon = (icon?: string | null) => !!icon && icon.trim().startsWith("data:");
+    const activeTypes = types.filter((t) => t.active);
+    const noIcon = activeTypes.filter((t) => !hasIcon(t.icon)).length;
+    const noTpl = templatesReady ? activeTypes.filter((t) => !hasTemplate(t.id)).length : 0;
+    useReportAdminKpis("asset-types", [
+      { label: "kinds of unit in use", value: activeTypes.length, tone: "blue" },
+      { label: "with an MR-I template", value: templatesReady ? activeTypes.length - noTpl : "…", tone: "ok" },
+      { label: "no MR-I template", value: templatesReady ? noTpl : "…", tone: noTpl ? "look" : "ok" },
+      { label: "no icon", value: noIcon, tone: noIcon ? "look" : "ok" },
+    ]);
+    useReportAdminHints("asset-types", [
+        ...(noIcon ? [`${noIcon} ${noIcon === 1 ? "kind has" : "kinds have"} no icon`] : []),
+        ...(noTpl ? [`${noTpl} ${noTpl === 1 ? "kind has" : "kinds have"} no MR-I template yet`] : []),
+    ]);
+    const [show, setShow] = useState<"all" | "noicon" | "notpl">("all");
 
     const [newDescription, setNewDescription] = useState("");
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -158,14 +178,10 @@ function AssetTypes() {
 
     return (
         <div>
-            <h2 style={{ marginBottom: 4 }}>Asset Types</h2>
-            <p style={{ fontSize: 13, color: "var(--text-soft)", marginBottom: 16 }}>
-                Equipment types used to scope MR-I templates and checklist items.
-            </p>
 
             <div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginBottom: 12 }}>
                 <div className="field" style={{ flex: 1, marginBottom: 0 }}>
-                    <label>Asset type description</label>
+                    <label>Kind of unit</label>
                     <input
                         type="text"
                         value={newDescription}
@@ -174,7 +190,7 @@ function AssetTypes() {
                         onKeyDown={(e) => e.key === "Enter" && handleCreate()}
                     />
                 </div>
-                <button className="primary" onClick={handleCreate}>Add</button>
+                <button className="primary" onClick={handleCreate}>+ Add kind</button>
             </div>
             <div style={{ marginBottom: 18, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
                 <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" style={{ display: "none" }} onChange={handleFileSelected} />
@@ -185,7 +201,8 @@ function AssetTypes() {
                 <input
                     type="text"
                     className="search"
-                    placeholder="Search asset types..."
+                    placeholder="Find a kind of unit…"
+                    aria-label="Find a kind of unit"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     style={{ marginLeft: "auto" }}
@@ -220,34 +237,27 @@ function AssetTypes() {
                 </div>
             )}
 
+            <div className="adm-toolbar">
+                <FilterChips value={show} onChange={setShow} options={[{ id: "all", label: "All" }, { id: "noicon", label: "No icon" }, { id: "notpl", label: "No MR-I template" }]} />
+            </div>
             {(() => {
                 const filteredTypes = types.filter((t) =>
                     t.description.toLowerCase().includes(searchQuery.toLowerCase())
+                    && (show === "all" || (show === "noicon" ? !hasIcon(t.icon) : templatesReady && !hasTemplate(t.id)))
                 );
                 return isLoading ? (
                     <div className="empty">Loading...</div>
                 ) : filteredTypes.length === 0 ? (
                     <div className="empty">
-                        {types.length === 0 ? "No asset types yet — add one above to get started" : "No asset types match your search"}
+                        {types.length === 0 ? "No kinds of units yet — add one above to get started" : "Nothing matches"}
                     </div>
                 ) : (
                     <div className="review-card-grid">
                         {filteredTypes.map((t) => (
-                            <div className="review-card" key={t.id}>
+                            <div className="review-card adm-lift" key={t.id} style={{ opacity: t.active ? 1 : 0.75 }}>
                                 <div className="review-card-top">
                                     <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
-                                        <div
-                                            style={{
-                                                width: 99, height: 99, flexShrink: 0,
-                                                display: "flex", alignItems: "center", justifyContent: "center",
-                                            }}
-                                        >
-                                            {t.icon && t.icon.trim().startsWith("data:") ? (
-                                                <img src={t.icon} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                                            ) : (
-                                                <span style={{ fontSize: 11, color: "var(--text-soft)" }}>—</span>
-                                            )}
-                                        </div>
+                                        <IsoIconPlatform icon={t.icon} size={96} />
                                         {editingId === t.id ? (
                                             <input
                                                 type="text"
@@ -258,11 +268,17 @@ function AssetTypes() {
                                                 style={{ flex: 1, minWidth: 0 }}
                                             />
                                         ) : (
-                                            <div className="review-card-code" style={{ minWidth: 0 }}>{t.description}</div>
+                                            <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+                                                <div className="review-card-code">{t.description}</div>
+                                                {!hasIcon(t.icon) && <span className="pill adm-pill-look" style={{ alignSelf: "flex-start" }}>No icon</span>}
+                                                {templatesReady && (hasTemplate(t.id)
+                                                    ? <span className="pill active" style={{ alignSelf: "flex-start" }}>Has MR-I template</span>
+                                                    : <span className="pill adm-pill-look" style={{ alignSelf: "flex-start" }}>No MR-I template</span>)}
+                                            </div>
                                         )}
                                     </div>
                                     <span className={`pill ${t.active ? "active" : "inactive"}`}>
-                                        {t.active ? "Active" : "Inactive"}
+                                        {t.active ? "In use" : "Switched off"}
                                     </span>
                                 </div>
 
@@ -295,7 +311,7 @@ function AssetTypes() {
                                                         stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
                                                 </svg>
                                             </button>
-                                            <button className="icon-btn" aria-label={t.active ? "Deactivate" : "Activate"} title={t.active ? "Deactivate" : "Activate"} onClick={() => toggleActive(t)}>
+                                            <button className="icon-btn" aria-label={t.active ? "Switch off" : "Switch on"} title={t.active ? "Switch off" : "Switch on"} onClick={() => toggleActive(t)}>
                                                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                                     {t.active ? (
                                                         <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />

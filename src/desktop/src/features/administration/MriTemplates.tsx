@@ -14,6 +14,8 @@ import { useAssetTypes } from "./hooks/useAssetTypes";
 import AssetTypeCombobox from "./AssetTypeCombobox";
 import TemplateGraphModal from "../mri-template-builder/TemplateGraphModal";
 import { useTemplateHints } from "../mri-template-builder/useTemplateHints";
+import { IsoIconPlatform, IsoTower, TIG_CSS } from "../mri-template-builder/TemplateIsoGuide";
+import { useReportAdminKpis } from "./AdminIsoGuide";
 
 const STATUS_ORDER: TemplateStatus[] = ["Draft", "Active", "Inactive"];
 
@@ -34,6 +36,15 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
   const exportBackup = useExportMriTemplatesBackup();
   const importBackup = useImportMriTemplatesBackup();
   const importFileRef = useRef<HTMLInputElement>(null);
+  const tplCount = (st: string) => templates.filter((x) => x.status === st).length;
+  const kindsNoTpl = assetTypes.filter((k) => k.active && !templates.some((x) => x.asset_type_id === k.id)).length;
+  useReportAdminKpis("mri-template", [
+    { label: "MR-I templates", value: templates.length, tone: "blue" },
+    { label: "in use", value: tplCount("Active"), tone: "ok" },
+    { label: "draft", value: tplCount("Draft"), tone: tplCount("Draft") ? "look" : "skip" },
+    { label: "not in use", value: tplCount("Inactive"), tone: "skip" },
+    { label: "kinds of unit without one", value: kindsNoTpl, tone: kindsNoTpl ? "look" : "ok" },
+  ]);
 
 
   const [newName, setNewName] = useState("");
@@ -87,7 +98,7 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
     const next = STATUS_ORDER[(currentIndex + 1) % STATUS_ORDER.length];
     try {
       await updateStatus.mutateAsync({ id: t.id, status: next });
-      flash(`${t.template_name} set to ${next}`, "ok");
+      flash(`${t.template_name} is now ${STATUS_WORDS[next]}`, "ok");
     } catch (err) {
       flash(String(err), "err");
     }
@@ -124,12 +135,8 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
   }
 
   return (
-    <div>
-      <h2 style={{ marginBottom: 4 }}>MR-I Templates</h2>
-      <p style={{ fontSize: 13, color: "var(--text-soft)", marginBottom: 16 }}>
-        Each template is built for one asset type and configures which header fields, checklist items, mid fields, and footer fields appear on that type's MR-I report.
-      </p>
-
+    <div className="tig">
+      <style>{TIG_CSS + MT_CSS}</style>
       <div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginBottom: 18, flexWrap: "wrap" }}>
         <div className="field" style={{ flex: 1, minWidth: 200, marginBottom: 0 }}>
           <label>Template name</label>
@@ -141,10 +148,10 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
           />
         </div>
         <div className="field" style={{ width: 260, marginBottom: 0 }}>
-          <label>Asset type</label>
+          <label>For which kind of unit?</label>
           <AssetTypeCombobox assetTypes={assetTypes} value={newAssetTypeId} onChange={setNewAssetTypeId} />
         </div>
-        <button className="primary" onClick={handleCreate}>Create template</button>
+        <button className="primary" onClick={handleCreate}>+ Make template</button>
       </div>
 
       <div style={{ marginBottom: 18, display: "flex", gap: 8, alignItems: "center" }}>
@@ -177,23 +184,14 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
         <div className="review-card-grid">
           {templates.map((t) => (
             <div
-              className="review-card"
+              className="review-card mt-card"
               key={t.id}
               style={{ cursor: "pointer" }}
               onClick={() => editingId !== t.id && onOpenTemplate(t.id, t.template_name)}
             >
               <div className="review-card-top">
                 <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
-                  <div style={{ width: 99, height: 99, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    {(() => {
-                      const icon = assetTypes.find((a) => a.id === t.asset_type_id)?.icon;
-                      return icon && icon.trim().startsWith("data:") ? (
-                        <img src={icon} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                      ) : (
-                        <span style={{ fontSize: 11, color: "var(--text-soft)" }}>—</span>
-                      );
-                    })()}
-                  </div>
+                  <TemplateTower templateId={t.id} status={t.status} />
                   {editingId === t.id ? (
                     <input
                       type="text"
@@ -207,12 +205,15 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
                   ) : (
                     <div style={{ minWidth: 0 }}>
                       <div className="review-card-code">{t.template_name}</div>
-                      <div style={{ fontSize: 13, color: "var(--text-soft)", marginTop: 2 }}>{assetTypeName(t.asset_type_id)}</div>
+                      <div className="mt-kind">
+                        <IsoIconPlatform icon={assetTypes.find((a) => a.id === t.asset_type_id)?.icon} size={44} />
+                        <span>{assetTypeName(t.asset_type_id)}</span>
+                      </div>
                       {t.status === "Draft" && <DraftHint templateId={t.id} />}
                     </div>
                   )}
                 </div>
-                <span className={`pill ${statusPillClass(t.status)}`}>{t.status}</span>
+                <span className={`pill ${statusPillClass(t.status)}`}>{STATUS_WORDS[t.status]}</span>
               </div>
 
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 10 }}>
@@ -239,7 +240,7 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
                         <path d="M12 7v4M12 11H5v6M12 11h7v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </button>
-                    <button className="icon-btn" aria-label="Cycle status" onClick={(e) => { e.stopPropagation(); cycleStatus(t); }} title="Click to cycle Draft → Active → Inactive">
+                    <button className="icon-btn" aria-label="Cycle status" onClick={(e) => { e.stopPropagation(); cycleStatus(t); }} title="Change status: Draft → In use → Not in use">
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
                         <path d="M18 4v4h-4M6 20v-4h4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -292,6 +293,28 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
     </div>
   );
 }
+// Plain words for the template statuses (the statuses themselves are unchanged).
+const STATUS_WORDS: Record<TemplateStatus, string> = { Draft: "Draft", Active: "In use", Inactive: "Not in use" };
+
+// 3D tower: one floor per part of the form (report details, checks, picture, distance, sign-off),
+// coloured by the on-screen hints; the base shows the status. Display only.
+function TemplateTower({ templateId, status }: { templateId: number; status: TemplateStatus }) {
+  const h = useTemplateHints(templateId);
+  const floors = (["header", "checklist", "drawing", "mid", "footer"] as const).map((k) => (h.ready ? h.steps[k].state : "none"));
+  return (
+    <span title="One floor per part of the form: green looks complete, orange is worth a look, grey is not filled in">
+      <IsoTower states={floors} base={status === "Active" ? "ok" : status === "Draft" ? "draft" : "off"} faded={status === "Inactive"} size={70} />
+    </span>
+  );
+}
+
+const MT_CSS = `
+.tig .mt-card { transition: transform .4s cubic-bezier(.34,1.56,.64,1), box-shadow .25s; }
+.tig .mt-card:hover, .tig .mt-card:focus-within { transform: translateY(-4px); }
+.tig .mt-kind { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-soft); margin-top: 4px; }
+@media (prefers-reduced-motion: reduce) { .tig .mt-card { transition: none; } .tig .mt-card:hover { transform: none; } }
+`;
+
 // Option B: a text-only reminder on Draft cards. Display only — status and the cycle icon are unchanged.
 function DraftHint({ templateId }: { templateId: number }) {
   const hints = useTemplateHints(templateId);

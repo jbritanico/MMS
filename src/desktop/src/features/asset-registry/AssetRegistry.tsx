@@ -14,6 +14,12 @@ import { TagLamp } from "../../components/Instruments";
 import { DEFAULT_TRIGGER_ICON, TRIGGER_TYPE_COLORS, TRIGGER_TYPE_ICONS } from "../../components/triggerIcons";
 import { useCurrentUser } from "../../lib/currentUser";
 import { useEffectivePermissions, useUserCountryAccess } from "../administration/hooks/useUserAdmin";
+import { IsoIconPlatform, TIG_CSS } from "../mri-template-builder/TemplateIsoGuide";
+import { ADMIN_CSS, IsoTiles, RowTile, ScreenIntro, type Tone } from "../administration/AdminIsoGuide";
+
+// Option B look: the tag colour shown as a 3D tile (display only).
+const TAG_TONE: Record<string, Tone> = { Green: "ok", Yellow: "look", Red: "bad" };
+const tagTone = (tag: string | null | undefined): Tone => (tag ? TAG_TONE[tag] ?? "skip" : "skip");
 
 // Same mapping/icons/colors used on the MR-I "Select Asset" cards.
 const TRIGGER_TYPE_LABELS: Record<string, string> = {
@@ -194,8 +200,8 @@ function AssetRegistryRow({ asset: a, assetTypeLabel, canEdit, canDelete, onRowC
   return (
     <tr className="asset-row" onClick={() => onRowClick(a)}>
       <td>{a.tag_status ? <TagLamp status={a.tag_status} size={16} title={a.tag_reason ?? undefined} /> : <span className="asset-row-soft">—</span>}</td>
-      <td><div className="review-card-code">{a.asset_code}</div><div className="asset-row-soft">{a.asset_description || "—"}</div></td>
-      <td>{assetTypeLabel ?? <span className="asset-row-soft">No type</span>}</td>
+      <td><div className="review-card-code" style={{ display: "flex", alignItems: "center", gap: 6 }}><RowTile tone={tagTone(a.tag_status)} />{a.asset_code}</div><div className="asset-row-soft">{a.asset_description || "—"}</div></td>
+      <td>{assetTypeLabel ?? <span className="asset-row-soft">No kind set</span>}</td>
       <td>{a.country || <span className="asset-row-soft">—</span>}</td>
       <td>{a.service_line || <span className="asset-row-soft">—</span>}</td>
       <td>
@@ -210,7 +216,7 @@ function AssetRegistryRow({ asset: a, assetTypeLabel, canEdit, canDelete, onRowC
           ))}
         </div>
       </td>
-      <td><span className={`pill ${a.active ? "active" : "inactive"}`}>{a.active ? "Active" : "Inactive"}</span></td>
+      <td><span className={`pill ${a.active ? "active" : "inactive"}`}>{a.active ? "In use" : "Not in use"}</span></td>
       <td>
         <div className="asset-row-actions">
           {onShowFlow && a.id !== null && (
@@ -273,23 +279,19 @@ function AssetRegistryCard({ asset: a, assetTypeLabel, assetTypeIcon, canEdit, c
   const activeTriggers = triggers.filter((t) => t.enabled);
 
   return (
-    <div className="review-card" onClick={() => onRowClick(a)} style={{ cursor: "pointer" }}>
+    <div className="review-card adm-lift" onClick={() => onRowClick(a)} style={{ cursor: "pointer", opacity: a.active ? 1 : 0.8 }}>
       <div className="review-card-top">
         <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
-          <div className="asset-type-pic" style={{ width: 99, height: 99, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {assetTypeIcon && assetTypeIcon.trim().startsWith("data:") ? (
-              <img src={assetTypeIcon} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-            ) : (
-              <span style={{ fontSize: 11, color: "var(--text-soft)" }}>—</span>
-            )}
-          </div>
+          <span style={{ flexShrink: 0, display: "inline-flex" }}>
+            <IsoIconPlatform icon={assetTypeIcon} size={96} />
+          </span>
           <div style={{ minWidth: 0 }}>
             <div className="review-card-code">{a.asset_code}</div>
             <div className="review-card-desc">{a.asset_description || "—"}</div>
           </div>
         </div>
         <span className={`pill ${a.active ? "active" : "inactive"}`}>
-          {a.active ? "Active" : "Inactive"}
+          {a.active ? "In use" : "Not in use"}
         </span>
       </div>
 
@@ -393,6 +395,7 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
   const [typeFilter, setTypeFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
   const [serviceFilter, setServiceFilter] = useState("");
+  const [tagFilter, setTagFilter] = useState<"all" | "Green" | "Yellow" | "Red" | "none">("all");
   // Country filter follows the user's country access (Administration > Users > Countries);
   // an empty list means no restriction, the same rule the backend uses for the asset list.
   const { data: myCountries = [] } = useUserCountryAccess(currentUser?.id ?? 0);
@@ -501,8 +504,9 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
   ).sort((x, y) => x.localeCompare(y));
   const serviceFilterOptions = serviceLineOptions.filter((s) => s.active).map((s) => s.name).sort((x, y) => x.localeCompare(y));
   const typeFilterOptions = [...assetTypes].sort((x, y) => x.description.localeCompare(y.description));
-  const filtersOn = !!(typeFilter || countryFilter || serviceFilter || query);
+  const filtersOn = !!(typeFilter || countryFilter || serviceFilter || query || tagFilter !== "all");
   const filtered = assets.filter((a) =>
+    (tagFilter === "all" || (tagFilter === "none" ? !a.tag_status : a.tag_status === tagFilter)) &&
     `${a.asset_code} ${a.asset_description} ${a.country}`
       .toLowerCase()
       .includes(query.toLowerCase()) &&
@@ -515,17 +519,43 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
   const codeLocked = mode !== "create";
 
   const panelTitle =
-    mode === "create" ? "New asset" :
+    mode === "create" ? "Add a unit" :
       mode === "view" ? `Editing ${form.asset_code}` :
         `Editing ${form.asset_code}`;
 
+  const redCount = assets.filter((a) => a.active && a.tag_status === "Red").length;
+  const noKind = assets.filter((a) => a.active && !a.asset_type_id).length;
+  const tagCount = (t: string | null) => assets.filter((a) => (t ? a.tag_status === t : !a.tag_status)).length;
+
   return (
-    <>
-      <style>{REGISTRY_CSS}</style>
+    <div className="tig">
+      <style>{REGISTRY_CSS + TIG_CSS + ADMIN_CSS}</style>
       <div className="header">
         <h1>Asset registry</h1>
-        <span className="sub">local · sqlite · tanstack query</span>
+        <span className="sub">Every unit of equipment</span>
       </div>
+      <ScreenIntro
+        label="Asset registry: what you'll do here"
+        kpis={[
+          { label: "units", value: assets.length, tone: "blue" },
+          { label: "in use", value: assets.filter((a) => a.active).length, tone: "ok" },
+          { label: "Red", value: assets.filter((a) => a.tag_status === "Red").length, tone: "bad" },
+          { label: "Yellow", value: assets.filter((a) => a.tag_status === "Yellow").length, tone: "look" },
+          { label: "Green", value: assets.filter((a) => a.tag_status === "Green").length, tone: "ok" },
+          { label: "no kind of unit", value: noKind, tone: noKind ? "look" : "skip" },
+        ]}
+        glyph="unit"
+        explain="Every unit of equipment MMS knows about — its code, kind, country and tag colour (Green, Yellow or Red). Click a unit to see its details, tag history and counters."
+        todo={[
+          "Fill in the form on the left and save to add a unit",
+          "Click a unit to look at it, or the pencil to change it",
+          "Use the tag tiles and filters to find units quickly",
+        ]}
+        hints={[
+          ...(redCount ? [`${redCount} ${redCount === 1 ? "unit in use is" : "units in use are"} Red-tagged`] : []),
+          ...(noKind ? [`${noKind} ${noKind === 1 ? "unit has" : "units have"} no kind of unit set`] : []),
+        ]}
+      />
 
       <div className="layout" style={{ containerType: "inline-size" as any }}>
         <div className="panel">
@@ -571,7 +601,7 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
             />
           )}
           <div className="field">
-            <label>Asset type</label>
+            <label>Kind of unit</label>
             {isView ? (
               <input
                 type="text"
@@ -654,7 +684,7 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
               <>
                 <button className="primary" onClick={() => setMode("edit")} disabled={!canEdit} title={!canEdit ? "Your role doesn't have permission to edit assets" : undefined}>Edit</button>
                 <button className="ghost" onClick={() => form.id !== null && onViewTriggers(form.id, form.asset_code)}>
-                  View triggers
+                  When is it due? (triggers)
                 </button>
                 <button className="ghost" onClick={resetForm}>Close</button>
               </>
@@ -694,7 +724,7 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
 
         <div className="panel">
           <div className="table-toolbar">
-            <input className="search" type="text" placeholder="Search assets..."
+            <input className="search" type="text" placeholder="Find a unit by code, description or country…" aria-label="Find a unit"
               value={query} onChange={(e) => setQuery(e.target.value)} />
             <span className="count">{filtered.length} of {assets.length}</span>
             <div className="asset-view-toggle" role="group" aria-label="View">
@@ -721,12 +751,24 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
             </button>
             </div>
           </div>
+          <IsoTiles
+            label="Show units by tag"
+            selected={tagFilter}
+            onPick={setTagFilter}
+            items={[
+              { id: "all", label: "All units", count: String(assets.length), tone: "blue" },
+              { id: "Green", label: "Green", count: `${tagCount("Green")} ready`, tone: "ok" },
+              { id: "Yellow", label: "Yellow", count: `${tagCount("Yellow")} with limits`, tone: "look" },
+              { id: "Red", label: "Red", count: `${tagCount("Red")} not ready`, tone: "bad" },
+              { id: "none", label: "No tag yet", count: String(tagCount(null)), tone: "skip" },
+            ]}
+          />
           <div className="asset-filters">
-            <label>Asset type
+            <label>Kind of unit
               <select className="neu-select" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-                <option value="">All asset types</option>
+                <option value="">All kinds</option>
                 {typeFilterOptions.map((t) => <option key={t.id} value={String(t.id)}>{t.description}</option>)}
-                <option value="none">No type assigned</option>
+                <option value="none">No kind set</option>
               </select>
             </label>
             <label>Country
@@ -742,7 +784,7 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
               </select>
             </label>
             {filtersOn && (
-              <button type="button" className="ghost" onClick={() => { setTypeFilter(""); setCountryFilter(""); setServiceFilter(""); setQuery(""); }}>
+              <button type="button" className="ghost" onClick={() => { setTypeFilter(""); setCountryFilter(""); setServiceFilter(""); setQuery(""); setTagFilter("all"); }}>
                 Reset filters
               </button>
             )}
@@ -752,13 +794,13 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
             <div className="empty">Loading...</div>
           ) : filtered.length === 0 ? (
             <div className="empty">
-              {assets.length === 0 ? "No assets yet — create one to get started" : "No assets match your search or filters"}
+              {assets.length === 0 ? "No units yet — add one with the form to get started" : "No units match your search or filters"}
             </div>
           ) : view === "list" ? (
             <div className="asset-table-wrap">
               <table className="asset-table">
                 <thead>
-                  <tr><th>Tag</th><th>Asset</th><th>Asset type</th><th>Country</th><th>Service line</th><th>Counters</th><th>Status</th><th aria-label="Actions" /></tr>
+                  <tr><th>Tag</th><th>Unit</th><th>Kind of unit</th><th>Country</th><th>Service line</th><th>Counters</th><th>Status</th><th aria-label="Actions" /></tr>
                 </thead>
                 <tbody>
                   {filtered.map((a) => (
@@ -821,7 +863,7 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
 

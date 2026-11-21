@@ -260,6 +260,7 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
         <div className="fx-main">
           {isoOn && (
             <IsoFlowMap steps={isoSteps} selected={selected} onSelect={pick}
+              hub={{ title: `MR-I report #${flow.report_id}`, sub: `${unit} · ${closed ? "Closed" : flow.status}`, icon: "report", selectId: "report", tag: { text: flow.asset_tag_status ? `${flow.asset_tag_status} tag` : "Not tagged", tone: tag.tone } }}
               aside={{ title: unit, sub: flow.asset_description ?? "No description", tag: { text: flow.asset_tag_status ?? "Not tagged", tone: tag.tone },
                 rows: [["Report", `#${flow.report_id}`], ["Checklist", flow.template_name ?? "—"], ["Country", flow.country ?? "—"]] }} />
           )}

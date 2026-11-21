@@ -9,9 +9,32 @@ import {
   useBulkCreateChecklistSections,
   type ChecklistSection,
 } from "./hooks/useChecklistSections";
+import { useQueries } from "@tanstack/react-query";
+import { invoke } from "../../lib/ipc";
+import { useMriTemplates } from "./hooks/useMriTemplates";
+import type { TemplateChecklistItem } from "../mri-template-builder/hooks/useTemplateChecklistItems";
+import { IsoBars, RowTile, useReportAdminHints, useReportAdminKpis } from "./AdminIsoGuide";
 
 function ChecklistSections() {
   const { data: sections = [], isLoading } = useChecklistSections();
+  // Checks in each group across all MR-I templates — read from the template builder's own queries. Display only.
+  const { data: templates = [] } = useMriTemplates();
+  const tplQueries = useQueries({
+    queries: templates.map((t) => ({
+      queryKey: ["template-checklist-items", t.id],
+      queryFn: () => invoke<TemplateChecklistItem[]>("get_template_checklist_items", { templateId: t.id }),
+    })),
+  });
+  const usageReady = tplQueries.every((q) => q.isSuccess);
+  const checksIn = (id: number) => tplQueries.reduce((n, q) => n + (q.data ?? []).filter((x) => x.section_id === id).length, 0);
+  const tplsUsing = (id: number) => tplQueries.filter((q) => (q.data ?? []).some((x) => x.section_id === id)).length;
+  const emptyGroups = usageReady ? sections.filter((s) => checksIn(s.id) === 0).length : 0;
+  useReportAdminHints("checklist-sections", emptyGroups ? [`${emptyGroups} ${emptyGroups === 1 ? "group isn't" : "groups aren't"} used by any check`] : []);
+  useReportAdminKpis("checklist-sections", [
+    { label: "check groups", value: sections.length, tone: "blue" },
+    { label: "checks placed in groups", value: usageReady ? sections.reduce((n, s) => n + checksIn(s.id), 0) : "…", tone: "ok" },
+    { label: "groups not used", value: usageReady ? emptyGroups : "…", tone: emptyGroups ? "look" : "ok" },
+  ]);
   const createSection = useCreateChecklistSection();
   const updateSection = useUpdateChecklistSection();
   const deleteSection = useDeleteChecklistSection();
@@ -37,7 +60,7 @@ function ChecklistSections() {
     try {
       await createSection.mutateAsync(newName.trim());
       setNewName("");
-      flash("Section added", "ok");
+      flash("Group added", "ok");
     } catch (err) {
       flash(String(err), "err");
     }
@@ -53,7 +76,7 @@ function ChecklistSections() {
     try {
       await updateSection.mutateAsync({ id: s.id, name: editName.trim() });
       setEditingId(null);
-      flash("Section updated", "ok");
+      flash("Group renamed", "ok");
     } catch (err) {
       flash(String(err), "err");
     }
@@ -124,14 +147,14 @@ function ChecklistSections() {
 
   return (
     <div>
-      <h2 style={{ marginBottom: 4 }}>Checklist Sections</h2>
-      <p style={{ fontSize: 13, color: "var(--text-soft)", marginBottom: 16 }}>
-        Grouping categories for checklist items — e.g. "Hydraulic System", "Electrical", "Structural".
-      </p>
+      {usageReady && sections.length > 0 && (
+        <IsoBars label="Checks in each group, across all MR-I templates"
+          items={sections.map((s) => ({ label: s.name, value: checksIn(s.id), tone: checksIn(s.id) ? "ok" : "look", note: `${s.name}: ${checksIn(s.id)} checks on ${tplsUsing(s.id)} templates` }))} />
+      )}
 
       <div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginBottom: 12 }}>
         <div className="field" style={{ flex: 1, marginBottom: 0 }}>
-          <label>Section name</label>
+          <label>Group name</label>
           <input
             type="text"
             value={newName}
@@ -140,7 +163,7 @@ function ChecklistSections() {
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
           />
         </div>
-        <button className="primary" onClick={handleCreate}>Add</button>
+        <button className="primary" onClick={handleCreate}>+ Add group</button>
       </div>
 
       <div style={{ marginBottom: 18 }}>
@@ -182,11 +205,11 @@ function ChecklistSections() {
       {isLoading ? (
         <div className="empty">Loading...</div>
       ) : sections.length === 0 ? (
-        <div className="empty">No sections yet — add one above to get started</div>
+        <div className="empty">No groups yet — add one above to get started</div>
       ) : (
         <div className="cards">
           {sections.map((s) => (
-            <div className="card" key={s.id} style={{ cursor: "default" }}>
+            <div className="card adm-lift" key={s.id} style={{ cursor: "default" }}>
               {editingId === s.id ? (
                 <div className="card-main">
                   <input
@@ -199,7 +222,14 @@ function ChecklistSections() {
                 </div>
               ) : (
                 <div className="card-main">
-                  <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500 }}>{s.name}</div>
+                  <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500, display: "flex", alignItems: "center", gap: 8 }}><RowTile tone={!usageReady ? "skip" : checksIn(s.id) ? "ok" : "look"} />{s.name}</div>
+                  {usageReady && (
+                    <div className="meta">
+                      {checksIn(s.id)
+                        ? <span className="pill neutral">{checksIn(s.id)} {checksIn(s.id) === 1 ? "check" : "checks"} · {tplsUsing(s.id)} {tplsUsing(s.id) === 1 ? "template" : "templates"}</span>
+                        : <span className="pill adm-pill-look">Not used by any check</span>}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -248,7 +278,7 @@ function ChecklistSections() {
                   stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            <h3>Delete section?</h3>
+            <h3>Delete this group?</h3>
             <p>
               This will permanently delete <strong>"{pendingDelete.name}"</strong>.
               Checklist items already using it will keep their reference, but it can no longer be assigned to new items.

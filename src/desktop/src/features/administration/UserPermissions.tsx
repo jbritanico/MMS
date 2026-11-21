@@ -8,6 +8,7 @@ import {
 } from "./hooks/useUserAdmin";
 import { getPermissionIcon } from "./permissionIcons";
 import { dashPermRank } from "../dashboard/dashAccess";
+import { IsoKey } from "./AdminIsoGuide";
 
 interface UserPermissionsProps {
   user: AppUser;
@@ -78,13 +79,6 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
     }
   }
 
-  const stateColor: Record<EffectiveState, string> = {
-    "default-on": "var(--success)",
-    "default-off": "var(--text-soft)",
-    granted: "var(--success)",
-    revoked: "var(--danger)",
-  };
-
   return (
     <div>
       <div style={{ marginBottom: 14 }}>
@@ -105,21 +99,20 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
         <div key={cat} style={{ marginBottom: 26 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
             <div className="mri-preview-section-label" style={{ marginBottom: 0 }}>{cat}</div>
-            {cat === "Dashboards" && (
-              <>
-                <button type="button" className="ghost" style={{ padding: "4px 10px", fontSize: 12 }} disabled={bulkBusy} onClick={() => setAll(cat, "on")}>All on</button>
-                <button type="button" className="ghost" style={{ padding: "4px 10px", fontSize: 12 }} disabled={bulkBusy} onClick={() => setAll(cat, "off")}>All off</button>
-                <button type="button" className="ghost" style={{ padding: "4px 10px", fontSize: 12 }} disabled={bulkBusy} onClick={() => setAll(cat, "default")}>Role defaults</button>
-              </>
-            )}
+            {cat === "Dashboards" && (() => {
+              const st = inCategory(cat).map((p) => stateFor(p.code));
+              const onN = st.filter((x) => x === "default-on" || x === "granted").length;
+              const overrides = st.filter((x) => x === "granted" || x === "revoked").length;
+              return (
+                <span style={{ display: "inline-flex", gap: 10, marginLeft: 4, flexWrap: "wrap" }}>
+                  <IsoKey label="All on" tone="ok" pressed={st.length > 0 && onN === st.length} disabled={bulkBusy} onClick={() => setAll(cat, "on")} />
+                  <IsoKey label="All off" tone="skip" pressed={onN === 0} disabled={bulkBusy} onClick={() => setAll(cat, "off")} />
+                  <IsoKey label="Role defaults" tone="blue" pressed={overrides === 0} disabled={bulkBusy} onClick={() => setAll(cat, "default")} />
+                </span>
+              );
+            })()}
           </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-              gap: 12,
-            }}
-          >
+          <div className="iso-card-grid">
             {inCategory(cat).map((p) => {
               const state = stateFor(p.code);
               const isOverride = state === "granted" || state === "revoked";
@@ -127,22 +120,8 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
               return (
                 <div
                   key={p.code}
-                  role="switch"
-                  aria-checked={isOn}
+                  className={`iso-card${isOn ? " is-on" : ""}${isOverride ? " is-override" : ""}${state === "revoked" ? " is-revoked" : ""}`}
                   onClick={() => toggle(p.code, isOn)}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 12,
-                    padding: 16,
-                    borderRadius: 14,
-                    cursor: "pointer",
-                    background: isOn ? "var(--success-soft)" : "var(--neu-bg)",
-                    boxShadow: isOn ? "var(--neu-inset)" : "var(--neu-raised)",
-                    outline: isOverride ? `1.5px solid ${stateColor[state]}` : "none",
-                    outlineOffset: -1.5,
-                    transition: "background 0.15s, box-shadow 0.15s",
-                  }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div
@@ -159,6 +138,7 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
                     <button
                       role="switch"
                       aria-checked={isOn}
+                      aria-label={p.label}
                       onClick={(e) => { e.stopPropagation(); toggle(p.code, isOn); }}
                       className="neu-toggle"
                       data-on={isOn}
@@ -166,11 +146,12 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
                       <span className="neu-toggle-knob" />
                     </button>
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.3, color: isOn ? "var(--success)" : "var(--text)" }}>{p.label}</div>
+                  <div className="iso-card-label">{p.label}</div>
+                  {!isOverride && <div className="iso-card-state">{isOn ? "On" : "Off"} · role default</div>}
                   {isOverride && (
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: -4 }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: stateColor[state], textTransform: "uppercase", letterSpacing: 0.3 }}>
-                        Override
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span className="iso-card-state iso-card-override">
+                        {isOn ? "On" : "Off"} · override
                       </span>
                       <button
                         className="ghost"

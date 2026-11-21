@@ -7,6 +7,7 @@ import {
 } from "./hooks/useUserAdmin";
 import { getPermissionIcon } from "./permissionIcons";
 import { dashPermRank } from "../dashboard/dashAccess";
+import { IsoKey, IsoTiles, useReportAdminHints, useReportAdminKpis } from "./AdminIsoGuide";
 
 function Roles() {
   const [selectedRole, setSelectedRole] = useState<string>(ROLES[0]);
@@ -52,26 +53,30 @@ function Roles() {
     }
   }
 
+  const noDashboards = permissions.some((p) => p.code === "dashboard.view") && !rolePerms.includes("dashboard.view");
+  useReportAdminHints("roles", noDashboards ? [`${selectedRole} can't open any dashboard`] : []);
+  const dashOn = inCategory("Dashboards").filter((p) => rolePerms.includes(p.code)).length;
+  const dashAll = inCategory("Dashboards").length;
+  useReportAdminKpis("roles", [
+    { label: "role picked", value: selectedRole, tone: "blue" },
+    { label: "switches on", value: `${rolePerms.length} of ${permissions.length}`, tone: "ok" },
+    { label: "dashboards it can open", value: `${dashOn} of ${dashAll}`, tone: dashOn ? "ok" : "look" },
+  ]);
+
   return (
     <div>
-      <h2 style={{ marginBottom: 4 }}>Roles</h2>
-      <p style={{ fontSize: 13, color: "var(--text-soft)", marginBottom: 4 }}>
-        Set the default permissions every user in a role starts with. Individual users can still be
-        granted or blocked specific permissions from their own Permissions screen — those overrides
-        take priority over whatever is set here.
+      <p style={{ fontSize: 13, color: "var(--text-soft)", margin: "0 0 4px" }}>
+        These are the starting switches for everyone with the role. A person's own Permissions screen can still turn
+        single switches on or off for them, and those win over the role.
       </p>
 
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "16px 0 20px" }}>
-        {ROLES.map((role) => (
-          <button
-            key={role}
-            className={role === selectedRole ? "primary" : "ghost"}
-            style={{ padding: "6px 14px", fontSize: 12 }}
-            onClick={() => setSelectedRole(role)}
-          >
-            {role}
-          </button>
-        ))}
+      <div style={{ margin: "16px 0 20px" }}>
+        <IsoTiles
+          label="Pick a role"
+          items={ROLES.map((role) => ({ id: role, label: role, count: role === selectedRole ? `${rolePerms.length} of ${permissions.length} on` : undefined, tone: role === selectedRole ? "ok" as const : "skip" as const }))}
+          selected={selectedRole}
+          onPick={(role) => setSelectedRole(role)}
+        />
       </div>
 
       {status && <div className={`toast ${status.kind}`} style={{ maxWidth: 400, marginBottom: 12 }}>{status.msg}</div>}
@@ -79,40 +84,36 @@ function Roles() {
       {categories.map((cat) => (
         <div key={cat} style={{ marginBottom: 26 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-            <div className="mri-preview-section-label" style={{ marginBottom: 0 }}>{cat}</div>
-            {cat === "Dashboards" && (
-              <>
-                <button type="button" className="ghost" style={{ padding: "4px 10px", fontSize: 12 }} disabled={bulkBusy} onClick={() => setAll(cat, true)}>All on</button>
-                <button type="button" className="ghost" style={{ padding: "4px 10px", fontSize: 12 }} disabled={bulkBusy} onClick={() => setAll(cat, false)}>All off</button>
-              </>
-            )}
+            {(() => {
+              const list = inCategory(cat);
+              const on = list.filter((p) => rolePerms.includes(p.code)).length;
+              return (
+                <>
+                  <IsoStack on={on} total={list.length} />
+                  <div className="mri-preview-section-label" style={{ marginBottom: 0 }}>{cat}</div>
+                  <span style={{ fontSize: 12, color: "var(--text-soft)" }}>{on} of {list.length} on</span>
+                </>
+              );
+            })()}
+            {(() => {
+              const list = inCategory(cat);
+              const on = list.filter((p) => rolePerms.includes(p.code)).length;
+              return (
+                <span style={{ display: "inline-flex", gap: 10, marginLeft: 4 }}>
+                  <IsoKey label="All on" tone="ok" pressed={list.length > 0 && on === list.length} disabled={bulkBusy} onClick={() => setAll(cat, true)} />
+                  <IsoKey label="All off" tone="skip" pressed={on === 0} disabled={bulkBusy} onClick={() => setAll(cat, false)} />
+                </span>
+              );
+            })()}
           </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-              gap: 12,
-            }}
-          >
+          <div className="iso-card-grid">
             {inCategory(cat).map((p) => {
               const isOn = rolePerms.includes(p.code);
               return (
                 <div
                   key={p.code}
-                  role="switch"
-                  aria-checked={isOn}
+                  className={`iso-card${isOn ? " is-on" : ""}`}
                   onClick={() => toggle(p.code, isOn)}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 12,
-                    padding: 16,
-                    borderRadius: 14,
-                    cursor: "pointer",
-                    background: isOn ? "var(--success-soft)" : "var(--neu-bg)",
-                    boxShadow: isOn ? "var(--neu-inset)" : "var(--neu-raised)",
-                    transition: "background 0.15s, box-shadow 0.15s",
-                  }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div
@@ -129,6 +130,7 @@ function Roles() {
                     <button
                       role="switch"
                       aria-checked={isOn}
+                      aria-label={p.label}
                       onClick={(e) => { e.stopPropagation(); toggle(p.code, isOn); }}
                       className="neu-toggle"
                       data-on={isOn}
@@ -136,7 +138,8 @@ function Roles() {
                       <span className="neu-toggle-knob" />
                     </button>
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.3, color: isOn ? "var(--success)" : "var(--text)" }}>{p.label}</div>
+                  <div className="iso-card-label">{p.label}</div>
+                  <div className="iso-card-state">{isOn ? "On" : "Off"}</div>
                 </div>
               );
             })}
@@ -144,6 +147,25 @@ function Roles() {
         </div>
       ))}
     </div>
+  );
+}
+
+// A small 3D stack that grows with the number of switches turned on in an area. Display only.
+function IsoStack({ on, total }: { on: number; total: number }) {
+  const n = total ? Math.round((on / total) * 6) : 0;
+  return (
+    <svg width="44" height="44" viewBox="0 0 64 64" aria-hidden="true" style={{ overflow: "visible", flexShrink: 0 }}>
+      {Array.from({ length: 6 }, (_, i) => {
+        const y = 44 - i * 7, filled = i < n;
+        return (
+          <g key={i} opacity={filled ? 1 : 0.35}>
+            <polygon points={`2,${y} 32,${y + 14} 32,${y + 18} 2,${y + 4}`} className="tig-slab-l" />
+            <polygon points={`32,${y + 14} 62,${y} 62,${y + 4} 32,${y + 18}`} className="tig-slab-r" />
+            <polygon points={`32,${y - 14} 62,${y} 32,${y + 14} 2,${y}`} fill={filled ? "var(--tig-ok-soft)" : "var(--tig-hole)"} stroke={filled && i === n - 1 ? "var(--tig-ok)" : "none"} strokeWidth={1.2} />
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 

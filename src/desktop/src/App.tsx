@@ -362,12 +362,15 @@ function App() {
 
           .menu-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(var(--menu-cols, 4), 1fr);
             gap: clamp(14px, 3cqi, 28px);
             width: 100%;
             padding-bottom: clamp(90px, 14vh, 120px);
           }
             
+          @container (max-width: 980px) {
+            .menu-grid { grid-template-columns: repeat(3, 1fr); }
+          }
           @container (max-width: 680px) {
             .menu-grid { grid-template-columns: repeat(2, 1fr); }
           }

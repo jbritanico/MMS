@@ -21,6 +21,7 @@ export const TIG_CSS = `
   --tig-blue: var(--accent-blue, #1f6fe5); --tig-blue-soft: color-mix(in srgb, var(--tig-blue) 14%, var(--tig-top));
   --tig-ok: var(--success, #17804d); --tig-ok-soft: color-mix(in srgb, var(--tig-ok) 16%, var(--tig-top));
   --tig-look: var(--warn, #b25e09); --tig-look-soft: color-mix(in srgb, var(--tig-look) 16%, var(--tig-top));
+  --tig-bad: var(--danger, #b8322f); --tig-bad-soft: color-mix(in srgb, var(--tig-bad) 16%, var(--tig-top));
   --tig-skip: #9fb0c6; --tig-ink: var(--text, #10233f); --tig-soft: var(--text-soft, #54657f); --tig-on: #ffffff;
   --tig-shadow: color-mix(in srgb, var(--tig-blue) 16%, transparent); }
 [data-theme="dark"] .tig, [data-theme="macos-dark"] .tig, [data-theme="ocean"] .tig, html[data-holo] .tig {
@@ -206,6 +207,92 @@ export function StepIntro({ current, explain, todo, hints, stepNames, children }
           {todo.map((t, i) => <li key={i}><span className="tig-todo-n" aria-hidden="true">{i + 1}</span><span>{t}</span></li>)}
         </ol>
         {h && h.state === "look" && <div className="tig-hint" role="status">{h.message}</div>}
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ list screens (e.g. the MR-I templates list)
+
+/** One 3D floor per part of the form, top to bottom; a base slab shows the template's status. */
+export function IsoTower({ states, base, faded, size = 74 }: {
+  states: (HintState | "none")[]; base: "ok" | "draft" | "off"; faded?: boolean; size?: number;
+}) {
+  const fill = (st: HintState | "none") => st === "ok" ? "var(--tig-ok-soft)" : st === "look" ? "var(--tig-look-soft)" : "var(--tig-top)";
+  const baseFill = base === "ok" ? "var(--tig-ok)" : base === "draft" ? "var(--tig-skip)" : "var(--tig-hole)";
+  const floors = states.length;
+  const h = 34 + floors * 15;
+  return (
+    <svg width={size} height={(size * h) / 84} viewBox={`0 0 84 ${h}`} aria-hidden="true" style={{ flexShrink: 0, opacity: faded ? 0.5 : 1, overflow: "visible" }}>
+      <g transform={`translate(0 ${floors * 15 + 2})`}>
+        <polygon points="42,0 82,16 42,32 2,16" fill={baseFill} opacity={0.55} />
+      </g>
+      {/* drawn bottom floor first so each floor sits on the one below */}
+      {states.map((st, i) => ({ st, i })).reverse().map(({ st, i }) => (
+        <g key={i} transform={`translate(0 ${i * 15})`}>
+          <polygon points="4,14 42,28 42,34 4,20" className="tig-slab-l" />
+          <polygon points="42,28 80,14 80,20 42,34" className="tig-slab-r" />
+          <polygon points="42,0 80,14 42,28 4,14" fill={fill(st)} stroke={st === "look" ? "var(--tig-look)" : "none"} strokeWidth={1.2} />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/** A picture (e.g. a kind of unit's icon) standing on a small 3D platform. */
+export function IsoIconPlatform({ icon, size = 56, label }: { icon?: string | null; size?: number; label?: string }) {
+  return (
+    <span style={{ position: "relative", display: "inline-block", width: size, height: size * 0.8, flexShrink: 0 }} aria-hidden={label ? undefined : true} title={label}>
+      <svg width={size} height={size * 0.8} viewBox="0 0 64 51" style={{ position: "absolute", inset: 0, overflow: "visible", zIndex: 0 }} aria-hidden="true">
+        <polygon points="2,30 32,44 32,50 2,36" className="tig-slab-l" />
+        <polygon points="32,44 62,30 62,36 32,50" className="tig-slab-r" />
+        <polygon points="32,16 62,30 32,44 2,30" fill="var(--tig-top)" stroke="color-mix(in srgb, var(--tig-blue) 30%, transparent)" strokeWidth={1.2} />
+      </svg>
+      {icon && icon.trim().startsWith("data:") && (
+        <img src={icon} alt="" style={{ position: "absolute", left: "18%", width: "64%", bottom: "28%", height: "70%", objectFit: "contain", zIndex: 1 }} />
+      )}
+    </span>
+  );
+}
+
+/** Three small towers on a platform — the guide for the templates list. */
+export function IsoShelfGuide() {
+  const tower = (x: number, states: HintState[], base: string) => (
+    <g transform={`translate(${x} 0)`}>
+      <polygon points="42,122 82,138 42,154 2,138" fill={base} opacity={0.55} />
+      {states.map((st, i) => ({ st, i })).reverse().map(({ st, i }) => (
+        <g key={i} transform={`translate(0 ${40 + i * 15})`}>
+          <polygon points="4,14 42,28 42,34 4,20" className="tig-slab-l" />
+          <polygon points="42,28 80,14 80,20 42,34" className="tig-slab-r" />
+          <polygon points="42,0 80,14 42,28 4,14" fill={st === "ok" ? "var(--tig-ok-soft)" : st === "look" ? "var(--tig-look-soft)" : "var(--tig-top)"} />
+        </g>
+      ))}
+    </g>
+  );
+  return (
+    <svg className="tig-guide" viewBox="0 0 420 230" width="420" height="230" role="img" aria-label="Three templates shown as small towers, one floor per part of the form">
+      <ellipse cx="210" cy="205" rx="170" ry="18" fill="var(--tig-shadow)" />
+      <g className="tig-lift">
+        {tower(70, ["ok", "ok", "ok", "ok", "ok"], "var(--tig-ok)")}
+        {tower(168, ["ok", "look", "skip", "ok", "look"], "var(--tig-skip)")}
+        {tower(266, ["skip", "skip", "skip", "skip", "skip"], "var(--tig-hole)")}
+      </g>
+    </svg>
+  );
+}
+
+/** "What you'll do here" box for list screens, with a guide picture of their own. */
+export function ListIntro({ explain, todo, guide, children }: { explain: string; todo: string[]; guide?: ReactNode; children?: ReactNode }) {
+  return (
+    <div className="tig-intro" style={{ marginBottom: 18 }}>
+      {guide ?? <IsoShelfGuide />}
+      <div className="tig-intro-text">
+        <p className="tig-explain">{explain}</p>
+        <span className="tig-todo-h">What you'll do here</span>
+        <ol className="tig-todo">
+          {todo.map((t, i) => <li key={i}><span className="tig-todo-n" aria-hidden="true">{i + 1}</span><span>{t}</span></li>)}
+        </ol>
         {children}
       </div>
     </div>

@@ -9,6 +9,7 @@ import {
   type Ev, type LogData, type RejectKind,
 } from "./bundleAnalysis";
 import RecordInspector, { RI_CSS } from "./RecordInspector";
+import { useReportAdminKpis } from "../administration/AdminIsoGuide";
 import { RecordStore } from "./recordStore";
 import {
   CAUSE_TEXT, LEVEL_TEXT, OVERALL_TEXT, prognosisReportHtml, runPrognosis,
@@ -215,6 +216,15 @@ export default function SupportViewer() {
   const prognosis = useMemo(() => (pInput ? runPrognosis(pInput) : null), [pInput]);
   const devFixes = (prognosis?.findings ?? []).filter((f) => f.plan?.release).length;
   const [saved, setSaved] = useState<string | null>(null);
+  const findings = prognosis ? (prognosis.counts.action ?? 0) + (prognosis.counts.attention ?? 0) : null;
+  useReportAdminKpis("support-viewer", [
+    { label: "bundle open", value: overview ? "1" : "none", tone: overview ? "ok" : "skip" },
+    { label: "findings in it", value: findings ?? "—", tone: findings ? "look" : findings === 0 ? "ok" : "skip" },
+    { label: "read only", value: "✓", tone: "ok" },
+  ]);
+  const [dragOver, setDragOver] = useState(false);
+  // The old "Opened recently on this PC" list was removed; clear what it had kept on this PC.
+  useEffect(() => { try { localStorage.removeItem("mms.support.recentBundles"); } catch { /* storage unavailable */ } }, []);
   function saveReport() {
     if (!overview || !prognosis) return;
     const who = (overview.manifest.user?.name ?? "user").replace(/[^A-Za-z0-9]+/g, "-");
@@ -245,8 +255,7 @@ export default function SupportViewer() {
 
       <div className="sv-top">
         <div className="sv-top-text">
-          <h2>Support viewer</h2>
-          <p>Open a support bundle that a user sent with <b>Help → Send to IT</b>. It is only read here; nothing from it is added to this laptop's data.</p>
+          <p>Open a support bundle that someone sent with <b>Help → Send to IT</b>. It is only read here; nothing from it is added to this laptop's data.</p>
         </div>
         {overview && (
           <div className="sv-top-actions">
@@ -259,11 +268,19 @@ export default function SupportViewer() {
       {err && <div className="toast err sv-toast">{err}</div>}
 
       {!overview || !m || !loaded ? (
-        <div className="panel sv-panel sv-empty">
-          <span className="sv-tile">{I.bundle}</span>
-          <div className="sv-title">No bundle open</div>
-          <p className="sv-soft">Choose an <b>MMS-Support-….mmsbundle</b> file, for example from your Downloads folder or an e-mail attachment you saved.</p>
-          <button className="primary" onClick={pick} disabled={busy || !user}>{busy ? "Opening…" : "Open a support bundle"}</button>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 16 }}>
+        <div
+          className="panel sv-panel sv-empty"
+          style={{ borderStyle: "dashed", borderWidth: 2, borderColor: dragOver ? "var(--tig-blue)" : undefined, background: dragOver ? "var(--tig-blue-soft)" : undefined }}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => { e.preventDefault(); setDragOver(false); if (user && !busy) open(e.dataTransfer.files?.[0]); }}
+        >
+          <DropPlatform active={dragOver} />
+          <div className="sv-title">Drop a support bundle here</div>
+          <p className="sv-soft">Or choose the <b>MMS-Support-….mmsbundle</b> file, for example from your Downloads folder or an e-mail attachment you saved.</p>
+          <button className="primary" onClick={pick} disabled={busy || !user}>{busy ? "Opening…" : "Choose bundle…"}</button>
+        </div>
         </div>
       ) : (
         <div className="sv-cols">
@@ -1121,3 +1138,20 @@ const SV_CSS = `
 .sv-chip.is-info { color: var(--accent-blue); background: color-mix(in srgb, var(--accent-blue) 12%, transparent); }
 @media (max-width: 640px) { .sv-list li { grid-template-columns: 22px minmax(0, 1fr) 64px; } .sv-bar { display: none; } .sv-rows > div { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
 `;
+
+// ------------------------------------------------------------------ Option B: drop platform (display only)
+function DropPlatform({ active }: { active: boolean }) {
+  return (
+    <svg width="180" height="120" viewBox="0 0 180 120" aria-hidden="true" style={{ overflow: "visible" }}>
+      <ellipse cx="90" cy="108" rx="78" ry="10" fill="var(--tig-shadow)" />
+      <polygon points="14,74 90,108 90,116 14,82" className="tig-slab-l" />
+      <polygon points="90,108 166,74 166,82 90,116" className="tig-slab-r" />
+      <polygon points="90,40 166,74 90,108 14,74" fill={active ? "var(--tig-blue-soft)" : "var(--tig-top)"} stroke="var(--tig-blue)" strokeWidth={1.6} strokeDasharray={active ? "0" : "6 5"} />
+      <g className="tig-lift" style={{ transform: active ? "translateY(14px)" : undefined, transition: "transform .4s cubic-bezier(.34,1.56,.64,1)" }}>
+        <polygon points="70,28 90,38 90,58 70,48" className="tig-slab-l" />
+        <polygon points="90,38 110,28 110,48 90,58" className="tig-slab-r" />
+        <polygon points="90,18 110,28 90,38 70,28" fill="var(--tig-look-soft)" stroke="var(--tig-look)" strokeWidth={1.2} />
+      </g>
+    </svg>
+  );
+}

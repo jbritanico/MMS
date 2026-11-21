@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from "react";
+import { useLayoutEffect, useRef, useState, type ReactElement } from "react";
 import { createPortal } from "react-dom";
 import IdleScreensaver from "../idle/IdleScreenSaver";
 import { VISIBLE_THEMES, isDarkTheme, type Theme } from "../../lib/theme";
@@ -6,6 +6,7 @@ import fieldOpsImage from "../../assets/FieldMaintenance.png";
 import fieldOpsImageDark from "../../assets/FieldDark.png";
 import { useCurrentUser } from "../../lib/currentUser";
 import { MenuKpis } from "./MenuKpis";
+import { MENU_ICON_CSS, MenuIsoIcon } from "./MenuIsoIcons";
 import { useDashAccess } from "../dashboard/dashAccess";
 import { tierAccent } from "../../lib/UserPickerGate";
 import {
@@ -44,11 +45,15 @@ interface MainMenuProps {
   onThemeChange: (theme: Theme) => void;
 }
 
+// "ct-pipe" is a new main module that is not built yet: its card shows "Coming soon" and opens nothing.
+type MenuId = Screen | "ct-pipe";
+
 const OPTIONS: {
-  id: Screen;
+  id: MenuId;
   label: string;
   desc: string;
-  icon: ReactElement;
+  icon?: ReactElement;
+  soon?: boolean;
 }[] = [
   {
     id: "assets",
@@ -177,6 +182,12 @@ const OPTIONS: {
       </svg>
     ),
   },
+  {
+    id: "ct-pipe",
+    label: "CT Pipe Management",
+    desc: "Coiled tubing strings, fatigue life and pipe history",
+    soon: true,
+  },
 ];
 
 const MR_LEVELS: { id: MrLevel; short: string; desc: string }[] = [
@@ -257,12 +268,39 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
   // The Dashboard tile is hidden when "Open the Dashboard area" is off for this user.
   const dashAccess = useDashAccess();
 
+  // Keep the side panels (KPIs on the left, handles on the right) clear of the menu cards: when the
+  // cards are taller than the space above the screen's middle (small screens, 5 cards), move the side
+  // panels down just enough. Display only.
+  const gridRef = useRef<HTMLDivElement>(null);
+  const kpiRef = useRef<HTMLDivElement>(null);
+  const [sideShift, setSideShift] = useState(0);
+  useLayoutEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const measure = () => {
+      const cardsBottom = Math.max(0, ...Array.from(grid.querySelectorAll(".menu-card")).map((c) => c.getBoundingClientRect().bottom));
+      const kpi = kpiRef.current?.getBoundingClientRect();
+      const h = window.innerHeight;
+      const kpiH = kpi?.height ?? 0;
+      const restTop = Math.min(h / 2 - kpiH / 2, h / 2 - 70 - 32);
+      const want = Math.max(0, cardsBottom + 16 - restTop);
+      const room = Math.max(0, h - 90 - (h / 2 + kpiH / 2));
+      setSideShift(Math.round(Math.min(want, room)));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(grid);
+    window.addEventListener("resize", measure);
+    return () => { ro.disconnect(); window.removeEventListener("resize", measure); };
+  }, [dashAccess.area]);
+
   function handleSwitchUser() {
     setDrawerOpen(false);
     clearCurrentUser();
   }
 
-  function handleCardClick(id: Screen) {
+  function handleCardClick(id: MenuId) {
+    if (id === "ct-pipe") return; // not built yet
     if (id === "reports") {
       setReportsExpanded((prev) => !prev);
       return;
@@ -347,11 +385,14 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
           style={{ position: "relative", zIndex: 1 }}
           onClick={() => setReportsExpanded(false)}
         >
-          <div className="menu-grid">
+          <style>{MENU_ICON_CSS}</style>
+          <div ref={gridRef} className="menu-grid" style={{ ["--menu-cols" as string]: OPTIONS.filter((opt) => opt.id !== "dashboard" || dashAccess.area).length }}>
             {OPTIONS.filter((opt) => opt.id !== "dashboard" || dashAccess.area).map((opt) => (
               <div
                 key={opt.id}
-                className="menu-card"
+                className={`menu-card${opt.soon ? " is-soon" : ""}`}
+                title={opt.soon ? `${opt.label} is coming soon` : undefined}
+                aria-disabled={opt.soon || undefined}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleCardClick(opt.id);
@@ -361,9 +402,10 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
                   boxShadow: "var(--glass-shadow)",
                 }}
               >
-                <div className="menu-icon-wrap">{opt.icon}</div>
+                <div className="menu-icon-wrap menu-icon-iso"><MenuIsoIcon kind={opt.id as "assets" | "reports" | "dashboard" | "admin" | "ct-pipe"} /></div>
                 <h3>{opt.label}</h3>
                 <p>{opt.desc}</p>
+                {opt.soon && <span className="menu-soon">Coming soon</span>}
                 {opt.id === "reports" && reportsExpanded && (
                   <div
                     className="mr-level-row"
@@ -385,11 +427,13 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
           </div>
 
           <div
+            ref={kpiRef}
             style={{
               position: "fixed",
               left: 24,
-              top: "50%",
+              top: `calc(50% + ${sideShift}px)`,
               transform: "translateY(-50%)",
+              transition: "top .3s ease",
               display: "flex",
               flexDirection: "column",
               gap: 20,
@@ -405,6 +449,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
       <button
         className="side-drawer-handle side-drawer-handle-avatar"
         aria-label="Open menu"
+        style={sideShift ? { top: `calc(50% + ${sideShift}px)` } : undefined}
         onClick={() => setDrawerOpen((v) => !v)}
       >
         <div
@@ -431,7 +476,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
         <button
           className="side-drawer-handle side-drawer-handle-avatar"
           aria-label="Open Fault Review"
-          style={{ top: "calc(50% - 70px)" }}
+          style={{ top: `calc(50% - 70px + ${sideShift}px)` }}
           onClick={() => setFaultDrawerOpen((v) => !v)}
         >
           <div className="drawer-handle-avatar-circle drawer-handle-avatar-circle-alert" style={{ background: "var(--danger)" }}>

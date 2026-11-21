@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
+import { IsoTiles, useReportAdminKpis } from "./AdminIsoGuide";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import {
@@ -55,6 +56,11 @@ function DataBrowser() {
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const { data: columns = [] } = useTableColumns(selectedTable);
   const { data: rows = [], isLoading } = useTableRows(selectedTable);
+  useReportAdminKpis("data-browser", [
+    { label: "tables you can look at", value: tables.length, tone: "blue" },
+    { label: selectedTable ? `rows in ${selectedTable}` : "table open", value: selectedTable ? (isLoading ? "…" : rows.length) : "none", tone: selectedTable ? "ok" : "skip" },
+    { label: "read only", value: "✓", tone: "ok" },
+  ]);
 
   const [search, setSearch] = useState("");
   const [groupBy, setGroupBy] = useState("");
@@ -98,13 +104,20 @@ function DataBrowser() {
 
   return (
     <div>
-      <h2 style={{ marginBottom: 4 }}>Data Browser</h2>
-      <p style={{ fontSize: 13, color: "var(--text-soft)", marginBottom: 4 }}>
-        Look at, search, group and export the data stored on this computer. View only: records cannot be edited or deleted here.
-      </p>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+        <span className="adm-section-h" style={{ margin: 0 }}>Main tables</span>
+        <span className="pill neutral" title="Records can't be changed or deleted here">Read only</span>
+      </div>
+      <IsoTiles
+        label="Main tables"
+        selected={selectedTable}
+        onPick={(t) => selectTable(t)}
+        items={GROUP_ORDER.slice(0, 3).flatMap((g) => tables.filter((t) => tableInfo(t).group === g).slice(0, 2))
+          .map((t) => ({ id: t, label: tableInfo(t).name, count: tableInfo(t).group }))}
+      />
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
-        <label htmlFor="db-table" style={{ fontSize: 13, fontWeight: 600 }}>Table</label>
+        <label htmlFor="db-table" style={{ fontSize: 13, fontWeight: 600 }}>Or pick any table</label>
         <select
           id="db-table"
           className="neu-select"
@@ -112,7 +125,7 @@ function DataBrowser() {
           onChange={(e) => e.target.value && selectTable(e.target.value)}
           style={{ minWidth: 320 }}
         >
-          <option value="" disabled>Choose a table…</option>
+          <option value="" disabled>What do you want to look at?</option>
           {GROUP_ORDER.map((g) => {
             const inGroup = tables.filter((t) => tableInfo(t).group === g);
             if (inGroup.length === 0) return null;

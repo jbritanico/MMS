@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { FilterChips, RowTile, useReportAdminKpis } from "./AdminIsoGuide";
 import { useCurrentUser } from "../../lib/currentUser";
 import {
   useAppUsers,
@@ -9,7 +10,7 @@ import {
   COUNTRY_SCOPED_ROLES,
   type AppUser,
 } from "./hooks/useUserAdmin";
-import { useEffectivePermissions } from "./hooks/useUserAdmin";
+import { useEffectivePermissions, useUserCountryAccess } from "./hooks/useUserAdmin";
 import { useClearAllUsers } from "./hooks/useFullBackup";
 import UserPermissions from "./UserPermissions";
 import UserCountryAccess from "./UserCountryAccess";
@@ -35,6 +36,18 @@ function Users() {
   const [pendingDelete, setPendingDelete] = useState<AppUser | null>(null);
   const [managingPermsFor, setManagingPermsFor] = useState<AppUser | null>(null);
   const [managingCountriesFor, setManagingCountriesFor] = useState<AppUser | null>(null);
+  const [q, setQ] = useState("");
+  const [show, setShow] = useState<"all" | "on" | "off">("all");
+  const shownUsers = users.filter((u) =>
+    (show === "all" || (show === "on" ? u.active : !u.active)) &&
+    (!q.trim() || `${u.name} ${u.email} ${u.role}`.toLowerCase().includes(q.trim().toLowerCase())));
+  const offUsers = users.filter((u) => !u.active).length;
+  useReportAdminKpis("users", [
+    { label: "people", value: users.length, tone: "blue" },
+    { label: "in use", value: users.length - offUsers, tone: "ok" },
+    { label: "switched off", value: offUsers, tone: offUsers ? "look" : "skip" },
+    { label: "roles in use", value: new Set(users.filter((u) => u.active).map((u) => u.role)).size, tone: "blue" },
+  ]);
 
   function flash(msg: string, kind: "ok" | "err") {
     setStatus({ msg, kind });
@@ -50,7 +63,7 @@ function Users() {
       await createUser.mutateAsync({ name: newName.trim(), email: newEmail.trim(), role: newRole });
       setNewName("");
       setNewEmail("");
-      flash("User added", "ok");
+      flash("Person added", "ok");
     } catch (err) {
       flash(String(err), "err");
     }
@@ -71,7 +84,7 @@ function Users() {
         active: editUser.active ?? u.active,
       });
       setEditingId(null);
-      flash("User updated", "ok");
+      flash("Changes saved", "ok");
     } catch (err) {
       flash(String(err), "err");
     }
@@ -80,7 +93,7 @@ function Users() {
   async function toggleActive(u: AppUser) {
     try {
       await updateUser.mutateAsync({ id: u.id, name: u.name, email: u.email, role: u.role, active: !u.active });
-      flash(`${u.name} ${!u.active ? "activated" : "deactivated"}`, "ok");
+      flash(`${u.name} ${!u.active ? "switched on" : "switched off"}`, "ok");
     } catch (err) {
       flash(String(err), "err");
     }
@@ -107,10 +120,6 @@ function Users() {
 
   return (
     <div>
-      <h2 style={{ marginBottom: 4 }}>Users</h2>
-      <p style={{ fontSize: 13, color: "var(--text-soft)", marginBottom: 16 }}>
-        Local user records with role-based access. Each role has default permissions, adjustable per-role under Roles, or per-individual here.
-      </p>
 
       <div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginBottom: 18, flexWrap: "wrap" }}>
         <div className="field" style={{ flex: 1, minWidth: 160, marginBottom: 0 }}>
@@ -127,7 +136,7 @@ function Users() {
             {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </div>
-        <button className="primary" onClick={handleCreate}>Add user</button>
+        <button className="primary" onClick={handleCreate}>+ Add person</button>
       </div>
 
       {status && <div className={`toast ${status.kind}`} style={{ maxWidth: 400, marginBottom: 12 }}>{status.msg}</div>}
@@ -135,11 +144,18 @@ function Users() {
       {isLoading ? (
         <div className="empty">Loading...</div>
       ) : users.length === 0 ? (
-        <div className="empty">No users yet — add one above to get started</div>
+        <div className="empty">Nobody yet — add the first person above</div>
       ) : (
+        <>
+        <div className="adm-toolbar">
+          <input type="search" className="search" aria-label="Find a person" placeholder="Find a person…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <FilterChips value={show} onChange={setShow} options={[{ id: "all", label: "Everyone" }, { id: "on", label: "In use" }, { id: "off", label: "Switched off" }]} />
+          <span style={{ fontSize: 12.5, color: "var(--text-soft)" }}>{shownUsers.length} of {users.length} {users.length === 1 ? "person" : "people"}</span>
+        </div>
+        {shownUsers.length === 0 && <div className="empty">Nobody matches</div>}
         <div className="cards">
-          {users.map((u) => (
-            <div className="card" key={u.id} style={{ cursor: "default" }}>
+          {shownUsers.map((u) => (
+            <div className="card adm-lift" key={u.id} style={{ cursor: "default", opacity: u.active ? 1 : 0.75 }}>
               {editingId === u.id ? (
                 <div className="card-main" style={{ display: "grid", gap: 8 }}>
                   <input type="text" className="trigger-input" value={editUser.name ?? ""} onChange={(e) => setEditUser({ ...editUser, name: e.target.value })} placeholder="Name" />
@@ -150,11 +166,12 @@ function Users() {
                 </div>
               ) : (
                 <div className="card-main">
-                  <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500 }}>{u.name}</div>
+                  <div className="code" style={{ fontFamily: "var(--sans)", fontWeight: 500, display: "flex", alignItems: "center", gap: 8 }}><RowTile tone={u.active ? "ok" : "skip"} />{u.name}</div>
                   <div className="desc">{u.email}</div>
                   <div className="meta">
-                    <span className={`pill ${u.active ? "active" : "inactive"}`}>{u.active ? "Active" : "Inactive"}</span>
+                    <span className={`pill ${u.active ? "active" : "inactive"}`}>{u.active ? "In use" : "Switched off"}</span>
                     <span className="pill neutral">{u.role}</span>
+                    <CountryPill user={u} />
                   </div>
                 </div>
               )}
@@ -183,7 +200,7 @@ function Users() {
                         Countries
                       </button>
                     )}
-                    <button className="icon-btn" aria-label={u.active ? "Deactivate" : "Activate"} onClick={() => toggleActive(u)}>
+                    <button className="icon-btn" aria-label={u.active ? "Switch off" : "Switch on"} title={u.active ? "Switch off (keeps their reports)" : "Switch on"} onClick={() => toggleActive(u)}>
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         {u.active ? (
                           <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -209,6 +226,7 @@ function Users() {
             </div>
           ))}
         </div>
+        </>
       )}
 
       {canManageUsers && (
@@ -267,7 +285,7 @@ function Users() {
                 <path d="M12 9V13M12 17H12.01M10.29 3.86L1.82 18A2 2 0 0 0 3.54 21H20.46A2 2 0 0 0 22.18 18L13.71 3.86A2 2 0 0 0 10.29 3.86Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            <h3>Delete user?</h3>
+            <h3>Delete this person?</h3>
             <p>This will permanently delete <strong>"{pendingDelete.name}"</strong> and any personal permission overrides.</p>
             <div className="modal-actions">
               <button className="ghost" onClick={() => setPendingDelete(null)}>Cancel</button>
@@ -278,6 +296,15 @@ function Users() {
       )}
     </div>
   );
+}
+
+// Which countries a person can see. An empty list means every country (the default). Display only.
+function CountryPill({ user }: { user: AppUser }) {
+  const scoped = COUNTRY_SCOPED_ROLES.includes(user.role);
+  const { data } = useUserCountryAccess(scoped ? user.id : 0);
+  if (!scoped) return <span className="pill neutral">All countries</span>;
+  if (!data) return null;
+  return <span className="pill neutral" title="Countries whose units this person can see">{data.length ? data.join(", ") : "All countries"}</span>;
 }
 
 export default Users;

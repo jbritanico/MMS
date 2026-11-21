@@ -4,6 +4,7 @@ import { useCreateAppUser } from "../features/administration/hooks/useUserAdmin"
 import fieldOpsImage from "../assets/FieldMaintenance.png";
 import fieldOpsImageDark from "../assets/FieldDark.png";
 import { isDarkTheme, VISIBLE_THEMES, type Theme } from "./theme";
+import { M365Scene, MENU_ICON_CSS, MenuIsoIcon } from "../features/main-menu/MenuIsoIcons";
 
 interface TierReference {
   name: string;
@@ -193,29 +194,28 @@ function Microsoft365Mockup() {
 
   return (
     <div style={{ display: "flex", justifyContent: "center", marginBottom: 36 }}>
+      <style>{MENU_ICON_CSS}</style>
+      <div className="m365-block">
+      <span className="m365-face m365-face-b" aria-hidden="true" />
+      <span className="m365-face m365-face-r" aria-hidden="true" />
       <div
         className="menu-card"
         style={{
           width: "100%",
-          maxWidth: 420,
           alignItems: "center",
           textAlign: "center",
           padding: "36px 32px",
           cursor: "default",
         }}
       >
-        <svg width="36" height="36" viewBox="0 0 21 21" style={{ marginBottom: 14 }}>
-          <rect x="1" y="1" width="9" height="9" fill="#f25022" />
-          <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
-          <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
-          <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
-        </svg>
+        <div style={{ marginBottom: 6 }}><M365Scene /></div>
         <h3 style={{ margin: "0 0 4px", fontSize: 17 }}>Sign in with Microsoft 365</h3>
         <p style={{ margin: "0 0 20px", fontSize: 12.5, color: "var(--text-soft)" }}>
           Use your work or school account to continue.
         </p>
         <input
           type="text"
+          className="m365-field"
           placeholder="someone@sprint-ae.com"
           disabled
           style={{
@@ -230,6 +230,7 @@ function Microsoft365Mockup() {
           }}
         />
         <button
+          className="m365-key"
           onClick={() => setShowComingSoon(true)}
           style={{
             width: "100%",
@@ -250,6 +251,7 @@ function Microsoft365Mockup() {
             Microsoft 365 sign-in will be available in a future release. Use the local user picker for now.
           </p>
         )}
+      </div>
       </div>
     </div>
   );
@@ -462,6 +464,7 @@ function UserPickerGate({
               </button>
             )}
             <div style={{ perspective: 1200, width: "100%", maxWidth: 420 }}>
+              <style>{MENU_ICON_CSS}</style>
               {activeUser && (
                 <button
                   key={activeUser.id}
@@ -476,11 +479,8 @@ function UserPickerGate({
                   }}
                   onClick={() => setCurrentUserId(activeUser.id)}
                 >
-                  <div className="menu-icon-wrap">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8" />
-                      <path d="M4.5 20c0-3.6 3.4-6.5 7.5-6.5s7.5 2.9 7.5 6.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                    </svg>
+                  <div className="menu-icon-wrap menu-icon-iso">
+                    <MenuIsoIcon kind="user" badge={tierAccent(activeUser.role)} />
                   </div>
                   <h3 style={{ margin: "10px 0 6px" }}>{activeUser.name}</h3>
                   <p style={{ margin: 0, fontSize: 13, color: "var(--text-soft)" }}>
