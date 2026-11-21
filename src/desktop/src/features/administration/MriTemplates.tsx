@@ -13,6 +13,7 @@ import {
 import { useAssetTypes } from "./hooks/useAssetTypes";
 import AssetTypeCombobox from "./AssetTypeCombobox";
 import TemplateGraphModal from "../mri-template-builder/TemplateGraphModal";
+import { useTemplateHints } from "../mri-template-builder/useTemplateHints";
 
 const STATUS_ORDER: TemplateStatus[] = ["Draft", "Active", "Inactive"];
 
@@ -207,6 +208,7 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
                     <div style={{ minWidth: 0 }}>
                       <div className="review-card-code">{t.template_name}</div>
                       <div style={{ fontSize: 13, color: "var(--text-soft)", marginTop: 2 }}>{assetTypeName(t.asset_type_id)}</div>
+                      {t.status === "Draft" && <DraftHint templateId={t.id} />}
                     </div>
                   )}
                 </div>
@@ -290,4 +292,16 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
     </div>
   );
 }
+// Option B: a text-only reminder on Draft cards. Display only — status and the cycle icon are unchanged.
+function DraftHint({ templateId }: { templateId: number }) {
+  const hints = useTemplateHints(templateId);
+  if (!hints.ready) return null;
+  const n = hints.lookCount;
+  return (
+    <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4, color: n ? "var(--warn)" : "var(--success)" }}>
+      {n ? `${n} ${n === 1 ? "thing" : "things"} worth a look` : "Looks complete"}
+    </div>
+  );
+}
+
 export default MriTemplates;

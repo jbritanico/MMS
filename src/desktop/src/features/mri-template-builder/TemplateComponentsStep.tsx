@@ -86,17 +86,12 @@ function TemplateComponentsStep({ templateId, canEdit, createdBy }: TemplateComp
   }
 
   return (
-    <div>
-      <h2>Components (optional)</h2>
-      <p style={{ fontSize: 13, color: "var(--text-soft)", margin: "0 0 12px" }}>
-        Use this when assets of this template have several physical parts under one Asset Code that
-        are inspected separately (for example Left and Right pump, or Front and Rear). The person
-        starting a report chooses which component it is for, and findings, faults, attachments and
-        history are then kept per component. Skip this step if the template covers the whole asset — nothing changes for those templates.
-      </p>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24, alignItems: "start" }}>
+    <div className="panel panel-flat">
+      <h2>Parts inspected one by one ({components.length})</h2>
 
       {components.length === 0 ? (
-        <div style={{ fontSize: 12.5, color: "var(--text-soft)", marginBottom: 8 }}>No components — reports cover the whole asset.</div>
+        <div style={{ fontSize: 12.5, color: "var(--text-soft)", marginBottom: 8 }}>No parts — each report covers the whole unit. That's fine for most units.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
           {components.map((c) => (
@@ -121,11 +116,11 @@ function TemplateComponentsStep({ templateId, canEdit, createdBy }: TemplateComp
               ) : (
                 <>
                   <span style={{ fontWeight: 600, minWidth: 100, opacity: c.active ? 1 : 0.55 }}>{c.label}</span>
-                  <span className={`pill ${c.active ? "active" : "inactive"}`}>{c.active ? "Active" : "Inactive"}</span>
+                  <span className={`pill ${c.active ? "active" : "inactive"}`}>{c.active ? "In use" : "Switched off"}</span>
                   {canEdit && (
                     <>
                       <button className="ghost" onClick={() => { setEditingId(c.id); setEditLabel(c.label); }}>Rename</button>
-                      <button className="ghost" onClick={() => toggle(c)}>{c.active ? "Deactivate" : "Activate"}</button>
+                      <button className="ghost" onClick={() => toggle(c)}>{c.active ? "Switch off" : "Switch on"}</button>
                       <button className="ghost" onClick={() => remove(c)}>Delete</button>
                     </>
                   )}
@@ -153,11 +148,20 @@ function TemplateComponentsStep({ templateId, canEdit, createdBy }: TemplateComp
               <option key={p.id} value={p.name} />
             ))}
           </datalist>
-          <button className="ghost" onClick={() => add(newLabel)}>+ Add component</button>
+          <button className="ghost" onClick={() => add(newLabel)}>+ Add part</button>
           {components.length === 0 && <button className="ghost" onClick={addLeftRight}>+ Add Left &amp; Right</button>}
         </div>
       )}
       {status && <div className={`toast ${status.kind}`} style={{ marginTop: 8 }}>{status.msg}</div>}
+    </div>
+    <div className="panel panel-flat">
+      <h2>When do I need this?</h2>
+      <div className="tb-know">
+        <span><strong>Use it</strong> when one unit (one Asset Code) has two or more parts that are checked separately — for example a <em>Left</em> and <em>Right</em> pump, or <em>Front</em> and <em>Rear</em>.</span>
+        <span><strong>Then</strong> the person starting a report picks the part, and findings, faults, attachments and history are kept per part.</span>
+        <span><strong>Skip it</strong> if the report covers the whole unit — nothing changes for those templates. Just click Next.</span>
+      </div>
+    </div>
     </div>
   );
 }

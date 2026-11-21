@@ -116,8 +116,15 @@ function TemplateDrawingStep({ templateId }: TemplateDrawingStepProps) {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
+  // One point per check at most: the number of points can't be more than the number of checks on the template.
+  const maxPoints = templateItems.length;
+  const pointsLeft = Math.max(0, maxPoints - hotspots.length);
+  const atLimit = pointsLeft === 0;
+  const overBy = Math.max(0, hotspots.length - maxPoints);
+
   function handleImageClick(e: React.MouseEvent<HTMLImageElement>) {
     if (!placing) return;
+    if (atLimit) { setPlacing(false); return; }
     const rect = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width;
     const y = (e.clientY - rect.top) / rect.height;
@@ -175,13 +182,13 @@ function TemplateDrawingStep({ templateId }: TemplateDrawingStepProps) {
   if (!drawing) {
     return (
       <div>
-        <h2>Equipment Drawing</h2>
+        <h2>No picture yet</h2>
         <p style={{ fontSize: 13, color: "var(--text-soft)", marginBottom: 16 }}>
-          Upload a drawing of this equipment. Once uploaded, you can place hotspots on it and link each one to
-          checklist items — this drawing then appears in MR-I Reporting as an alternate view of the checklist.
+          Upload a picture or drawing of the unit. You can then put numbered points on it and tick the checks that belong
+          to each point. Inspectors will see it in MR-I Reporting as another way to find the checks. Skip this step if you don't have one.
         </p>
         <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFile} />
-        <button className="primary" onClick={() => fileInputRef.current?.click()}>Upload drawing</button>
+        <button className="primary" onClick={() => fileInputRef.current?.click()}>Upload a picture</button>
         {error && <div className="toast err" style={{ marginTop: 12, maxWidth: 400 }}>{error}</div>}
       </div>
     );
@@ -191,21 +198,36 @@ function TemplateDrawingStep({ templateId }: TemplateDrawingStepProps) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
         <div>
-          <h2>Equipment Drawing</h2>
+          <h2>Picture of the unit</h2>
           <p style={{ fontSize: 13, color: "var(--text-soft)" }}>
-            Click "Add hotspot", then click a spot on the drawing. Click an existing hotspot to link it to checklist items.
+            Click “+ Add point”, then click the picture. Click a numbered point to choose its checks. Drag a point to move it.
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button className={placing ? "primary" : "ghost"} onClick={() => setPlacing((v) => !v)}>
-            {placing ? "Click the drawing…" : "+ Add hotspot"}
+          <button
+            className={placing ? "primary" : "ghost"}
+            onClick={() => setPlacing((v) => !v)}
+            disabled={atLimit && !placing}
+            title={atLimit ? (maxPoints === 0 ? "Add checks in “Things to check” first" : "Every check already has a point") : undefined}
+          >
+            {placing ? "Now click the picture…" : "+ Add point"}
           </button>
           <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFile} />
-          <button className="ghost" onClick={() => fileInputRef.current?.click()}>Replace drawing</button>
+          <button className="ghost" onClick={() => fileInputRef.current?.click()}>Replace picture</button>
           <button className="ghost" style={{ color: "var(--danger)" }} onClick={() => setPendingRemoveDrawing(true)}>
-            Remove drawing
+            Remove picture
           </button>
         </div>
+      </div>
+
+      <div className={`tig-hint${maxPoints === 0 || overBy > 0 ? "" : atLimit ? " is-ok" : " is-info"}`} role="status" style={{ marginBottom: 12, maxWidth: 640 }}>
+        {maxPoints === 0
+          ? "Add checks in “Things to check” first — you can place one point per check."
+          : overBy > 0
+            ? `${hotspots.length} points for ${maxPoints} ${maxPoints === 1 ? "check" : "checks"}: delete ${overBy} ${overBy === 1 ? "point" : "points"} so there's no more than one point per check.`
+            : atLimit
+              ? `All ${maxPoints} points used — one for each check.`
+              : `${hotspots.length} of ${maxPoints} points used. You can add ${pointsLeft} more (one point per check).`}
       </div>
 
       {error && <div className="toast err" style={{ marginBottom: 12, maxWidth: 400 }}>{error}</div>}
@@ -222,7 +244,7 @@ function TemplateDrawingStep({ templateId }: TemplateDrawingStepProps) {
         >
           <img
             src={drawing.image_data}
-            alt="Equipment drawing"
+            alt="Picture of the unit"
             onClick={handleImageClick}
             style={{ display: "block", width: "100%", height: "auto" }}
           />
@@ -232,7 +254,7 @@ function TemplateDrawingStep({ templateId }: TemplateDrawingStepProps) {
               <button
                 key={h.id}
                 onPointerDown={(e) => startDrag(e, h)}
-                title={h.label ?? `Hotspot ${i + 1}`}
+                title={h.label ?? `Point ${i + 1}`}
                 style={{
                   position: "absolute",
                   left: `${pos.x * 100}%`,
@@ -257,7 +279,7 @@ function TemplateDrawingStep({ templateId }: TemplateDrawingStepProps) {
         {selectedHotspot && (
           <div className="panel" style={{ padding: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <h3 style={{ margin: 0 }}>Hotspot #{hotspots.findIndex((h) => h.id === selectedHotspot.id) + 1}</h3>
+              <h3 style={{ margin: 0 }}>Point {hotspots.findIndex((h) => h.id === selectedHotspot.id) + 1}</h3>
               <button className="icon-btn" aria-label="Close" onClick={() => setSelectedHotspotId(null)}>
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -266,7 +288,7 @@ function TemplateDrawingStep({ templateId }: TemplateDrawingStepProps) {
             </div>
 
             <div className="field">
-              <label>Label (optional)</label>
+              <label>Name (optional)</label>
               <input
                 type="text"
                 className="trigger-input"
@@ -279,12 +301,12 @@ function TemplateDrawingStep({ templateId }: TemplateDrawingStepProps) {
             </div>
 
             <div className="field">
-              <label>Linked checklist items</label>
+              <label>Which checks are at this point?</label>
               {templateItems.length === 0 ? (
-                <p style={{ fontSize: 12, color: "var(--text-soft)" }}>Add checklist items to this template first.</p>
+                <p style={{ fontSize: 12, color: "var(--text-soft)" }}>Add checks in “Things to check” first.</p>
               ) : availableItems.length === 0 ? (
                 <p style={{ fontSize: 12, color: "var(--text-soft)" }}>
-                  All checklist items are already linked to another hotspot.
+                  Every check is already linked to another point.
                 </p>
               ) : (
                 <div style={{ maxHeight: 260, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -318,7 +340,7 @@ function TemplateDrawingStep({ templateId }: TemplateDrawingStepProps) {
             </div>
 
             <button className="danger" style={{ width: "100%", marginTop: 8 }} onClick={() => removeHotspot(selectedHotspot.id)}>
-              Delete hotspot
+              Delete this point
             </button>
           </div>
         )}
@@ -333,8 +355,8 @@ function TemplateDrawingStep({ templateId }: TemplateDrawingStepProps) {
                   stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            <h3>Remove drawing?</h3>
-            <p>This will delete the drawing and all its hotspots. MR-I Reporting for this template will fall back to the standard list view.</p>
+            <h3>Remove picture?</h3>
+            <p>This deletes the picture and all its points. Inspectors will see the normal list of checks instead.</p>
             <div className="modal-actions">
               <button className="ghost" onClick={() => setPendingRemoveDrawing(false)}>Cancel</button>
               <button
