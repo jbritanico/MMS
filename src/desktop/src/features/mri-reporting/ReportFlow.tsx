@@ -8,6 +8,8 @@ import {
 } from "./flowKit";
 import { HintsToggle, useHints } from "../dashboard/hints";
 import IsoFlowMap, { FXI_CSS, IsoMapToggle, useIsoMap, type IsoLine, type IsoStep } from "./IsoFlowMap";
+import { TIG_CSS } from "../mri-template-builder/TemplateIsoGuide";
+import { ADMIN_CSS, ScreenIntro } from "../administration/AdminIsoGuide";
 
 export type FlowTarget = "assets" | "pending-approvals" | "rectification-queue";
 
@@ -233,6 +235,7 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
     <div className={`fx${hints ? " show-hints" : ""}`}>
       <style>{FX_CSS}</style>
       <style>{FXI_CSS}</style>
+      <style>{TIG_CSS + ADMIN_CSS}</style>
       <div className="fx-top">
         <button type="button" className="fx-back" onClick={onBack}><Icon name="back" size={15} />Back</button>
         <HintsToggle className="fx-hint-btn" />
@@ -252,6 +255,24 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
           <div className="fx-stat"><b>{openRepairs}</b><span>Repairs open</span></div>
         </div>
       </header>
+
+      <div className="tig no-print">
+        <ScreenIntro
+          glyph="report"
+          label="Document flow: what you'll do here"
+          kpis={[
+            { label: "faults for decision", value: flow.faults.length, tone: "blue" },
+            { label: "waiting for a decision", value: pendingN, tone: pendingN ? "look" : "skip" },
+            { label: "repairs open", value: openRepairs, tone: openRepairs ? "look" : "skip" },
+          ]}
+          explain="This page follows one MR-I report from the inspection to the last repair: its faults, the decisions on them, the repairs and the tag changes."
+          todo={[
+            "Click a tile on the map to see its details and open its screen",
+            "Use search and the legend to find a fault or a step",
+            "Switch to Simple steps for a plain list",
+          ]}
+        />
+      </div>
 
       <IsoMapToggle iso={isoOn} onChange={setIsoOn} />
       <div className={isoOn ? "fxi-print-only" : undefined}><Stepper steps={stepsShown} /></div>

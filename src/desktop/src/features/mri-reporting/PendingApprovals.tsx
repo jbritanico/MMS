@@ -15,6 +15,9 @@ import {
     type ProvisionalFaultApprovalRow,
     type PendingFaultAcknowledgmentRow,
 } from "./hooks/useMriFaultApprovals";
+import { TIG_CSS } from "../mri-template-builder/TemplateIsoGuide";
+import { ADMIN_CSS, IsoTiles, RowTile, ScreenIntro, type Tone } from "../administration/AdminIsoGuide";
+import { REPORT_KIT_CSS } from "./reportKit";
 
 const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 // dd/Mmm/yyyy. Accepts epoch seconds/milliseconds or a date string.
@@ -225,8 +228,15 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
         }
     }
 
+    // Option B: severity tiles, the intro box and the section tiles. Display only.
+    const SEV_TONE: Record<string, Tone> = { Minor: "blue", Moderate: "look", Critical: "bad" };
+    const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const mine = rows.filter((r) => r.can_act).length;
+    const criticalN = rows.filter((r) => r.original_severity === "Critical").length;
+
     return (
-        <div>
+        <div className="tig rk">
+            <style>{TIG_CSS + ADMIN_CSS + REPORT_KIT_CSS}</style>
             <style>{`
                 .pa-card{gap:12px;min-width:0}
                 .pa-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
@@ -249,9 +259,38 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
                 .pa-sm{padding:7px 14px;font-size:12.5px}
             `}</style>
             <div className="header">
-                <h1>Pending Approvals</h1>
-                <span className="sub">Moderate and Critical faults awaiting review or reclassification</span>
+                <h1>Fault decisions</h1>
+                <span className="sub">Pending Approvals</span>
             </div>
+            <ScreenIntro
+                glyph="decision"
+                label="Fault decisions: what you'll do here"
+                kpis={[
+                    { label: "waiting for you", value: mine, tone: mine ? "look" : "ok" },
+                    { label: "waiting for a decision", value: rows.length, tone: rows.length ? "blue" : "skip" },
+                    { label: "Critical", value: criticalN, tone: criticalN ? "bad" : "skip" },
+                    ...(canConfirm ? [{ label: "decided by phone — confirm", value: provisionalRows.length, tone: (provisionalRows.length ? "look" : "skip") as Tone }] : []),
+                    ...(canAcknowledge ? [{ label: "to acknowledge", value: acknowledgmentRows.length, tone: (acknowledgmentRows.length ? "look" : "skip") as Tone }] : []),
+                ]}
+                explain="Moderate and Critical faults from MR-I reports that need a decision. Open one with Review to approve it, change how serious it is, reject it or carry it forward. Decisions phoned in on someone's behalf are confirmed further down."
+                todo={[
+                    "Start with the faults assigned to you",
+                    "Click Review, pick a decision and add a note",
+                    "Confirm phoned-in decisions and acknowledge the ones sent to you",
+                ]}
+                hints={mine ? [`${mine} ${mine === 1 ? "fault is" : "faults are"} waiting for your decision`] : []}
+            />
+            <IsoTiles
+                label="Jump to a section"
+                selected={null}
+                onPick={jump}
+                items={[
+                    { id: "pa-decide", label: "Waiting for a decision", count: String(rows.length), tone: "look" },
+                    ...(canConfirm ? [{ id: "pa-confirm", label: "Decided by phone — confirm", count: String(provisionalRows.length), tone: "blue" as Tone }] : []),
+                    ...(canAcknowledge ? [{ id: "pa-ack", label: "To acknowledge", count: String(acknowledgmentRows.length), tone: "blue" as Tone }] : []),
+                ]}
+            />
+            <h2 id="pa-decide" className="rk-group-h" style={{ marginTop: 16 }}>Waiting for a decision<small>Moderate and Critical faults awaiting review or reclassification</small></h2>
 
             {status && <div className={`toast ${status.kind}`} style={{ maxWidth: 600, marginBottom: 16 }}>{status.msg}</div>}
             {errorDialog && <ErrorDialog message={errorDialog} onClose={() => setErrorDialog(null)} />}
@@ -269,7 +308,10 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
                         return (
                             <div key={row.id} className="review-card pa-card">
                                 <div className="pa-head">
-                                    <div className="pa-title">{row.checklist_description ?? "Checklist item"}</div>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                                        <RowTile tone={SEV_TONE[row.original_severity] ?? "skip"} />
+                                        <div className="pa-title">{row.checklist_description ?? "Checklist item"}</div>
+                                    </div>
                                     <span className="pa-sev" style={{ background: SEVERITY_COLOR[row.original_severity] }}>
                                         {row.original_severity}
                                     </span>
@@ -313,7 +355,7 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
                                             <button className="ghost pa-sm" onClick={() => onOpenFlow(row.report_id)}>Show flow</button>
                                         )}
                                         {!row.can_act && canRemind && row.assigned_to_user_id !== null && (
-                                            <button className="ghost pa-sm" onClick={() => remind(row)}>Send Reminder</button>
+                                            <button className="ghost pa-sm" onClick={() => remind(row)}>Send reminder</button>
                                         )}
                                         {allowed && (
                                             <button className="primary pa-sm" onClick={() => startReview(row, !direct)}>
@@ -329,10 +371,10 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
             )}
 
             {canConfirm && provisionalRows.length > 0 && (
-                <div style={{ marginTop: 32 }}>
+                <div id="pa-confirm" style={{ marginTop: 32 }}>
                     <div className="header">
-                        <h1>Awaiting Confirmation</h1>
-                        <span className="sub">Phoned-in decisions already in effect — confirming only completes the paper trail</span>
+                        <h1>Decided by phone — confirm</h1>
+                        <span className="sub">Awaiting Confirmation · these decisions are already in effect — confirming only completes the paper trail</span>
                     </div>
                     <div className="review-card-grid">
                         {provisionalRows.map((row) => (
@@ -379,7 +421,10 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
                             }}
                         >
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                                <h3 style={{ margin: 0 }}>{row.checklist_description ?? "Checklist item"}</h3>
+                                <h3 style={{ margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
+                                    <RowTile tone={SEV_TONE[row.original_severity] ?? "skip"} />
+                                    {row.checklist_description ?? "Checklist item"}
+                                </h3>
                                 <span
                                     style={{
                                         fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20,
@@ -404,9 +449,13 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
                                     and will need their confirmation later.
                                 </p>
                             )}
+                            <p style={{ fontSize: 12.5, color: "var(--text-soft)", margin: "0 0 12px" }}>
+                                Pick a decision with the buttons at the bottom: Approve, Reclassify (uses "Change how serious to"),
+                                Reject or Carryforward. A note is needed for every decision.
+                            </p>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
                                 <div className="field">
-                                    <label>Review Method</label>
+                                    <label>How you reviewed it <small style={{ color: "var(--text-soft)" }}>(Review Method)</small></label>
                                     {relayOnly ? (
                                         <input
                                             type="text"
@@ -428,7 +477,7 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
                                     )}
                                 </div>
                                 <div className="field">
-                                    <label>Reclassify To (if applicable)</label>
+                                    <label>Change how serious to — only for Reclassify <small style={{ color: "var(--text-soft)" }}>(Reclassify To)</small></label>
                                     <select
                                         className="neu-select"
                                         value={newSeverity}
@@ -474,7 +523,7 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
                             )}
                             {relayOnly && (
                                 <div className="field">
-                                    <label>Escalate To (Maintenance Supervisor / FSM)</label>
+                                    <label>Who this decision is for — Maintenance Supervisor / FSM <small style={{ color: "var(--text-soft)" }}>(Escalate To)</small></label>
                                     <select
                                         className="neu-select"
                                         value={reviewerName}
@@ -490,7 +539,7 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
                                 </div>
                             )}
                             <div className="field">
-                                <label>Notes (required)</label>
+                                <label>Note — required <small style={{ color: "var(--text-soft)" }}>(Notes)</small></label>
                                 <input
                                     type="text"
                                     className="trigger-input"
@@ -540,10 +589,10 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
             })()}
 
             {canAcknowledge && acknowledgmentRows.length > 0 && (
-                <div style={{ marginTop: 32 }}>
+                <div id="pa-ack" style={{ marginTop: 32 }}>
                     <div className="header">
-                        <h1>Needs Acknowledgment</h1>
-                        <span className="sub">Moderate faults reviewed by a Maintenance Supervisor — Maintenance Manager/FSM to be informed, per the severity doc</span>
+                        <h1>Decisions to acknowledge</h1>
+                        <span className="sub">Needs Acknowledgment · Moderate faults reviewed by a Maintenance Supervisor — the Maintenance Manager / FSM is informed and acknowledges them</span>
                     </div>
                     <div className="review-card-grid">
                         {acknowledgmentRows.map((row) => (

@@ -11,6 +11,8 @@ import {
 import { HintsToggle, useHints } from "../dashboard/hints";
 import { triggerColor, triggerIcon, triggerIconBg } from "../../components/triggerIcons";
 import IsoFlowMap, { FXI_CSS, IsoMapToggle, IsoTimeline, useIsoMap, type IsoLine, type IsoState, type IsoStep, type IsoTlNode } from "./IsoFlowMap";
+import { TIG_CSS } from "../mri-template-builder/TemplateIsoGuide";
+import { ADMIN_CSS, ScreenIntro } from "../administration/AdminIsoGuide";
 
 interface AssetFlowProps {
   assetId: number;
@@ -182,6 +184,7 @@ function AssetFlow({ assetId, onBack, onOpenReport, onShowReportFlow, onOpenAsse
     <div className={`fx${hints ? " show-hints" : ""}`}>
       <style>{FX_CSS}</style>
       <style>{FXI_CSS}</style>
+      <style>{TIG_CSS + ADMIN_CSS}</style>
       <div className="fx-top">
         <button type="button" className="fx-back" onClick={onBack}><Icon name="back" size={15} />Back</button>
         <HintsToggle className="fx-hint-btn" />
@@ -203,6 +206,23 @@ function AssetFlow({ assetId, onBack, onOpenReport, onShowReportFlow, onOpenAsse
           <div className="fx-stat"><b>{last?.submitted_date ? day(last.submitted_date) : "—"}</b><span>Last inspection</span></div>
         </div>
       </header>
+
+      <div className="tig no-print">
+        <ScreenIntro
+          glyph="unit"
+          label="Asset flow: what you'll do here"
+          kpis={[
+            { label: "MR-I reports", value: flow.reports.length, tone: "blue" },
+            { label: "reports with open faults", value: reportsOpen, tone: reportsOpen ? "look" : "skip" },
+          ]}
+          explain="Everything that happened to this unit: its MR-I reports, faults, tag changes and counters, with the inspection timeline underneath."
+          todo={[
+            "Click a tile to see that report or tag change and open its screen",
+            "Scroll the inspection timeline for older reports",
+            "Switch to Simple steps for a plain list",
+          ]}
+        />
+      </div>
 
       <IsoMapToggle iso={isoOn} onChange={setIsoOn} />
 

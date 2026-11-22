@@ -8,6 +8,9 @@ import {
     useRecordEquipmentLimitations,
     type MriFaultRectification,
 } from "./hooks/useMriFaultRectifications";
+import { TIG_CSS } from "../mri-template-builder/TemplateIsoGuide";
+import { ADMIN_CSS, ScreenIntro } from "../administration/AdminIsoGuide";
+import { REPORT_KIT_CSS, RepairPath } from "./reportKit";
 
 const PARTS_STATUSES = ["Awaiting", "Ordered", "Available"] as const;
 
@@ -148,7 +151,8 @@ function RectificationQueue({ onOpenFlow }: RectificationQueueProps) {
         .sort((x, y) => KIND_META[kindOf(x)].order - KIND_META[kindOf(y)].order);
 
     return (
-        <div>
+        <div className="tig rk">
+            <style>{TIG_CSS + ADMIN_CSS + REPORT_KIT_CSS}</style>
             <style>{`
                 .rq-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
                 .rq-stat{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:14px;padding:12px 16px;border-radius:14px;background:var(--surface, var(--neu-bg));border:1px solid var(--border);border-top:4px solid var(--c)}
@@ -194,9 +198,26 @@ function RectificationQueue({ onOpenFlow }: RectificationQueueProps) {
                 .rq-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
             `}</style>
             <div className="header">
-                <h1>Rectification Queue</h1>
-                <span className="sub">Critical faults still Red-Tagged, plus Moderate faults planned for follow-up, awaiting repair and verification</span>
+                <h1>Repairs to finish</h1>
+                <span className="sub">Rectification Queue</span>
             </div>
+            <ScreenIntro
+                glyph="repair"
+                label="Repairs to finish: what you'll do here"
+                kpis={[
+                    { label: "repairs open", value: rows.length, tone: rows.length ? "blue" : "ok" },
+                    { label: "Red tag — not started", value: counts.red, tone: counts.red ? "bad" : "skip" },
+                    { label: "repair in progress", value: counts.yellow, tone: counts.yellow ? "look" : "skip" },
+                    { label: "field team not informed", value: counts.uninformed, tone: counts.uninformed ? "bad" : "skip" },
+                ]}
+                explain="Critical faults still Red-tagged, plus Moderate faults planned for follow-up, waiting to be repaired and verified. Each card shows the repair's path from found to verified."
+                todo={[
+                    "Tell the field team about the unit's limits (the orange box)",
+                    "Click Update plan to set the technician, parts and repair date",
+                    "When it's fixed and function-tested, verify it",
+                ]}
+                hints={counts.uninformed ? [`Field team not yet informed for ${counts.uninformed} ${counts.uninformed === 1 ? "repair" : "repairs"}`] : []}
+            />
 
             {status && <div className={`toast ${status.kind}`} style={{ maxWidth: 600, marginBottom: 16 }}>{status.msg}</div>}
 
@@ -265,11 +286,14 @@ function RectificationQueue({ onOpenFlow }: RectificationQueueProps) {
                                     <span>{planned ? "Logged" : "Red-tagged"} {formatDate(row.created_date)}</span>
                                 </div>
 
-                                <div className="rq-track" aria-label="Progress">
-                                    <div className="on"><i />{planned ? "Logged" : "Tagged"}</div>
-                                    <div className={stage >= 2 ? "on" : ""}><i />Repair planned</div>
-                                    <div><i />Verified</div>
-                                </div>
+                                <RepairPath
+                                    steps={[
+                                        { label: planned ? "Logged" : "Found", done: true },
+                                        { label: "Repair planned", done: stage >= 2 },
+                                        { label: "Parts ready", done: row.parts_status === "Available" },
+                                        { label: "Verified", done: false },
+                                    ]}
+                                />
 
                                 <dl className="rq-dl">
                                     <div><dt>Technician</dt><dd className={row.assigned_technician ? "" : "muted"}>{row.assigned_technician ?? "Unassigned"}</dd></div>
@@ -315,7 +339,7 @@ function RectificationQueue({ onOpenFlow }: RectificationQueueProps) {
                                     <div className="rq-form">
                                         <div className="two">
                                             <div className="field">
-                                                <label>Assigned Technician</label>
+                                                <label>Technician</label>
                                                 <input
                                                     type="text"
                                                     className="trigger-input"
@@ -325,7 +349,7 @@ function RectificationQueue({ onOpenFlow }: RectificationQueueProps) {
                                                 />
                                             </div>
                                             <div className="field">
-                                                <label>Parts Status</label>
+                                                <label>Parts</label>
                                                 <select
                                                     className="neu-select"
                                                     value={partsStatus}
@@ -336,7 +360,7 @@ function RectificationQueue({ onOpenFlow }: RectificationQueueProps) {
                                             </div>
                                         </div>
                                         <div className="field">
-                                            <label>Repair Date</label>
+                                            <label>Repair date</label>
                                             <input
                                                 type="date"
                                                 className="trigger-input"
@@ -386,7 +410,7 @@ function RectificationQueue({ onOpenFlow }: RectificationQueueProps) {
                                     {canRectify && !isEditing && !isVerifying && (
                                         <>
                                             <button className="ghost rq-sm" onClick={() => startVerify(row)}>{planned ? "Verify & Close Follow-up" : "Verify & Remove Tag"}</button>
-                                            <button className="primary rq-sm" onClick={() => startEdit(row)}>Update Plan</button>
+                                            <button className="primary rq-sm" onClick={() => startEdit(row)}>Update plan</button>
                                         </>
                                     )}
                                 </div>

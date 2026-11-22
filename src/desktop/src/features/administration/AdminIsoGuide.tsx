@@ -6,7 +6,8 @@ import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef,
 import type { AdminSection, GroupId } from "./Administration";
 import { IsoShelfGuide } from "../mri-template-builder/TemplateIsoGuide";
 
-export type Glyph = "people" | "shield" | "list" | "clipboard" | "unit" | "folders" | "database" | "eraser" | "flame" | "archive" | "report" | "lifebuoy" | "gauge";
+export type Glyph = "people" | "shield" | "list" | "clipboard" | "unit" | "folders" | "database" | "eraser" | "flame" | "archive" | "report" | "lifebuoy" | "gauge"
+  | "check" | "fault" | "decision" | "repair" | "map" | "sign";
 
 export interface AdminMeta {
   name: string;   // plain name
@@ -84,6 +85,12 @@ const GLYPH_PATHS: Record<Glyph, string[]> = {
   archive: ["M4 8h40v10H4z", "M8 18v24h32V18", "M18 28h12"],
   report: ["M10 4h22l8 8v32H10z", "M32 4v8h8", "M16 22h18", "M16 30h18", "M16 38h10"],
   gauge: ["M6 34a18 18 0 0 1 36 0", "M24 34l9-12", "M12 24l-3-2", "M24 16v-4", "M36 24l3-2", "M18 40h12"],
+  check: ["M24 4a20 20 0 1 0 0.01 0", "M14 24l7 7 13-14"],
+  fault: ["M24 4l22 38H2z", "M24 18v11", "M24 35v1"],
+  decision: ["M24 6v36", "M10 12h28", "M10 12l-7 14h14z", "M38 12l-7 14h14z", "M16 42h16"],
+  repair: ["M29 7a10 10 0 0 0 12 12L19 41a4.2 4.2 0 0 1-6-6z"],
+  map: ["M4 10l13-5 14 5 13-5v33l-13 5-14-5-13 5z", "M17 5v33", "M31 10v33"],
+  sign: ["M6 34c6-8 10-20 14-20s-2 18 4 18 6-8 12-8", "M6 42h36"],
   lifebuoy: ["M24 4a20 20 0 1 0 0.01 0", "M24 14a10 10 0 1 0 0.01 0", "M10 10l7 7", "M38 10l-7 7", "M10 38l7-7", "M38 38l-7-7"],
 };
 
@@ -269,10 +276,10 @@ export function AdminScreenIntro({ section, groupId }: { section: AdminSection; 
 }
 
 /** "What you'll do here" box for screens outside Administration (e.g. the Asset Registry). */
-export function ScreenIntro({ glyph, explain, todo, hints = [], kpis, label = "What you'll do here" }: { glyph: Glyph; explain: string; todo: string[]; hints?: string[]; kpis?: BannerKpi[]; label?: string }) {
+export function ScreenIntro({ glyph, explain, todo, hints = [], okHints = [], kpis, label = "What you'll do here", resetKey = "screen", guide }: { glyph: Glyph; explain: string; todo: string[]; hints?: string[]; okHints?: string[]; kpis?: BannerKpi[]; label?: string; resetKey?: string; guide?: ReactNode }) {
   const box = (
     <div className="tig-intro">
-      <AdminGuide glyph={glyph} count={hints.length} slabs={3} />
+      {guide ?? <AdminGuide glyph={glyph} count={hints.length} slabs={3} />}
       <div className="tig-intro-text">
         <p className="tig-explain">{explain}</p>
         <span className="tig-todo-h">What you'll do here</span>
@@ -280,11 +287,12 @@ export function ScreenIntro({ glyph, explain, todo, hints = [], kpis, label = "W
           {todo.map((t, i) => <li key={i}><span className="tig-todo-n" aria-hidden="true">{i + 1}</span><span>{t}</span></li>)}
         </ol>
         {hints.map((h, i) => <div key={i} className="tig-hint" role="status">{h}</div>)}
+        {okHints.map((h, i) => <div key={`ok${i}`} className="tig-hint is-ok">{h}</div>)}
       </div>
     </div>
   );
   if (!kpis) return <div style={{ marginBottom: 18 }}>{box}</div>;
-  return <CollapsingBanner resetKey="screen" kpis={kpis} label={label}>{box}</CollapsingBanner>;
+  return <CollapsingBanner resetKey={resetKey} kpis={kpis} label={label}>{box}</CollapsingBanner>;
 }
 
 // ------------------------------------------------------------------ 3D building blocks for the screens

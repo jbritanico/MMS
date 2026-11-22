@@ -764,11 +764,11 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
             ]}
           />
           <div className="asset-filters">
-            <label>Kind of unit
+            <label>Asset type
               <select className="neu-select" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-                <option value="">All kinds</option>
+                <option value="">All asset types</option>
                 {typeFilterOptions.map((t) => <option key={t.id} value={String(t.id)}>{t.description}</option>)}
-                <option value="none">No kind set</option>
+                <option value="none">No asset type set</option>
               </select>
             </label>
             <label>Country

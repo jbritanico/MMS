@@ -69,6 +69,11 @@ import {
 import { useChecklistSections } from "../administration/hooks/useChecklistSections";
 import { useLookups } from "../administration/hooks/useLookups";
 import { useAssetTriggers } from "../asset-registry/hooks/useTriggers";
+import { TIG_CSS } from "../mri-template-builder/TemplateIsoGuide";
+import { ADMIN_CSS, IsoBars, RowTile, ScreenIntro, type BannerKpi } from "../administration/AdminIsoGuide";
+import { ClipboardGuide, EngineHoursIso, Key3D, KeyGroup, REPORT_KIT_CSS, ReportStepBar, RouteIsoTile, SendPlatform, SheetGuide, StackGuide, stepMeta } from "./reportKit";
+import { STEP_NAMES } from "./reportHints";
+import { useReportHints } from "./useReportHints";
 
 type Step = "header" | "checklist" | "mid" | "footer" | "review";
 
@@ -162,6 +167,8 @@ function ReportWizard({
   const [showEndorsePicker, setShowEndorsePicker] = useState(false);
   const [assignedToUserId, setAssignedToUserId] = useState<number | "">("");
   const currentIndex = STEPS.findIndex((s) => s.id === step);
+  // Option B: display-only hints for the 3D step bar and the "What you'll do here" box.
+  const hints = useReportHints(report);
 
   // Opening a report from Asset MR-I History (or any other already-submitted report)
   // should land straight on the Review & Submit step, so it shows the same 2-page
@@ -297,8 +304,37 @@ function ReportWizard({
   const showCost = !viewOnly && alreadySubmitted;
   const showIssues = openPriorIssues.length > 0 || carriedForward.length > 0;
 
+  // Option B: the step bar, the help box and its folded key numbers. Display only.
+  const meta = stepMeta(step);
+  const n = hints.numbers;
+  const reviewCount = step === "review" ? reviewIssues.length : hints.lookCount - hints.steps.mid.count;
+  const lookTone = (c: number) => (c ? "look" : "skip") as BannerKpi["tone"];
+  const introHints =
+    step === "review"
+      ? [...reviewIssues.slice(0, 3), ...(reviewIssues.length > 3 ? [`…and ${reviewIssues.length - 3} more — see the list below`] : [])]
+      : hints.steps[step].messages;
+  const introKpis: BannerKpi[] =
+    step === "checklist"
+      ? [
+          { label: "checks done", value: `${n.checksDone} of ${n.checksTotal}`, tone: "ok" },
+          { label: "Fail", value: n.fail, tone: lookTone(n.fail) },
+          { label: "Critical", value: n.critical, tone: n.critical ? "bad" : "skip" },
+          { label: "not closed yet", value: n.openFail, tone: lookTone(n.openFail) },
+        ]
+      : step === "review"
+        ? [
+            { label: "still to fix", value: reviewIssues.length, tone: reviewIssues.length ? "look" : "ok" },
+            { label: "Fail", value: n.fail, tone: lookTone(n.fail) },
+            { label: "Critical", value: n.critical, tone: n.critical ? "bad" : "skip" },
+          ]
+        : [
+            { label: "", value: hints.steps[step].summary, tone: hints.steps[step].state === "look" ? "look" : "blue" },
+            ...(hints.steps[step].count ? [{ label: "worth a look", value: hints.steps[step].count, tone: "look" as BannerKpi["tone"] }] : []),
+          ];
+
   return (
-    <div>
+    <div className="tig rk">
+      <style>{TIG_CSS + ADMIN_CSS + REPORT_KIT_CSS}</style>
       <style>{`
         .mri-top-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px 20px;flex-wrap:wrap;margin-bottom:14px}
         .mri-top-left{display:flex;flex-direction:column;gap:8px;min-width:0}
@@ -401,7 +437,11 @@ function ReportWizard({
       {(showIssues || showCost) && (
         <div className="mri-top-grid">
           {showIssues && (
-            <OpenIssuesCard openPriorIssues={openPriorIssues} carriedForward={carriedForward} />
+            <OpenIssuesCard
+              openPriorIssues={openPriorIssues}
+              carriedForward={carriedForward}
+              onSee={step !== "checklist" ? () => setStep("checklist") : undefined}
+            />
           )}
           {showCost && (
             <MrCostPanel
@@ -464,19 +504,35 @@ function ReportWizard({
         </div>
       )}
 
-      <div className="wizard-steps">
-        {STEPS.map((s, i) => (
-          <div
-            key={s.id}
-            className={`wizard-step ${i === currentIndex ? "active" : ""} ${i < currentIndex ? "done" : ""}`}
-          >
-            <span className="wizard-step-dot">
-              {i < currentIndex ? "✓" : i + 1}
-            </span>
-            <span className="wizard-step-label">{s.label}</span>
-          </div>
-        ))}
-      </div>
+      <ReportStepBar current={step} hints={hints} reviewCount={reviewCount} onPick={setStep} />
+      {!fieldsLocked && (
+        <div className="no-print">
+          <ScreenIntro
+            glyph={meta.glyph}
+            label={`${meta.name}: what you'll do here`}
+            resetKey={step}
+            explain={meta.explain}
+            todo={meta.todo}
+            hints={introHints}
+            kpis={introKpis}
+            guide={
+              step === "header" ? (
+                <ClipboardGuide filled={n.headerFilled} total={n.headerTotal} count={introHints.length} />
+              ) : step === "checklist" ? (
+                <StackGuide done={n.checksDone} total={n.checksTotal} count={introHints.length} />
+              ) : step === "review" ? (
+                <SheetGuide
+                  count={reviewIssues.length}
+                  parts={(["header", "checklist", "mid", "footer"] as const).map((s) => ({
+                    name: STEP_NAMES[s].name,
+                    state: hints.steps[s].state,
+                  }))}
+                />
+              ) : undefined
+            }
+          />
+        </div>
+      )}
 
       {status && (
         <div
@@ -527,12 +583,33 @@ function ReportWizard({
             reportId={reportId}
             locked={fieldsLocked}
             onValidate={setReviewIssues}
+            onOpen={setStep}
             report={report}
             asset={asset}
           />
         )}
       </div>
 
+      {step === "review" && report.status === "Draft" && !fieldsLocked && (
+        <div className="panel no-print" style={{ marginTop: 16 }}>
+          <h3 className="rk-group-h">What happens after you submit<small>Shown at the top of the report for the right person, as today</small></h3>
+          <div className="rk-yn-grid">
+            {[
+              ["Report submitted", "It is locked from further editing.", "ok"],
+              ["Next step: endorse", "With Moderate or Critical faults, a supervisor endorses it and escalates it to a Maintenance Supervisor / FSM (Critical: FSM / Maintenance Manager only).", "blue"],
+              ["Next step: close and approve", "With no Moderate or Critical faults, a supervisor closes and approves it. Then a new report can be started.", "blue"],
+            ].map(([h, txt, tone]) => (
+              <div key={h} className="iso-card" style={{ cursor: "default" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <RowTile tone={tone as "ok" | "blue"} />
+                  <strong style={{ fontSize: 13 }}>{h}</strong>
+                </div>
+                <span style={{ fontSize: 12.5, color: "var(--text-soft)" }}>{txt}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {!viewOnly && (
       <div className="actions" style={{ marginTop: 16 }}>
         <button
@@ -540,13 +617,15 @@ function ReportWizard({
           onClick={goBack}
           disabled={currentIndex === 0}
         >
-          ← Previous
+          ← {currentIndex > 0 ? STEP_NAMES[STEPS[currentIndex - 1].id].name : "Previous"}
         </button>
         {step !== "review" ? (
           <button className="primary" onClick={goNext}>
-            Next →
+            Next: {STEP_NAMES[STEPS[currentIndex + 1].id].name} →
           </button>
         ) : (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <SendPlatform ready={!alreadySubmitted && reviewIssues.length === 0} />
           <button
             className="primary"
             onClick={handleSubmit}
@@ -561,6 +640,7 @@ function ReportWizard({
               ? "Already submitted"
               : `Submit Report${reviewIssues.length > 0 ? ` (${reviewIssues.length} issue${reviewIssues.length === 1 ? "" : "s"})` : ""}`}
           </button>
+          </span>
         )}
       </div>
       )}
@@ -588,7 +668,8 @@ function ReportWizard({
             <h3>Report submitted</h3>
             <p>
               The report has been submitted and is now locked from further
-              editing.
+              editing. Next: a supervisor reviews it — they endorse it if it has
+              Moderate or Critical faults, or close and approve it.
             </p>
             <div className="modal-actions">
               <button
@@ -910,15 +991,36 @@ function HeaderEntryStep({
 
   if (sortedFields.length === 0) {
     return (
-      <div className="empty">This template has no header fields configured</div>
+      <div className="empty">This template has no report details yet — an Administrator can add them in the MR-I template builder</div>
     );
   }
 
+  // Option B: the same fields, shown in three groups (Compliance stage first). Display only.
+  const lbl = (tf: (typeof sortedFields)[number]) => fieldLabel(tf.header_field_id).trim().toLowerCase();
+  const HOURS = [ENGINE_HOURS_PREVIOUS, ENGINE_HOURS_CURRENT, ENGINE_HOURS_COMPUTED, JOB_OPERATING_HOURS, MR_II_DUE_DATE];
+  const unitFields = sortedFields.filter((tf) => !!inheritedGetter(tf.header_field_id));
+  const hourFields = sortedFields.filter((tf) => !inheritedGetter(tf.header_field_id) && HOURS.includes(lbl(tf)));
+  const jobFields = sortedFields
+    .filter((tf) => !unitFields.includes(tf) && !hourFields.includes(tf))
+    .sort((a, b) => (lbl(a) === COMPLIANCE_STAGE_FIELD ? -1 : lbl(b) === COMPLIANCE_STAGE_FIELD ? 1 : 0));
+  const headerGroups = [
+    { id: "unit", title: "Filled in from the unit", note: "Comes from the Asset Registry — it can't be changed here", fields: unitFields },
+    { id: "job", title: "This job", note: "Pick the Compliance stage first — it decides what else is needed", fields: jobFields },
+    { id: "hours", title: "Hours and due date", note: "Boxes marked auto or computed are worked out by MMS", fields: hourFields },
+  ];
+  const hoursCurrentField = sortedFields.find((f) => lbl(f) === ENGINE_HOURS_CURRENT);
+  const hoursPrevious = parseFloat(previousEngineHours ?? "0") || 0;
+  const hoursCurrent = hoursCurrentField ? parseFloat(localValues[hoursCurrentField.id] ?? "") : NaN;
+
   return (
     <div>
-      <h2>Header</h2>
-      <div className="mri-preview-table">
-        {sortedFields.map((tf) => {
+      <h2>Report details <span className="rk-tech">Header</span></h2>
+      {headerGroups.map((g) => g.fields.length > 0 && (
+        <section key={g.id} className={`rk-group is-${g.id}`}>
+          <h3 className="rk-group-h">{g.title}<small>{g.note}</small></h3>
+          {g.id === "hours" && hoursCurrentField && <EngineHoursIso previous={hoursPrevious} current={hoursCurrent} />}
+          <div className="mri-preview-table">
+        {g.fields.map((tf) => {
           const label = fieldLabel(tf.header_field_id).trim().toLowerCase();
           const getter = inheritedGetter(tf.header_field_id);
           const isInherited = !!getter;
@@ -1163,7 +1265,9 @@ function HeaderEntryStep({
             </div>
           );
         })}
-      </div>
+          </div>
+        </section>
+      ))}
     </div>
   );
 }
@@ -1269,7 +1373,7 @@ function MidEntryStep({
   if (!targetLabel) {
     return (
       <div>
-        <h2>Distance Travelled</h2>
+        <h2>Distance travelled <span className="rk-tech">Distance Travelled</span></h2>
         <div className="empty">
           Distance Travelled is recorded once Compliance Stage is set to Pre-Job
           or Post Job in the Header section — or Yard Inspection, when the
@@ -1286,7 +1390,7 @@ function MidEntryStep({
   if (!targetField) {
     return (
       <div>
-        <h2>Distance Travelled</h2>
+        <h2>Distance travelled <span className="rk-tech">Distance Travelled</span></h2>
         <div className="empty">
           This template has no "{targetLabel}" field configured
         </div>
@@ -1311,7 +1415,7 @@ function MidEntryStep({
   return (
     <div>
       <h2>
-        Distance Travelled
+        Distance travelled
         <span
           style={{ color: "var(--text-soft)", fontWeight: 400, fontSize: 14 }}
         >
@@ -1326,21 +1430,29 @@ function MidEntryStep({
         </span>
       </h2>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <button
-          className={mode === "odometer" ? "primary" : "ghost"}
-          style={{ padding: "6px 14px", fontSize: 12 }}
-          onClick={() => setMode("odometer")}
-        >
-          Odometer
-        </button>
-        <button
-          className={mode === "map" ? "primary" : "ghost"}
-          style={{ padding: "6px 14px", fontSize: 12 }}
-          onClick={() => setMode("map")}
-        >
-          Plot on Map
-        </button>
+      <div style={{ marginBottom: 10 }}>
+        <KeyGroup
+          label="How do you want to record the distance?"
+          value={mode}
+          onChange={setMode}
+          options={[
+            { id: "odometer", label: "Odometer" },
+            { id: "map", label: "Plot on map" },
+          ]}
+        />
+      </div>
+      <div className="rk-stages" aria-label="Which distance each Compliance stage asks for">
+        {[
+          ["PREMOB", "not needed"],
+          ["PRE-JOB", "Pre-Job distance"],
+          ["POST JOB", "Post-Job distance"],
+          ["YARD INSPECTION", "only after a Post Job report"],
+        ].map(([s, txt]) => (
+          <span key={s} className={`rk-stage${s === stage ? " is-on" : ""}`}>
+            <RowTile tone={s === stage ? "blue" : "skip"} />
+            <b>{s}</b> {txt}
+          </span>
+        ))}
       </div>
 
       {mode === "odometer" ? (
@@ -1366,6 +1478,7 @@ function MidEntryStep({
           }
         />
       )}
+      {initialPoints && initialPoints.length > 1 && <RouteIsoTile points={initialPoints} km={currentValue} />}
     </div>
   );
 }
@@ -1481,7 +1594,7 @@ function FooterEntryStep({
 
   if (sortedFields.length === 0) {
     return (
-      <div className="empty">This template has no footer fields configured</div>
+      <div className="empty">This template has no sign-off fields yet — an Administrator can add them in the MR-I template builder</div>
     );
   }
 
@@ -1499,10 +1612,11 @@ function FooterEntryStep({
 
   return (
     <div>
-      <h2>Footer</h2>
+      <h2>Sign-off <span className="rk-tech">Footer</span></h2>
 
+      {checkboxFields.length > 0 && <h3 className="rk-group-h">Yes / no checks<small>Tick the ones that apply</small></h3>}
       {checkboxFields.length > 0 && (
-        <div className="checks">
+        <div className="checks rk-yn-grid">
           {checkboxFields.map((tf) => {
             const checkboxLabel = fieldLabel(tf.footer_field_id).trim().toLowerCase();
             // Disabled, not forced blank: a report with a Moderate fault still earns a
@@ -1513,7 +1627,10 @@ function FooterEntryStep({
               hasEscalatableFault &&
               (checkboxLabel === "green tagged" || checkboxLabel === "job ready");
             return (
-            <label key={tf.id} className="neu-check">
+            <label
+              key={tf.id}
+              className={`neu-check iso-card${(localValues[tf.id] ?? "No") === "Yes" ? " is-on" : ""}${isWorkflowControlled ? " is-auto" : ""}`}
+            >
               <input
                 type="checkbox"
                 className="neu-check-input"
@@ -1542,14 +1659,15 @@ function FooterEntryStep({
                 </svg>
               </span>
               <span>{fieldLabel(tf.footer_field_id)}</span>
+              {isWorkflowControlled && <small className="rk-auto">Set automatically after the fault review</small>}
             </label>
             );
           })}
         </div>
       )}
 
-      <div className="mri-preview-table">
-        {otherFields.map((tf) => {
+      {(() => {
+        const renderOther = (tf: (typeof otherFields)[number]) => {
           const label = fieldLabel(tf.footer_field_id).trim().toLowerCase();
 
           if (label === FOOTER_REMARKS_FIELD) {
@@ -1678,8 +1796,42 @@ function FooterEntryStep({
               />
             </div>
           );
-        })}
-      </div>
+        };
+        // Option B: the two people on the report as 3D cards (raised until filled in, pressed when done).
+        const lab = (tf: (typeof otherFields)[number]) => fieldLabel(tf.footer_field_id).trim().toLowerCase();
+        const used = new Set<number>();
+        const cards = ["operator", "supervisor"]
+          .map((who) => {
+            // Matches "Operator" / "Operator Name" and "Operator Date" (same for Supervisor / Job Supervisor).
+            const fs = otherFields.filter((tf) => lab(tf).includes(who));
+            fs.forEach((tf) => used.add(tf.id));
+            const autoName =
+              (who === "operator" && currentUser?.role === "Operator") ||
+              (who === "supervisor" && currentUser?.role === "Job Supervisor");
+            const done = fs.length > 0 && fs.every((tf) => !!(localValues[tf.id] ?? "").trim() || (!lab(tf).includes("date") && autoName));
+            return { who, fs, done };
+          })
+          .filter((c) => c.fs.length > 0);
+        const rest = otherFields.filter((tf) => !used.has(tf.id));
+        return (
+          <>
+            {rest.length > 0 && <div className="mri-preview-table">{rest.map(renderOther)}</div>}
+            {cards.length > 0 && (
+              <>
+                <h3 className="rk-group-h">People on the report<small>Your own name is filled in; pick the other person from the list</small></h3>
+                <div className="rk-people">
+                  {cards.map((c) => (
+                    <div key={c.who} className={`iso-card${c.done ? " is-on" : ""}`}>
+                      <div className="iso-card-state">{c.done ? "Filled in" : "Still to fill in"}</div>
+                      <div className="mri-preview-table">{c.fs.map(renderOther)}</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }
@@ -1705,7 +1857,7 @@ const uniformSelectStyle: React.CSSProperties = {
   paddingRight: "var(--select-pr, 12px)",
 };
 
-function SeverityDistributionSummary({
+export function SeverityDistributionSummary({
   counts,
   colors,
 }: {
@@ -2224,7 +2376,7 @@ function ChecklistEntryStep({
   if (sortedItems.length === 0) {
     return (
       <div className="empty">
-        This template has no checklist items configured
+        This template has no checks yet — an Administrator can add them in the MR-I template builder
       </div>
     );
   }
@@ -2240,16 +2392,16 @@ function ChecklistEntryStep({
           flexWrap: "wrap",
         }}
       >
-        <h2 style={{ margin: 0 }}>Checklist</h2>
-        <div style={{ width: 220 }}>
-          <SeverityDistributionSummary
-            counts={severityCounts}
-            colors={{
-              Healthy: PASS_COLOR,
-              Minor: severityColor.Minor,
-              Moderate: severityColor.Moderate,
-              Critical: severityColor.Critical,
-            }}
+        <h2 style={{ margin: 0 }}>Things to check <span className="rk-tech">Checklist</span></h2>
+        <div style={{ flex: "0 1 420px", minWidth: 0 }}>
+          <IsoBars
+            label={`Healthy ${severityCounts.Healthy}, Minor ${severityCounts.Minor}, Moderate ${severityCounts.Moderate}, Critical ${severityCounts.Critical}`}
+            items={[
+              { label: "Healthy", value: severityCounts.Healthy, tone: "ok" },
+              { label: "Minor", value: severityCounts.Minor, tone: "blue" },
+              { label: "Moderate", value: severityCounts.Moderate, tone: "look" },
+              { label: "Critical", value: severityCounts.Critical, tone: "bad" },
+            ]}
           />
         </div>
       </div>
@@ -2268,21 +2420,16 @@ function ChecklistEntryStep({
       )}
 
       {drawing && (
-        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-          <button
-            className={view === "list" ? "primary" : "ghost"}
-            style={{ padding: "6px 14px", fontSize: 12 }}
-            onClick={() => setView("list")}
-          >
-            List View
-          </button>
-          <button
-            className={view === "drawing" ? "primary" : "ghost"}
-            style={{ padding: "6px 14px", fontSize: 12 }}
-            onClick={() => setView("drawing")}
-          >
-            Drawing View
-          </button>
+        <div style={{ marginBottom: 16 }}>
+          <KeyGroup
+            label="Show the checks as"
+            value={view}
+            onChange={setView}
+            options={[
+              { id: "list", label: "List", title: "List View" },
+              { id: "drawing", label: "Picture of the unit", title: "Drawing View" },
+            ]}
+          />
         </div>
       )}
 
@@ -2319,7 +2466,17 @@ function ChecklistEntryStep({
       {view === "list" &&
         grouped.map((group) => (
           <div key={group.label} style={{ marginBottom: 24 }}>
-            <div className="mri-preview-section-label">{group.label}</div>
+            {(() => {
+              const done = group.items.filter((ti) => getResult(ti).status).length;
+              const open = group.items.some((ti) => getResult(ti).status === "Fail" && getResult(ti).closure_status !== "Closed");
+              return (
+                <div className="mri-preview-section-label rk-sec">
+                  <RowTile tone={done < group.items.length ? "skip" : open ? "look" : "ok"} />
+                  {group.label}
+                  <b>{done}/{group.items.length} done</b>
+                </div>
+              );
+            })()}
 
             <div
               style={{
@@ -2335,14 +2492,14 @@ function ChecklistEntryStep({
                 color: "var(--text-soft)",
               }}
             >
-              <span>Checklist Item</span>
-              <span>Pass / Fail</span>
-              <span>Issue Details</span>
-              <span>Action Taken</span>
-              <span>Date Observed</span>
-              <span>Closure Status</span>
-              <span>Severity</span>
-              <span>Attachments</span>
+              <span className="rk-colh">What to check<small>Checklist Item</small></span>
+              <span className="rk-colh">Result<small>Pass / Fail</small></span>
+              <span className="rk-colh">What's wrong<small>Issue Details</small></span>
+              <span className="rk-colh">What was done<small>Action Taken</small></span>
+              <span className="rk-colh">Date seen<small>Date Observed</small></span>
+              <span className="rk-colh">Fixed?<small>Closure Status</small></span>
+              <span className="rk-colh">How serious<small>Severity</small></span>
+              <span className="rk-colh">Files<small>Attachments</small></span>
             </div>
 
             {group.items.map((ti) => {
@@ -2366,6 +2523,13 @@ function ChecklistEntryStep({
                       padding: "10px 4px",
                       borderTop: "1px solid var(--border)",
                       fontSize: 13,
+                      // Option B: Fail rows tinted; an orange edge when something is still missing.
+                      background: isFail ? "color-mix(in srgb, var(--tig-bad) 6%, transparent)" : undefined,
+                      boxShadow:
+                        (isFail && (!(result.issue_details ?? "").trim() || !(result.action_taken ?? "").trim() || !result.severity)) ||
+                        (!result.status && ti.required)
+                          ? "inset 3px 0 0 var(--tig-look)"
+                          : undefined,
                     }}
                   >
                     <span style={{ whiteSpace: "normal" }}>
@@ -2375,17 +2539,12 @@ function ChecklistEntryStep({
                       )}
                     </span>
 
-                    <div style={{ display: "flex", gap: 4 }}>
-                      <button
-                        className="ghost"
+                    <div className="rk-keys" role="group" aria-label="Pass or Fail">
+                      <Key3D
+                        small
+                        tone="ok"
+                        pressed={result.status === "Pass"}
                         disabled={locked}
-                        style={{
-                          padding: "6px 10px",
-                          fontSize: 12,
-                          ...(result.status === "Pass"
-                            ? { background: "var(--accent)", color: "var(--on-status)" }
-                            : {}),
-                        }}
                         onClick={() => {
                           const patch = {
                             status: "Pass" as const,
@@ -2397,20 +2556,19 @@ function ChecklistEntryStep({
                         }}
                       >
                         Pass
-                      </button>
-                      <button
-                        className={
-                          result.status === "Fail" ? "danger" : "ghost"
-                        }
+                      </Key3D>
+                      <Key3D
+                        small
+                        tone="bad"
+                        pressed={result.status === "Fail"}
                         disabled={locked}
-                        style={{ padding: "6px 10px", fontSize: 12 }}
                         onClick={() => {
                           updateLocal(ti, { status: "Fail" });
                           autoSave(ti, { status: "Fail" });
                         }}
                       >
                         Fail
-                      </button>
+                      </Key3D>
                     </div>
 
                     <input
@@ -2513,10 +2671,10 @@ function ChecklistEntryStep({
                             updateLocal(ti, { closure_status: "Pending" });
                             warn(
                               !(result.issue_details ?? "").trim() && !(result.action_taken ?? "").trim()
-                                ? "Cannot close: Issue Details and Action Taken are both blank. Closure Status reset to Pending."
+                                ? "Fill in What's wrong (Issue Details) and What was done (Action Taken) first. Fixed? (Closure Status) is back on Pending."
                                 : !(result.issue_details ?? "").trim()
-                                  ? "Cannot close: Issue Details is blank. Closure Status reset to Pending."
-                                  : "Cannot close: Action Taken is blank. Closure Status reset to Pending.",
+                                  ? "Fill in What's wrong (Issue Details) first. Fixed? (Closure Status) is back on Pending."
+                                  : "Fill in What was done (Action Taken) first. Fixed? (Closure Status) is back on Pending.",
                             );
                             return;
                           }
@@ -2632,6 +2790,12 @@ function ChecklistEntryStep({
             })}
           </div>
         ))}
+      {view === "list" && (
+        <p className="rk-rule">
+          A Fail can only be set to Closed when What's wrong (Issue Details) and What was done (Action Taken) are both
+          filled in. Moderate and Critical faults are closed by a Maintenance Supervisor or higher after review.
+        </p>
+      )}
     </div>
   );
 }
@@ -2742,6 +2906,8 @@ interface ReviewStepProps {
   onValidate: (issues: string[]) => void;
   report: any;
   asset: any;
+  /** Option B: the Open link next to each item still to fix. */
+  onOpen?: (step: Step) => void;
 }
 
 function ReviewStep({
@@ -2751,6 +2917,7 @@ function ReviewStep({
   onValidate,
   report,
   asset,
+  onOpen,
 }: ReviewStepProps) {
   const { data: headerFields = [] } = useTemplateHeaderFields(templateId);
   const { data: headerCatalog = [] } = useHeaderFieldCatalog();
@@ -3259,7 +3426,7 @@ function ReviewStep({
           flexWrap: "wrap",
         }}
       >
-        <h2 style={{ margin: 0 }}>Review</h2>
+        <h2 style={{ margin: 0 }}>Check and send <span className="rk-tech">Review &amp; Submit</span></h2>
         <button
           className="ghost"
           style={{ padding: "6px 14px", fontSize: 12 }}
@@ -3285,11 +3452,25 @@ function ReviewStep({
             before submitting:
           </div>
           <ul style={{ margin: 0, paddingLeft: 18 }}>
-            {issues.map((msg, i) => (
-              <li key={i} style={{ fontSize: 12.5 }}>
-                {msg}
-              </li>
-            ))}
+            {issues.map((msg, i) => {
+              const to: Step | null = msg.startsWith("Header")
+                ? "header"
+                : msg.startsWith("Footer")
+                  ? "footer"
+                  : msg.startsWith("Checklist")
+                    ? "checklist"
+                    : null;
+              return (
+                <li key={i} style={{ fontSize: 12.5 }}>
+                  {msg}
+                  {onOpen && to && (
+                    <button className="mri-link" style={{ marginLeft: 8, padding: 0 }} onClick={() => onOpen(to)}>
+                      Open →
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
@@ -4697,7 +4878,7 @@ const DRAWING_VIEW_HEIGHT = 640;
 // Centered warning popup (same overlay and card as the other dialogs in this wizard).
 function CloseBlockedModal({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="modal-overlay" role="alertdialog" aria-modal="true" aria-label="Cannot close this item">
+    <div className="modal-overlay" role="alertdialog" aria-modal="true" aria-label="This item can't be closed yet">
       <div className="modal" style={{ width: "min(420px, 92vw)", textAlign: "left" }}>
         <div className="modal-icon" style={{ background: "var(--danger-soft)", color: "var(--danger)" }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -4705,7 +4886,7 @@ function CloseBlockedModal({ message, onClose }: { message: string; onClose: () 
             <path d="M10.3 4.5L3 18a2 2 0 0 0 1.7 3h14.6a2 2 0 0 0 1.7-3L13.7 4.5a2 2 0 0 0-3.4 0z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
           </svg>
         </div>
-        <h3>Cannot close this item</h3>
+        <h3>This item can't be closed yet</h3>
         <p>{message}</p>
         <div className="modal-actions">
           <button className="primary" autoFocus onClick={onClose}>OK</button>
@@ -5301,10 +5482,10 @@ function DrawingChecklistView({
                               updateLocal(ti, { closure_status: "Pending" });
                               warn(
                                 !(result.issue_details ?? "").trim() && !(result.action_taken ?? "").trim()
-                                  ? "Cannot close: Issue Details and Action Taken are both blank. Closure Status reset to Pending."
+                                  ? "Fill in What's wrong (Issue Details) and What was done (Action Taken) first. Fixed? (Closure Status) is back on Pending."
                                   : !(result.issue_details ?? "").trim()
-                                    ? "Cannot close: Issue Details is blank. Closure Status reset to Pending."
-                                    : "Cannot close: Action Taken is blank. Closure Status reset to Pending.",
+                                    ? "Fill in What's wrong (Issue Details) first. Fixed? (Closure Status) is back on Pending."
+                                    : "Fill in What was done (Action Taken) first. Fixed? (Closure Status) is back on Pending.",
                               );
                               return;
                             }
@@ -5671,7 +5852,7 @@ function AttachmentGallery({
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > MAX_ATTACHMENT_BYTES) {
-      setError("File is too large (max 5MB)");
+      setError("This file is too big — the limit is 5 MB");
       if (inputRef.current) inputRef.current.value = "";
       return;
     }
@@ -5959,14 +6140,14 @@ function MrCostPanel({
       <div className="mri-top-card-h"><strong>Cost to perform the MR</strong></div>
       {cost !== null && (
         <div style={{ fontSize: 12.5, color: "var(--text-soft)", marginBottom: 8 }}>
-          Recorded: <strong>{cost.toLocaleString()}</strong>
+          Cost: <strong>{cost.toLocaleString()}</strong>
           {costBy && <> · by {costBy}</>}
           {costDate && <> · {formatCostDate(costDate)}</>}
         </div>
       )}
       {cost === null && !canEnter && (
         <div style={{ fontSize: 12.5, color: "var(--text-soft)" }}>
-          Not yet entered. The operations supervisor inserts this cost.
+          Not entered yet — the operations supervisor adds this cost once the report is sent.
         </div>
       )}
       {canEnter && (
@@ -5998,7 +6179,9 @@ function MrCostPanel({
 function OpenIssuesCard({
   openPriorIssues,
   carriedForward,
+  onSee,
 }: {
+  onSee?: () => void;
   openPriorIssues: {
     id: number;
     report_id: number;
@@ -6031,10 +6214,11 @@ function OpenIssuesCard({
           <div className="mri-top-card-h">
             <strong>Open issues from earlier reports</strong>
             <span className="mri-top-count">{openPriorIssues.length}</span>
-            <span className="mri-top-sub">read-only</span>
+            <span className="mri-top-sub">from earlier reports — can't be changed here</span>
           </div>
           {visible.map((issue) => (
-            <div key={issue.id} className="mri-issue">
+            <div key={issue.id} className="mri-issue rk-issue">
+              <RowTile tone={issue.severity === "Critical" ? "bad" : issue.severity === "Moderate" ? "look" : "skip"} />
               <div className="mri-issue-h">
                 {issue.checklist_description ?? "Checklist item"}
                 {issue.severity && (
@@ -6069,7 +6253,8 @@ function OpenIssuesCard({
             <span className="mri-top-count">{carriedForward.length}</span>
           </div>
           {carriedForward.map((f) => (
-            <div key={f.id} className="mri-issue">
+            <div key={f.id} className="mri-issue rk-issue">
+              <RowTile tone={f.original_severity === "Critical" ? "bad" : f.original_severity === "Moderate" ? "look" : "skip"} />
               <div className="mri-issue-h">
                 {f.checklist_description ?? "Checklist item"}
                 <span className="mri-sev" style={{ background: sevTone(f.original_severity) }}>
@@ -6080,6 +6265,11 @@ function OpenIssuesCard({
             </div>
           ))}
         </div>
+      )}
+      {onSee && (
+        <button className="mri-link no-print" onClick={onSee}>
+          See them in Things to check →
+        </button>
       )}
     </div>
   );
@@ -6107,10 +6297,10 @@ function PreviousActions({ entries }: { entries: MriChecklistHistoryEntry[] }) {
           color: "var(--text-soft)",
         }}
       >
-        Previous actions (most recent first)
+        Earlier actions (newest first)
       </span>
       {entries.map((h) => (
-        <span key={h.report_id} style={{ fontSize: 12.5, color: "var(--text-soft)" }}>
+        <span key={h.report_id} style={{ fontSize: 12.5, color: "var(--text-soft)", borderLeft: "2px solid var(--border)", paddingLeft: 7 }}>
           {when(h)}
           {h.reported_by ? ` by ${h.reported_by}` : ""}
           {`: ${h.action_taken || "—"}`}

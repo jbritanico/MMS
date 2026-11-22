@@ -6,7 +6,7 @@ export const THEMES: { id: Theme; label: string; swatch: string; hidden?: boolea
   { id: "ocean", label: "Ocean Blue", swatch: "#1c3a52", hidden: true },
   { id: "sepia", label: "Warm Sepia", swatch: "#e8ddc9", hidden: true },
   { id: "sprint", label: "Sprint", swatch: "#05a1c7", hidden: true },
-  { id: "macos", label: "macOS Light", swatch: "#ffffff" },
+  { id: "macos", label: "macOS Light", swatch: "#ffffff", hidden: true },
   { id: "macos-dark", label: "macOS Dark", swatch: "#2c2c2e", hidden: true },
   { id: "fluent", label: "Fluent", swatch: "#2f6fed" },
   { id: "holo", label: "Holo HUD", swatch: "#39d5ff" },
