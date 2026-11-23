@@ -1,4 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import ReportChangeLog from "./ReportChangeLog";
+import { useReportTag } from "./hooks/useReportEdits";
+import OtherFaults from "./OtherFaults";
 import {
   BarChart,
   Bar,
@@ -267,6 +270,13 @@ function ReportWizard({
     viewOnly ||
     report.status === "Approved" ||
     (alreadySubmitted && !canEditAfterSubmit);
+  // FB-006 (RFSM approved): after submission the Job Supervisor may add missed faults and
+  // change severities and actions, and record sign-offs (Cleaned / Function tested /
+  // Pressure tested); every change is logged with a timestamp. The header stays as the
+  // operator sent it. Faults can be changed only while the report waits for endorsement,
+  // so an added or re-rated fault still follows the Table 3 route when it is endorsed.
+  const headerLocked = fieldsLocked || alreadySubmitted;
+  const checklistLocked = fieldsLocked || (alreadySubmitted && report.status !== "Submitted");
 
   // ---- top-of-screen summary: one header row, one "next step" bar, then info cards ----
   const nextAction: { title: string; text: string; label: string; onClick: () => void } | null =
@@ -415,8 +425,8 @@ function ReportWizard({
               Read-only
             </span>
           ) : alreadySubmitted ? (
-            <span className="mri-top-access" title="You have permission to edit this report after submission, until it is closed.">
-              You can edit until it is closed
+            <span className="mri-top-access" title="You can add or change faults until the report is endorsed, and record sign-offs until it is closed. The header stays as the operator sent it. Every change is logged and the operator is told.">
+              {checklistLocked ? "You can record sign-offs until it is closed" : "You can add or change faults until it is endorsed"}
             </span>
           ) : null}
         </div>
@@ -543,12 +553,19 @@ function ReportWizard({
         </div>
       )}
 
+      {alreadySubmitted && !fieldsLocked && (step === "header" || (step === "checklist" && checklistLocked)) && (
+        <p className="rk-rule no-print" style={{ marginBottom: 12 }}>
+          {step === "header"
+            ? "The report details stay as the operator sent them; they can't be changed after the report is submitted."
+            : "Faults can be added or changed only until the report is endorsed. You can still record sign-offs on the last step."}
+        </p>
+      )}
       <div className="panel" style={{ minHeight: 320 }}>
         {step === "header" && (
           <HeaderEntryStep
             templateId={report.template_id}
             reportId={reportId}
-            locked={fieldsLocked}
+            locked={headerLocked}
             asset={asset}
           />
         )}
@@ -556,10 +573,13 @@ function ReportWizard({
           <ChecklistEntryStep
             templateId={report.template_id}
             reportId={reportId}
-            locked={fieldsLocked}
+            locked={checklistLocked}
             assetId={report.asset_id}
             canReviewClosure={canReviewClosure}
           />
+        )}
+        {step === "checklist" && (
+          <OtherFaults reportId={reportId} locked={checklistLocked} canRemove={report.status === "Draft"} />
         )}
         {step === "mid" && (
           <MidEntryStep
@@ -589,6 +609,8 @@ function ReportWizard({
           />
         )}
       </div>
+
+      {alreadySubmitted && <ReportChangeLog reportId={reportId} submittedBy={report.submitted_by ?? null} />}
 
       {step === "review" && report.status === "Draft" && !fieldsLocked && (
         <div className="panel no-print" style={{ marginTop: 16 }}>
@@ -960,9 +982,24 @@ function HeaderEntryStep({
 
   async function handleBlur(fieldId: number) {
     if (locked) return;
+    let value = localValues[fieldId] ?? "";
+    // Job numbers and checklist IDs are matched across reports (Pre-Job vs Post-Job), so they
+    // are kept in one spelling: no extra spaces, capital letters.
+    const blurLabel = fieldLabel(
+      templateFields.find((f) => f.id === fieldId)?.header_field_id ?? -1,
+    )
+      .trim()
+      .toLowerCase();
+    if (blurLabel === "job number" || blurLabel === "pre-mobilization checklist id") {
+      const tidy = value.trim().replace(/\s+/g, " ").toUpperCase();
+      if (tidy !== value) {
+        value = tidy;
+        setLocalValues((prev) => ({ ...prev, [fieldId]: tidy }));
+      }
+    }
     await setValue.mutateAsync({
       templateHeaderFieldId: fieldId,
-      value: localValues[fieldId] ?? "",
+      value,
     });
     unsavedEdits.current.delete(fieldId);
 
@@ -1252,6 +1289,16 @@ function HeaderEntryStep({
                     {" "}
                     (from asset)
                   </span>
+                )}
+                {label === "job number" && (
+                  <small style={{ display: "block", color: "var(--text-soft)", fontWeight: 400 }}>
+                    The job ticket number from the Job Service Report (JSR)
+                  </small>
+                )}
+                {label === JOB_OPERATING_HOURS && (
+                  <small style={{ display: "block", color: "var(--text-soft)", fontWeight: 400 }}>
+                    Record it on every MR-I (Pre-Mob, Pre-Job, Post-Job and Yard); it is added to the operating-hours counter
+                  </small>
                 )}
               </label>
               <input
@@ -1571,6 +1618,17 @@ function FooterEntryStep({
         });
       }
     }
+    // FB-024: the signed-in operator's or Job Supervisor's sign-off date is filled in with
+    // today when it is still empty (they can still change it).
+    const dateField = (who: string) =>
+      sortedFields.find((tf) => fieldLabel(tf.footer_field_id).trim().toLowerCase() === `${who} date`);
+    const fillDate = (field: (typeof sortedFields)[number] | undefined) => {
+      if (!field) return;
+      const existing = savedValues.find((v) => v.template_footer_field_id === field.id)?.value ?? "";
+      if (!existing.trim()) setValue.mutateAsync({ templateFooterFieldId: field.id, value: todayIso() });
+    };
+    if (currentUser.role === "Operator") fillDate(dateField("operator"));
+    if (currentUser.role === "Job Supervisor") fillDate(dateField("supervisor"));
   }, [currentUser, sortedFields, savedValues, savedValuesLoaded, locked]);
 
   function handleChange(fieldId: number, value: string) {
@@ -2571,9 +2629,10 @@ function ChecklistEntryStep({
                       </Key3D>
                     </div>
 
-                    <input
-                      type="text"
+                    <textarea
+                      rows={2}
                       className="trigger-input"
+                      style={{ resize: "vertical", minHeight: 34, width: "100%", font: "inherit", boxSizing: "border-box" }}
                       value={result.issue_details ?? ""}
                       onChange={(e) =>
                         updateLocal(ti, { issue_details: e.target.value, ...(!e.target.value.trim() && result.closure_status === "Closed" && !result.repaired_on_site ? { closure_status: "Pending" as const } : {}) })
@@ -2598,16 +2657,17 @@ function ChecklistEntryStep({
                           {`: ${result.action_taken}`}
                         </span>
                       ) : (
-                        <input
-                          type="text"
+                        <textarea
+                          rows={2}
                           className="trigger-input"
+                          style={{ resize: "vertical", minHeight: 34, width: "100%", font: "inherit", boxSizing: "border-box" }}
                           value={result.action_taken ?? ""}
                           onChange={(e) =>
                             updateLocal(ti, { action_taken: e.target.value, ...(!e.target.value.trim() && result.closure_status === "Closed" && !result.repaired_on_site ? { closure_status: "Pending" as const } : {}) })
                           }
                           onBlur={() => autoSave(ti, {})}
                           disabled={locked || !isFail}
-                          placeholder={isFail ? "Required" : "—"}
+                          placeholder={isFail ? "Fill in when fixed" : "—"}
                         />
                       )}
                       <PreviousActions entries={isFail ? historyForItem(ti.checklist_item_id) : []} />
@@ -2792,8 +2852,9 @@ function ChecklistEntryStep({
         ))}
       {view === "list" && (
         <p className="rk-rule">
-          A Fail can only be set to Closed when What's wrong (Issue Details) and What was done (Action Taken) are both
-          filled in. Moderate and Critical faults are closed by a Maintenance Supervisor or higher after review.
+          A Fail can be sent with What was done (Action Taken) still empty: it is filled in when the fault is fixed.
+          To set a Fail to Closed in this report, What's wrong (Issue Details) and What was done (Action Taken) must both
+          be filled in. Moderate and Critical faults are closed by a Maintenance Supervisor or higher after review.
         </p>
       )}
     </div>
@@ -3075,14 +3136,23 @@ function ReviewStep({
         issues.push(
           `Checklist — "${name}" is marked Fail but has no issue details`,
         );
-      if (!result.action_taken?.trim())
+      // FB-022: Action Taken is optional while the fault is open; it is needed only
+      // when the fault is fixed and closed (in this report or later, by whoever fixes it).
+      if (result.closure_status === "Closed" && !result.action_taken?.trim())
         issues.push(
-          `Checklist — "${name}" is marked Fail but has no action taken`,
+          `Checklist — "${name}" is Closed but has no action taken`,
         );
       if (!result.severity)
         issues.push(`Checklist — "${name}" is marked Fail but has no severity`);
     }
   });
+
+  // FB-024 (RFSM): operating hours are recorded on every MR-I occasion (Pre-Mob, Pre-Job,
+  // Post-Job and Yard), so Job Operating Hours is required whenever the template carries it.
+  const ohRow = headerRows.find((r) => r.label.trim().toLowerCase() === "job operating hours");
+  if (ohRow && !ohRow.value.trim() && !ohRow.required) {
+    issues.push('Header — "Job Operating Hours" is required on every MR-I (Pre-Mob, Pre-Job, Post-Job and Yard)');
+  }
 
   // Compliance Stage drives the Red-tag/MOC gate and the Job Number rule, so it is
   // always required when the template carries it.
@@ -3126,6 +3196,19 @@ function ReviewStep({
     issues.push(
       'Header — "Job Number" is required for a Post-Job report (from the Job Service Report)',
     );
+  }
+
+  // Every Pre-Job and Post-Job report names its client, so faults can be reported by client.
+  const clientRow = headerRows.find(
+    (r) => r.label.trim().toLowerCase() === "client",
+  );
+  if (
+    (stageForJob === "PRE-JOB" || stageForJob === "POST JOB") &&
+    clientRow &&
+    !clientRow.required &&
+    !clientRow.value.trim()
+  ) {
+    issues.push('Header — "Client" is required for a Pre-Job or Post-Job report');
   }
 
   useEffect(() => {
@@ -3243,8 +3326,16 @@ function ReviewStep({
           .map((s) => `${faultSeverityCounts[s]} ${s.toLowerCase()}`)
           .join(", ");
 
+  // Manual 8.1 / 8.2: a closed report shows the tag the unit had when it was closed (from
+  // the tag history), so a reprint stays true; an open report shows the tag now.
+  const { data: reportTag } = useReportTag(reportId);
+  const shownTag = reportTag ? reportTag.tag_status : asset?.tag_status ?? null;
+  const shownReason = reportTag ? reportTag.reason : asset?.tag_reason ?? null;
+  const tagAtClosure = !!reportTag?.closed && !!reportTag.as_of;
+  const tagAsOf = tagAtClosure ? new Date(Number(reportTag!.as_of) * 1000) : null;
+  const tagNowDiffers = tagAtClosure && (reportTag!.current_tag ?? null) !== (reportTag!.tag_status ?? null);
   const equipmentStatus =
-    asset?.tag_status === "Green"
+    shownTag === "Green"
       ? {
           label: "Green tagged",
           sub: "Job ready",
@@ -3253,16 +3344,16 @@ function ReviewStep({
           labelColor: "#1f7a45",
           subColor: "#4d6b5b",
         }
-      : asset?.tag_status === "Yellow"
+      : shownTag === "Yellow"
         ? {
             label: "Yellow tagged",
-            sub: asset?.tag_reason || "Repair in progress",
+            sub: shownReason || "Repair in progress",
             bg: "#fdf3dc",
             border: "#f0d79a",
             labelColor: "#92600a",
             subColor: "#7a6a45",
           }
-      : asset?.tag_status === "Red"
+      : shownTag === "Red"
         ? {
             label: "Red tagged",
             sub: "Rectification required",
@@ -3674,7 +3765,7 @@ function ReviewStep({
                     color: equipmentStatus.subColor ?? "#6b7680",
                   }}
                 >
-                  Equipment status
+                  {tagAtClosure ? "Equipment status at closure" : "Equipment status now"}
                 </div>
                 <div
                   style={{
@@ -3695,6 +3786,12 @@ function ReviewStep({
                 >
                   {equipmentStatus.sub}
                 </div>
+                {tagAtClosure && (
+                  <div style={{ fontSize: 10.5, marginTop: 4, color: equipmentStatus.subColor ?? "#6b7680" }}>
+                    Closed {tagAsOf!.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+                    {tagNowDiffers && ` · Now: ${reportTag!.current_tag ?? "Not tagged"}`}
+                  </div>
+                )}
               </div>
               <div
                 style={{
@@ -5369,9 +5466,10 @@ function DrawingChecklistView({
 
                   <div className="field">
                     <label>Issue Details</label>
-                    <input
-                      type="text"
+                    <textarea
+                      rows={2}
                       className="trigger-input"
+                      style={{ resize: "vertical", minHeight: 34, width: "100%", font: "inherit", boxSizing: "border-box" }}
                       value={result.issue_details ?? ""}
                       onChange={(e) =>
                         updateLocal(ti, { issue_details: e.target.value, ...(!e.target.value.trim() && result.closure_status === "Closed" && !result.repaired_on_site ? { closure_status: "Pending" as const } : {}) })
@@ -5398,16 +5496,17 @@ function DrawingChecklistView({
                         {`: ${result.action_taken}`}
                       </span>
                     ) : (
-                      <input
-                        type="text"
+                      <textarea
+                        rows={2}
                         className="trigger-input"
+                        style={{ resize: "vertical", minHeight: 34, width: "100%", font: "inherit", boxSizing: "border-box" }}
                         value={result.action_taken ?? ""}
                         onChange={(e) =>
                           updateLocal(ti, { action_taken: e.target.value, ...(!e.target.value.trim() && result.closure_status === "Closed" && !result.repaired_on_site ? { closure_status: "Pending" as const } : {}) })
                         }
                         onBlur={() => autoSave(ti, {})}
                         disabled={locked || !isFail}
-                        placeholder={isFail ? "Required" : "—"}
+                        placeholder={isFail ? "Fill in when fixed" : "—"}
                       />
                     )}
                     <PreviousActions entries={isFail ? historyForItem(ti.checklist_item_id) : []} />

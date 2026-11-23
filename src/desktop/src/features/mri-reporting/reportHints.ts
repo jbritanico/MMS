@@ -85,6 +85,9 @@ export function getReportHints(r: ReportHintInput): ReportHints {
   r.header.forEach((f) => { if (f.required && !f.value.trim()) hMsgs.push(`${f.label} is still empty`); });
   const stageField = r.header.find((f) => norm(f.label) === "compliance stage");
   if (stageField && !stageField.required && !stageField.value.trim()) hMsgs.push("Compliance stage is still empty");
+  // FB-024: operating hours are recorded on every MR-I occasion.
+  const ohField = r.header.find((f) => norm(f.label) === "job operating hours");
+  if (ohField && !ohField.required && !ohField.value.trim()) hMsgs.push("Job Operating Hours is needed on every MR-I");
   const stage = (stageField?.value ?? "").trim().toUpperCase();
   const idField = r.header.find((f) => norm(f.label) === "pre-mobilization checklist id");
   const jobField = r.header.find((f) => norm(f.label) === "job number");
@@ -92,6 +95,10 @@ export function getReportHints(r: ReportHintInput): ReportHints {
     hMsgs.push("Pre-Mobilization Checklist ID is needed for a Pre-Mob or Pre-Job report");
   } else if (((stage === "PRE-JOB" && !idField) || stage === "POST JOB") && jobField && !jobField.required && !jobField.value.trim()) {
     hMsgs.push(`Job Number is needed for a ${stage === "POST JOB" ? "Post-Job" : "Pre-Job"} report`);
+  }
+  const clientField = r.header.find((f) => norm(f.label) === "client");
+  if ((stage === "PRE-JOB" || stage === "POST JOB") && clientField && !clientField.required && !clientField.value.trim()) {
+    hMsgs.push(`Client is needed for a ${stage === "POST JOB" ? "Post-Job" : "Pre-Job"} report`);
   }
   const filled = r.header.filter((f) => f.value.trim()).length;
   const header = r.header.length
@@ -108,7 +115,8 @@ export function getReportHints(r: ReportHintInput): ReportHints {
   fails.forEach((i) => {
     const missing: string[] = [];
     if (!i.issueDetails.trim()) missing.push("what's wrong");
-    if (!i.actionTaken.trim()) missing.push("what was done");
+    // FB-022: "what was done" is only needed once the fault is closed.
+    if (i.closure === "Closed" && !i.actionTaken.trim()) missing.push("what was done");
     if (!i.severity) missing.push("how serious");
     if (missing.length) failsToFix++;
     if (missing.length) cMsgs.push(`${i.name}: Fail with no ${missing.join(", ")}`);

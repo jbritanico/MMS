@@ -1,6 +1,8 @@
 import { useLayoutEffect, useRef, useState, type ReactElement } from "react";
 import { createPortal } from "react-dom";
 import IdleScreensaver from "../idle/IdleScreenSaver";
+import { useMyReportChangeNotices } from "../mri-reporting/hooks/useReportEdits";
+import { useMyRepairAssignments } from "../mri-reporting/hooks/useMriFaultRectifications";
 import { VISIBLE_THEMES, isDarkTheme, type Theme } from "../../lib/theme";
 import fieldOpsImage from "../../assets/FieldMaintenance.png";
 import fieldOpsImageDark from "../../assets/FieldDark.png";
@@ -252,7 +254,13 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
   const reportsNeedingActionCount = reportsNeedingAction.length;
   const { data: myOpenReports = [] } = useMyOpenMriReports(currentUser?.name);
   const myOpenReportsCount = myOpenReports.length;
+  // FB-006: reports this user sent that were changed afterwards by the Job Supervisor.
+  const { data: myChangedReports = [] } = useMyReportChangeNotices(currentUser?.name);
+  // FB-013: repairs a reviewer assigned to this user.
+  const { data: myRepairs = [] } = useMyRepairAssignments(currentUser?.id ?? 0);
+  const myRepairsNew = myRepairs.filter((r) => !r.seen).length;
   const canOpenFaultReview =
+    myRepairs.length > 0 ||
     canReviewApprovals ||
     canRectify ||
     canConfirmProvisional ||
@@ -264,7 +272,8 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
     (!isAdministrator && canConfirmProvisional ? provisionalCount : 0) +
     (!isAdministrator && canRectify ? pendingRectificationsCount : 0) +
     (!isAdministrator && canReviewReports ? reportsNeedingActionCount : 0) +
-    myOpenReportsCount;
+    myOpenReportsCount +
+    myRepairsNew;
   // The Dashboard tile is hidden when "Open the Dashboard area" is off for this user.
   const dashAccess = useDashAccess();
 
@@ -571,6 +580,11 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
                     <div className="drawer-user-role">
                       MR-I reports you submitted that aren't closed yet
                     </div>
+                    {myChangedReports.length > 0 && (
+                      <div className="drawer-user-role" style={{ color: "var(--warn)", fontWeight: 600 }}>
+                        {myChangedReports.length} changed by your supervisor
+                      </div>
+                    )}
                   </div>
                   <div
                     style={{
@@ -595,6 +609,36 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
                       onClick={() => {
                         setFaultDrawerOpen(false);
                         onNavigate("my-reports-queue");
+                      }}
+                    >
+                      View
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {myRepairs.length > 0 && (
+                <div
+                  className="drawer-user-card"
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}
+                >
+                  <div>
+                    <div className="drawer-user-name">Repairs assigned to you</div>
+                    <div className="drawer-user-role">Faults a reviewer asked you to fix</div>
+                    {myRepairsNew > 0 && (
+                      <div className="drawer-user-role" style={{ color: "var(--warn)", fontWeight: 600 }}>
+                        {myRepairsNew} new
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                    <span style={{ fontSize: 20, fontWeight: 700, color: "var(--text)" }}>{myRepairs.length}</span>
+                    <button
+                      className="primary"
+                      style={{ padding: "5px 10px", fontSize: 12 }}
+                      onClick={() => {
+                        setFaultDrawerOpen(false);
+                        onNavigate("rectification-queue");
                       }}
                     >
                       View

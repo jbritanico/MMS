@@ -8,6 +8,7 @@ import {
   usePurgeMriReports,
   useResetTriggerRunningValues,
   useCleanSlateMri,
+  useMriReportDeletionLog,
   type MriReportPurgeFilter,
 } from "./hooks/usePurging";
 import { useCurrentUser } from "../../lib/currentUser";
@@ -16,12 +17,23 @@ import { useAssets } from "../asset-registry/hooks/useAssets";
 import { useAssetTypes } from "./hooks/useAssetTypes";
 import { IsoSteps, backupHint, fmtDay, readBackups, useReportAdminHints, useReportAdminKpis } from "./AdminIsoGuide";
 
+// FB-026: deleting MR-I reports needs the approved MOC (reference and Country Manager).
+type MocInfo = { reference: string; approvedBy: string };
 type PendingPurge = {
   label: string;
   description: string;
-  run: () => Promise<string>;
+  run: (moc: MocInfo) => Promise<string>;
   title?: string;
   confirmLabel?: string;
+  /** True when the action deletes MR-I reports, so the MOC must be given. */
+  moc?: boolean;
+};
+
+const fmtWhen = (raw: string | null | undefined) => {
+  if (!raw) return "—";
+  const n = Number(raw);
+  const d = !isNaN(n) ? new Date(n < 1e12 ? n * 1000 : n) : new Date(raw);
+  return isNaN(d.getTime()) ? raw : d.toLocaleString(undefined, { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 };
 
 function DataPurging() {
@@ -41,6 +53,12 @@ function DataPurging() {
   const resetTriggerRunningValues = useResetTriggerRunningValues();
   const cleanSlate = useCleanSlateMri();
   const { user: currentUser } = useCurrentUser();
+  const { data: deletions = [] } = useMriReportDeletionLog();
+  // FB-026: only the Administrator may delete MR-I reports.
+  const isAdmin = currentUser?.role === "Administrator";
+  const adminOnlyTip = isAdmin ? undefined : "Only the Administrator can delete MR-I reports, against an approved MOC.";
+  const [mocRef, setMocRef] = useState("");
+  const [mocBy, setMocBy] = useState("");
 
   const [filterAsset, setFilterAsset] = useState("");
   const [filterCountry, setFilterCountry] = useState("");
@@ -77,8 +95,13 @@ function DataPurging() {
 
   async function confirmPurge() {
     if (!pendingPurge) return;
+    if (pendingPurge.moc && (!mocRef.trim() || !mocBy.trim())) {
+      flash("Enter the approved MOC reference and the Country Manager who approved it.", "err");
+      return;
+    }
     try {
-      const result = await pendingPurge.run();
+      const result = await pendingPurge.run({ reference: mocRef.trim(), approvedBy: mocBy.trim() });
+      if (pendingPurge.moc) { setMocRef(""); setMocBy(""); }
       flash(result, "ok");
     } catch (err) {
       flash(String(err), "err");
@@ -99,7 +122,8 @@ function DataPurging() {
     setPendingPurge({
       label: "MR-I Reports",
       description: `This will permanently delete ${previewCount ?? "?"} MR-I report(s) matching your filters, along with all their header, checklist, mid-section, and footer data. This cannot be undone.`,
-      run: () => runPurge.mutateAsync(currentFilter),
+      moc: true,
+      run: (m) => runPurge.mutateAsync({ filter: currentFilter, userId: currentUser?.id ?? 0, mocReference: m.reference, mocApprovedBy: m.approvedBy }),
     });
   }
 
@@ -132,15 +156,17 @@ function DataPurging() {
       <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
         <button
           className="danger"
-          disabled={!currentUser || cleanSlate.isPending}
+          disabled={!currentUser || !isAdmin || cleanSlate.isPending}
+          title={adminOnlyTip}
           onClick={() =>
             setPendingPurge({
+              moc: true,
               label: "Clean slate",
               title: "Start MR-I from a clean slate?",
               confirmLabel: "Clean slate",
               description:
                 "This permanently deletes every MR-I report and all linked fault, repair, decision, exemption and tag history records, resets all trigger running totals to zero and sets every asset to Green. This cannot be undone.",
-              run: () => cleanSlate.mutateAsync(currentUser?.name ?? ""),
+              run: (m) => cleanSlate.mutateAsync({ changedBy: currentUser?.name ?? "", userId: currentUser?.id ?? 0, mocReference: m.reference, mocApprovedBy: m.approvedBy }),
             })
           }
         >
@@ -291,22 +317,48 @@ function DataPurging() {
             ? (previewCount !== null ? `${previewCount} ${previewCount === 1 ? "report matches" : "reports match"}` : "Counting…")
             : "Choose at least one filter"}
         </span>
-        <button className="danger" disabled={!hasAnyFilter} onClick={requestReportsPurge}>
+        <button className="danger" disabled={!hasAnyFilter || !isAdmin} title={adminOnlyTip} onClick={requestReportsPurge}>
           Purge Matching Reports
         </button>
         <button
           className="ghost"
+          disabled={!isAdmin}
+          title={adminOnlyTip}
           onClick={() =>
             setPendingPurge({
               label: "ALL MR-I Reports",
               description: "This will permanently delete every MR-I report in the system, regardless of asset, country, service line, or asset type — including all their header, checklist, mid-section, and footer data. This cannot be undone.",
-              run: () => runPurge.mutateAsync({ asset_id: null, country: null, service_line: null, asset_type_id: null }),
+              moc: true,
+              run: (m) => runPurge.mutateAsync({ filter: { asset_id: null, country: null, service_line: null, asset_type_id: null }, userId: currentUser?.id ?? 0, mocReference: m.reference, mocApprovedBy: m.approvedBy }),
             })
           }
         >
           Purge ALL Reports (no filter)
         </button>
       </div>
+
+      <div className="tig-hint" role="note" style={{ marginTop: 16, maxWidth: 820 }}>
+        MR-I reports can be deleted only by the Administrator, and only against an approved MOC authorised by the Country Manager.
+        Every deleted report is recorded below.{!isAdmin && " You are not the Administrator, so the report buttons are off."}
+      </div>
+
+      <div className="mri-preview-section-label" style={{ marginTop: 24 }}>MR-I reports deleted ({deletions.length})</div>
+      {deletions.length === 0 ? (
+        <p style={{ fontSize: 12.5, color: "var(--text-soft)" }}>No MR-I report has been deleted.</p>
+      ) : (
+        <div style={{ overflowX: "auto", maxHeight: 320, marginBottom: 8 }}>
+          <table className="dp-del">
+            <thead><tr><th>Deleted</th><th>Report</th><th>Unit</th><th>Status</th><th>Sent by</th><th>Deleted by</th><th>MOC</th><th>Approved by</th><th>How</th></tr></thead>
+            <tbody>{deletions.map((d) => (
+              <tr key={d.id}>
+                <td style={{ whiteSpace: "nowrap" }}>{fmtWhen(d.deleted_at)}</td><td>#{d.report_id}</td><td>{d.asset_code ?? "—"}</td><td>{d.report_status ?? "—"}</td>
+                <td>{d.submitted_by ?? "—"}</td><td>{d.deleted_by}</td><td><b>{d.moc_reference}</b></td><td>{d.moc_approved_by}</td><td>{d.method}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+          <style>{`.dp-del { width: 100%; border-collapse: collapse; font-size: 12.5px; } .dp-del th { text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-soft); padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; } .dp-del td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }`}</style>
+        </div>
+      )}
 
       <div className="mri-preview-section-label" style={{ marginTop: 24 }}>Maintenance counters (running totals)</div>
       <p style={{ fontSize: 12.5, color: "var(--text-soft)", marginBottom: 14 }}>
@@ -350,9 +402,22 @@ function DataPurging() {
             </div>
             <h3>{pendingPurge.title ?? `Purge ${pendingPurge.label}?`}</h3>
             <p>{pendingPurge.description}</p>
+            {pendingPurge.moc && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, textAlign: "left", margin: "4px 0 8px" }}>
+                <p style={{ fontSize: 12.5, color: "var(--text-soft)", margin: 0 }}>Deleting MR-I reports needs an approved MOC authorised by the Country Manager. It is recorded with each deleted report.</p>
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label htmlFor="dp-moc-ref">Approved MOC reference</label>
+                  <input id="dp-moc-ref" type="text" value={mocRef} onChange={(e) => setMocRef(e.target.value)} placeholder="For example MOC-2026-031" />
+                </div>
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label htmlFor="dp-moc-by">Approved by (Country Manager)</label>
+                  <input id="dp-moc-by" type="text" value={mocBy} onChange={(e) => setMocBy(e.target.value)} placeholder="Name of the Country Manager" />
+                </div>
+              </div>
+            )}
             <div className="modal-actions">
               <button className="ghost" onClick={() => setPendingPurge(null)}>Cancel</button>
-              <button className="danger" onClick={confirmPurge}>{pendingPurge.confirmLabel ?? "Purge"}</button>
+              <button className="danger" disabled={!!pendingPurge.moc && (!mocRef.trim() || !mocBy.trim())} onClick={confirmPurge}>{pendingPurge.confirmLabel ?? "Purge"}</button>
             </div>
           </div>
         </div>

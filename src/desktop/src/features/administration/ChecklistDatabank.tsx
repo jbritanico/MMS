@@ -13,6 +13,7 @@ import {
 import { useQueries } from "@tanstack/react-query";
 import { invoke } from "../../lib/ipc";
 import { useMriTemplates } from "./hooks/useMriTemplates";
+import { useMriDashboardDetails, useMriDashboardMore } from "../dashboard/hooks/useMriDashboards";
 import type { TemplateChecklistItem } from "../mri-template-builder/hooks/useTemplateChecklistItems";
 import { FilterChips, IsoBars, useReportAdminHints, useReportAdminKpis } from "./AdminIsoGuide";
 
@@ -79,10 +80,32 @@ function ChecklistDatabank() {
       { label: "not on any template", value: usageReady ? notUsedCount : "…", tone: notUsedCount ? "look" : "ok" },
     ]);
     const [q, setQ] = useState("");
-    const [show, setShow] = useState<"all" | "unused">("all");
+    const [show, setShow] = useState<"all" | "unused" | "neverfail">("all");
+    // Questions on a template that never failed in the last N months, from the answers on sent
+    // MR-I reports (matched by the question's wording). Display only.
+    const [failMonths, setFailMonths] = useState(12);
+    const details = useMriDashboardDetails();
+    const moreQ = useMriDashboardMore();
+    const failStats = useMemo(() => {
+        const since = Date.now() / 1000 - failMonths * 30.44 * 86400;
+        const sentAt = new Map((moreQ.data?.reports ?? []).filter((r) => r.status !== "Draft").map((r) => [r.id, r.submitted_at ?? 0]));
+        const m = new Map<string, { asked: number; failed: number }>();
+        (details.data?.results ?? []).forEach((x) => {
+            const at = sentAt.get(x.report_id);
+            if (at == null || at < since || !x.item) return;
+            const k = x.item.trim().toLowerCase();
+            const v = m.get(k) ?? { asked: 0, failed: 0 };
+            v.asked++; if (/fail/i.test(x.status)) v.failed++;
+            m.set(k, v);
+        });
+        return m;
+    }, [details.data, moreQ.data, failMonths]);
+    const statsReady = details.isSuccess && moreQ.isSuccess;
+    const statOf = (i: ChecklistItem) => failStats.get(i.description.trim().toLowerCase());
+    const neverFailed = (i: ChecklistItem) => i.level === "MR-I" && usageReady && statsReady && !!usage.get(i.id) && !(statOf(i)?.failed);
 
     const filteredItems = items.filter((i) => i.level === activeTab
-        && (show === "all" || notUsed(i))
+        && (show === "all" || (show === "unused" ? notUsed(i) : neverFailed(i)))
         && (!q.trim() || `${i.code} ${i.description}`.toLowerCase().includes(q.trim().toLowerCase())));
     const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
     const pagedItems = useMemo(
@@ -130,8 +153,12 @@ function ChecklistDatabank() {
 
     async function confirmDelete() {
         if (!pendingDelete) return;
-        await deleteItem.mutateAsync(pendingDelete.id);
-        flash(`"${pendingDelete.code}" deleted`, "ok");
+        try {
+            await deleteItem.mutateAsync(pendingDelete.id);
+            flash(`"${pendingDelete.code}" deleted`, "ok");
+        } catch (err) {
+            flash(String(err), "err");
+        }
         setPendingDelete(null);
     }
 
@@ -301,7 +328,15 @@ function ChecklistDatabank() {
             <div className="adm-toolbar">
                 <input type="search" className="search" aria-label="Find a check" placeholder="Find by code or words…" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} />
                 {activeTab === "MR-I" && (
-                    <FilterChips value={show} onChange={(v) => { setShow(v); setPage(1); }} options={[{ id: "all", label: "All" }, { id: "unused", label: "Not on any template" }]} />
+                    <FilterChips value={show} onChange={(v) => { setShow(v); setPage(1); }} options={[{ id: "all", label: "All" }, { id: "unused", label: "Not on any template" }, { id: "neverfail", label: "Never failed" }]} />
+                )}
+                {activeTab === "MR-I" && show === "neverfail" && (
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--text-soft)" }}>
+                        in the last
+                        <select value={failMonths} onChange={(e) => { setFailMonths(Number(e.target.value)); setPage(1); }} aria-label="Months">
+                            {[3, 6, 12, 24].map((n) => <option key={n} value={n}>{n} months</option>)}
+                        </select>
+                    </label>
                 )}
                 <span style={{ fontSize: 12.5, color: "var(--text-soft)" }}>{filteredItems.length} {filteredItems.length === 1 ? "check" : "checks"}</span>
             </div>
@@ -342,6 +377,9 @@ function ChecklistDatabank() {
                                             {item.level === "MR-I" && usageReady && (usage.get(item.id)
                                                 ? <span className="pill active" title="MR-I templates using this check">On {usage.get(item.id)} {usage.get(item.id) === 1 ? "template" : "templates"}</span>
                                                 : <span className="pill adm-pill-look">Not on any template</span>)}
+                                            {show === "neverfail" && neverFailed(item) && (
+                                                <span className="pill neutral" title={`Answers on sent MR-I reports in the last ${failMonths} months`}>{statOf(item)?.asked ? `Answered ${statOf(item)!.asked}×, never failed` : `Not answered in ${failMonths} months`}</span>
+                                            )}
                                         </span>
                                     </>
                                 )}
@@ -367,12 +405,21 @@ function ChecklistDatabank() {
                                                         stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
                                                 </svg>
                                             </button>
-                                            <button className="icon-btn icon-danger" aria-label="Delete" onClick={() => setPendingDelete(item)}>
+                                            {(() => {
+                                                // A question on any template (Draft included) can't be deleted.
+                                                const n = usage.get(item.id) ?? 0;
+                                                const locked = !usageReady || n > 0;
+                                                return (
+                                            <button className="icon-btn icon-danger" aria-label="Delete" aria-disabled={locked} style={locked ? { opacity: 0.35, cursor: "not-allowed" } : undefined}
+                                                title={!usageReady ? "Checking which templates use it…" : n > 0 ? `Used on ${n} ${n === 1 ? "template" : "templates"} — remove it from ${n === 1 ? "that template" : "those templates"} first` : "Delete"}
+                                                onClick={() => !locked && setPendingDelete(item)}>
                                                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                                     <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                                                     <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
                                                 </svg>
                                             </button>
+                                                );
+                                            })()}
                                         </>
                                     )}
                                 </div>
@@ -421,7 +468,7 @@ function ChecklistDatabank() {
                         <h3>Delete checklist item?</h3>
                         <p>
                             This will permanently delete <strong>"{pendingDelete.code}"</strong> from the databank.
-                            Templates already using it will keep their reference, but it can no longer be selected for new templates.
+                            It isn't used on any template.
                         </p>
                         <div className="modal-actions">
                             <button className="ghost" onClick={() => setPendingDelete(null)}>Cancel</button>

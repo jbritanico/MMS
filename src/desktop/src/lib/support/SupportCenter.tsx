@@ -4,9 +4,10 @@ import { useCurrentUser } from "../currentUser";
 import { copyText, diag, fileStamp, flush, installDiag, localStamp, saveFile, timeOnly, type ErrItem, type IpcItem, type SystemInfo, type TrailItem } from "./diag";
 import { SUPPORT_CSS } from "./supportCss";
 import { buildSupportBundle, fmtBundleSize, type BundleResult } from "./supportBundle";
+import FaqModal from "./FaqModal";
 
 // The support tools, available on every screen:
-//   Help button (bottom right) -> About MMS (#4), Report a problem (#5), Save diagnostics file (#3),
+//   Help button (bottom right) -> Questions and answers (FAQ, faq.ts), About MMS (#4), Report a problem (#5), Save diagnostics file (#3),
 //   Check my data (#7), Export a report for support (#8), Copy last error (#1), Open log folder (#6),
 //   Support mode (#10, Administrators).
 //   "Something went wrong · Copy details" appears after any error (#1).
@@ -21,7 +22,7 @@ const SCREEN_NAMES: Record<string, string> = {
   "report-flow": "Report flow", "asset-flow": "Asset flow",
 };
 
-type Modal = null | "send" | "about" | "problem" | "diagnostics" | "check" | "export" | "crash";
+type Modal = null | "faq" | "send" | "about" | "problem" | "diagnostics" | "check" | "export" | "crash";
 interface DataCheck { key: string; name: string; status: "ok" | "warn" | "error" | "skip"; count: number; detail: string; examples: number[] }
 interface SessionStart { unclean: boolean; previous_started: string | null; crash_note: string | null }
 
@@ -147,6 +148,7 @@ export default function SupportCenter({ screen, context }: { screen: string; con
   const openLogs = () => call("diag_open_log_folder").catch((e) => notify(String(e)));
 
   const items: { key: string; icon: ReactNode; label: string; hint?: string; run: () => void; admin?: boolean }[] = [
+    { key: "faq", icon: ICON.help, label: "Questions and answers", hint: "How MMS works, by topic and screen", run: () => setModal("faq") },
     { key: "send", icon: ICON.send, label: "Send to IT", hint: "One file with everything IT needs", run: () => setModal("send") },
     { key: "about", icon: ICON.info, label: "About MMS", hint: "Version, computer and database", run: () => setModal("about") },
     { key: "problem", icon: ICON.flag, label: "Report a problem", hint: "Ctrl + Shift + F", run: () => setModal("problem") },
@@ -192,6 +194,7 @@ export default function SupportCenter({ screen, context }: { screen: string; con
 
       {support && isAdmin && <SupportPanel onClose={() => setSupport(false)} />}
 
+      {modal === "faq" && <FaqModal screen={screen} screenName={SCREEN_NAMES[screen] ?? screen} onClose={() => setModal(null)} />}
       {modal === "send" && <SendToItModal report={context?.report ?? null} onClose={() => setModal(null)} />}
       {modal === "about" && <AboutModal onClose={() => setModal(null)} onCopy={notify} onLogs={openLogs} onDiagnostics={() => setModal("diagnostics")} onSend={() => setModal("send")} hideOld={HIDDEN_HELP.has("diag")} />}
       {modal === "problem" && <ProblemModal onClose={() => setModal(null)} onSaved={notify} />}

@@ -21,15 +21,15 @@ type Tag = "Red" | "Yellow" | "Green" | "None";
 const norm = (t: string | null | undefined): Tag => (t === "Red" || t === "Yellow" || t === "Green" ? t : "None");
 const RED = "var(--danger)", YEL = "var(--tag-yellow, #d4a017)";
 
-interface UnitTime { asset: MriDashboardAsset; red: number; yellow: number; turnedRed: number; longestRed: number; changes: MriDashTagChange[] }
+export interface UnitTime { asset: MriDashboardAsset; red: number; yellow: number; green: number; none: number; turnedRed: number; longestRed: number; changes: MriDashTagChange[] }
 
-function timeFor(asset: MriDashboardAsset, changes: MriDashTagChange[], s: number, e: number): UnitTime {
+export function timeFor(asset: MriDashboardAsset, changes: MriDashTagChange[], s: number, e: number): UnitTime {
   const ch = changes.filter((c) => c.changed_at != null).sort((a, b) => a.changed_at! - b.changed_at!);
   const before = ch.filter((c) => c.changed_at! <= s);
   let cur: Tag = before.length ? norm(before[before.length - 1].tag_status) : ch.length ? norm(ch[0].previous_tag_status) : norm(asset.tag_status);
-  let t0 = s, red = 0, yellow = 0, turnedRed = 0, longestRed = 0;
+  let t0 = s, red = 0, yellow = 0, green = 0, none = 0, turnedRed = 0, longestRed = 0;
   let redStart: number | null = cur === "Red" ? (before.length ? before[before.length - 1].changed_at! : s) : null;
-  const add = (to: number) => { if (cur === "Red") red += to - t0; else if (cur === "Yellow") yellow += to - t0; };
+  const add = (to: number) => { if (cur === "Red") red += to - t0; else if (cur === "Yellow") yellow += to - t0; else if (cur === "Green") green += to - t0; else none += to - t0; };
   const inWin = ch.filter((c) => c.changed_at! > s && c.changed_at! < e);
   for (const c of inWin) {
     add(c.changed_at!);
@@ -41,7 +41,7 @@ function timeFor(asset: MriDashboardAsset, changes: MriDashTagChange[], s: numbe
   }
   add(e);
   if (cur === "Red" && redStart != null) longestRed = Math.max(longestRed, e - redStart);
-  return { asset, red, yellow, turnedRed, longestRed, changes: ch };
+  return { asset, red, yellow, green, none, turnedRed, longestRed, changes: ch };
 }
 
 function useTimes(assets: MriDashboardAsset[], s: number, e: number) {
@@ -144,6 +144,7 @@ export default function TimeRedYellow({ assets, filters }: { assets: MriDashboar
       { Measure: "Times a unit turned Red", Value: turned }, { Measure: "Ready-for-service time %", Value: ready },
     ] },
     { name: "Units", rows: ranked.map((t) => ({ Unit: t.asset.asset_code, Country: t.asset.country, "Equipment type": t.asset.asset_type, "Tag now": norm(t.asset.tag_status), "Days Red": toDays(t.red), "Days Yellow": toDays(t.yellow), "% of period out of action": pct(t), "Times turned Red": t.turnedRed, "Longest Red spell (days)": toDays(t.longestRed) })) },
+    { name: "Availability", rows: availabilityRows(times, span, "unit").map((r) => ({ Unit: r.k, "% Green": r.green, "% Yellow": r.yellow, "% Red": r.red, "% Not tagged": r.none })) },
     ...(unit ? [{ name: "Tag changes", rows: unit.changes.map((c) => ({ Unit: unit.asset.asset_code, Changed: fmtDate(c.changed_at), From: c.previous_tag_status, To: c.tag_status, Reason: c.reason, By: c.changed_by, Report: c.report_id ? `#${c.report_id}` : null })) }] : []),
   ];
 
@@ -229,6 +230,8 @@ export default function TimeRedYellow({ assets, filters }: { assets: MriDashboar
         </div>
       )}
 
+      <AvailabilityPanel times={times} span={span} label={p.label} />
+
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>Units out of action ({ranked.length})</h3></div>
         <DrillChips onClear={clearAll} chips={[pick === "red" && <b>Red</b>, pick === "yellow" && <b>Yellow</b>]} />
@@ -244,6 +247,53 @@ export default function TimeRedYellow({ assets, filters }: { assets: MriDashboar
           </table><p className="mrid-note">Click a unit to see its tag changes.</p></div>
         )}
       </div>
+    </div>
+  );
+}
+
+// Fleet availability (report 19): share of the period each unit, equipment type or country spent
+// Green, Yellow, Red or not tagged, from the same tag history.
+type AvBy = "unit" | "asset_type" | "country";
+const AV_BY: Record<AvBy, string> = { unit: "Unit", asset_type: "Equipment type", country: "Country" };
+export function availabilityRows(times: UnitTime[], span: number, by: AvBy) {
+  const m = new Map<string, UnitTime[]>();
+  times.forEach((t) => { const k = by === "unit" ? t.asset.asset_code : (t.asset[by] ?? "").trim() || "Not set"; m.set(k, [...(m.get(k) ?? []), t]); });
+  return [...m.entries()].map(([k, l]) => {
+    const tot = Math.max(1, span * l.length);
+    const f = (key: "green" | "yellow" | "red" | "none") => Math.round((l.reduce((a, t) => a + t[key], 0) / tot) * 1000) / 10;
+    return { k, n: l.length, green: f("green"), yellow: f("yellow"), red: f("red"), none: f("none") };
+  }).sort((a, b) => a.green - b.green || a.k.localeCompare(b.k));
+}
+
+function AvailabilityPanel({ times, span, label }: { times: UnitTime[]; span: number; label: string }) {
+  const [by, setBy] = useState<AvBy>("asset_type");
+  const rows = useMemo(() => availabilityRows(times, span, by), [times, span, by]);
+  const GRN = "var(--success)", NONE = "var(--border)";
+  return (
+    <div className="mrid-panel">
+      <div className="mrid-panel-head">
+        <h3>Fleet availability by {AV_BY[by].toLowerCase()}</h3>
+        <label className="mrid-field mrid-inline">
+          <span>Group by</span>
+          <select value={by} onChange={(e) => setBy(e.target.value as AvBy)}>
+            {(Object.keys(AV_BY) as AvBy[]).map((g) => <option key={g} value={g}>{AV_BY[g]}</option>)}
+          </select>
+        </label>
+      </div>
+      {rows.length === 0 ? <p className="mrid-note mrid-empty">No active units.</p> : (
+        <div className="mrid-table-wrap"><table className="mrid-table">
+          <thead><tr><th>{AV_BY[by]}</th>{by !== "unit" && <th>Units</th>}<th>Green</th><th>Yellow</th><th>Red</th><th>Not tagged</th><th style={{ width: "32%" }} aria-label="Share of time" /></tr></thead>
+          <tbody>{rows.map((r) => (
+            <tr key={r.k}>
+              <td><b>{r.k}</b></td>{by !== "unit" && <td>{r.n}</td>}
+              <td>{r.green}%</td><td>{r.yellow ? `${r.yellow}%` : "—"}</td><td>{r.red ? `${r.red}%` : "—"}</td><td>{r.none ? `${r.none}%` : "—"}</td>
+              <td><div className="av-bar" title={`Green ${r.green}% · Yellow ${r.yellow}% · Red ${r.red}% · Not tagged ${r.none}%`}>
+                <i style={{ width: `${r.green}%`, background: GRN }} /><i style={{ width: `${r.yellow}%`, background: YEL }} /><i style={{ width: `${r.red}%`, background: RED }} /><i style={{ width: `${r.none}%`, background: NONE }} />
+              </div></td>
+            </tr>))}</tbody>
+        </table><p className="mrid-note">Share of {label} each group spent in each tag colour, lowest Green first.</p></div>
+      )}
+      <style>{`.av-bar { display: flex; height: 12px; border-radius: 99px; overflow: hidden; background: var(--border); } .av-bar i { display: block; height: 100%; }`}</style>
     </div>
   );
 }

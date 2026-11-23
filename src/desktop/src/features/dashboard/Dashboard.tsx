@@ -4,6 +4,7 @@ import {
   useAssetMriHistory,
   type AssetMriHistorySummaryRow,
 } from "./hooks/useMriHistory";
+import HistoryPrint from "./HistoryPrint";
 import { useAssetTriggers } from "../asset-registry/hooks/useTriggers";
 import { type Theme } from "../../lib/theme";
 import { useAssets } from "../asset-registry/hooks/useAssets";
@@ -379,6 +380,7 @@ interface AssetHistoryPanelProps {
 
 function AssetHistoryPanel({ assetId, assetCode, assetDescription, onBack, onOpenReport, onShowAssetFlow }: AssetHistoryPanelProps) {
   const { data: rows = [], isLoading } = useAssetMriHistory(assetId);
+  const [printing, setPrinting] = useState(false);
   const { data: triggers = [] } = useAssetTriggers(assetId);
   const { data: registryAssets = [] } = useAssets();
   const registryAsset = registryAssets.find((x) => x.id === assetId);
@@ -406,8 +408,15 @@ function AssetHistoryPanel({ assetId, assetCode, assetDescription, onBack, onOpe
               Show flow
             </button>
           )}
+          <button className="ghost" onClick={() => setPrinting(true)} disabled={isLoading} style={{ padding: "6px 12px", fontSize: 12 }}>
+            Print history
+          </button>
         </div>
       </div>
+      {printing && (
+        <HistoryPrint assetId={assetId} assetCode={assetCode} assetDescription={assetDescription} tag={tag} tagReason={registryAsset?.tag_reason ?? null}
+          rows={rows} triggers={triggers} onClose={() => setPrinting(false)} />
+      )}
 
       {counterGroups.length > 0 && <h2 className="fl-section-title fl-gap">MR-II / MR-III counters</h2>}
       {counterGroups.map((g) => (

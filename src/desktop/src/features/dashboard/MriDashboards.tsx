@@ -26,6 +26,8 @@ import PhoneDecisions, { PhoneDecisionsMini } from "./mri/PhoneDecisions";
 import ReportsPerPeriod, { ReportsPerPeriodMini } from "./mri/ReportsPerPeriod";
 import Exemptions, { ExemptionsMini } from "./mri/Exemptions";
 import DueForecast, { DueForecastMini } from "./mri/DueForecast";
+import { CriticalAudit, CriticalAuditMini, ExemptionAudit, ExemptionAuditMini, FaultsByClient, FaultsByClientMini, MrCost, MrCostMini, UsagePerJob, UsagePerJobMini } from "./mri/CostAndAudit";
+import { DataQuality, DataQualityMini, InspectionSequence, InspectionSequenceMini, OnsiteRepairs, OnsiteRepairsMini, Signoff, SignoffMini } from "./mri/MoreReports";
 import { DASHBOARDS, DASH_ICONS, GROUPS, USER_GROUPS, isMarked, markBadge, markTip } from "./dashCatalog";
 import { Inspectors, InspectorsMini, Managers, ManagersMini, Reviewers, ReviewersMini, Supervisors, SupervisorsMini, Technicians, TechniciansMini } from "./mri/UserAnalytics";
 import { setScopeFilter, useScopeFilter } from "./scopeFilter";
@@ -54,6 +56,15 @@ const BUILT: Record<number, { Mini: (p: { assets: MriDashboardAsset[] }) => Reac
   17: { Mini: TechniciansMini, Full: Technicians },
   18: { Mini: ManagersMini, Full: Managers },
   19: { Mini: FaultTrendsMini, Full: FaultTrends },
+  20: { Mini: InspectionSequenceMini, Full: InspectionSequence },
+  21: { Mini: OnsiteRepairsMini, Full: OnsiteRepairs },
+  22: { Mini: SignoffMini, Full: Signoff },
+  23: { Mini: DataQualityMini, Full: DataQuality },
+  24: { Mini: UsagePerJobMini, Full: UsagePerJob },
+  25: { Mini: MrCostMini, Full: MrCost },
+  26: { Mini: CriticalAuditMini, Full: CriticalAudit },
+  27: { Mini: FaultsByClientMini, Full: FaultsByClient },
+  28: { Mini: ExemptionAuditMini, Full: ExemptionAudit },
 };
 
 function DeckBadge({ no, large = false }: { no: number; large?: boolean }) {

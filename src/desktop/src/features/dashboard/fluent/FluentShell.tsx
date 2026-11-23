@@ -53,7 +53,6 @@ const accOf = (no: number | null | undefined) => (no == null ? undefined : ACCS.
 const SOON: { label: string; icon: ReactNode }[] = [
   { label: "Fault Trends", icon: FL_ICONS.trend },
   { label: "Fleet Utilization", icon: FL_ICONS.fleet },
-  { label: "Budget & Planning", icon: FL_ICONS.budget },
 ];
 
 const USER_NOS = new Set(USER_GROUPS.flatMap((g) => g.nos));

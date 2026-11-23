@@ -9,6 +9,8 @@ export interface FlowRepair {
   verified_date: string | null;
   tag_status: string | null;
   function_test_passed: boolean | null;
+  /** What was done to fix the fault, written when it was closed (FB-022). */
+  action_taken: string | null;
 }
 
 export interface FlowLogEntry {

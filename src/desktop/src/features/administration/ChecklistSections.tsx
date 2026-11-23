@@ -84,8 +84,12 @@ function ChecklistSections() {
 
   async function confirmDelete() {
     if (!pendingDelete) return;
-    await deleteSection.mutateAsync(pendingDelete.id);
-    flash(`"${pendingDelete.name}" deleted`, "ok");
+    try {
+      await deleteSection.mutateAsync(pendingDelete.id);
+      flash(`"${pendingDelete.name}" deleted`, "ok");
+    } catch (err) {
+      flash(String(err), "err");
+    }
     setPendingDelete(null);
   }
 
@@ -255,7 +259,11 @@ function ChecklistSections() {
                           stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
                       </svg>
                     </button>
-                    <button className="icon-btn icon-danger" aria-label="Delete" onClick={() => setPendingDelete(s)}>
+                    {/* A group used on any template (Draft included) can't be deleted. */}
+                    <button className="icon-btn icon-danger" aria-label="Delete" aria-disabled={!usageReady || tplsUsing(s.id) > 0}
+                      style={!usageReady || tplsUsing(s.id) > 0 ? { opacity: 0.35, cursor: "not-allowed" } : undefined}
+                      title={!usageReady ? "Checking which templates use it…" : tplsUsing(s.id) > 0 ? `Used on ${tplsUsing(s.id)} ${tplsUsing(s.id) === 1 ? "template" : "templates"} — remove it from ${tplsUsing(s.id) === 1 ? "that template" : "those templates"} first` : "Delete"}
+                      onClick={() => usageReady && tplsUsing(s.id) === 0 && setPendingDelete(s)}>
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                         <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -281,7 +289,7 @@ function ChecklistSections() {
             <h3>Delete this group?</h3>
             <p>
               This will permanently delete <strong>"{pendingDelete.name}"</strong>.
-              Checklist items already using it will keep their reference, but it can no longer be assigned to new items.
+              It isn't used on any template.
             </p>
             <div className="modal-actions">
               <button className="ghost" onClick={() => setPendingDelete(null)}>Cancel</button>

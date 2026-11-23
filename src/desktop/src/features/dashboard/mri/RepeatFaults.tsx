@@ -9,6 +9,7 @@ import { Num, chartAnim } from "../fluent/motion";
 import Chart3D, { use3DMode, ViewToggle, type Cell3D } from "../fluent/Chart3D";
 import { sevLabel } from "../hooks/useMriDashboards";
 import { useAdvanced } from "../dashMode";
+import { useDetails } from "./MoreReports";
 
 // Dashboard 9: Repeat faults.
 // New faults found in the period (a fault carried to a later report is not counted again),
@@ -54,6 +55,25 @@ export default function RepeatFaults({ assets, filters }: { assets: MriDashboard
   const adv = useAdvanced();
   const p = period(filters);
   const { fresh, cameBack, isLoading, error } = useRepeat(assets, p.s, p.e);
+  // Fail rate (MR-I reports list, report 9): fails ÷ times checked on reports sent in the period,
+  // by item, by group and by part.
+  const det = useDetails(assets);
+  const rate = useMemo(() => {
+    const inP = new Map(det.reports.filter((r) => r.status !== "Draft" && inRange(r.submitted_at, p.s, p.e)).map((r) => [r.id, r]));
+    const answered = det.results.filter((x) => inP.has(x.report_id) && (x.status === "Pass" || x.status === "Fail"));
+    const by = (k: (x: (typeof answered)[number]) => string) => {
+      const m = new Map<string, { checked: number; failed: number }>();
+      answered.forEach((x) => { const key = k(x); const v = m.get(key) ?? { checked: 0, failed: 0 }; v.checked++; if (x.status === "Fail") v.failed++; m.set(key, v); });
+      return [...m.entries()].map(([name, v]) => ({ name, ...v, rate: v.checked ? (v.failed / v.checked) * 100 : 0 })).sort((a, b) => b.rate - a.rate || b.failed - a.failed);
+    };
+    return {
+      byItem: by((x) => x.item?.trim() || "Item not named"),
+      byGroup: by((x) => x.section?.trim() || "No group"),
+      byPart: by((x) => inP.get(x.report_id)?.component?.trim() || "Whole unit"),
+    };
+  }, [det, p.s, p.e]);
+  const fmtRate = (v: number) => `${Math.round(v)}%`;
+  const rateRows = (l: { name: string; checked: number; failed: number; rate: number }[], col: string) => l.map((x) => ({ [col]: x.name, Checked: x.checked, Failed: x.failed, "Fail rate": fmtRate(x.rate) }));
   // ---- fluid layer: new faults and recurrences per month ----
   const months = useMemo(() => monthsFor(p.from, p.to), [p.from.getTime(), p.to.getTime()]); // eslint-disable-line react-hooks/exhaustive-deps
   const span = useRepeat(assets, months[0]?.s ?? p.s, months[months.length - 1]?.e ?? p.e);
@@ -118,6 +138,9 @@ export default function RepeatFaults({ assets, filters }: { assets: MriDashboard
   const exportTables = () => [
     { name: "Items", rows: shownItems.map((i) => ({ Item: i.name, "Times failed": i.count, Units: i.units, "Recurred after a fix": i.back, "Major / Critical": i.Critical, Moderate: i.Moderate, Minor: i.Minor })) },
     { name: "Faults", rows: occ.map((f) => { const g = cameBack.get(f.result_id); return { Item: itemName(f), Unit: code(f.asset_id), Component: f.component, Severity: sevLabel(sevKey(f.severity)), Issue: f.issue_details, Found: fmtDate(f.found_at), "Recurred after a fix": g ? `Yes (closed ${fmtDate(g.ended_at)} on report #${g.report_id})` : "No", Report: `#${f.report_id}` }; }) },
+    { name: "Fail rate by item", rows: rateRows(rate.byItem, "Item") },
+    { name: "Fail rate by group", rows: rateRows(rate.byGroup, "Group") },
+    { name: "Fail rate by part", rows: rateRows(rate.byPart, "Part") },
   ];
 
   const loading = Loading({ isLoading, error });
@@ -206,6 +229,28 @@ export default function RepeatFaults({ assets, filters }: { assets: MriDashboard
                 <td><b>{i.name}</b></td><td>{i.count}</td><td>{i.units}</td><td className={i.back ? "mrid-over" : undefined}>{i.back}</td><td>{i.Critical}</td><td>{i.Moderate}</td><td>{i.Minor}</td>
               </tr>))}</tbody>
           </table><p className="mrid-note">Click an item to see its faults.</p></div>
+        )}
+      </div>
+
+      <div className="mrid-panel">
+        <div className="mrid-panel-head"><h3>Fail rate: how often each item fails when it is checked</h3></div>
+        {rate.byItem.length === 0 ? <p className="mrid-note mrid-empty">No checklist answers on reports sent in this period.</p> : (
+          <>
+            <div className="mrid-table-wrap"><table className="mrid-table">
+              <thead><tr><th>Item</th><th>Checked</th><th>Failed</th><th>Fail rate</th></tr></thead>
+              <tbody>{rate.byItem.slice(0, 15).map((x) => (
+                <tr key={x.name}><td><b>{x.name}</b></td><td>{x.checked}</td><td>{x.failed}</td><td className={x.rate >= 25 ? "mrid-over" : undefined}>{fmtRate(x.rate)}</td></tr>))}</tbody>
+            </table>{rate.byItem.length > 15 && <p className="mrid-note">Top 15 of {rate.byItem.length}. The export has them all.</p>}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16, marginTop: 12 }}>
+              {([["By group", rate.byGroup], ["By part", rate.byPart]] as const).map(([title, l]) => (
+                <div key={title} className="mrid-table-wrap"><table className="mrid-table">
+                  <thead><tr><th>{title}</th><th>Checked</th><th>Failed</th><th>Fail rate</th></tr></thead>
+                  <tbody>{l.map((x) => (<tr key={x.name}><td><b>{x.name}</b></td><td>{x.checked}</td><td>{x.failed}</td><td className={x.rate >= 25 ? "mrid-over" : undefined}>{fmtRate(x.rate)}</td></tr>))}</tbody>
+                </table></div>
+              ))}
+            </div>
+            <p className="mrid-note">Fail rate = times failed ÷ times checked (Pass or Fail) on reports sent in {p.label}. 25% or more is shown in orange.</p>
+          </>
         )}
       </div>
     </div>

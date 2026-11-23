@@ -69,7 +69,10 @@ export function useSetMriReportHeaderValue(reportId: number) {
   return useMutation({
     mutationFn: (item: { templateHeaderFieldId: number; value: string }) =>
       invoke("set_mri_report_header_value", { reportId, ...item, updatedBy: user?.name ?? null }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["mri-report-header-values", reportId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["mri-report-header-values", reportId] });
+      qc.invalidateQueries({ queryKey: ["mri-report-edit-log", reportId] });
+    },
   });
 }
 
@@ -85,7 +88,10 @@ export function useSetMriReportChecklistResult(reportId: number) {
   return useMutation({
     mutationFn: (result: MriReportChecklistResult) =>
       invoke("set_mri_report_checklist_result", { result }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["mri-report-checklist-results", reportId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["mri-report-checklist-results", reportId] });
+      qc.invalidateQueries({ queryKey: ["mri-report-edit-log", reportId] });
+    },
   });
 }
 
@@ -185,7 +191,10 @@ export function useSetMriReportMidValue(reportId: number) {
         routePoints: item.routePoints ?? null,
         updatedBy: user?.name ?? null,
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["mri-report-mid-values", reportId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["mri-report-mid-values", reportId] });
+      qc.invalidateQueries({ queryKey: ["mri-report-edit-log", reportId] });
+    },
   });
 }
 
@@ -203,7 +212,10 @@ export function useSetMriReportFooterValue(reportId: number) {
   return useMutation({
     mutationFn: (item: { templateFooterFieldId: number; value: string }) =>
       invoke("set_mri_report_footer_value", { reportId, ...item, updatedBy: user?.name ?? null }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["mri-report-footer-values", reportId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["mri-report-footer-values", reportId] });
+      qc.invalidateQueries({ queryKey: ["mri-report-edit-log", reportId] });
+    },
   });
 }
 

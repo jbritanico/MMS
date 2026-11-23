@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { periodRange, ymd, type DashboardFilters } from "../hooks/useMriDashboards";
+import { PrintSheet, PrintTable } from "../../../components/PrintSheet";
 
 // Export button shared by every MR-I dashboard: the data on screen as Excel (one sheet per
 // table, plus a "Filters" sheet) or as one JSON file. Files go to the Downloads folder,
@@ -36,6 +37,8 @@ const safe = (s: string) => s.replace(/[\\/:*?"<>|]+/g, "-").trim();
 
 export default function ExportMenu({ dashboardNo, title, filters, tables, periodApplies = true }: Props) {
   const [open, setOpen] = useState(false);
+  // Tables taken when Print is chosen, so the printed page matches the screen at that moment.
+  const [printing, setPrinting] = useState<ExportTable[] | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -101,7 +104,23 @@ export default function ExportMenu({ dashboardNo, title, filters, tables, period
         <div className="combobox-panel mrid-export-menu" role="menu">
           <div className="combobox-option" role="menuitem" onClick={exportXlsx}>Excel (.xlsx)</div>
           <div className="combobox-option" role="menuitem" onClick={exportJson}>JSON (.json)</div>
+          <div className="combobox-option" role="menuitem" onClick={() => { setPrinting(tables()); setOpen(false); }}>Print / PDF</div>
         </div>
+      )}
+      {printing && (
+        <PrintSheet
+          eyebrow={`MR-I dashboard ${dashboardNo}`}
+          title={title}
+          sub={filterRows().filter((r) => r.Setting !== "Dashboard" && r.Setting !== "Exported at").map((r) => `${r.Setting}: ${r.Value}`).join(" · ")}
+          onClose={() => setPrinting(null)}
+        >
+          {printing.map((t) => (
+            <section key={t.name}>
+              <h3>{t.name} ({t.rows.length})</h3>
+              <PrintTable rows={t.rows} empty="No rows for these filters." />
+            </section>
+          ))}
+        </PrintSheet>
       )}
     </div>
   );

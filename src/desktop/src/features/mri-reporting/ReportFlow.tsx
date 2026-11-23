@@ -10,6 +10,8 @@ import { HintsToggle, useHints } from "../dashboard/hints";
 import IsoFlowMap, { FXI_CSS, IsoMapToggle, useIsoMap, type IsoLine, type IsoStep } from "./IsoFlowMap";
 import { TIG_CSS } from "../mri-template-builder/TemplateIsoGuide";
 import { ADMIN_CSS, ScreenIntro } from "../administration/AdminIsoGuide";
+import { KeyGroup, REPORT_KIT_CSS } from "./reportKit";
+import JobCompare from "./JobCompare";
 
 export type FlowTarget = "assets" | "pending-approvals" | "rectification-queue";
 
@@ -49,6 +51,7 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
   const hints = useHints();
   const [selected, setSelected] = useState<string | null>("report");
   const [isoOn, setIsoOn] = useIsoMap();
+  const [tab, setTab] = useState<"flow" | "compare">("flow");
 
   if (isLoading) return <div className="empty">Loading...</div>;
   if (error || !flow) {
@@ -134,6 +137,7 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
         lines: [f.repair.assigned_technician ? `Technician: ${f.repair.assigned_technician}` : "No technician yet", ok ? `Checked by ${f.repair.verified_by}` : f.repair.repair_date ? `Planned ${day(f.repair.repair_date)}` : ""],
         details: [
           ["Technician", f.repair.assigned_technician ?? "—"], ["Parts", f.repair.parts_status ?? "—"], ["Repair date", f.repair.repair_date ? day(f.repair.repair_date) : "—"],
+          ["What was done", f.repair.action_taken ?? "—"],
           ["Function test", f.repair.function_test_passed == null ? "—" : f.repair.function_test_passed ? "Passed" : "Not passed"],
           ["Checked by", f.repair.verified_by ?? "—"], ["Checked", when(f.repair.verified_date)], ["Tag after repair", f.repair.tag_status ?? "—"],
         ],
@@ -235,7 +239,7 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
     <div className={`fx${hints ? " show-hints" : ""}`}>
       <style>{FX_CSS}</style>
       <style>{FXI_CSS}</style>
-      <style>{TIG_CSS + ADMIN_CSS}</style>
+      <style>{TIG_CSS + ADMIN_CSS + REPORT_KIT_CSS}</style>
       <div className="fx-top">
         <button type="button" className="fx-back" onClick={onBack}><Icon name="back" size={15} />Back</button>
         <HintsToggle className="fx-hint-btn" />
@@ -270,10 +274,20 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
             "Click a tile on the map to see its details and open its screen",
             "Use search and the legend to find a fault or a step",
             "Switch to Simple steps for a plain list",
+            "Use Pre-Job vs Post-Job to see what changed during the job",
           ]}
         />
       </div>
 
+      <div className="tig rk no-print fx-tabs">
+        <KeyGroup label="Document flow parts" small value={tab} onChange={setTab}
+          options={[{ id: "flow", label: "Document flow" }, { id: "compare", label: "Pre-Job vs Post-Job" }]} />
+      </div>
+
+      {tab === "compare" ? (
+        <JobCompare reportId={flow.report_id} onOpenReport={onOpenReport} />
+      ) : (
+      <>
       <IsoMapToggle iso={isoOn} onChange={setIsoOn} />
       <div className={isoOn ? "fxi-print-only" : undefined}><Stepper steps={stepsShown} /></div>
 
@@ -349,6 +363,8 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
 
         <DetailPanel item={sel && !sel.ghost ? sel : null} permissions={permissions} onClose={() => setSelected(null)} viewOnly={viewOnly} />
       </div>
+      </>
+      )}
     </div>
   );
 }

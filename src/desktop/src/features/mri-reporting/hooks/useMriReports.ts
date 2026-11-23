@@ -243,7 +243,9 @@ export function usePreviousComplianceStage(assetId: number, currentReportId: num
 export function useDeleteLastMriReport() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (reportId: number) => invoke<string>("delete_last_mri_report", { reportId }),
+    // FB-026: Administrator only, with the approved MOC that authorises the deletion.
+    mutationFn: (v: { reportId: number; userId: number; mocReference: string; mocApprovedBy: string }) =>
+      invoke<string>("delete_last_mri_report", v),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: KEY });
       qc.invalidateQueries({ queryKey: ["assets-mri-history-summary"] });

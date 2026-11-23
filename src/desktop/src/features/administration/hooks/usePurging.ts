@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoke } from "../../../lib/ipc";
 
 export function usePurgeAssetTypes() {
@@ -52,7 +52,9 @@ export function usePreviewMriReportPurge() {
 export function usePurgeMriReports() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (filter: MriReportPurgeFilter) => invoke<string>("purge_mri_reports", { filter }),
+    // FB-026: Administrator only, with the approved MOC that authorises the deletion.
+    mutationFn: (v: { filter: MriReportPurgeFilter; userId: number; mocReference: string; mocApprovedBy: string }) =>
+      invoke<string>("purge_mri_reports", v),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["mri-reports"] });
       // Purging reports also clears their Fault Review data on the backend (Step 43),
@@ -72,7 +74,8 @@ export function usePurgeMriReports() {
 export function useCleanSlateMri() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (changedBy: string) => invoke<string>("clean_slate_mri", { changedBy }),
+    mutationFn: (v: { changedBy: string; userId: number; mocReference: string; mocApprovedBy: string }) =>
+      invoke<string>("clean_slate_mri", v),
     onSuccess: () => {
       qc.invalidateQueries();
     },
@@ -91,5 +94,26 @@ export function useResetTriggerRunningValues() {
       qc.invalidateQueries({ queryKey: ["triggers"] });
       void assetId;
     },
+  });
+}
+// FB-026: every MR-I report deleted, with who deleted it and the MOC that authorised it.
+export interface MriReportDeletion {
+  id: number;
+  report_id: number;
+  asset_code: string | null;
+  report_status: string | null;
+  submitted_by: string | null;
+  submitted_date: string | null;
+  deleted_by: string;
+  moc_reference: string;
+  moc_approved_by: string;
+  method: string;
+  /** Unix seconds, as text */
+  deleted_at: string;
+}
+export function useMriReportDeletionLog() {
+  return useQuery({
+    queryKey: ["mri-report-deletion-log"],
+    queryFn: () => invoke<MriReportDeletion[]>("get_mri_report_deletion_log"),
   });
 }

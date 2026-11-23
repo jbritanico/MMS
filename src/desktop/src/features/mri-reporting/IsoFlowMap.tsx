@@ -427,7 +427,10 @@ ${DARK} { --k-hi: #061522; --k-lo: #02070c; --k-pa: 34%; --k-pb: 16%; --k-ps: 46
 ${DARK.split(", ").map((s) => s + " .fxk-tile").join(", ")} { --k-lab: color-mix(in srgb, var(--hue) 80%, #ffffff); }
 html[data-holo] .fxk { --k-hub: #39d5ff; --k-blue: #4aa8ff; --k-teal: #4dffb0; --k-orange: #ffb547; --k-purple: #b98bff; --k-indigo: #7d8cff; --k-red: #ff5470; --k-grey: #4d6b79;
   --k-bg: #041019; --k-plate: rgba(7,26,38,.92); --k-plate-edge: #174459; --k-ink: #d6f6ff; --k-soft: #7fb0c2; border-color: rgba(57,213,255,.35); }
-.fxk-stage { position: relative; aspect-ratio: ${VW} / ${VH}; max-height: 78vh; min-height: 420px; }
+/* The stage always fills the frame's full width (height follows the width, up to 78% of the window),
+   so a map dragged sideways keeps drawing right up to both edges instead of stopping short on the right. */
+.fxk { container-type: inline-size; }
+.fxk-stage { position: relative; width: 100%; height: clamp(420px, calc(100cqw * ${VH} / ${VW}), 78vh); }
 .fxk-svg { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; user-select: none; }
 .fxk-stage .fxk-svg { position: absolute; inset: 0; }
 .fxk-svg:active { cursor: grabbing; }

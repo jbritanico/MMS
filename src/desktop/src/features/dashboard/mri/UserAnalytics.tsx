@@ -10,6 +10,7 @@ import UserBoard, { byPerson, fmtDays, fmtNum, fmtPct, sameName, useUserScope, t
 type P = { assets: MriDashboardAsset[]; filters: DashboardFilters };
 const days = (secs: number | null | undefined) => (secs == null ? null : Math.max(0, secs) / DAY);
 const SEV_RANK: Record<string, number> = { Critical: 3, Moderate: 2, Minor: 1 };
+const raised = (d: MriDashDecision) => d.decision !== "Rejected" && !!d.new_severity && SEV_RANK[sevKey(d.new_severity)] > SEV_RANK[sevKey(d.original_severity ?? "")];
 const downgraded = (d: MriDashDecision) => d.decision === "Rejected" || (!!d.new_severity && SEV_RANK[sevKey(d.new_severity)] < SEV_RANK[sevKey(d.original_severity ?? "")]);
 
 function useMonths(filters: DashboardFilters) {
@@ -51,7 +52,7 @@ export function Inspectors({ assets, filters }: P) {
     const decs = list.flatMap((r) => decByReport.get(r.id) ?? []);
     return {
       name,
-      values: { reports: list.length, withFaults: (list.filter((r) => r.fault_count > 0).length / list.length) * 100, faults, perReport: faults / list.length, reviewed: decs.length, down: decs.filter(downgraded).length },
+      values: { reports: list.length, withFaults: (list.filter((r) => r.fault_count > 0).length / list.length) * 100, faults, perReport: faults / list.length, reviewed: decs.length, down: decs.filter(downgraded).length, up: decs.filter(raised).length },
       spark: monthly(months, allSubmitted.filter((r) => sameName(r.submitted_by, name)).map((r) => r.submitted_at)),
       items: list.map((r) => ({ key: `r${r.id}`, date: r.submitted_at, unit: code(r.asset_id), what: r.compliance_stage ?? "MR-I report", exportWhat: r.compliance_stage ?? "MR-I report", detail: `${r.fault_count} fault${r.fault_count === 1 ? "" : "s"} · ${r.status}${(decByReport.get(r.id) ?? []).some(downgraded) ? " · a fault was rejected or downgraded" : ""}`, reportId: r.id })),
     };
@@ -70,13 +71,14 @@ export function Inspectors({ assets, filters }: P) {
       people={people} story={story}
       columns={[
         { key: "reports", label: "Reports" }, { key: "withFaults", label: "With faults", fmt: fmtPct }, { key: "faults", label: "Faults found" },
-        { key: "perReport", label: "Faults per report" }, { key: "reviewed", label: "Sent for decision" }, { key: "down", label: "Rejected / downgraded" },
+        { key: "perReport", label: "Faults per report" }, { key: "reviewed", label: "Sent for decision" }, { key: "down", label: "Lowered or rejected" }, { key: "up", label: "Raised" },
       ]}
       tiles={[
         { label: "Reports submitted", value: inP.length, sub: `by ${people.length} ${people.length === 1 ? "person" : "people"}`, color: "var(--accent-blue, #2f6fed)", spark: monthly(months, allSubmitted.map((r) => r.submitted_at)) },
         { label: "Faults found", value: totalFaults, sub: `${fmtNum(inP.length ? totalFaults / inP.length : null)} per report`, color: "var(--warn)" },
         { label: "Reports with faults", value: fmtPct(inP.length ? (inP.filter((r) => r.fault_count > 0).length / inP.length) * 100 : null), sub: "of submitted reports", color: "var(--danger)" },
         { label: "Rejected or downgraded", value: allDecs.filter(downgraded).length, sub: `of ${allDecs.length} faults sent for a decision`, color: "var(--text-soft)" },
+        { label: "Raised on review", value: allDecs.filter(raised).length, sub: `of ${allDecs.length} faults sent for a decision`, color: "var(--danger)" },
       ]} />
   );
 }
@@ -158,7 +160,7 @@ export function Reviewers({ assets, filters }: P) {
     const t = d.map(took).filter((x): x is number => x != null);
     return {
       name,
-      values: { decisions: d.length, avg: days(avg(t)), reclass: d.length ? (d.filter((x) => x.decision === "Reclassified" || !!x.new_severity).length / d.length) * 100 : null, rejected: d.length ? (d.filter((x) => x.decision === "Rejected").length / d.length) * 100 : null, waiting: w.length, reminders: w.reduce((a, x) => a + x.reminders, 0) },
+      values: { decisions: d.length, avg: days(avg(t)), up: d.length ? (d.filter(raised).length / d.length) * 100 : null, lowered: d.length ? (d.filter((x) => x.decision !== "Rejected" && downgraded(x)).length / d.length) * 100 : null, rejected: d.length ? (d.filter((x) => x.decision === "Rejected").length / d.length) * 100 : null, waiting: w.length, reminders: w.reduce((a, x) => a + x.reminders, 0) },
       spark: monthly(months, decisions.filter((x) => sameName(x.reviewer, name)).map((x) => x.decided_at)),
       items: [
         ...w.map((x) => ({ key: `w${x.approval_id}`, date: x.waiting_since, unit: code(x.asset_id), what: `${x.item ?? "Fault"} (${sevKey(x.severity ?? "")})`, exportWhat: `${x.item ?? "Fault"} (${sevKey(x.severity ?? "")})`, detail: `Decision waiting${x.reminders ? ` · ${x.reminders} reminder${x.reminders === 1 ? "" : "s"}` : ""}`, took: x.waiting_since ? fmtDays(days(now - x.waiting_since)) : undefined, waiting: true, reportId: x.report_id })),
@@ -178,7 +180,7 @@ export function Reviewers({ assets, filters }: P) {
       intro={<>Fault decisions made in <b>{p.label}</b> by the reviewer recorded on them, and decisions named to each reviewer that are waiting now.</>}
       people={people} story={story}
       columns={[
-        { key: "decisions", label: "Decisions" }, { key: "avg", label: "Submit → decision", fmt: fmtDays }, { key: "reclass", label: "Reclassified", fmt: fmtPct },
+        { key: "decisions", label: "Decisions" }, { key: "avg", label: "Submit → decision", fmt: fmtDays }, { key: "up", label: "Raised", fmt: fmtPct }, { key: "lowered", label: "Lowered", fmt: fmtPct },
         { key: "rejected", label: "Rejected", fmt: fmtPct }, { key: "waiting", label: "Waiting now" }, { key: "reminders", label: "Reminders received" },
       ]}
       tiles={[

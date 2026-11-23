@@ -14,6 +14,7 @@ import { DASH_ICONS } from "../dashCatalog";
 import { FL_ICONS, FlCard, KpiCard, QuickAction, RangeTabs, TrendChip, type FlTone, type ShellSection } from "./FluentShell";
 import { chartAnim } from "./motion";
 import { FleetHero } from "./FleetHero";
+import MonthlyPack from "./MonthlyPack";
 import { inScope, ScopeFilterBar, useScopeFilter } from "../scopeFilter";
 import { ModeToggle, useAdvanced } from "../dashMode";
 import { useDashAccess } from "../dashAccess";
@@ -56,6 +57,7 @@ export default function Overview({ onSection, onOpenDash }: { onSection: (s: She
   const moreQ = useMriDashboardMore();
   const [range, setRange] = useState(6);
   const [hRange, setHRange] = useState(6);
+  const [packOpen, setPackOpen] = useState(false);
 
   const scopeF = useScopeFilter();
   const allActive = useMemo(() => (scope.data?.assets ?? []).filter((a) => a.active), [scope.data]);
@@ -136,12 +138,17 @@ export default function Overview({ onSection, onOpenDash }: { onSection: (s: She
   return (
     <>
       <ScopeFilterBar shown={assets.length} total={allActive.length} />
-      <div className="fl-ov-mode"><ModeToggle /></div>
+      <div className="fl-ov-mode" style={{ gap: 10, alignItems: "center" }}>
+        {access.dash(25) && <button type="button" className="ghost" onClick={() => setPackOpen(true)} title="One printable page for a month: status, Major / Critical faults, repairs, cost and overdue reviews">Print monthly pack</button>}
+        <ModeToggle />
+      </div>
+      {packOpen && <MonthlyPack assets={assets} onClose={() => setPackOpen(false)} />}
       <FleetHero
         tags={tags}
         prevPct={prevPct}
         greeting={<>{greeting()}{first ? `, ${first}` : ""} · MR-I overview for {scopeF.country || (scope.data?.allowed_countries ? scope.data.allowed_countries.join(", ") : "all countries")}{scopeF.serviceLine ? ` · ${scopeF.serviceLine}` : ""}</>}
         onOpenFleet={() => { if (access.dash(1)) onOpenDash(1); }}
+        onOpenHistory={access.dash(8) ? () => onOpenDash(8) : undefined}
         chips={<>
           <span className="fl-chip"><i style={{ color: "#5ef0b0" }} />Working offline</span>
           <span className="fl-chip">{assets.length} unit{assets.length === 1 ? "" : "s"} in view</span>

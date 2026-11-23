@@ -10,13 +10,15 @@ type Counts = { Green: number; Yellow: number; Red: number; None: number };
 /** Colour band of the fill. Display only: the manual sets no availability target. */
 const band = (p: number) => (p >= 85 ? "good" : p >= 70 ? "watch" : "low");
 
-export function FleetHero({ tags, prevPct, greeting, chips, onOpenFleet }: {
+export function FleetHero({ tags, prevPct, greeting, chips, onOpenFleet, onOpenHistory }: {
   tags: Counts;
   /** Availability 30 days ago, from the tag history (null when unknown). */
   prevPct: number | null;
   greeting: ReactNode;
   chips?: ReactNode;
   onOpenFleet: () => void;
+  /** Opens availability over time (Dashboard 8), when the user may see it. */
+  onOpenHistory?: () => void;
 }) {
   const total = tags.Green + tags.Yellow + tags.Red + tags.None;
   const pct = total ? Math.round((tags.Green / total) * 1000) / 10 : 0;
@@ -55,6 +57,7 @@ export function FleetHero({ tags, prevPct, greeting, chips, onOpenFleet }: {
             </span>
           )}
         </p>
+        {onOpenHistory && <button type="button" className="fl-avail-more" onClick={onOpenHistory}>Availability over time, by unit, type and country ›</button>}
         {chips && <div className="fl-hero-chips">{chips}</div>}
       </div>
 
@@ -78,6 +81,8 @@ const FLEET_HERO_CSS = `
   background: linear-gradient(118deg, var(--fl-navy, #0b2a6b) 0%, color-mix(in srgb, var(--fl-blue) 70%, var(--fl-navy, #0b2a6b)) 100%);
   box-shadow: 0 18px 40px color-mix(in srgb, var(--fl-blue) 26%, transparent); }
 .fl-avail.is-watch { --liq: 251, 191, 36; }
+.fl-avail .fl-avail-more { align-self: flex-start; margin: 2px 0 8px; padding: 4px 12px; border-radius: 99px; border: 1px solid rgba(255,255,255,.4); background: rgba(255,255,255,.12); color: #fff; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.fl-avail .fl-avail-more:hover { background: rgba(255,255,255,.22); }
 .fl-avail.is-low { --liq: 248, 113, 113; }
 .app[data-theme="dark"] .fl-avail, .app[data-theme="macos-dark"] .fl-avail {
   background: linear-gradient(118deg, color-mix(in srgb, var(--fl-blue) 22%, #0b1220) 0%, color-mix(in srgb, var(--fl-blue) 40%, #0b1220) 100%); box-shadow: 0 18px 40px rgba(0,0,0,.35); }

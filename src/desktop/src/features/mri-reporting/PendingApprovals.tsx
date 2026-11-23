@@ -18,6 +18,7 @@ import {
 import { TIG_CSS } from "../mri-template-builder/TemplateIsoGuide";
 import { ADMIN_CSS, IsoTiles, RowTile, ScreenIntro, type Tone } from "../administration/AdminIsoGuide";
 import { REPORT_KIT_CSS } from "./reportKit";
+import CarriedRegister, { useCarriedFaults } from "./CarriedRegister";
 
 const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 // dd/Mmm/yyyy. Accepts epoch seconds/milliseconds or a date string.
@@ -63,7 +64,10 @@ interface PendingApprovalsProps {
 }
 
 function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
-    const { user } = useCurrentUser();
+    const { user, users: allUsers } = useCurrentUser();
+    // FB-013: who can be assigned to rectify a fault (any active user, by name).
+    const fixers = allUsers.filter((u) => u.active).sort((a, b) => a.name.localeCompare(b.name));
+    const [fixerId, setFixerId] = useState("");
     const { data: permissions = [] } = useEffectivePermissions(user?.id ?? 0);
     const { data: rows = [], isLoading } = usePendingMriFaultApprovals(user?.id ?? 0);
     const { data: provisionalRows = [] } = useProvisionalMriFaultApprovals(user?.id ?? 0);
@@ -114,9 +118,12 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
             isProvisional: boolean;
             nextReviewerUserId?: number | null;
             acknowledgmentAssignedToUserId?: number | null;
+            rectifierUserId?: number | null;
         }) => invoke<string>("set_mri_fault_approval_decision", item),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ["pending-mri-fault-approvals"] });
+            qc.invalidateQueries({ queryKey: ["pending-mri-fault-rectifications"] });
+            qc.invalidateQueries({ queryKey: ["my-repair-assignments"] });
             qc.invalidateQueries({ queryKey: ["pending-mri-fault-acknowledgments"] });
         },
     });
@@ -172,6 +179,7 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
         setNotes("");
         setNextReviewerId("");
         setAckUserId("");
+        setFixerId("");
         setReviewerName(relay ? "" : (user?.name ?? ""));
     }
 
@@ -220,6 +228,9 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
                 nextReviewerUserId: escalating ? Number(nextReviewerId) : null,
                 acknowledgmentAssignedToUserId:
                     row.original_severity === "Moderate" && !escalating && ackUserId ? Number(ackUserId) : null,
+                // FB-013: only when the fault stays Moderate or Major / Critical (never Minor).
+                rectifierUserId:
+                    fixerId && decision !== "Rejected" && !(decision === "Reclassified" && newSeverity === "Minor") ? Number(fixerId) : null,
             });
             flash(`${decision} — ${row.checklist_description ?? "item"} on ${row.asset_code ?? "asset"}`, "ok");
             setReviewingId(null);
@@ -233,6 +244,7 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
     const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
     const mine = rows.filter((r) => r.can_act).length;
     const criticalN = rows.filter((r) => r.original_severity === "Critical").length;
+    const { rows: carriedRows } = useCarriedFaults();
 
     return (
         <div className="tig rk">
@@ -288,6 +300,7 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
                     { id: "pa-decide", label: "Waiting for a decision", count: String(rows.length), tone: "look" },
                     ...(canConfirm ? [{ id: "pa-confirm", label: "Decided by phone — confirm", count: String(provisionalRows.length), tone: "blue" as Tone }] : []),
                     ...(canAcknowledge ? [{ id: "pa-ack", label: "To acknowledge", count: String(acknowledgmentRows.length), tone: "blue" as Tone }] : []),
+                    { id: "pa-carried", label: "Carried forward", count: String(carriedRows.length), tone: carriedRows.length ? "look" : "skip" },
                 ]}
             />
             <h2 id="pa-decide" className="rk-group-h" style={{ marginTop: 16 }}>Waiting for a decision<small>Moderate and Critical faults awaiting review or reclassification</small></h2>
@@ -521,6 +534,24 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
                                     </select>
                                 </div>
                             )}
+                            {row.original_severity !== "Minor" && (
+                                <div className="field">
+                                    <label>Who will fix it (optional) — technician or fabricator <small style={{ color: "var(--text-soft)" }}>(Assigned to)</small></label>
+                                    <select
+                                        className="neu-select"
+                                        value={fixerId}
+                                        onChange={(e) => setFixerId(e.target.value)}
+                                    >
+                                        <option value="">Decide later in the Rectification Queue</option>
+                                        {fixers.map((u) => (
+                                            <option key={u.id} value={u.id}>
+                                                {u.name} ({u.role})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <small style={{ color: "var(--text-soft)", fontSize: 11.5 }}>Used when the fault stays Moderate or Major / Critical (not when rejected or lowered to Minor). The person is told on their main menu.</small>
+                                </div>
+                            )}
                             {relayOnly && (
                                 <div className="field">
                                     <label>Who this decision is for — Maintenance Supervisor / FSM <small style={{ color: "var(--text-soft)" }}>(Escalate To)</small></label>
@@ -625,6 +656,8 @@ function PendingApprovals({ onOpenFlow }: PendingApprovalsProps) {
                     </div>
                 </div>
             )}
+
+            <CarriedRegister onOpenFlow={onOpenFlow} />
         </div>
     );
 }

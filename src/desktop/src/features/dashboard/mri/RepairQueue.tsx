@@ -43,6 +43,10 @@ export default function RepairQueue({ assets, filters }: { assets: MriDashboardA
 
   const open = repairs.filter(isOpen);
   const waitingParts = open.filter(needsParts);
+  // Waiting for parts, grouped by the part recorded on the repair (MR-I reports list, report 11).
+  const byPart = [...new Set(waitingParts.map((r) => r.awaited_part?.trim() || "Part not recorded"))]
+    .map((part) => { const l = waitingParts.filter((r) => (r.awaited_part?.trim() || "Part not recorded") === part); return { part, l, units: new Set(l.map((r) => r.asset_id)).size, oldest: Math.max(...l.map((r) => (r.queued_at == null ? 0 : nowSecs() - r.queued_at))) }; })
+    .sort((a, b) => b.l.length - a.l.length || b.oldest - a.oldest);
   const unassigned = open.filter((r) => !r.technician?.trim());
   const done = repairs.filter((r) => inRange(r.verified_at, p.s, p.e)).map((r) => ({ r, secs: r.queued_at != null ? Math.max(0, r.verified_at! - r.queued_at) : null }));
   const doneSecs = done.map((d) => d.secs).filter((x): x is number => x != null);
@@ -101,7 +105,8 @@ export default function RepairQueue({ assets, filters }: { assets: MriDashboardA
       ],
     },
     { name: "By technician", rows: byTech.map((t) => ({ Technician: t.name, ...Object.fromEntries(partsKinds.map((k) => [k, (t as Record<string, unknown>)[k] as number ?? 0])), Total: t.total })) },
-    { name: "Queue", rows: list.map((r) => ({ Unit: code(r.asset_id), Item: r.item, Severity: sevLabel(sevKey(r.severity ?? "")), Technician: r.technician, Parts: r.parts_status, "In queue since": fmtDate(r.queued_at), "Days in queue": toDays(age(r)), "Planned repair": fmtDate(r.repair_at), "Limitations told to field": r.limitations_note, Report: `#${r.report_id}` })) },
+    { name: "Waiting by part", rows: byPart.map((x) => ({ Part: x.part, Repairs: x.l.length, Units: x.units, "Longest wait (days)": Math.floor(x.oldest / DAY) })) },
+    { name: "Queue", rows: list.map((r) => ({ Unit: code(r.asset_id), Item: r.item, Severity: sevLabel(sevKey(r.severity ?? "")), Technician: r.technician, Parts: r.parts_status, "Part waited for": needsParts(r) ? r.awaited_part ?? "" : "", "In queue since": fmtDate(r.queued_at), "Days in queue": toDays(age(r)), "Planned repair": fmtDate(r.repair_at), "Limitations told to field": r.limitations_note, Report: `#${r.report_id}` })) },
     { name: "Completed", rows: done.map(({ r, secs }) => ({ Unit: code(r.asset_id), Item: r.item, Technician: r.technician, "Verified by": r.verified_by, "In queue since": fmtDate(r.queued_at), Verified: fmtDate(r.verified_at), "Repair days": toDays(secs), Report: `#${r.report_id}` })) },
   ];
 
@@ -162,6 +167,16 @@ export default function RepairQueue({ assets, filters }: { assets: MriDashboardA
       </div>
       </>)}
 
+      {waitingParts.length > 0 && (
+        <div className="mrid-panel">
+          <div className="mrid-panel-head"><h3>Waiting for parts, by part ({byPart.length})</h3></div>
+          <div className="mrid-table-wrap"><table className="mrid-table">
+            <thead><tr><th>Part</th><th>Repairs</th><th>Units</th><th>Longest wait</th></tr></thead>
+            <tbody>{byPart.map((x) => (<tr key={x.part}><td><b>{x.part}</b></td><td>{x.l.length}</td><td>{x.units}</td><td className={x.oldest > 7 * DAY ? "mrid-over" : undefined}>{fmtDur(x.oldest)}</td></tr>))}</tbody>
+          </table><p className="mrid-note">The part is recorded on the repair in Repairs to finish → Update plan.</p></div>
+        </div>
+      )}
+
       <div className="mrid-panel">
         <div className="mrid-panel-head"><h3>{pick === "done" ? `Repairs verified in ${p.label} (${done.length})` : `Repairs waiting, longest first (${list.length})`}</h3></div>
         <DrillChips onClear={clearAll} chips={[pick && pick !== "open" && <b>{{ parts: "Waiting for parts", unassigned: "No technician", done: "Completed", open: "" }[pick]}</b>, techPick && <>Technician: <b>{techPick}</b></>, partsPick && <>Parts: <b>{partsPick}</b></>]} />
@@ -183,7 +198,7 @@ export default function RepairQueue({ assets, filters }: { assets: MriDashboardA
                   <td><b>{code(r.asset_id)}</b><div className="mrid-soft">{r.tag_status === "Planned" ? "Repair planned" : "Red-Tagged"}</div></td>
                   <td>{r.item ?? "—"}<div className="mrid-soft">{sevLabel(sevKey(r.severity ?? ""))}</div></td>
                   <td>{r.technician?.trim() || <span className="mrid-over">Not assigned</span>}</td>
-                  <td>{r.parts_status || "—"}</td><td>{fmtDate(r.queued_at)}</td>
+                  <td>{r.parts_status || "—"}{r.awaited_part && needsParts(r) ? <small style={{ display: "block", color: "var(--text-soft)" }}>{r.awaited_part}</small> : null}</td><td>{fmtDate(r.queued_at)}</td>
                   <td className={a != null && a > 7 * DAY ? "mrid-over" : undefined}>{fmtDur(a)}</td>
                   <td>{fmtDate(r.repair_at)}{r.repair_at != null && r.repair_at < now ? <div className="mrid-over">Date passed</div> : null}</td>
                   <td className="mrid-soft">{r.limitations_note ?? "—"}</td>

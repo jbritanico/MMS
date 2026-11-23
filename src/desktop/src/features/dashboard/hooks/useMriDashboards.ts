@@ -291,6 +291,8 @@ export interface MriDashRepair {
   verified_by: string | null;
   verified_at: number | null;
   limitations_note: string | null;
+  /** Which part the repair is waiting for, when recorded */
+  awaited_part: string | null;
 }
 export interface MriDashTagChange {
   asset_id: number;
@@ -338,5 +340,20 @@ export function useMriDashboardMore() {
   return useQuery({
     queryKey: ["mri-dashboard-more", user?.id ?? 0],
     queryFn: () => invoke<MriDashboardMore>("get_mri_dashboard_more", { viewerUserId: user?.id ?? null }),
+  });
+}
+
+// Report details for the MR-I reports list (reports 7-15): form values, checklist answers and the
+// on-site repair log, for the units the signed-in user may see.
+export interface MriDashFieldValue { report_id: number; label: string; value: string }
+export interface MriDashResult { report_id: number; item: string | null; section: string | null; status: string; severity: string | null; has_photo: boolean }
+export interface MriDashOnsiteRepair { report_id: number; asset_id: number; item: string | null; severity: string | null; action_taken: string | null; repaired_by: string | null; repaired_at: number | null }
+export interface MriDashboardDetails { header: MriDashFieldValue[]; mid: MriDashFieldValue[]; footer: MriDashFieldValue[]; results: MriDashResult[]; onsite_repairs: MriDashOnsiteRepair[] }
+
+export function useMriDashboardDetails() {
+  const { user } = useCurrentUser();
+  return useQuery({
+    queryKey: ["mri-dashboard-details", user?.id ?? 0],
+    queryFn: () => invoke<MriDashboardDetails>("get_mri_dashboard_details", { viewerUserId: user?.id ?? null }),
   });
 }

@@ -16,6 +16,7 @@ import { useCurrentUser } from "../../lib/currentUser";
 import { useEffectivePermissions, useUserCountryAccess } from "../administration/hooks/useUserAdmin";
 import { IsoIconPlatform, TIG_CSS } from "../mri-template-builder/TemplateIsoGuide";
 import { ADMIN_CSS, IsoTiles, RowTile, ScreenIntro, type Tone } from "../administration/AdminIsoGuide";
+import { useMriDashboardMore } from "../dashboard/hooks/useMriDashboards";
 
 // Option B look: the tag colour shown as a 3D tile (display only).
 const TAG_TONE: Record<string, Tone> = { Green: "ok", Yellow: "look", Red: "bad" };
@@ -43,6 +44,8 @@ interface AssetRegistryCardProps {
   onEdit: (e: React.MouseEvent, asset: Asset) => void;
   onDelete: (e: React.MouseEvent, asset: Asset) => void;
   onShowFlow?: (assetId: number) => void;
+  /** Operating limits told to the field team for repairs still open on this unit. */
+  limits?: string[];
 }
 
 // A separate component (not inline in the map below) because it needs to call
@@ -194,13 +197,13 @@ function AssetMocExemptions({
 }
 
 // One row of the list view: the same facts and actions as a card, in a compact table row.
-function AssetRegistryRow({ asset: a, assetTypeLabel, canEdit, canDelete, onRowClick, onEdit, onDelete, onShowFlow }: AssetRegistryCardProps) {
+function AssetRegistryRow({ asset: a, assetTypeLabel, canEdit, canDelete, onRowClick, onEdit, onDelete, onShowFlow, limits = [] }: AssetRegistryCardProps) {
   const { data: triggers = [] } = useAssetTriggers(a.id);
   const activeTriggers = triggers.filter((t) => t.enabled);
   return (
     <tr className="asset-row" onClick={() => onRowClick(a)}>
       <td>{a.tag_status ? <TagLamp status={a.tag_status} size={16} title={a.tag_reason ?? undefined} /> : <span className="asset-row-soft">—</span>}</td>
-      <td><div className="review-card-code" style={{ display: "flex", alignItems: "center", gap: 6 }}><RowTile tone={tagTone(a.tag_status)} />{a.asset_code}</div><div className="asset-row-soft">{a.asset_description || "—"}</div></td>
+      <td><div className="review-card-code" style={{ display: "flex", alignItems: "center", gap: 6 }}><RowTile tone={tagTone(a.tag_status)} />{a.asset_code}</div><div className="asset-row-soft">{a.asset_description || "—"}</div>{limits.length > 0 && <div className="ar-limits" title="Operating limits told to the field team">Limits: {limits.join("; ")}</div>}</td>
       <td>{assetTypeLabel ?? <span className="asset-row-soft">No kind set</span>}</td>
       <td>{a.country || <span className="asset-row-soft">—</span>}</td>
       <td>{a.service_line || <span className="asset-row-soft">—</span>}</td>
@@ -268,18 +271,29 @@ const REGISTRY_CSS = `
 .asset-table .asset-row { cursor: pointer; }
 .asset-table .asset-row:hover td { background: var(--hover-highlight); }
 .asset-row-soft { font-size: 12px; color: var(--text-soft); }
+.ar-limits { font-size: 12px; font-weight: 600; color: var(--warn); border-left: 3px solid var(--warn); padding: 2px 0 2px 8px; }
 .asset-row-trig { display: flex; gap: 4px; flex-wrap: wrap; }
 .asset-row-actions { display: flex; gap: 6px; justify-content: flex-end; }
 .asset-row-actions .icon-btn { width: 30px !important; height: 30px !important; }
 .asset-row-actions .icon-btn svg { width: 15px !important; height: 15px !important; }
+/* Holo HUD only: Red-tag cards get a red light sweeping down the whole card, behind its content.
+   Other cards have no moving background. */
+.ar-red-sweep { display: none; }
+html[data-holo] .review-card.is-red-tag { position: relative; isolation: isolate; overflow: hidden; }
+html[data-holo] .ar-red-sweep { display: block; position: absolute; left: 0; right: 0; top: 0; height: 45%; z-index: -1; pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(255, 84, 112, 0.45), transparent);
+  animation: ar-red-sweep 3.6s linear infinite; }
+@keyframes ar-red-sweep { 0% { transform: translateY(-100%); } 100% { transform: translateY(330%); } }
+@media (prefers-reduced-motion: reduce) { html[data-holo] .ar-red-sweep { animation: none; opacity: 0; } }
 `;
 
-function AssetRegistryCard({ asset: a, assetTypeLabel, assetTypeIcon, canEdit, canDelete, onRowClick, onEdit, onDelete, onShowFlow }: AssetRegistryCardProps) {
+function AssetRegistryCard({ asset: a, assetTypeLabel, assetTypeIcon, canEdit, canDelete, onRowClick, onEdit, onDelete, onShowFlow, limits = [] }: AssetRegistryCardProps) {
   const { data: triggers = [] } = useAssetTriggers(a.id);
   const activeTriggers = triggers.filter((t) => t.enabled);
 
   return (
-    <div className="review-card adm-lift" onClick={() => onRowClick(a)} style={{ cursor: "pointer", opacity: a.active ? 1 : 0.8 }}>
+    <div className={`review-card adm-lift${a.tag_status === "Red" ? " is-red-tag" : ""}`} onClick={() => onRowClick(a)} style={{ cursor: "pointer", opacity: a.active ? 1 : 0.8 }}>
+      {a.tag_status === "Red" && <span className="ar-red-sweep" aria-hidden="true" />}
       <div className="review-card-top">
         <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
           <span style={{ flexShrink: 0, display: "inline-flex" }}>
@@ -303,6 +317,10 @@ function AssetRegistryCard({ asset: a, assetTypeLabel, assetTypeIcon, canEdit, c
         {a.vehicle && <span className="pill neutral">Vehicle</span>}
         {assetTypeLabel && <span className="pill neutral">{assetTypeLabel}</span>}
       </div>
+
+      {limits.length > 0 && (
+        <div className="ar-limits" title="Operating limits told to the field team">Limits: {limits.join("; ")}</div>
+      )}
 
       {activeTriggers.length > 0 && (
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
@@ -395,7 +413,15 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
   const [typeFilter, setTypeFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
   const [serviceFilter, setServiceFilter] = useState("");
-  const [tagFilter, setTagFilter] = useState<"all" | "Green" | "Yellow" | "Red" | "none">("all");
+  const [tagFilter, setTagFilter] = useState<"all" | "Green" | "Yellow" | "Red" | "none" | "limits">("all");
+  // Units running with limits: open repairs (not yet verified) with a limits note for the field team.
+  const { data: dashMore } = useMriDashboardMore();
+  const limitsByAsset = new Map<number, string[]>();
+  (dashMore?.repairs ?? []).forEach((r) => {
+    const note = (r.limitations_note ?? "").trim();
+    if (!note || r.verified_at) return;
+    limitsByAsset.set(r.asset_id, [...(limitsByAsset.get(r.asset_id) ?? []), note]);
+  });
   // Country filter follows the user's country access (Administration > Users > Countries);
   // an empty list means no restriction, the same rule the backend uses for the asset list.
   const { data: myCountries = [] } = useUserCountryAccess(currentUser?.id ?? 0);
@@ -506,7 +532,7 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
   const typeFilterOptions = [...assetTypes].sort((x, y) => x.description.localeCompare(y.description));
   const filtersOn = !!(typeFilter || countryFilter || serviceFilter || query || tagFilter !== "all");
   const filtered = assets.filter((a) =>
-    (tagFilter === "all" || (tagFilter === "none" ? !a.tag_status : a.tag_status === tagFilter)) &&
+    (tagFilter === "all" || (tagFilter === "limits" ? limitsByAsset.has(a.id ?? -1) : tagFilter === "none" ? !a.tag_status : a.tag_status === tagFilter)) &&
     `${a.asset_code} ${a.asset_description} ${a.country}`
       .toLowerCase()
       .includes(query.toLowerCase()) &&
@@ -761,6 +787,7 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
               { id: "Yellow", label: "Yellow", count: `${tagCount("Yellow")} with limits`, tone: "look" },
               { id: "Red", label: "Red", count: `${tagCount("Red")} not ready`, tone: "bad" },
               { id: "none", label: "No tag yet", count: String(tagCount(null)), tone: "skip" },
+              { id: "limits", label: "Running with limits", count: String(assets.filter((a) => limitsByAsset.has(a.id ?? -1)).length), tone: "look" },
             ]}
           />
           <div className="asset-filters">
@@ -815,6 +842,7 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
                       onEdit={handleEdit}
                       onDelete={requestDelete}
                       onShowFlow={onShowAssetFlow}
+                      limits={limitsByAsset.get(a.id ?? -1)}
                     />
                   ))}
                 </tbody>
@@ -834,6 +862,7 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
                   onEdit={handleEdit}
                   onDelete={requestDelete}
                   onShowFlow={onShowAssetFlow}
+                  limits={limitsByAsset.get(a.id ?? -1)}
                 />
               ))}
             </div>

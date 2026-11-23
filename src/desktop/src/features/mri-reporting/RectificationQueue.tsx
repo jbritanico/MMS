@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCurrentUser } from "../../lib/currentUser";
 import { useEffectivePermissions } from "../administration/hooks/useUserAdmin";
 import {
     usePendingMriFaultRectifications,
     useUpdateMriFaultRectification,
     useVerifyMriFaultRectification,
+    useMyRepairAssignments,
+    useMarkRepairAssignmentsSeen,
     useRecordEquipmentLimitations,
     type MriFaultRectification,
 } from "./hooks/useMriFaultRectifications";
@@ -26,6 +28,9 @@ const ICONS = {
     ),
     planned: (
         <svg {...sv}><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>
+    ),
+    parts: (
+        <svg {...sv}><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z" /><path d="M3 7.5 12 12l9-4.5M12 12v9" /></svg>
     ),
     uninformed: (
         <svg {...sv}><path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1z" /><path d="m17 9 5 5" /><path d="m22 9-5 5" /></svg>
@@ -57,6 +62,7 @@ function RectificationQueue({ onOpenFlow }: RectificationQueueProps) {
     const [assignedTechnician, setAssignedTechnician] = useState("");
     const [partsStatus, setPartsStatus] = useState<(typeof PARTS_STATUSES)[number]>("Awaiting");
     const [repairDate, setRepairDate] = useState("");
+    const [awaitedPart, setAwaitedPart] = useState("");
     const [verifyingId, setVerifyingId] = useState<number | null>(null);
     const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
 
@@ -64,9 +70,21 @@ function RectificationQueue({ onOpenFlow }: RectificationQueueProps) {
     const verify = useVerifyMriFaultRectification(0);
     const recordLimits = useRecordEquipmentLimitations(0);
     const [functionTestOk, setFunctionTestOk] = useState(false);
+    // FB-022: what was done to fix the fault, required to close it.
+    const [fixAction, setFixAction] = useState("");
     const [limitsId, setLimitsId] = useState<number | null>(null);
     const [limitsNote, setLimitsNote] = useState("");
-    const [filter, setFilter] = useState<"all" | "red" | "yellow" | "planned" | "uninformed">("all");
+    const [filter, setFilter] = useState<"all" | "red" | "yellow" | "planned" | "uninformed" | "parts" | "mine">("all");
+    // FB-013: the user list for "who will fix it", and the repairs assigned to the signed-in
+    // user (marked as seen once they open this screen).
+    const { users: allUsers } = useCurrentUser();
+    const fixers = allUsers.filter((u) => u.active).sort((a, b) => a.name.localeCompare(b.name));
+    const { data: myRepairs = [] } = useMyRepairAssignments(user?.id ?? 0);
+    const markSeen = useMarkRepairAssignmentsSeen();
+    const myUnseen = myRepairs.filter((r) => !r.seen).length;
+    useEffect(() => {
+        if (user?.id && myUnseen > 0) markSeen.mutate(user.id);
+    }, [user?.id, myUnseen]); // eslint-disable-line react-hooks/exhaustive-deps
 
     function flash(msg: string, kind: "ok" | "err") {
         setStatus({ msg, kind });
@@ -79,12 +97,14 @@ function RectificationQueue({ onOpenFlow }: RectificationQueueProps) {
         setAssignedTechnician(row.assigned_technician ?? "");
         setPartsStatus(row.parts_status);
         setRepairDate(row.repair_date ?? "");
+        setAwaitedPart(row.awaited_part ?? "");
     }
 
     function startVerify(row: MriFaultRectification) {
         setVerifyingId(row.id);
         setEditingId(null);
         setFunctionTestOk(false);
+        setFixAction("");
     }
 
     function startLimits(row: MriFaultRectification) {
@@ -110,9 +130,12 @@ function RectificationQueue({ onOpenFlow }: RectificationQueueProps) {
             await update.mutateAsync({
                 id: row.id,
                 assignedTechnician: assignedTechnician.trim() || null,
+                // FB-013: a name picked from the user list is stored as that user.
+                assignedTechnicianUserId: fixers.find((u) => u.name.trim().toLowerCase() === assignedTechnician.trim().toLowerCase())?.id ?? null,
                 partsStatus,
                 repairDate: repairDate.trim() || null,
                 updatedBy: user?.name ?? null,
+                awaitedPart: partsStatus === "Available" ? null : awaitedPart.trim() || null,
             });
             flash(`Repair plan updated — ${row.checklist_description ?? "item"} on ${row.asset_code ?? "asset"}`, "ok");
             setEditingId(null);
@@ -124,7 +147,7 @@ function RectificationQueue({ onOpenFlow }: RectificationQueueProps) {
     async function confirmVerify(row: MriFaultRectification) {
         if (!user) return;
         try {
-            await verify.mutateAsync({ id: row.id, verifiedBy: user.name, functionTestPassed: functionTestOk });
+            await verify.mutateAsync({ id: row.id, verifiedBy: user.name, functionTestPassed: functionTestOk, actionTaken: fixAction.trim() });
             flash(`${row.tag_status === "Planned" ? "Verified — follow-up closed for" : "Verified — tag removed for"} ${row.checklist_description ?? "item"} on ${row.asset_code ?? "asset"}`, "ok");
             setVerifyingId(null);
         } catch (err) {
@@ -145,9 +168,16 @@ function RectificationQueue({ onOpenFlow }: RectificationQueueProps) {
         yellow: rows.filter((r) => kindOf(r) === "yellow").length,
         planned: rows.filter((r) => kindOf(r) === "planned").length,
         uninformed: rows.filter((r) => !r.limitations_note).length,
+        parts: rows.filter((r) => r.parts_status !== "Available").length,
     };
+    // Longest wait for parts, in days since the repair was queued.
+    const partsWaitDays = Math.max(0, ...rows.filter((r) => r.parts_status !== "Available").map((r) => {
+        const n = Number(r.created_date);
+        const ms = !isNaN(n) ? (n < 1e12 ? n * 1000 : n) : new Date(r.created_date).getTime();
+        return isNaN(ms) ? 0 : Math.floor((Date.now() - ms) / 86400000);
+    }));
     const visibleRows = rows
-        .filter((r) => filter === "all" || (filter === "uninformed" ? !r.limitations_note : kindOf(r) === filter))
+        .filter((r) => filter === "all" || (filter === "mine" ? !!user && r.assigned_technician_user_id === user.id : filter === "uninformed" ? !r.limitations_note : filter === "parts" ? r.parts_status !== "Available" : kindOf(r) === filter))
         .sort((x, y) => KIND_META[kindOf(x)].order - KIND_META[kindOf(y)].order);
 
     return (
@@ -233,6 +263,7 @@ function RectificationQueue({ onOpenFlow }: RectificationQueueProps) {
                             ["yellow", counts.yellow, "Repair in progress", "var(--st-amber)"],
                             ["planned", counts.planned, "Moderate follow-up", "var(--st-blue)"],
                             ["uninformed", counts.uninformed, "Field team not informed", "var(--danger)"],
+                            ["parts", counts.parts, counts.parts ? `Waiting for parts · longest ${partsWaitDays} d` : "Waiting for parts", "var(--st-amber)"],
                         ] as const).map(([key, n, label, c]) => (
                             <button
                                 key={key}
@@ -251,6 +282,25 @@ function RectificationQueue({ onOpenFlow }: RectificationQueueProps) {
                                 </span>
                             </button>
                         ))}
+                        {myRepairs.length > 0 && (
+                            <button
+                                type="button"
+                                className="rq-stat"
+                                style={{ ["--c" as string]: "var(--accent, #2f6fed)" }}
+                                aria-pressed={filter === "mine"}
+                                onClick={() => setFilter(filter === "mine" ? "all" : "mine")}
+                                title="Repairs a reviewer assigned to you"
+                                aria-label={`Assigned to me: ${myRepairs.length}`}
+                            >
+                                <span className="rq-ico">
+                                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2" /><path d="M3.5 20c.6-3.6 3-5.5 5.5-5.5s4.9 1.9 5.5 5.5" /><path d="m15.5 12.5 2 2 4-4" /></svg>
+                                </span>
+                                <span className="rq-stat-t">
+                                    <b>{myRepairs.length}</b>
+                                    <span>Assigned to me{myUnseen ? ` · ${myUnseen} new` : ""}</span>
+                                </span>
+                            </button>
+                        )}
                     </div>
 
                     {visibleRows.length === 0 && (
@@ -297,7 +347,7 @@ function RectificationQueue({ onOpenFlow }: RectificationQueueProps) {
 
                                 <dl className="rq-dl">
                                     <div><dt>Technician</dt><dd className={row.assigned_technician ? "" : "muted"}>{row.assigned_technician ?? "Unassigned"}</dd></div>
-                                    <div><dt>Parts</dt><dd>{row.parts_status}</dd></div>
+                                    <div><dt>Parts</dt><dd>{row.parts_status}{row.awaited_part && row.parts_status !== "Available" ? ` · ${row.awaited_part}` : ""}</dd></div>
                                     <div><dt>Repair date</dt><dd className={row.repair_date ? "" : "muted"}>{row.repair_date ? formatDate(row.repair_date) : "Not set"}</dd></div>
                                 </dl>
 
@@ -339,14 +389,18 @@ function RectificationQueue({ onOpenFlow }: RectificationQueueProps) {
                                     <div className="rq-form">
                                         <div className="two">
                                             <div className="field">
-                                                <label>Technician</label>
+                                                <label>Who will fix it (technician or fabricator)</label>
                                                 <input
                                                     type="text"
                                                     className="trigger-input"
+                                                    list="rq-fixers"
                                                     value={assignedTechnician}
                                                     onChange={(e) => setAssignedTechnician(e.target.value)}
-                                                    placeholder="Optional"
+                                                    placeholder="Pick a user, or type a name"
                                                 />
+                                                <datalist id="rq-fixers">
+                                                    {fixers.map((u) => <option key={u.id} value={u.name}>{u.role}</option>)}
+                                                </datalist>
                                             </div>
                                             <div className="field">
                                                 <label>Parts</label>
@@ -359,6 +413,17 @@ function RectificationQueue({ onOpenFlow }: RectificationQueueProps) {
                                                 </select>
                                             </div>
                                         </div>
+                                        {partsStatus !== "Available" && (
+                                            <div className="field">
+                                                <label>Part waited for</label>
+                                                <input
+                                                    className="trigger-input"
+                                                    value={awaitedPart}
+                                                    onChange={(e) => setAwaitedPart(e.target.value)}
+                                                    placeholder="e.g. Pump seal kit (optional)"
+                                                />
+                                            </div>
+                                        )}
                                         <div className="field">
                                             <label>Repair date</label>
                                             <input
@@ -385,13 +450,17 @@ function RectificationQueue({ onOpenFlow }: RectificationQueueProps) {
                                         <p style={{ fontSize: 12.5, margin: 0 }}>
                                             Verified by: <strong>{user?.name ?? "Unknown"}</strong>
                                         </p>
+                                        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12.5 }}>
+                                            <span><strong>What was done to fix it</strong> (Action Taken, required)</span>
+                                            <textarea rows={3} value={fixAction} onChange={(e) => setFixAction(e.target.value)} placeholder="For example: replaced the hydraulic hose and re-torqued the fittings" style={{ resize: "vertical", width: "100%" }} />
+                                        </label>
                                         <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12.5 }}>
                                             <input type="checkbox" checked={functionTestOk} onChange={(e) => setFunctionTestOk(e.target.checked)} />
                                             A function test was performed after the repair and the unit passed
                                         </label>
                                         <div className="rq-actions">
                                             <button className="ghost rq-sm" onClick={() => setVerifyingId(null)}>Cancel</button>
-                                            <button className="danger rq-sm" disabled={!functionTestOk} onClick={() => confirmVerify(row)}>{planned ? "Confirm — Close" : "Confirm — Remove Tag"}</button>
+                                            <button className="danger rq-sm" disabled={!functionTestOk || !fixAction.trim()} title={!fixAction.trim() ? "Write what was done to fix it first" : undefined} onClick={() => confirmVerify(row)}>{planned ? "Confirm — Close" : "Confirm — Remove Tag"}</button>
                                         </div>
                                     </div>
                                 )}

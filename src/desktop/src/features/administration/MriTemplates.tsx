@@ -1,4 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
+import { useQueries } from "@tanstack/react-query";
+import { invoke } from "../../lib/ipc";
+import type { TemplateChecklistItem } from "../mri-template-builder/hooks/useTemplateChecklistItems";
 import {
   useMriTemplates,
   useCreateMriTemplate,
@@ -11,10 +14,12 @@ import {
   type TemplateStatus,
 } from "./hooks/useMriTemplates";
 import { useAssetTypes } from "./hooks/useAssetTypes";
+import { useAssets } from "../asset-registry/hooks/useAssets";
+import { useMriReports } from "../mri-reporting/hooks/useMriReports";
 import AssetTypeCombobox from "./AssetTypeCombobox";
 import TemplateGraphModal from "../mri-template-builder/TemplateGraphModal";
 import { useTemplateHints } from "../mri-template-builder/useTemplateHints";
-import { IsoIconPlatform, IsoTower, TIG_CSS } from "../mri-template-builder/TemplateIsoGuide";
+import { IsoIconPlatform, TIG_CSS } from "../mri-template-builder/TemplateIsoGuide";
 import { useReportAdminKpis } from "./AdminIsoGuide";
 
 const STATUS_ORDER: TemplateStatus[] = ["Draft", "Active", "Inactive"];
@@ -33,17 +38,43 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
 
 
   const deleteTemplate = useDeleteMriTemplate();
+  // A template is in use once units of its kind are in the Asset Registry or MR-I reports
+  // were made with it; then it can't be deleted (set it to Not in use instead).
+  const { data: allAssets = [], isSuccess: assetsReady } = useAssets();
+  const { data: allReports = [], isSuccess: reportsReady } = useMriReports();
+  const useOf = (t: MriTemplate) => ({
+    units: allAssets.filter((a) => a.asset_type_id === t.asset_type_id).length,
+    reports: allReports.filter((r) => r.template_id === t.id).length,
+  });
   const exportBackup = useExportMriTemplatesBackup();
   const importBackup = useImportMriTemplatesBackup();
   const importFileRef = useRef<HTMLInputElement>(null);
   const tplCount = (st: string) => templates.filter((x) => x.status === st).length;
-  const kindsNoTpl = assetTypes.filter((k) => k.active && !templates.some((x) => x.asset_type_id === k.id)).length;
+  // Kinds of unit with no In use template: their units can't get an MR-I report.
+  const kindsNoInUse = assetTypes.filter((k) => k.active && !templates.some((x) => x.asset_type_id === k.id && x.status === "Active"));
+  const kindsNoTpl = kindsNoInUse.length;
+  // Questions and groups on each template (the same queries the Checklist Bank uses).
+  const shapeQueries = useQueries({
+    queries: templates.map((t) => ({
+      queryKey: ["template-checklist-items", t.id],
+      queryFn: () => invoke<TemplateChecklistItem[]>("get_template_checklist_items", { templateId: t.id }),
+    })),
+  });
+  const shape = useMemo(() => {
+    const m = new Map<number, { questions: number; groups: number }>();
+    shapeQueries.forEach((q, i) => {
+      const t = templates[i];
+      if (t && q.isSuccess) m.set(t.id, { questions: (q.data ?? []).length, groups: new Set((q.data ?? []).map((x) => x.section_id).filter((x) => x != null)).size });
+    });
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templates, shapeQueries.map((q) => q.dataUpdatedAt).join(",")]);
   useReportAdminKpis("mri-template", [
     { label: "MR-I templates", value: templates.length, tone: "blue" },
     { label: "in use", value: tplCount("Active"), tone: "ok" },
     { label: "draft", value: tplCount("Draft"), tone: tplCount("Draft") ? "look" : "skip" },
     { label: "not in use", value: tplCount("Inactive"), tone: "skip" },
-    { label: "kinds of unit without one", value: kindsNoTpl, tone: kindsNoTpl ? "look" : "ok" },
+    { label: "kinds of unit without one in use", value: kindsNoTpl, tone: kindsNoTpl ? "look" : "ok" },
   ]);
 
 
@@ -106,8 +137,12 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
 
   async function confirmDelete() {
     if (!pendingDelete) return;
-    await deleteTemplate.mutateAsync(pendingDelete.id);
-    flash(`"${pendingDelete.template_name}" deleted`, "ok");
+    try {
+      await deleteTemplate.mutateAsync(pendingDelete.id);
+      flash(`"${pendingDelete.template_name}" deleted`, "ok");
+    } catch (err) {
+      flash(String(err), "err");
+    }
     setPendingDelete(null);
   }
 
@@ -176,6 +211,23 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
         </div>
       )}
 
+      {kindsNoInUse.length > 0 && (
+        <details className="mt-cover">
+          <summary>{kindsNoInUse.length} kind{kindsNoInUse.length === 1 ? "" : "s"} of unit without an In use template</summary>
+          <p>Units of these kinds can't get an MR-I report until a template for the kind is set to In use.</p>
+          <ul>{kindsNoInUse.map((k) => {
+            const units = allAssets.filter((a) => a.asset_type_id === k.id).length;
+            const tpl = templates.filter((x) => x.asset_type_id === k.id);
+            return (
+              <li key={k.id}>
+                <b>{k.description}</b>
+                <span>{units} unit{units === 1 ? "" : "s"} in the registry · {tpl.length ? tpl.map((x) => `${x.template_name} (${STATUS_WORDS[x.status]})`).join(", ") : "no template yet"}</span>
+              </li>
+            );
+          })}</ul>
+        </details>
+      )}
+
       {isLoading ? (
         <div className="empty">Loading...</div>
       ) : templates.length === 0 ? (
@@ -191,7 +243,7 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
             >
               <div className="review-card-top">
                 <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
-                  <TemplateTower templateId={t.id} status={t.status} />
+                  <TemplateIcon icon={assetTypes.find((a) => a.id === t.asset_type_id)?.icon} />
                   {editingId === t.id ? (
                     <input
                       type="text"
@@ -206,8 +258,8 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
                     <div style={{ minWidth: 0 }}>
                       <div className="review-card-code">{t.template_name}</div>
                       <div className="mt-kind">
-                        <IsoIconPlatform icon={assetTypes.find((a) => a.id === t.asset_type_id)?.icon} size={44} />
                         <span>{assetTypeName(t.asset_type_id)}</span>
+                        {shape.get(t.id) && <span className="mt-shape">· {shape.get(t.id)!.questions} question{shape.get(t.id)!.questions === 1 ? "" : "s"} · {shape.get(t.id)!.groups} group{shape.get(t.id)!.groups === 1 ? "" : "s"}</span>}
                       </div>
                       {t.status === "Draft" && <DraftHint templateId={t.id} />}
                     </div>
@@ -252,12 +304,21 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
                           stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
                       </svg>
                     </button>
-                    <button className="icon-btn icon-danger" aria-label="Delete" onClick={(e) => { e.stopPropagation(); setPendingDelete(t); }}>
+                    {(() => {
+                      const u = useOf(t);
+                      const locked = !assetsReady || !reportsReady || u.units > 0 || u.reports > 0;
+                      const why = !assetsReady || !reportsReady ? "Checking whether this template is in use…"
+                        : locked ? `In use (${u.units} ${u.units === 1 ? "unit" : "units"} of this kind, ${u.reports} MR-I ${u.reports === 1 ? "report" : "reports"}) — set it to Not in use instead` : "Delete";
+                      return (
+                    <button className="icon-btn icon-danger" aria-label="Delete" aria-disabled={locked} style={locked ? { opacity: 0.35, cursor: "not-allowed" } : undefined} title={why}
+                      onClick={(e) => { e.stopPropagation(); if (!locked) setPendingDelete(t); }}>
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                         <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
                       </svg>
                     </button>
+                      );
+                    })()}
                   </>
                 )}
               </div>
@@ -296,14 +357,12 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
 // Plain words for the template statuses (the statuses themselves are unchanged).
 const STATUS_WORDS: Record<TemplateStatus, string> = { Draft: "Draft", Active: "In use", Inactive: "Not in use" };
 
-// 3D tower: one floor per part of the form (report details, checks, picture, distance, sign-off),
-// coloured by the on-screen hints; the base shows the status. Display only.
-function TemplateTower({ templateId, status }: { templateId: number; status: TemplateStatus }) {
-  const h = useTemplateHints(templateId);
-  const floors = (["header", "checklist", "drawing", "mid", "footer"] as const).map((k) => (h.ready ? h.steps[k].state : "none"));
+// The kind of unit's icon standing on a 3D platform, the same as the Asset Registry cards.
+// Display only.
+function TemplateIcon({ icon }: { icon?: string | null }) {
   return (
-    <span title="One floor per part of the form: green looks complete, orange is worth a look, grey is not filled in">
-      <IsoTower states={floors} base={status === "Active" ? "ok" : status === "Draft" ? "draft" : "off"} faded={status === "Inactive"} size={70} />
+    <span style={{ flexShrink: 0, display: "inline-flex" }}>
+      <IsoIconPlatform icon={icon} size={96} />
     </span>
   );
 }
@@ -311,7 +370,13 @@ function TemplateTower({ templateId, status }: { templateId: number; status: Tem
 const MT_CSS = `
 .tig .mt-card { transition: transform .4s cubic-bezier(.34,1.56,.64,1), box-shadow .25s; }
 .tig .mt-card:hover, .tig .mt-card:focus-within { transform: translateY(-4px); }
-.tig .mt-kind { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-soft); margin-top: 4px; }
+.tig .mt-kind { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-soft); margin-top: 4px; flex-wrap: wrap; }
+.mt-cover { margin: 0 0 14px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border); border-left: 4px solid var(--warn); background: var(--surface); }
+.mt-cover summary { cursor: pointer; font-weight: 700; color: var(--warn); }
+.mt-cover p { margin: 6px 0; font-size: 12.5px; color: var(--text-soft); }
+.mt-cover ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.mt-cover li { display: flex; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+.mt-cover li span { color: var(--text-soft); }
 @media (prefers-reduced-motion: reduce) { .tig .mt-card { transition: none; } .tig .mt-card:hover { transform: none; } }
 `;
 

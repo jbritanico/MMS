@@ -1020,6 +1020,52 @@ fn open_and_migrate_connection() -> Result<Connection, String> {
     let _ = conn.execute("ALTER TABLE mri_fault_rectifications ADD COLUMN limitations_note TEXT", []);
     let _ = conn.execute("ALTER TABLE mri_fault_rectifications ADD COLUMN limitations_informed_by TEXT", []);
     let _ = conn.execute("ALTER TABLE mri_fault_rectifications ADD COLUMN limitations_informed_date TEXT", []);
+    // Which part the repair is waiting for (free text, e.g. "Pump seal kit"), so repairs
+    // waiting for parts can be grouped by part for logistics.
+    let _ = conn.execute("ALTER TABLE mri_fault_rectifications ADD COLUMN awaited_part TEXT", []);
+    // FB-022: what was done to fix the fault, written by the person who closes it.
+    let _ = conn.execute("ALTER TABLE mri_fault_rectifications ADD COLUMN action_taken TEXT", []);
+    // FB-024: "Other faults" -- checklist items that belong to one report only.
+    let _ = conn.execute("ALTER TABLE template_checklist_items ADD COLUMN adhoc_report_id INTEGER", []);
+    let _ = conn.execute("ALTER TABLE checklist_databank ADD COLUMN adhoc INTEGER NOT NULL DEFAULT 0", []);
+    // FB-013: who the reviewer assigned to rectify the fault, and whether they have seen it.
+    let _ = conn.execute("ALTER TABLE mri_fault_rectifications ADD COLUMN assigned_technician_user_id INTEGER", []);
+    let _ = conn.execute("ALTER TABLE mri_fault_rectifications ADD COLUMN assigned_at TEXT", []);
+    let _ = conn.execute("ALTER TABLE mri_fault_rectifications ADD COLUMN assignee_seen_at TEXT", []);
+    // FB-026: one row per deleted MR-I report, with the MOC that authorised it.
+    let _ = conn.execute(
+        "CREATE TABLE IF NOT EXISTS mri_report_deletion_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            report_id INTEGER NOT NULL,
+            asset_code TEXT,
+            report_status TEXT,
+            submitted_by TEXT,
+            submitted_date TEXT,
+            deleted_by TEXT NOT NULL,
+            moc_reference TEXT NOT NULL,
+            moc_approved_by TEXT NOT NULL,
+            method TEXT NOT NULL,
+            deleted_at TEXT NOT NULL
+        )",
+        [],
+    );
+    // FB-006: audit trail of changes made to an MR-I report after it was submitted.
+    let _ = conn.execute(
+        "CREATE TABLE IF NOT EXISTS mri_report_edit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            report_id INTEGER NOT NULL,
+            part TEXT NOT NULL,
+            item_label TEXT NOT NULL,
+            field TEXT NOT NULL,
+            old_value TEXT,
+            new_value TEXT,
+            changed_by TEXT,
+            changed_at TEXT NOT NULL,
+            seen_by_submitter_at TEXT,
+            FOREIGN KEY (report_id) REFERENCES mri_reports(id)
+        )",
+        [],
+    );
 
     // One-time (but safe to run every startup) cleanup: earlier versions of
     // purge_mri_reports deleted reports without also clearing their Fault Review data,
@@ -1124,7 +1170,33 @@ const DASHBOARD_PERMS: [(&str, &str); 22] = [
     ("dash.19", "19 · Fault Trends by Equipment"),
 ];
 
+// Dashboards 20-28 (MR-I reports list, 23 Nov 2026). Unlike 1-19 they are not given to every
+// role: once, each goes to the roles of the user tier it was planned for, plus Administrator
+// and Data Miner View. The Administrator can change this afterwards in Roles.
+const TIER2_DASH_ROLES: [&str; 5] = ["Job Supervisor", "Maintenance Supervisor", "Maintenance Manager / FSM", "Administrator", "Data Miner View"];
+const TIER3_DASH_ROLES: [&str; 3] = ["Maintenance Manager / FSM", "Administrator", "Data Miner View"];
+// (code, label, Tier 3 only)
+const NEW_DASHBOARD_PERMS: [(&str, &str, bool); 9] = [
+    ("dash.20", "20 · Inspection Sequence per Job", false),
+    ("dash.21", "21 · On-site Repairs Log", false),
+    ("dash.22", "22 · Sign-off Completeness", false),
+    ("dash.23", "23 · Data Quality", false),
+    ("dash.24", "24 · Usage per Job", false),
+    ("dash.25", "25 · MR Cost", true),
+    ("dash.26", "26 · Critical Fault Audit Trail", true),
+    ("dash.27", "27 · Faults by Client", true),
+    ("dash.28", "28 · Exemption (MOC) Audit", true),
+];
+
 fn seed_dashboard_permissions(conn: &Connection) -> Result<(), String> {
+    for (code, label, _) in NEW_DASHBOARD_PERMS.iter() {
+        conn.execute(
+            "INSERT INTO permissions (code, label, category) VALUES (?1, ?2, 'Dashboards')
+             ON CONFLICT(code) DO UPDATE SET label = excluded.label",
+            rusqlite::params![code, label],
+        )
+        .map_err(|e| e.to_string())?;
+    }
     for (code, label) in DASHBOARD_PERMS.iter() {
         conn.execute(
             "INSERT INTO permissions (code, label, category) VALUES (?1, ?2, 'Dashboards')
@@ -1151,6 +1223,28 @@ fn seed_dashboard_permissions(conn: &Connection) -> Result<(), String> {
         )
         .map_err(|e| e.to_string())?;
         conn.execute("INSERT OR IGNORE INTO app_migrations (name) VALUES ('dashboard_permission_19')", [])
+            .map_err(|e| e.to_string())?;
+    }
+    // Dashboards 20-28: once, switch each on for the roles of its tier.
+    let done20: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM app_migrations WHERE name = 'dashboard_permissions_20_28'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if done20 == 0 {
+        for (code, _, tier3_only) in NEW_DASHBOARD_PERMS.iter() {
+            let roles: &[&str] = if *tier3_only { &TIER3_DASH_ROLES } else { &TIER2_DASH_ROLES };
+            for role in roles {
+                conn.execute(
+                    "INSERT OR IGNORE INTO role_permissions (role, permission_code) VALUES (?1, ?2)",
+                    rusqlite::params![role, code],
+                )
+                .map_err(|e| e.to_string())?;
+            }
+        }
+        conn.execute("INSERT OR IGNORE INTO app_migrations (name) VALUES ('dashboard_permissions_20_28')", [])
             .map_err(|e| e.to_string())?;
     }
     let done: i64 = conn
@@ -1922,13 +2016,27 @@ fn reset_trigger_running_values(asset_id: Option<i64>) -> Result<String, String>
 // every asset to Green, so MR-I can be tested again from a clean start. Templates, assets,
 // trigger thresholds, users and reference data are kept. One transaction: all or nothing.
 #[tauri::command]
-fn clean_slate_mri(changed_by: String) -> Result<String, String> {
+fn clean_slate_mri(
+    changed_by: String,
+    user_id: i64,
+    moc_reference: String,
+    moc_approved_by: String,
+) -> Result<String, String> {
     let changed_by = changed_by.trim();
     if changed_by.is_empty() {
         return Err("Your name is required to run Clean slate".to_string());
     }
     let conn = get_connection()?;
+    let deleted_by = mr_delete_authority(&conn, user_id, &moc_reference, &moc_approved_by)?;
     let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+    // FB-026: record every report being removed, with the MOC that authorised it.
+    tx.execute(
+        "INSERT INTO mri_report_deletion_log (report_id, asset_code, report_status, submitted_by, submitted_date, deleted_by, moc_reference, moc_approved_by, method, deleted_at)
+         SELECT r.id, a.asset_code, r.status, r.submitted_by, r.submitted_date, ?1, ?2, ?3, 'Clean slate', ?4
+         FROM mri_reports r LEFT JOIN assets a ON a.id = r.asset_id",
+        rusqlite::params![deleted_by, moc_reference.trim(), moc_approved_by.trim(), chrono_now()],
+    )
+    .map_err(|e| e.to_string())?;
     let report_count: i64 = tx
         .query_row("SELECT COUNT(*) FROM mri_reports", [], |row| row.get(0))
         .map_err(|e| e.to_string())?;
@@ -2002,7 +2110,7 @@ struct ChecklistItem {
 fn get_checklist_items() -> Result<Vec<ChecklistItem>, String> {
     let conn = get_connection()?;
     let mut stmt = conn.prepare(
-        "SELECT id, code, description, level, active FROM checklist_databank ORDER BY level, code"
+        "SELECT id, code, description, level, active FROM checklist_databank WHERE COALESCE(adhoc, 0) = 0 ORDER BY level, code"
     ).map_err(|e| e.to_string())?;
     let items = stmt
         .query_map([], |row| {
@@ -2124,9 +2232,70 @@ fn bulk_create_checklist_items(items: Vec<NewChecklistItem>) -> Result<String, S
     ))
 }
 
+// Why a question, group or MR-I template can't be deleted, or None when it can. Used by every
+// path that deletes them (their own screens, Data purge and the Data Browser):
+// - a question (checklist_databank) or group (checklist_sections) used on any MR-I template,
+//   Draft templates included;
+// - an MR-I template once units of its kind are in the Asset Registry or reports were made with it.
+fn delete_block_reason(conn: &Connection, table: &str, id: i64) -> Result<Option<String>, String> {
+    // FB-026: MR-I reports are only deleted from Data Purging, by the Administrator with an MOC.
+    if table == "mri_reports" {
+        return Ok(Some("MR-I reports can only be deleted by the Administrator from Data tools › Data purging, against an approved MOC.".to_string()));
+    }
+    let (what, column) = match table {
+        "checklist_databank" => ("question", "checklist_item_id"),
+        "checklist_sections" => ("group", "section_id"),
+        "mri_templates" => {
+            let asset_count: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM assets WHERE asset_type_id = (SELECT asset_type_id FROM mri_templates WHERE id = ?1)",
+                    [id],
+                    |row| row.get(0),
+                )
+                .map_err(|e| e.to_string())?;
+            let report_count: i64 = conn
+                .query_row("SELECT COUNT(*) FROM mri_reports WHERE template_id = ?1", [id], |row| row.get(0))
+                .map_err(|e| e.to_string())?;
+            if asset_count > 0 || report_count > 0 {
+                return Ok(Some(format!(
+                    "This template is in use ({} unit(s) of its kind, {} MR-I report(s)) and can't be deleted. Set it to Not in use instead.",
+                    asset_count, report_count
+                )));
+            }
+            return Ok(None);
+        }
+        _ => return Ok(None),
+    };
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT DISTINCT t.template_name FROM template_checklist_items tci
+             JOIN mri_templates t ON t.id = tci.template_id
+             WHERE tci.{} = ?1 ORDER BY t.template_name",
+            column
+        ))
+        .map_err(|e| e.to_string())?;
+    let used_by = stmt
+        .query_map([id], |row| row.get::<_, String>(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    if used_by.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(format!(
+        "This {} is used in {} and can't be deleted. Remove it from {} first.",
+        what,
+        used_by.join(", "),
+        if used_by.len() == 1 { "that template" } else { "those templates" }
+    )))
+}
+
 #[tauri::command]
 fn delete_checklist_item(id: i64) -> Result<String, String> {
     let conn = get_connection()?;
+    if let Some(reason) = delete_block_reason(&conn, "checklist_databank", id)? {
+        return Err(reason);
+    }
     conn.execute("DELETE FROM checklist_databank WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
     Ok("Checklist item deleted".to_string())
@@ -2200,6 +2369,9 @@ fn update_checklist_section(id: i64, name: String) -> Result<String, String> {
 #[tauri::command]
 fn delete_checklist_section(id: i64) -> Result<String, String> {
     let conn = get_connection()?;
+    if let Some(reason) = delete_block_reason(&conn, "checklist_sections", id)? {
+        return Err(reason);
+    }
     conn.execute("DELETE FROM checklist_sections WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
     Ok("Section deleted".to_string())
@@ -2610,6 +2782,10 @@ fn rename_mri_template(id: i64, template_name: String) -> Result<String, String>
 fn delete_mri_template(id: i64) -> Result<String, String> {
     let conn = get_connection()?;
 
+    if let Some(reason) = delete_block_reason(&conn, "mri_templates", id)? {
+        return Err(reason);
+    }
+
     conn.execute(
         "DELETE FROM template_header_fields WHERE template_id = ?1",
         [id],
@@ -2771,13 +2947,124 @@ fn valid_severity(s: &str) -> bool {
     matches!(s, "Minor" | "Moderate" | "Critical")
 }
 
+// ---- FB-024 (RFSM approved): faults not on the checklist ("Other faults") ----
+// Tier 1 may add a fault that isn't on the template's checklist and set its severity. It is
+// stored as a checklist item that belongs to this one report (adhoc_report_id), so it follows
+// the same review, repair, history and dashboard path as any other fault, and never shows on
+// the template, in the Checklist Bank or on other reports.
+#[derive(Serialize)]
+struct MriOtherFault {
+    template_checklist_item_id: i64,
+    description: String,
+}
+
+#[tauri::command]
+fn get_mri_other_faults(report_id: i64) -> Result<Vec<MriOtherFault>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT tci.id, cd.description FROM template_checklist_items tci
+             JOIN checklist_databank cd ON cd.id = tci.checklist_item_id
+             WHERE tci.adhoc_report_id = ?1 ORDER BY tci.id",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([report_id], |r| Ok(MriOtherFault { template_checklist_item_id: r.get(0)?, description: r.get(1)? }))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
+}
+
+#[tauri::command]
+fn add_mri_other_fault(
+    report_id: i64,
+    description: String,
+    severity: String,
+    issue_details: Option<String>,
+    reported_by: Option<String>,
+) -> Result<i64, String> {
+    let conn = get_connection()?;
+    let desc = description.trim();
+    if desc.is_empty() {
+        return Err("Describe the fault.".to_string());
+    }
+    let sev = severity.trim();
+    if !valid_severity(sev) {
+        return Err("Pick how serious the fault is (Minor, Moderate or Major / Critical).".to_string());
+    }
+    let (template_id, status): (i64, String) = conn
+        .query_row("SELECT template_id, status FROM mri_reports WHERE id = ?1", [report_id], |r| Ok((r.get(0)?, r.get(1)?)))
+        .map_err(|_| "Report not found".to_string())?;
+    if status != "Draft" && status != "Submitted" {
+        return Err("Faults can be added only until the report is endorsed.".to_string());
+    }
+    let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+    let next: i64 = tx
+        .query_row("SELECT COALESCE(MAX(id), 0) + 1 FROM checklist_databank", [], |r| r.get(0))
+        .map_err(|e| e.to_string())?;
+    tx.execute(
+        "INSERT INTO checklist_databank (code, description, level, active, adhoc) VALUES (?1, ?2, 'MR-I', 1, 1)",
+        rusqlite::params![format!("OTHER-R{}-{}", report_id, next), desc],
+    )
+    .map_err(|e| e.to_string())?;
+    let item_id = tx.last_insert_rowid();
+    tx.execute(
+        "INSERT INTO template_checklist_items (template_id, checklist_item_id, section_id, severity, display_order, required, adhoc_report_id)
+         VALUES (?1, ?2, NULL, ?3, 100000, 0, ?4)",
+        rusqlite::params![template_id, item_id, sev, report_id],
+    )
+    .map_err(|e| e.to_string())?;
+    let tci_id = tx.last_insert_rowid();
+    tx.execute(
+        "INSERT INTO mri_report_checklist_results (report_id, template_checklist_item_id, status, severity, issue_details, action_taken, date_observed, closure_status, reported_by, reported_at, repaired_on_site)
+         VALUES (?1, ?2, 'Fail', ?3, ?4, NULL, date('now', 'localtime'), 'Pending', ?5, datetime('now', 'localtime'), 0)",
+        rusqlite::params![report_id, tci_id, sev, issue_details.as_deref().map(str::trim), reported_by.as_deref()],
+    )
+    .map_err(|e| e.to_string())?;
+    if status != "Draft" {
+        // FB-006: added after submission (by the Job Supervisor) -- part of the audit trail.
+        log_report_edit(&tx, report_id, "Other faults", desc, "Fault added", None, Some(sev), reported_by.as_deref());
+    }
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(tci_id)
+}
+
+// Only while the report is still a draft; after sending, a fault is changed, not removed.
+#[tauri::command]
+fn delete_mri_other_fault(template_checklist_item_id: i64) -> Result<String, String> {
+    let conn = get_connection()?;
+    let found: Option<(i64, i64, String)> = conn
+        .query_row(
+            "SELECT tci.adhoc_report_id, tci.checklist_item_id, r.status FROM template_checklist_items tci
+             JOIN mri_reports r ON r.id = tci.adhoc_report_id WHERE tci.id = ?1",
+            [template_checklist_item_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .ok();
+    let (report_id, item_id, status) = match found {
+        Some(f) => f,
+        None => return Err("That fault was not found.".to_string()),
+    };
+    if status != "Draft" {
+        return Err("A fault can be removed only before the report is sent.".to_string());
+    }
+    let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM mri_report_attachments WHERE report_id = ?1 AND template_checklist_item_id = ?2", rusqlite::params![report_id, template_checklist_item_id]).map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM mri_report_checklist_results WHERE report_id = ?1 AND template_checklist_item_id = ?2", rusqlite::params![report_id, template_checklist_item_id]).map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM template_checklist_items WHERE id = ?1", [template_checklist_item_id]).map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM checklist_databank WHERE id = ?1 AND adhoc = 1", [item_id]).map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok("Fault removed".to_string())
+}
+
 #[tauri::command]
 fn get_template_checklist_items(template_id: i64) -> Result<Vec<TemplateChecklistItem>, String> {
     let conn = get_connection()?;
     let mut stmt = conn
         .prepare(
             "SELECT id, template_id, checklist_item_id, section_id, severity, display_order, required
-         FROM template_checklist_items WHERE template_id = ?1 ORDER BY display_order",
+         FROM template_checklist_items WHERE template_id = ?1 AND adhoc_report_id IS NULL ORDER BY display_order",
         )
         .map_err(|e| e.to_string())?;
     let items = stmt
@@ -3238,6 +3525,7 @@ struct FlowRepair {
     verified_date: Option<String>,
     tag_status: Option<String>,
     function_test_passed: Option<bool>,
+    action_taken: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -3384,7 +3672,7 @@ fn get_report_flow(report_id: i64, viewer_user_id: i64) -> Result<ReportFlow, St
                         fa.reviewer, au.name, fa.provisional_status, fa.acknowledged_by, fa.carried_to_report_id,
                         (SELECT COUNT(*) FROM mri_fault_decision_log dl WHERE dl.fault_approval_id = fa.id),
                         fr.id, fr.assigned_technician, fr.parts_status, fr.repair_date, fr.verified_by, fr.verified_date,
-                        fr.tag_status, fr.function_test_passed
+                        fr.tag_status, fr.function_test_passed, fr.action_taken
                  FROM mri_fault_approvals fa
                  LEFT JOIN template_checklist_items tci ON tci.id = fa.template_checklist_item_id
                  LEFT JOIN checklist_databank cd ON cd.id = tci.checklist_item_id
@@ -3406,6 +3694,7 @@ fn get_report_flow(report_id: i64, viewer_user_id: i64) -> Result<ReportFlow, St
                         verified_date: row.get(16)?,
                         tag_status: row.get(17)?,
                         function_test_passed: row.get::<_, Option<i64>>(18)?.map(|v| v != 0),
+                        action_taken: row.get(19)?,
                     })
                 } else {
                     None
@@ -4158,12 +4447,96 @@ fn get_standby_prejob_reminders() -> Result<Vec<StandbyReminderRow>, String> {
     Ok(out)
 }
 
+// ---- FB-026 (RFSM approved): deleting MR records ----
+// No tier may delete MR records in normal use. Only the Administrator may, and only against
+// an approved MOC authorised by the Country Manager, whose reference and approver are
+// recorded. Every deleted report is written to mri_report_deletion_log for the audit trail.
+fn mr_delete_authority(conn: &Connection, user_id: i64, moc_reference: &str, moc_approved_by: &str) -> Result<String, String> {
+    let found: Option<(String, String, i64)> = conn
+        .query_row(
+            "SELECT name, role, COALESCE(active, 1) FROM app_users WHERE id = ?1",
+            [user_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .ok();
+    let (name, role, active) = match found {
+        Some(f) => f,
+        None => return Err("Sign in as the Administrator to delete MR-I reports.".to_string()),
+    };
+    if active == 0 || role != "Administrator" {
+        return Err("Only the Administrator can delete MR-I reports, and only against an approved MOC.".to_string());
+    }
+    if moc_reference.trim().is_empty() {
+        return Err("Enter the reference of the approved MOC that authorises this deletion.".to_string());
+    }
+    if moc_approved_by.trim().is_empty() {
+        return Err("Enter the Country Manager who approved the MOC.".to_string());
+    }
+    Ok(name)
+}
+
+fn log_mr_deletion(conn: &Connection, report_id: i64, deleted_by: &str, moc_reference: &str, moc_approved_by: &str, method: &str) {
+    let _ = conn.execute(
+        "INSERT INTO mri_report_deletion_log (report_id, asset_code, report_status, submitted_by, submitted_date, deleted_by, moc_reference, moc_approved_by, method, deleted_at)
+         SELECT r.id, a.asset_code, r.status, r.submitted_by, r.submitted_date, ?2, ?3, ?4, ?5, ?6
+         FROM mri_reports r LEFT JOIN assets a ON a.id = r.asset_id WHERE r.id = ?1",
+        rusqlite::params![report_id, deleted_by, moc_reference.trim(), moc_approved_by.trim(), method, chrono_now()],
+    );
+}
+
+#[derive(Serialize)]
+struct MriReportDeletion {
+    id: i64,
+    report_id: i64,
+    asset_code: Option<String>,
+    report_status: Option<String>,
+    submitted_by: Option<String>,
+    submitted_date: Option<String>,
+    deleted_by: String,
+    moc_reference: String,
+    moc_approved_by: String,
+    method: String,
+    deleted_at: String,
+}
+
+#[tauri::command]
+fn get_mri_report_deletion_log() -> Result<Vec<MriReportDeletion>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, report_id, asset_code, report_status, submitted_by, submitted_date, deleted_by, moc_reference, moc_approved_by, method, deleted_at
+             FROM mri_report_deletion_log ORDER BY id DESC",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(MriReportDeletion {
+                id: row.get(0)?,
+                report_id: row.get(1)?,
+                asset_code: row.get(2)?,
+                report_status: row.get(3)?,
+                submitted_by: row.get(4)?,
+                submitted_date: row.get(5)?,
+                deleted_by: row.get(6)?,
+                moc_reference: row.get(7)?,
+                moc_approved_by: row.get(8)?,
+                method: row.get(9)?,
+                deleted_at: row.get(10)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
+}
+
+// The old single-row delete left the report's child data behind and had no checks. MR-I
+// reports are now only deleted from Data Purging (or the Asset MR-I History "delete latest"),
+// by the Administrator against an approved MOC.
 #[tauri::command]
 fn delete_mri_report(id: i64) -> Result<String, String> {
-    let conn = get_connection()?;
-    conn.execute("DELETE FROM mri_reports WHERE id = ?1", [id])
-        .map_err(|e| e.to_string())?;
-    Ok("Report deleted".to_string())
+    let _ = id;
+    Err("MR-I reports can only be deleted by the Administrator from Data tools › Data purging, against an approved MOC.".to_string())
 }
 
 // True when the report's template includes the given header field (case-insensitive label).
@@ -4528,6 +4901,11 @@ fn set_mri_report_header_value(
     updated_by: Option<String>,
 ) -> Result<String, String> {
     let conn = get_connection()?;
+    // FB-006 (RFSM): header information, such as Job Operating Hours, stays as the operator
+    // submitted it.
+    if report_status(&conn, report_id).map_or(false, |s| s != "Draft") {
+        return Err("The report details (header) can't be changed after the report is submitted.".to_string());
+    }
     // Manual 8.2: records keep the name of the responsible user and a timestamp.
     conn.execute(
         "INSERT INTO mri_report_header_values (report_id, template_header_field_id, value, updated_by, updated_at)
@@ -4538,6 +4916,219 @@ fn set_mri_report_header_value(
     )
     .map_err(|e| e.to_string())?;
     Ok("Header value saved".to_string())
+}
+
+// ---- FB-006 (RFSM approved): changes to an MR-I report after it was submitted ----
+// Every change made after submission is written to mri_report_edit_log (who, what, before and
+// after, when) for the audit trail. The operator who submitted the report is notified of
+// changes made by someone else until they open the report.
+fn report_status(conn: &Connection, report_id: i64) -> Option<String> {
+    conn.query_row("SELECT status FROM mri_reports WHERE id = ?1", [report_id], |r| r.get(0)).ok()
+}
+
+fn report_edit_label(conn: &Connection, part: &str, id: i64) -> String {
+    let sql = match part {
+        "Header" => "SELECT c.label FROM template_header_fields t JOIN header_field_catalog c ON c.id = t.header_field_id WHERE t.id = ?1",
+        "Distance" => "SELECT c.label FROM template_mid_fields t JOIN mid_field_catalog c ON c.id = t.mid_field_id WHERE t.id = ?1",
+        "Sign-off" => "SELECT c.label FROM template_footer_fields t JOIN footer_field_catalog c ON c.id = t.footer_field_id WHERE t.id = ?1",
+        _ => "SELECT cd.description FROM template_checklist_items t JOIN checklist_databank cd ON cd.id = t.checklist_item_id WHERE t.id = ?1",
+    };
+    conn.query_row(sql, [id], |r| r.get::<_, String>(0))
+        .unwrap_or_else(|_| format!("Item #{}", id))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn log_report_edit(
+    conn: &Connection,
+    report_id: i64,
+    part: &str,
+    label: &str,
+    field: &str,
+    old: Option<&str>,
+    new: Option<&str>,
+    by: Option<&str>,
+) {
+    let o = old.map(str::trim).unwrap_or("");
+    let n = new.map(str::trim).unwrap_or("");
+    if o == n {
+        return;
+    }
+    let by = by.map(str::trim).filter(|s| !s.is_empty());
+    let _ = conn.execute(
+        "INSERT INTO mri_report_edit_log (report_id, part, item_label, field, old_value, new_value, changed_by, changed_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        rusqlite::params![report_id, part, label, field, o, n, by, chrono_now()],
+    );
+}
+
+#[derive(Serialize)]
+struct MriReportEdit {
+    id: i64,
+    report_id: i64,
+    part: String,
+    item_label: String,
+    field: String,
+    old_value: Option<String>,
+    new_value: Option<String>,
+    changed_by: Option<String>,
+    changed_at: String,
+    seen_by_submitter_at: Option<String>,
+}
+
+#[tauri::command]
+fn get_mri_report_edit_log(report_id: i64) -> Result<Vec<MriReportEdit>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, report_id, part, item_label, field, old_value, new_value, changed_by, changed_at, seen_by_submitter_at
+             FROM mri_report_edit_log WHERE report_id = ?1 ORDER BY id",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([report_id], |row| {
+            Ok(MriReportEdit {
+                id: row.get(0)?,
+                report_id: row.get(1)?,
+                part: row.get(2)?,
+                item_label: row.get(3)?,
+                field: row.get(4)?,
+                old_value: row.get(5)?,
+                new_value: row.get(6)?,
+                changed_by: row.get(7)?,
+                changed_at: row.get(8)?,
+                seen_by_submitter_at: row.get(9)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
+}
+
+#[derive(Serialize)]
+struct MriReportTag {
+    /// The tag shown on this report: the unit's tag when the report was closed, or its tag
+    /// now while the report is still open.
+    tag_status: Option<String>,
+    reason: Option<String>,
+    /// Unix seconds (text) of the closure the tag is taken at; None = the tag now.
+    as_of: Option<String>,
+    closed: bool,
+    /// The unit's tag now, to show beside an older tag.
+    current_tag: Option<String>,
+}
+
+/// Equipment status on an MR-I report (Manual 8.1 and 8.2): a closed report keeps the tag the
+/// unit had when the report was closed, taken from asset_tag_history, so a later reprint
+/// doesn't show a tag that wasn't true at the time. Open reports show the tag now.
+#[tauri::command]
+fn get_mri_report_tag(report_id: i64) -> Result<MriReportTag, String> {
+    let conn = get_connection()?;
+    let (asset_id, status, approved): (i64, String, Option<String>) = conn
+        .query_row(
+            "SELECT asset_id, status, approved_date FROM mri_reports WHERE id = ?1",
+            [report_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .map_err(|e| e.to_string())?;
+    let (current, current_reason): (Option<String>, Option<String>) = conn
+        .query_row("SELECT tag_status, tag_reason FROM assets WHERE id = ?1", [asset_id], |r| Ok((r.get(0)?, r.get(1)?)))
+        .map_err(|e| e.to_string())?;
+    let closed = status == "Approved";
+    let end: Option<i64> = if closed { approved.as_deref().and_then(|s| s.trim().parse::<i64>().ok()) } else { None };
+    let Some(end) = end else {
+        return Ok(MriReportTag { tag_status: current.clone(), reason: current_reason, as_of: None, closed, current_tag: current });
+    };
+    // The last change at or before closure; else the tag before the first later change;
+    // else the tag has never changed since, so it is the tag now.
+    let before: Option<(String, Option<String>)> = conn
+        .query_row(
+            "SELECT tag_status, reason FROM asset_tag_history
+             WHERE asset_id = ?1 AND CAST(changed_at AS INTEGER) <= ?2
+             ORDER BY CAST(changed_at AS INTEGER) DESC, id DESC LIMIT 1",
+            rusqlite::params![asset_id, end],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .ok();
+    let (tag, reason) = match before {
+        Some((t, r)) => (Some(t), r),
+        None => {
+            let after: Option<Option<String>> = conn
+                .query_row(
+                    "SELECT previous_tag_status FROM asset_tag_history
+                     WHERE asset_id = ?1 AND CAST(changed_at AS INTEGER) > ?2
+                     ORDER BY CAST(changed_at AS INTEGER), id LIMIT 1",
+                    rusqlite::params![asset_id, end],
+                    |r| r.get(0),
+                )
+                .ok();
+            match after {
+                Some(prev) => (prev, None),
+                None => (current.clone(), current_reason),
+            }
+        }
+    };
+    Ok(MriReportTag { tag_status: tag, reason, as_of: approved, closed, current_tag: current })
+}
+
+#[derive(Serialize)]
+struct MriReportChangeNotice {
+    report_id: i64,
+    asset_code: Option<String>,
+    changes: i64,
+    last_changed_by: Option<String>,
+    last_changed_at: String,
+}
+
+// Reports the user submitted that someone else changed afterwards, not yet seen by them.
+#[tauri::command]
+fn get_my_report_change_notices(user_name: String) -> Result<Vec<MriReportChangeNotice>, String> {
+    let conn = get_connection()?;
+    let name = user_name.trim();
+    if name.is_empty() {
+        return Ok(vec![]);
+    }
+    let mut stmt = conn
+        .prepare(
+            "SELECT l.report_id, a.asset_code, COUNT(*), MAX(l.changed_at),
+                    (SELECT x.changed_by FROM mri_report_edit_log x WHERE x.report_id = l.report_id ORDER BY x.id DESC LIMIT 1)
+             FROM mri_report_edit_log l
+             JOIN mri_reports r ON r.id = l.report_id
+             LEFT JOIN assets a ON a.id = r.asset_id
+             WHERE r.submitted_by = ?1 AND l.seen_by_submitter_at IS NULL AND COALESCE(l.changed_by, '') <> ?1
+             GROUP BY l.report_id, a.asset_code
+             ORDER BY MAX(l.changed_at) DESC",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([name], |row| {
+            Ok(MriReportChangeNotice {
+                report_id: row.get(0)?,
+                asset_code: row.get(1)?,
+                changes: row.get(2)?,
+                last_changed_at: row.get(3)?,
+                last_changed_by: row.get(4)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
+}
+
+// Called when the submitter opens the report: the changes listed there count as seen.
+#[tauri::command]
+fn mark_report_changes_seen(report_id: i64, user_name: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    let name = user_name.trim();
+    conn.execute(
+        "UPDATE mri_report_edit_log SET seen_by_submitter_at = ?3
+         WHERE report_id = ?1 AND seen_by_submitter_at IS NULL AND COALESCE(changed_by, '') <> ?2
+           AND EXISTS (SELECT 1 FROM mri_reports r WHERE r.id = ?1 AND r.submitted_by = ?2)",
+        rusqlite::params![report_id, name, chrono_now()],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok("Changes marked as seen".to_string())
 }
 
 fn valid_checklist_status(s: &str) -> bool {
@@ -4656,6 +5247,15 @@ fn set_mri_report_checklist_result(result: MriReportChecklistResult) -> Result<S
         }
     }
 
+    // FB-006: the item as it was before this save, for the after-submission audit trail.
+    let before: Option<(Option<String>, Option<String>, Option<String>, Option<String>, Option<String>)> = conn
+        .query_row(
+            "SELECT status, severity, issue_details, action_taken, closure_status FROM mri_report_checklist_results
+             WHERE report_id = ?1 AND template_checklist_item_id = ?2",
+            rusqlite::params![result.report_id, result.template_checklist_item_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+        )
+        .ok();
     conn.execute(
         "INSERT INTO mri_report_checklist_results (report_id, template_checklist_item_id, status, severity, issue_details, action_taken, date_observed, closure_status, reported_by, reported_at, repaired_on_site)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8,
@@ -4678,6 +5278,17 @@ fn set_mri_report_checklist_result(result: MriReportChecklistResult) -> Result<S
             result.reported_by, result.repaired_on_site as i32
         ],
     ).map_err(|e| e.to_string())?;
+    if report_status(&conn, result.report_id).map_or(false, |s| s != "Draft") {
+        let label = report_edit_label(&conn, "Checklist", result.template_checklist_item_id);
+        let (s0, v0, i0, a0, c0) = before.unwrap_or((None, None, None, None, None));
+        let by = result.reported_by.as_deref();
+        let rid = result.report_id;
+        log_report_edit(&conn, rid, "Checklist", &label, "Result", s0.as_deref(), result.status.as_deref(), by);
+        log_report_edit(&conn, rid, "Checklist", &label, "Severity", v0.as_deref(), result.severity.as_deref(), by);
+        log_report_edit(&conn, rid, "Checklist", &label, "What's wrong", i0.as_deref(), result.issue_details.as_deref(), by);
+        log_report_edit(&conn, rid, "Checklist", &label, "What was done", a0.as_deref(), result.action_taken.as_deref(), by);
+        log_report_edit(&conn, rid, "Checklist", &label, "Fixed?", Some(c0.as_deref().unwrap_or("Pending")), Some(result.closure_status.as_str()), by);
+    }
     // Audit trail for faults closed on site (who, when, what was done), so a Critical fault
     // closed without review is always traceable.
     if result.repaired_on_site {
@@ -5361,8 +5972,14 @@ fn recompute_triggers_after_delete(conn: &Connection, asset_id: i64) {
 // deleting an arbitrary historical report -- which would leave a gap in the middle of the
 // timeline -- is never possible even if the frontend check were bypassed.
 #[tauri::command]
-fn delete_last_mri_report(report_id: i64) -> Result<String, String> {
+fn delete_last_mri_report(
+    report_id: i64,
+    user_id: i64,
+    moc_reference: String,
+    moc_approved_by: String,
+) -> Result<String, String> {
     let conn = get_connection()?;
+    let deleted_by = mr_delete_authority(&conn, user_id, &moc_reference, &moc_approved_by)?;
 
     let asset_id: i64 = conn
         .query_row(
@@ -5382,6 +5999,7 @@ fn delete_last_mri_report(report_id: i64) -> Result<String, String> {
     if latest_id != report_id {
         return Err("Only the most recent report for this asset can be deleted.".to_string());
     }
+    log_mr_deletion(&conn, report_id, &deleted_by, &moc_reference, &moc_approved_by, "Delete latest report");
 
     conn.execute(
         "UPDATE mri_fault_approvals SET carried_to_report_id = NULL WHERE carried_to_report_id = ?1",
@@ -6205,6 +6823,7 @@ fn set_mri_fault_approval_decision(
     is_provisional: bool,
     next_reviewer_user_id: Option<i64>,
     acknowledgment_assigned_to_user_id: Option<i64>,
+    rectifier_user_id: Option<i64>,
 ) -> Result<String, String> {
     let conn = get_connection()?;
     let decision = decision.trim();
@@ -6469,6 +7088,28 @@ fn set_mri_fault_approval_decision(
             rusqlite::params![id, now],
         )
         .map_err(|e| e.to_string())?;
+    }
+
+    // FB-013 (RFSM approved): the reviewer can name who will rectify a Moderate or
+    // Major / Critical fault. Only applies when a rectification exists (never for Minor).
+    if let Some(uid) = rectifier_user_id {
+        let name: Option<String> = conn
+            .query_row("SELECT name FROM app_users WHERE id = ?1", [uid], |r| r.get(0))
+            .ok();
+        if let Some(name) = name {
+            let n = conn
+                .execute(
+                    "UPDATE mri_fault_rectifications SET assigned_technician = ?1, assigned_technician_user_id = ?2,
+                        assigned_at = ?3, assignee_seen_at = NULL, updated_date = ?3
+                     WHERE fault_approval_id = ?4 AND tag_status IN ('Red', 'Planned')",
+                    rusqlite::params![name, uid, now, id],
+                )
+                .map_err(|e| e.to_string())?;
+            if n > 0 {
+                // A Red repair with someone assigned is underway (Red -> Yellow), as in the queue.
+                refresh_asset_tag_for_report(&conn, report_id, reviewer)?;
+            }
+        }
     }
 
     // Stage 4: the Moderate decision can name who must be informed of it.
@@ -6860,6 +7501,9 @@ struct MriFaultRectification {
     limitations_note: Option<String>,
     limitations_informed_by: Option<String>,
     limitations_informed_date: Option<String>,
+    awaited_part: Option<String>,
+    action_taken: Option<String>,
+    assigned_technician_user_id: Option<i64>,
 }
 
 const MRI_FAULT_RECTIFICATION_SELECT: &str =
@@ -6867,7 +7511,8 @@ const MRI_FAULT_RECTIFICATION_SELECT: &str =
                 a.asset_code, cd.description,
                 fr.assigned_technician, fr.parts_status, fr.repair_date,
                 fr.verified_by, fr.verified_date, fr.tag_status, fr.created_date, fr.updated_date,
-                fr.limitations_note, fr.limitations_informed_by, fr.limitations_informed_date
+                fr.limitations_note, fr.limitations_informed_by, fr.limitations_informed_date, fr.awaited_part, fr.action_taken,
+                fr.assigned_technician_user_id
          FROM mri_fault_rectifications fr
          JOIN mri_fault_approvals fa ON fr.fault_approval_id = fa.id
          JOIN mri_reports rep ON fa.report_id = rep.id
@@ -6894,6 +7539,9 @@ fn map_mri_fault_rectification_row(row: &rusqlite::Row) -> rusqlite::Result<MriF
         limitations_note: row.get(14)?,
         limitations_informed_by: row.get(15)?,
         limitations_informed_date: row.get(16)?,
+        awaited_part: row.get(17)?,
+        action_taken: row.get(18)?,
+        assigned_technician_user_id: row.get(19)?,
     })
 }
 
@@ -6926,7 +7574,7 @@ fn get_pending_mri_fault_rectifications(viewer_user_id: i64) -> Result<Vec<MriFa
                 a.asset_code, cd.description,
                 fr.assigned_technician, fr.parts_status, fr.repair_date,
                 fr.verified_by, fr.verified_date, fr.tag_status, fr.created_date, fr.updated_date,
-                fr.limitations_note, fr.limitations_informed_by, fr.limitations_informed_date, a.country
+                fr.limitations_note, fr.limitations_informed_by, fr.limitations_informed_date, fr.awaited_part, fr.action_taken, fr.assigned_technician_user_id, a.country
          FROM mri_fault_rectifications fr
          JOIN mri_fault_approvals fa ON fr.fault_approval_id = fa.id
          JOIN mri_reports rep ON fa.report_id = rep.id
@@ -6937,7 +7585,7 @@ fn get_pending_mri_fault_rectifications(viewer_user_id: i64) -> Result<Vec<MriFa
     let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map([], |row| {
-            let country: Option<String> = row.get(17)?;
+            let country: Option<String> = row.get(20)?;
             Ok((map_mri_fault_rectification_row(row)?, country))
         })
         .map_err(|e| e.to_string())?
@@ -6953,6 +7601,66 @@ fn get_pending_mri_fault_rectifications(viewer_user_id: i64) -> Result<Vec<MriFa
     Ok(rows)
 }
 
+// ---- FB-013 (RFSM approved): the reviewer assigns the person who will rectify a fault ----
+// Moderate and Major / Critical only (Minor faults have no rectification). The assignee is a
+// user, so they can be told; the queue still shows the name for printouts and history.
+#[derive(Serialize)]
+struct MyRepairAssignment {
+    rectification_id: i64,
+    report_id: i64,
+    asset_code: Option<String>,
+    item: Option<String>,
+    tag_status: String,
+    assigned_at: Option<String>,
+    seen: bool,
+}
+
+#[tauri::command]
+fn get_my_repair_assignments(user_id: i64) -> Result<Vec<MyRepairAssignment>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT fr.id, fa.report_id, a.asset_code, cd.description, fr.tag_status, fr.assigned_at, fr.assignee_seen_at IS NOT NULL
+             FROM mri_fault_rectifications fr
+             JOIN mri_fault_approvals fa ON fr.fault_approval_id = fa.id
+             JOIN mri_reports rep ON fa.report_id = rep.id
+             LEFT JOIN assets a ON rep.asset_id = a.id
+             LEFT JOIN template_checklist_items tci ON fa.template_checklist_item_id = tci.id
+             LEFT JOIN checklist_databank cd ON tci.checklist_item_id = cd.id
+             WHERE fr.assigned_technician_user_id = ?1 AND fr.tag_status IN ('Red', 'Planned')
+             ORDER BY fr.assigned_at DESC",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([user_id], |row| {
+            Ok(MyRepairAssignment {
+                rectification_id: row.get(0)?,
+                report_id: row.get(1)?,
+                asset_code: row.get(2)?,
+                item: row.get(3)?,
+                tag_status: row.get(4)?,
+                assigned_at: row.get(5)?,
+                seen: row.get(6)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
+}
+
+#[tauri::command]
+fn mark_repair_assignments_seen(user_id: i64) -> Result<String, String> {
+    let conn = get_connection()?;
+    conn.execute(
+        "UPDATE mri_fault_rectifications SET assignee_seen_at = ?2
+         WHERE assigned_technician_user_id = ?1 AND assignee_seen_at IS NULL",
+        rusqlite::params![user_id, chrono_now()],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok("Seen".to_string())
+}
+
 fn valid_parts_status(s: &str) -> bool {
     matches!(s, "Awaiting" | "Ordered" | "Available")
 }
@@ -6965,6 +7673,11 @@ struct MriFaultRectificationUpdate {
     repair_date: Option<String>,
     #[serde(default)]
     updated_by: Option<String>,
+    #[serde(default)]
+    awaited_part: Option<String>,
+    // FB-013: the user picked as the person who will rectify the fault (None = typed name).
+    #[serde(default)]
+    assigned_technician_user_id: Option<i64>,
 }
 
 // Updates the in-progress repair plan (technician, parts, repair date). Does not touch
@@ -6977,9 +7690,41 @@ fn update_mri_fault_rectification(update: MriFaultRectificationUpdate) -> Result
         return Err("Invalid parts status".to_string());
     }
     let now = chrono_now();
+    // FB-013: when a user is picked, store their id (and their name as it is in MMS); a new
+    // assignee is told until they open the Rectification Queue.
+    let picked: Option<(i64, String)> = update.assigned_technician_user_id.and_then(|uid| {
+        conn.query_row("SELECT id, name FROM app_users WHERE id = ?1", [uid], |r| Ok((r.get(0)?, r.get(1)?)))
+            .ok()
+    });
+    let tech_name: Option<String> = match &picked {
+        Some((_, n)) => Some(n.clone()),
+        None => update.assigned_technician.clone(),
+    };
+    let tech_id: Option<i64> = picked.as_ref().map(|(i, _)| *i);
+    conn.execute(
+        "UPDATE mri_fault_rectifications SET
+            assigned_at = CASE WHEN ?1 IS NOT NULL AND COALESCE(assigned_technician_user_id, -1) <> ?1 THEN ?2 ELSE assigned_at END,
+            assignee_seen_at = CASE WHEN ?1 IS NOT NULL AND COALESCE(assigned_technician_user_id, -1) <> ?1 THEN NULL ELSE assignee_seen_at END,
+            assigned_technician_user_id = ?1
+         WHERE id = ?3 AND tag_status IN ('Red', 'Planned')",
+        rusqlite::params![tech_id, now, update.id],
+    )
+    .map_err(|e| e.to_string())?;
     let rows_affected = conn.execute(
-        "UPDATE mri_fault_rectifications SET assigned_technician = ?1, parts_status = ?2, repair_date = ?3, updated_date = ?4 WHERE id = ?5 AND tag_status IN ('Red', 'Planned')",
-        rusqlite::params![update.assigned_technician, update.parts_status, update.repair_date, now, update.id],
+        "UPDATE mri_fault_rectifications SET assigned_technician = ?1, parts_status = ?2, repair_date = ?3, updated_date = ?4, awaited_part = ?6 WHERE id = ?5 AND tag_status IN ('Red', 'Planned')",
+        rusqlite::params![
+            tech_name,
+            update.parts_status,
+            update.repair_date,
+            now,
+            update.id,
+            // Kept only while parts are not yet available.
+            update
+                .awaited_part
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty() && update.parts_status != "Available")
+        ],
     ).map_err(|e| e.to_string())?;
     if rows_affected == 0 {
         return Err("Rectification not found or already verified".to_string());
@@ -7039,11 +7784,17 @@ fn verify_mri_fault_rectification(
     id: i64,
     verified_by: String,
     function_test_passed: bool,
+    action_taken: Option<String>,
 ) -> Result<String, String> {
     let conn = get_connection()?;
     let verified_by = verified_by.trim();
     if verified_by.is_empty() {
         return Err("Verified-by name is required".to_string());
+    }
+    // FB-022 (RFSM approved): Action Taken is mandatory when the fault is closed.
+    let action_taken = action_taken.as_deref().map(str::trim).unwrap_or("").to_string();
+    if action_taken.is_empty() {
+        return Err("Write what was done to fix the fault (Action Taken) before closing it.".to_string());
     }
     // Figure 4: a repair is only verified after the technician did the work, the repair
     // date is on record and the unit passed a function test.
@@ -7085,8 +7836,8 @@ fn verify_mri_fault_rectification(
 
     let now = chrono_now();
     conn.execute(
-        "UPDATE mri_fault_rectifications SET verified_by = ?1, verified_date = ?2, tag_status = 'Green', function_test_passed = 1, updated_date = ?2 WHERE id = ?3",
-        rusqlite::params![verified_by, now, id],
+        "UPDATE mri_fault_rectifications SET verified_by = ?1, verified_date = ?2, tag_status = 'Green', function_test_passed = 1, updated_date = ?2, action_taken = ?4 WHERE id = ?3",
+        rusqlite::params![verified_by, now, id, action_taken],
     )
     .map_err(|e| e.to_string())?;
 
@@ -7157,6 +7908,14 @@ fn set_mri_report_mid_value(
     updated_by: Option<String>,
 ) -> Result<String, String> {
     let conn = get_connection()?;
+    let old_mid: Option<String> = conn
+        .query_row(
+            "SELECT value FROM mri_report_mid_values WHERE report_id = ?1 AND template_mid_field_id = ?2",
+            rusqlite::params![report_id, template_mid_field_id],
+            |r| r.get::<_, Option<String>>(0),
+        )
+        .ok()
+        .flatten();
     conn.execute(
         "INSERT INTO mri_report_mid_values (report_id, template_mid_field_id, value, route_points, updated_by, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)
@@ -7166,6 +7925,10 @@ fn set_mri_report_mid_value(
         rusqlite::params![report_id, template_mid_field_id, value, route_points, updated_by, chrono_now()],
     )
     .map_err(|e| e.to_string())?;
+    if report_status(&conn, report_id).map_or(false, |s| s != "Draft") {
+        let label = report_edit_label(&conn, "Distance", template_mid_field_id);
+        log_report_edit(&conn, report_id, "Distance", &label, "Value", old_mid.as_deref(), Some(value.as_str()), updated_by.as_deref());
+    }
     Ok("Mid value saved".to_string())
 }
 
@@ -7206,6 +7969,14 @@ fn set_mri_report_footer_value(
     updated_by: Option<String>,
 ) -> Result<String, String> {
     let conn = get_connection()?;
+    let old_footer: Option<String> = conn
+        .query_row(
+            "SELECT value FROM mri_report_footer_values WHERE report_id = ?1 AND template_footer_field_id = ?2",
+            rusqlite::params![report_id, template_footer_field_id],
+            |r| r.get::<_, Option<String>>(0),
+        )
+        .ok()
+        .flatten();
     conn.execute(
         "INSERT INTO mri_report_footer_values (report_id, template_footer_field_id, value, updated_by, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5)
@@ -7214,6 +7985,12 @@ fn set_mri_report_footer_value(
         rusqlite::params![report_id, template_footer_field_id, value, updated_by, chrono_now()],
     )
     .map_err(|e| e.to_string())?;
+    // FB-006: sign-offs such as Cleaned / Function tested / Pressure tested recorded by the
+    // Job Supervisor after submission are logged with a timestamp.
+    if report_status(&conn, report_id).map_or(false, |s| s != "Draft") {
+        let label = report_edit_label(&conn, "Sign-off", template_footer_field_id);
+        log_report_edit(&conn, report_id, "Sign-off", &label, "Value", old_footer.as_deref(), Some(value.as_str()), updated_by.as_deref());
+    }
     Ok("Footer value saved".to_string())
 }
 
@@ -7585,7 +8362,7 @@ fn export_mri_templates_backup() -> Result<String, String> {
              FROM template_checklist_items tci
              JOIN checklist_databank cd ON tci.checklist_item_id = cd.id
              LEFT JOIN checklist_sections cs ON tci.section_id = cs.id
-             WHERE tci.template_id = ?1",
+             WHERE tci.template_id = ?1 AND tci.adhoc_report_id IS NULL",
             )
             .map_err(|e| e.to_string())?;
         let checklist_items: Vec<serde_json::Value> = ci_stmt
@@ -8219,6 +8996,11 @@ fn purge_checklist_sections() -> Result<String, String> {
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
     for id in ids {
+        // Skip rows still used on an MR-I template (foreign keys are not enforced here).
+        if delete_block_reason(&conn, "checklist_sections", id)?.is_some() {
+            skipped += 1;
+            continue;
+        }
         match conn.execute("DELETE FROM checklist_sections WHERE id = ?1", [id]) {
             Ok(_) => purged += 1,
             Err(_) => skipped += 1,
@@ -8244,6 +9026,11 @@ fn purge_checklist_databank() -> Result<String, String> {
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
     for id in ids {
+        // Skip rows still used on an MR-I template (foreign keys are not enforced here).
+        if delete_block_reason(&conn, "checklist_databank", id)?.is_some() {
+            skipped += 1;
+            continue;
+        }
         match conn.execute("DELETE FROM checklist_databank WHERE id = ?1", [id]) {
             Ok(_) => purged += 1,
             Err(_) => skipped += 1,
@@ -8337,8 +9124,14 @@ fn preview_mri_report_purge(filter: MriReportPurgeFilter) -> Result<i64, String>
 }
 
 #[tauri::command]
-fn purge_mri_reports(filter: MriReportPurgeFilter) -> Result<String, String> {
+fn purge_mri_reports(
+    filter: MriReportPurgeFilter,
+    user_id: i64,
+    moc_reference: String,
+    moc_approved_by: String,
+) -> Result<String, String> {
     let conn = get_connection()?;
+    let deleted_by = mr_delete_authority(&conn, user_id, &moc_reference, &moc_approved_by)?;
     let (where_sql, params) = build_report_filter_sql(
         filter.asset_id,
         &filter.country,
@@ -8362,6 +9155,7 @@ fn purge_mri_reports(filter: MriReportPurgeFilter) -> Result<String, String> {
 
     let count = report_ids.len();
     for id in &report_ids {
+        log_mr_deletion(&conn, *id, &deleted_by, &moc_reference, &moc_approved_by, "Data purging");
         // Clear any dangling carryforward links pointing INTO a report we're about to
         // delete, so a surviving fault approval never references a purged report.
         conn.execute(
@@ -9136,6 +9930,7 @@ struct MriDashRepair {
     verified_by: Option<String>,
     verified_at: Option<i64>,
     limitations_note: Option<String>,
+    awaited_part: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -9184,6 +9979,189 @@ struct MriDashboardMore {
     tag_changes: Vec<MriDashTagChange>,
     exemptions: Vec<MriDashExemption>,
     triggers: Vec<MriDashTrigger>,
+}
+
+// ---- Report details for the MR-I reports list (reports 7-15): what was filled in on each sent
+// or draft report, every checklist answer (with whether it has a photo) and the on-site
+// repair log. Read only; limited to the units the viewer may see, like the other dashboards.
+
+#[derive(Serialize)]
+struct MriDashFieldValue {
+    report_id: i64,
+    label: String,
+    value: String,
+}
+
+#[derive(Serialize)]
+struct MriDashResult {
+    report_id: i64,
+    item: Option<String>,
+    section: Option<String>,
+    status: String,
+    severity: Option<String>,
+    has_photo: bool,
+}
+
+#[derive(Serialize)]
+struct MriDashOnsiteRepair {
+    report_id: i64,
+    asset_id: i64,
+    item: Option<String>,
+    severity: Option<String>,
+    action_taken: Option<String>,
+    repaired_by: Option<String>,
+    repaired_at: Option<i64>,
+}
+
+#[derive(Serialize)]
+struct MriDashboardDetails {
+    header: Vec<MriDashFieldValue>,
+    mid: Vec<MriDashFieldValue>,
+    footer: Vec<MriDashFieldValue>,
+    results: Vec<MriDashResult>,
+    onsite_repairs: Vec<MriDashOnsiteRepair>,
+}
+
+fn mri_dashboard_visible_assets(conn: &Connection, viewer_user_id: Option<i64>) -> Result<std::collections::HashSet<i64>, String> {
+    let restriction = mri_dashboard_restriction(conn, viewer_user_id)?;
+    let mut stmt = conn.prepare("SELECT id, country FROM assets").map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, Option<String>>(1)?)))
+        .map_err(|e| e.to_string())?;
+    let mut set = std::collections::HashSet::new();
+    for r in rows {
+        let (id, country) = r.map_err(|e| e.to_string())?;
+        let ok = match &restriction {
+            None => true,
+            Some(list) => country
+                .as_deref()
+                .map(|c| list.iter().any(|x| x.eq_ignore_ascii_case(c.trim())))
+                .unwrap_or(false),
+        };
+        if ok {
+            set.insert(id);
+        }
+    }
+    Ok(set)
+}
+
+// Rows of (report_id, asset_id, label, value) for one kind of form field.
+fn mri_dash_field_values(conn: &Connection, sql: &str, visible: &std::collections::HashSet<i64>) -> Result<Vec<MriDashFieldValue>, String> {
+    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?, row.get::<_, Option<String>>(2)?, row.get::<_, Option<String>>(3)?))
+        })
+        .map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for r in rows {
+        let (report_id, asset_id, label, value) = r.map_err(|e| e.to_string())?;
+        if visible.contains(&asset_id) {
+            out.push(MriDashFieldValue { report_id, label: label.unwrap_or_default(), value: value.unwrap_or_default() });
+        }
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+fn get_mri_dashboard_details(viewer_user_id: Option<i64>) -> Result<MriDashboardDetails, String> {
+    let conn = get_connection()?;
+    let visible = mri_dashboard_visible_assets(&conn, viewer_user_id)?;
+    let header = mri_dash_field_values(
+        &conn,
+        "SELECT v.report_id, r.asset_id, COALESCE(NULLIF(TRIM(t.label_override), ''), c.label), v.value
+         FROM mri_report_header_values v
+         JOIN mri_reports r ON r.id = v.report_id
+         JOIN template_header_fields t ON t.id = v.template_header_field_id
+         JOIN header_field_catalog c ON c.id = t.header_field_id",
+        &visible,
+    )?;
+    let mid = mri_dash_field_values(
+        &conn,
+        "SELECT v.report_id, r.asset_id, c.label, v.value
+         FROM mri_report_mid_values v
+         JOIN mri_reports r ON r.id = v.report_id
+         JOIN template_mid_fields t ON t.id = v.template_mid_field_id
+         JOIN mid_field_catalog c ON c.id = t.mid_field_id",
+        &visible,
+    )?;
+    let footer = mri_dash_field_values(
+        &conn,
+        "SELECT v.report_id, r.asset_id, c.label, v.value
+         FROM mri_report_footer_values v
+         JOIN mri_reports r ON r.id = v.report_id
+         JOIN template_footer_fields t ON t.id = v.template_footer_field_id
+         JOIN footer_field_catalog c ON c.id = t.footer_field_id",
+        &visible,
+    )?;
+    let mut results = Vec::new();
+    {
+        let mut stmt = conn
+            .prepare(
+                "SELECT x.report_id, r.asset_id, cd.description, cs.name, COALESCE(x.status, ''), x.severity,
+                        EXISTS(SELECT 1 FROM mri_report_attachments a WHERE a.report_id = x.report_id AND a.template_checklist_item_id = x.template_checklist_item_id)
+                 FROM mri_report_checklist_results x
+                 JOIN mri_reports r ON r.id = x.report_id
+                 LEFT JOIN template_checklist_items tci ON tci.id = x.template_checklist_item_id
+                 LEFT JOIN checklist_databank cd ON cd.id = tci.checklist_item_id
+                 LEFT JOIN checklist_sections cs ON cs.id = tci.section_id",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, i64>(1)?,
+                    MriDashResult {
+                        report_id: row.get(0)?,
+                        item: row.get(2)?,
+                        section: row.get(3)?,
+                        status: row.get(4)?,
+                        severity: row.get(5)?,
+                        has_photo: row.get::<_, i64>(6)? != 0,
+                    },
+                ))
+            })
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            let (asset_id, res) = r.map_err(|e| e.to_string())?;
+            if visible.contains(&asset_id) {
+                results.push(res);
+            }
+        }
+    }
+    let mut onsite_repairs = Vec::new();
+    {
+        let sql = format!(
+            "SELECT o.report_id, r.asset_id, cd.description, o.severity, o.action_taken, o.repaired_by, {ra}
+             FROM mri_onsite_repair_log o
+             JOIN mri_reports r ON r.id = o.report_id
+             LEFT JOIN template_checklist_items tci ON tci.id = o.template_checklist_item_id
+             LEFT JOIN checklist_databank cd ON cd.id = tci.checklist_item_id
+             ORDER BY o.id",
+            ra = sql_ts!("o.repaired_at"),
+        );
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(MriDashOnsiteRepair {
+                    report_id: row.get(0)?,
+                    asset_id: row.get(1)?,
+                    item: row.get(2)?,
+                    severity: row.get(3)?,
+                    action_taken: row.get(4)?,
+                    repaired_by: row.get(5)?,
+                    repaired_at: row.get(6)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        for r in rows {
+            let r = r.map_err(|e| e.to_string())?;
+            if visible.contains(&r.asset_id) {
+                onsite_repairs.push(r);
+            }
+        }
+    }
+    Ok(MriDashboardDetails { header, mid, footer, results, onsite_repairs })
 }
 
 #[tauri::command]
@@ -9326,7 +10304,7 @@ fn get_mri_dashboard_more(viewer_user_id: Option<i64>) -> Result<MriDashboardMor
     {
         let sql = format!(
             "SELECT f.id, fa.id, fa.report_id, rep.asset_id, cd.description, COALESCE(fa.new_severity, fa.original_severity),
-                    f.assigned_technician, COALESCE(f.parts_status, ''), COALESCE(f.tag_status, ''), {q}, {rd}, f.verified_by, {vd}, f.limitations_note
+                    f.assigned_technician, COALESCE(f.parts_status, ''), COALESCE(f.tag_status, ''), {q}, {rd}, f.verified_by, {vd}, f.limitations_note, f.awaited_part
              FROM mri_fault_rectifications f
              JOIN mri_fault_approvals fa ON fa.id = f.fault_approval_id
              JOIN mri_reports rep ON rep.id = fa.report_id
@@ -9355,6 +10333,7 @@ fn get_mri_dashboard_more(viewer_user_id: Option<i64>) -> Result<MriDashboardMor
                     verified_by: row.get(11)?,
                     verified_at: row.get(12)?,
                     limitations_note: row.get(13)?,
+                    awaited_part: row.get(14)?,
                 })
             })
             .map_err(|e| e.to_string())?;
@@ -10129,6 +11108,9 @@ fn delete_table_row(table_name: String, id: i64) -> Result<String, String> {
         return Err("Unknown table".to_string());
     }
     let conn = get_connection()?;
+    if let Some(reason) = delete_block_reason(&conn, &table_name, id)? {
+        return Err(reason);
+    }
     conn.execute(&format!("DELETE FROM {} WHERE id = ?1", table_name), [id])
         .map_err(|e| e.to_string())?;
     Ok("Row deleted".to_string())
@@ -10255,6 +11237,17 @@ pub fn run() {
             get_mri_dashboard_faults,
             get_mri_dashboard_waiting,
             get_mri_dashboard_more,
+            get_mri_dashboard_details,
+            get_mri_report_edit_log,
+            get_mri_report_tag,
+            get_my_report_change_notices,
+            mark_report_changes_seen,
+            get_mri_report_deletion_log,
+            get_my_repair_assignments,
+            get_mri_other_faults,
+            add_mri_other_fault,
+            delete_mri_other_fault,
+            mark_repair_assignments_seen,
             get_trial_status,
             get_asset_mri_history,
             get_app_users,

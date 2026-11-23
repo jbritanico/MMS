@@ -23,6 +23,15 @@ export const DASHBOARDS: { no: number; title: string; desc: string }[] = [
   { no: 16, title: "Reviewers", desc: "Fault decisions, time to decide, reclassified or rejected, decisions waiting." },
   { no: 17, title: "Technicians", desc: "Open repairs, waiting for parts, past planned date, repair time." },
   { no: 18, title: "Managers and FSM", desc: "Phone decisions confirmed, Moderate decisions acknowledged, and waiting." },
+  { no: 20, title: "Inspection Sequence per Job", desc: "Post-Job reports with or without a Pre-Job before them, and Pre-Jobs still waiting for a Post-Job." },
+  { no: 21, title: "On-site Repairs Log", desc: "Minor faults repaired on site: what, on which unit, by whom and how often." },
+  { no: 22, title: "Sign-off Completeness", desc: "How often Cleaned, Pressure tested and Function tested are ticked, by location and supervisor." },
+  { no: 23, title: "Data Quality", desc: "Reports with a missing stage, job number or client, engine hours going down, or odd distances." },
+  { no: 24, title: "Usage per Job", desc: "Engine hours, operating hours and distance per job and unit, checked against the MR-II / MR-III counters." },
+  { no: 25, title: "MR Cost", desc: "Cost to perform the MR by unit, equipment type, country and month; reports still waiting for the cost." },
+  { no: 26, title: "Critical Fault Audit Trail", desc: "Every Major / Critical fault: who decided, how, when, and the confirmation that followed." },
+  { no: 27, title: "Faults by Client", desc: "Faults found on Post-Job reports, by the client on the report." },
+  { no: 28, title: "Exemption (MOC) Audit", desc: "Every MOC exemption: limits, controls, dates and how it ended." },
 ];
 
 // Dashboards defined in the "MMS Dashboard Visualization" design (deck 08.10.2026), with the slides
@@ -41,10 +50,11 @@ export const markBadge = (no: number, large: boolean) => (DECK_SLIDES[no] ? `Das
 
 // The dashboard list, grouped by topic.
 export const GROUPS: { title: string; nos: number[] }[] = [
-  { title: "Faults and Defects", nos: [2, 3, 4, 19, 9] },
-  { title: "Reviews and Decisions", nos: [5, 6, 10] },
-  { title: "Fleet Condition and Repairs", nos: [1, 8, 7, 12] },
-  { title: "Inspections and Maintenance Due", nos: [11, 13] },
+  { title: "Faults and Defects", nos: [2, 3, 4, 19, 9, 27] },
+  { title: "Reviews and Decisions", nos: [5, 6, 10, 26] },
+  { title: "Fleet Condition and Repairs", nos: [1, 8, 7, 12, 28, 21] },
+  { title: "Inspections and Maintenance Due", nos: [11, 13, 20, 24, 23] },
+  { title: "Budget and Cost", nos: [25] },
 ];
 
 // One line icon per dashboard type (24x24, stroke = currentColor), same style as the hub tiles.
@@ -83,6 +93,24 @@ export const DASH_ICONS: Record<number, React.ReactElement> = {
   16: svg(<><circle cx="9" cy="7.5" r="3" /><path d="M3.5 19.5a5.5 5.5 0 0 1 11 0" /><path d="M18 8v9M15.5 10h5M15.5 10l-1.2 3h2.4zM20.5 10l-1.2 3h2.4z" /></>),
   17: svg(<><circle cx="9" cy="7.5" r="3" /><path d="M3.5 19.5a5.5 5.5 0 0 1 11 0" /><path d="M20.5 9.5a2.5 2.5 0 0 1-3.3 2.4l-2.4 2.4-1.2-1.2 2.4-2.4a2.5 2.5 0 0 1 3.1-3.2l-1.4 1.4.8.8z" /></>),
   18: svg(<><circle cx="9" cy="7.5" r="3" /><path d="M3.5 19.5a5.5 5.5 0 0 1 11 0" /><path d="M18 8.5l1 2 2.2.3-1.6 1.5.4 2.2-2-1-2 1 .4-2.2-1.6-1.5 2.2-.3z" /></>),
+  // 20 inspection sequence: two reports with an arrow between them
+  20: svg(<><rect x="3" y="5" width="7" height="14" rx="1.5" /><rect x="14" y="5" width="7" height="14" rx="1.5" /><path d="M10 12h4M12.5 10.5 14 12l-1.5 1.5" /></>),
+  // 21 on-site repairs: wrench with a tick
+  21: svg(<><path d="M13.5 4.5a4 4 0 0 0-5 5L3 15l3 3 5.5-5.5a4 4 0 0 0 5-5l-2.5 2.5-2.2-.6-.6-2.2z" /><path d="m15 18.5 2 2 4-4" /></>),
+  // 22 sign-off completeness: a person with ticks
+  22: svg(<><circle cx="9" cy="7.5" r="3" /><path d="M3.5 19.5a5.5 5.5 0 0 1 11 0" /><path d="M15.5 8.5l1.2 1.2 2.3-2.3M15.5 13.5l1.2 1.2 2.3-2.3" /></>),
+  // 23 data quality: magnifier with a warning mark
+  23: svg(<><circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.5 15.5 5 5M10.5 7.5v3.5M10.5 13.6v.1" /></>),
+  // 24 usage per job: gauge with a road
+  24: svg(<><path d="M4 16a8 8 0 0 1 16 0" /><path d="M12 16l3.5-4.5" /><path d="M3 20h18" /><circle cx="12" cy="16" r="1" /></>),
+  // 25 MR cost: banknote with a coin
+  25: svg(<><rect x="2.5" y="6" width="19" height="12" rx="2" /><circle cx="12" cy="12" r="2.8" /><path d="M6 9v.1M18 15v.1" /></>),
+  // 26 critical audit trail: warning triangle on a list
+  26: svg(<><path d="M4 5h9M4 9h7M4 13h5M4 17h5" /><path d="M16.5 9 11 19h11z" /><path d="M16.5 13v2.5M16.5 17.4v.1" /></>),
+  // 27 faults by client: building with a warning mark
+  27: svg(<><path d="M4 21V5l7-2v18M11 9h6v12M2.5 21h19" /><path d="M7 8v.1M7 12v.1M7 16v.1M14 13v.1M14 16.5v.1" /></>),
+  // 28 exemption audit: shield with a list
+  28: svg(<><path d="M12 3 4.5 6v5.5c0 4.5 3.2 8 7.5 9.5 4.3-1.5 7.5-5 7.5-9.5V6z" /><path d="M9 10h6M9 13h6M9 16h3.5" /></>),
   // 19 fault trends by equipment: rising bars with a magnifier
   19: svg(<><path d="M4 20V14M8.5 20v-8M13 20v-5" /><circle cx="17" cy="8.5" r="3.5" /><path d="m19.6 11.1 2.4 2.4M3 20h18" /></>),
   13: svg(<><rect x="3.5" y="5" width="17" height="15.5" rx="2" /><path d="M3.5 9.5h17M8 3v4M16 3v4" /><path d="M8.5 17a3.5 3.5 0 0 1 7 0M12 17l1.8-2" /></>),
@@ -91,6 +119,6 @@ export const DASH_ICONS: Record<number, React.ReactElement> = {
 
 // User Analytics is its own group on the Dashboard hub, separate from the MR-I dashboards.
 export const USER_GROUPS: { title: string; nos: number[] }[] = [
-  { title: "By Role in the MR-I Process", nos: [14, 15, 16, 17, 18] },
+  { title: "By Role in the MR-I Process", nos: [14, 15, 16, 17, 18, 22] },
 ];
 

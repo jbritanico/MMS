@@ -13,6 +13,11 @@ import { triggerColor, triggerIcon, triggerIconBg } from "../../components/trigg
 import IsoFlowMap, { FXI_CSS, IsoMapToggle, IsoTimeline, useIsoMap, type IsoLine, type IsoState, type IsoStep, type IsoTlNode } from "./IsoFlowMap";
 import { TIG_CSS } from "../mri-template-builder/TemplateIsoGuide";
 import { ADMIN_CSS, ScreenIntro } from "../administration/AdminIsoGuide";
+import { KeyGroup, REPORT_KIT_CSS } from "./reportKit";
+import ReadinessSheet from "./ReadinessSheet";
+
+// The parts of the asset history, one per tab, so nobody has to scroll up and down between them.
+type FlowTab = "map" | "timeline" | "counters" | "linked";
 
 interface AssetFlowProps {
   assetId: number;
@@ -45,6 +50,8 @@ function AssetFlow({ assetId, onBack, onOpenReport, onShowReportFlow, onOpenAsse
   const { data: assetTypes = [] } = useAssetTypes();
   const [selected, setSelected] = useState<string | null>("asset");
   const [isoOn, setIsoOn] = useIsoMap();
+  const [tab, setTab] = useState<FlowTab>("map");
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const carriesBetween = useMemo(() => {
     const m = new Map<string, string[]>();
@@ -180,15 +187,31 @@ function AssetFlow({ assetId, onBack, onOpenReport, onShowReportFlow, onOpenAsse
       ...cut(counterLines.length ? counterLines : [{ text: "No counters set", tone: "neutral" }]) },
   ];
 
+  // Tabs: only the parts this unit has. The map tab exists only in the 3D view; if the
+  // chosen tab is not there (e.g. after switching to Simple steps), show the first one.
+  const tabs: { id: FlowTab; label: string }[] = [
+    ...(isoOn ? [{ id: "map" as const, label: "History map" }] : []),
+    { id: "timeline", label: `Inspection timeline (${flow.reports.length})` },
+    ...(counters.length > 0 ? [{ id: "counters" as const, label: `MR-II / MR-III counters (${counters.length})` }] : []),
+    ...(exemptions.length > 0 || loose.length > 0 ? [{ id: "linked" as const, label: `Also linked (${exemptions.length + loose.length})` }] : []),
+  ];
+  const shown: FlowTab = tabs.some((x) => x.id === tab) ? tab : tabs[0].id;
+
   return (
     <div className={`fx${hints ? " show-hints" : ""}`}>
       <style>{FX_CSS}</style>
       <style>{FXI_CSS}</style>
-      <style>{TIG_CSS + ADMIN_CSS}</style>
+      <style>{TIG_CSS + ADMIN_CSS + REPORT_KIT_CSS}</style>
       <div className="fx-top">
         <button type="button" className="fx-back" onClick={onBack}><Icon name="back" size={15} />Back</button>
-        <HintsToggle className="fx-hint-btn" />
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <button type="button" className="fx-back" onClick={() => setSheetOpen(true)} title="One page: tag, open faults, operating limits, exemptions and next MR-II, ready to print">
+            <Icon name="report" size={15} />Readiness sheet
+          </button>
+          <HintsToggle className="fx-hint-btn" />
+        </span>
       </div>
+      {sheetOpen && <ReadinessSheet flow={flow} onClose={() => setSheetOpen(false)} />}
 
       <header className="fx-hero">
         <span className="fx-hero-pic">{pic && pic.trim().startsWith("data:") ? <img src={pic} alt="" /> : <Icon name="unit" />}</span>
@@ -218,7 +241,7 @@ function AssetFlow({ assetId, onBack, onOpenReport, onShowReportFlow, onOpenAsse
           explain="Everything that happened to this unit: its MR-I reports, faults, tag changes and counters, with the inspection timeline underneath."
           todo={[
             "Click a tile to see that report or tag change and open its screen",
-            "Scroll the inspection timeline for older reports",
+            "Use the tabs to switch between the map, the timeline and the counters",
             "Switch to Simple steps for a plain list",
           ]}
         />
@@ -226,15 +249,21 @@ function AssetFlow({ assetId, onBack, onOpenReport, onShowReportFlow, onOpenAsse
 
       <IsoMapToggle iso={isoOn} onChange={setIsoOn} />
 
+      <div className="tig rk no-print fx-tabs">
+        <KeyGroup label="Asset history parts" small value={shown} onChange={setTab}
+          options={tabs.map((x) => ({ id: x.id, label: x.label }))} />
+      </div>
+
       <div className="fx-body">
         <div className="fx-main">
-          {isoOn && (
+          {isoOn && shown === "map" && (
             <IsoFlowMap steps={isoSteps.slice(1)} selected={selected} onSelect={pick} label="Asset history map"
               hub={{ title: code, sub: `${flow.asset_type ?? "Unit"}${flow.country ? " · " + flow.country : ""}`, icon: "unit", selectId: "asset", tag: { text: flow.tag_status ? `${flow.tag_status} tag` : "Not tagged", tone: tag.tone } }}
               loop={{ title: "Next MR-I inspection", sub: "Each new report adds to this unit's history" }}
               aside={{ title: code, sub: flow.asset_description ?? "No description", tag: { text: flow.tag_status ?? "Not tagged", tone: tag.tone },
                 rows: [["Type", flow.asset_type ?? "—"], ["Reports", String(flow.reports.length)], ["Country", flow.country ?? "—"]] }} />
           )}
+          {shown === "timeline" && (
           <Section
             title={`Inspection timeline (${flow.reports.length})`}
             hint="Reports from oldest to newest. Orange badges show faults that stayed open and moved to the next report. Tag changes sit under the report that caused them."
@@ -284,8 +313,9 @@ function AssetFlow({ assetId, onBack, onOpenReport, onShowReportFlow, onOpenAsse
             )}
             {flow.reports.length === 0 && <div className="fx-empty">No MR-I reports have been filed for this unit yet.</div>}
           </Section>
+          )}
 
-          {counters.length > 0 && (
+          {shown === "counters" && counters.length > 0 && (
             <Section title="MR-II / MR-III counters" hint="How close the unit is to its next MR-II or MR-III. Due when the first counter of a level reaches its limit.">
               <div className="fx-grid">
                 {counters.map(({ it, pct }) => (
@@ -298,7 +328,7 @@ function AssetFlow({ assetId, onBack, onOpenReport, onShowReportFlow, onOpenAsse
             </Section>
           )}
 
-          {(exemptions.length > 0 || loose.length > 0) && (
+          {shown === "linked" && (exemptions.length > 0 || loose.length > 0) && (
             <Section title="Also linked to this unit">
               <div className="fx-grid">
                 {[...exemptions, ...loose].map((m) => <FlowCard key={m.id} item={m} selected={selected === m.id} onSelect={pick} compact />)}

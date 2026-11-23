@@ -227,6 +227,7 @@ export const DASH_INFO: Record<string, DashInfo> = {
       { match: /Yellow$/i, what: "Total days units spent Yellow (under maintenance).", how: SEL_HOW, refs: [R.s81] },
       { match: /^Ready-for-service time/i, what: "The share of time active units were Green during the period.", how: "Higher is better.", refs: [R.s81, R.s43] },
       { match: /^Fleet health over/i, what: "The share of the fleet in each colour across the period.", refs: [R.s81] },
+      { match: /^Fleet availability by/i, what: "The share of the period each unit, equipment type or country spent Green (ready), Yellow, Red or not tagged, from the tag history.", how: "Change \"Group by\" to compare units, equipment types or countries. Lowest Green share comes first.", refs: [R.s81, R.s43] },
       { match: /^Days/i, what: "Days Red and Yellow for each unit. The 3D view shows units against months.", how: "Click a unit (or a 3D column) to see its tag changes.", refs: [R.s81, R.s43] },
       { match: /^Tag changes for/i, what: "Every tag change for this unit, with the date and reason.", refs: [R.s81, R.s82] },
     ],
@@ -400,6 +401,144 @@ export const DASH_INFO: Record<string, DashInfo> = {
       { match: /^Confirmed/i, what: "Phone decisions confirmed in MMS in the period.", refs: [R.c1, R.c2] },
       { match: /^Acknowledged/i, what: "Moderate decisions acknowledged in the period.", refs: [R.t3] },
       { match: /^Waiting now/i, what: "Phone decisions to confirm and Moderate decisions to acknowledge (now).", refs: [R.t3, R.c2] },
+    ],
+  },
+
+  "20": {
+    name: "Inspection Sequence per Job",
+    what: "Each Post-Job MR-I report in the period, matched to the last Pre-Job (or Pre-Mob) report before it on the same unit and part.",
+    how: "Follow up the Post-Job reports with no report before the job. A Pre-Job with no Post-Job may still be on the job.",
+    why: "The manual requires MR-I inspections pre-mobilization, pre-job and post-job, and the Job Supervisor makes sure they are done.",
+    refs: [R.f2, R.s45, R.s617],
+    items: [
+      { match: /^Post-Job reports/i, what: "Post-Job reports sent in the period.", how: SEL_HOW, refs: [R.f2] },
+      { match: /^With a report before/i, what: "Post-Job reports with a Pre-Job or Pre-Mob report before them on the same unit.", how: SEL_HOW, refs: [R.f2] },
+      { match: /^No report before/i, what: "Post-Job reports with no Pre-Job or Pre-Mob report before them on that unit.", how: SEL_HOW, refs: [R.f2, R.s45] },
+      { match: /^Pre-Job, no Post-Job/i, what: "Pre-Job reports in the period with no Post-Job report after them yet.", how: SEL_HOW, refs: [R.f2] },
+      { match: /^Pre-Mob within 72/i, what: "Pre-Mob reports started within 72 hours of a Post-Job on the same unit, which MMS lets you copy from the Post-Job.", how: SEL_HOW, refs: [R.f2] },
+      { match: /^(Jobs|Pre-Job reports with|Pre-Mob reports started)/i, what: "The reports behind the selected card. Click a report number to open it.", refs: [R.s9645] },
+    ],
+  },
+
+  "21": {
+    name: "On-site Repairs Log",
+    what: "Minor faults repaired on site with a function test during MR-I, with what was done, by whom and on which unit.",
+    how: "Units repaired on site again and again may need a planned repair instead.",
+    why: "Minor faults are monitored and corrected; the manual asks for every repair to be recorded in MMS.",
+    refs: [R.t3, R.s7, R.s95],
+    items: [
+      { match: /^Repaired on site/i, what: "On-site repairs recorded in the period.", refs: [R.t3] },
+      { match: /^Units/i, what: "Units with at least one on-site repair, and how many had more than one.", refs: [R.t3] },
+      { match: /^People/i, what: "How many people recorded on-site repairs.", refs: [R.s95] },
+      { match: /^Fixed most often/i, what: "The checklist item repaired on site most often.", refs: [R.t3] },
+      { match: /^By unit/i, what: "On-site repairs per unit.", how: "Click a unit to list only its repairs.", refs: [R.t3] },
+      { match: /^Repairs/i, what: "Each on-site repair with its MR-I report.", refs: [R.s9645] },
+    ],
+  },
+
+  "22": {
+    name: "Sign-off Completeness",
+    what: "How often the yes / no sign-off checks (Cleaned, Pressure tested, Function tested) were ticked on MR-I reports, by location and by supervisor.",
+    how: "Low rates show where the sign-off checks are being skipped.",
+    why: "The manual requires equipment to be tested and verified before it returns to service.",
+    refs: [R.s7, R.s45, R.s617],
+    items: [
+      { match: /^Reports sent/i, what: "MR-I reports sent in the period.", refs: [R.s617] },
+      { match: /^(Cleaned|Pressure tested|Function tested)/i, what: "Share of reports where this check was ticked.", refs: [R.s7] },
+      { match: /^By (location|supervisor)/i, what: "The same rates for each location or supervisor. Below 80% is shown in orange.", refs: [R.s7, R.s45] },
+    ],
+  },
+
+  "23": {
+    name: "Data Quality",
+    what: "MR-I reports with something missing or worth checking: no compliance stage, job number, checklist ID or client, engine hours lower than before, or an unusual distance.",
+    how: "Open the report and correct it, or ask the person who sent it.",
+    why: "Forecasts and reports are only as good as the data entered; the manual makes users responsible for complete, accurate entries.",
+    refs: [R.s95, R.s94, R.f2],
+    items: [
+      { match: /^No compliance stage/i, what: "Reports without a compliance stage.", how: SEL_HOW, refs: [R.f2] },
+      { match: /^No job number/i, what: "Post-Job reports without a job number, and Pre-Mob / Pre-Job reports without a Pre-Mobilization Checklist ID.", how: SEL_HOW, refs: [R.f2] },
+      { match: /^No client/i, what: "Pre-Job and Post-Job reports without a client.", how: SEL_HOW, refs: [R.s95] },
+      { match: /^Engine hours lower/i, what: "Reports whose current engine hours are lower than on the unit's report before.", how: SEL_HOW, refs: [R.s94, R.s95] },
+      { match: /^Unusual distance/i, what: "Distances below 0 km or over 1,500 km for one job.", how: SEL_HOW, refs: [R.s95] },
+      { match: /^Reports to check/i, what: "The reports behind the selected card, newest first.", refs: [R.s9645] },
+    ],
+  },
+
+  "24": {
+    name: "Usage per Job",
+    what: "Engine hours (this report), job operating hours and distance from the MR-I reports, added up per job and per unit, and checked against the MR-II / MR-III counters.",
+    how: "Click a job to see its reports. Use \"Counters that don't match\" to find counters that differ from the readings on the reports.",
+    why: "MR-II and MR-III are forecast from these readings, so a wrong reading moves the due date.",
+    refs: [R.s94, R.s623, R.s633, R.s95],
+    items: [
+      { match: /^Jobs/i, what: "Jobs with a job number (Post-Job) or Pre-Mobilization Checklist ID (Pre-Mob / Pre-Job) on reports sent in the period.", how: SEL_HOW, refs: [R.f2] },
+      { match: /^Engine hours/i, what: "Engine hours (this report) added up, with job operating hours under it.", how: "Click to list by unit.", refs: [R.s94] },
+      { match: /^Distance/i, what: "Pre-Job and Post-Job distances added up.", how: "Click to list by unit.", refs: [R.s94] },
+      { match: /^Reports with no reading/i, what: "Sent reports with no engine hours, operating hours or distance.", how: SEL_HOW, refs: [R.s95] },
+      { match: /^(Counters that don't match|MR-II \/ MR-III counters)/i, what: "Each engine-hour, operating-hour and distance counter against the readings on the unit's reports since the counter was last reset.", how: "A difference can come from a reading changed after sending, a counter edited by hand, or a counter switched off for a while.", refs: [R.s94, R.s623] },
+      { match: /^By (job|unit)/i, what: "The readings added up per job or per unit.", refs: [R.s94] },
+    ],
+  },
+
+  "25": {
+    name: "MR Cost",
+    what: "The cost to perform the MR, entered on sent MR-I reports by the operations supervisor, by unit, equipment type, country or month.",
+    how: "Use \"Waiting for the cost\" to find open reports with no cost; a user with Enter MR cost can add it there.",
+    why: "Replaces the Budget & Planning placeholder with the cost already recorded on each MR-I report.",
+    refs: [R.s617, R.s82],
+    items: [
+      { match: /^Total MR cost/i, what: "Cost entered in the period (dated by when it was entered).", refs: [R.s617] },
+      { match: /^Average per inspection/i, what: "Total cost divided by the reports that have a cost.", refs: [R.s617] },
+      { match: /^Waiting for the (cost|MR cost)/i, what: "Open reports (Submitted, Endorsed or Escalated) with no cost yet, the same list as on Reviews.", how: SEL_HOW, refs: [R.s617] },
+      { match: /^Closed with no/i, what: "Reports closed in the period without a cost.", how: SEL_HOW, refs: [R.s82] },
+      { match: /^MR cost by/i, what: "Cost per unit, equipment type, country or month.", how: "Change \"Group by\"; click a row to list its reports.", refs: [R.s617] },
+    ],
+  },
+
+  "26": {
+    name: "Critical Fault Audit Trail",
+    what: "Every Major or Critical fault (as found or after reclassification) with who decided, how, when, and the confirmation and acknowledgement that followed.",
+    how: "Use the tiles to find faults still waiting, phone decisions not yet confirmed, and missing acknowledgements. Export for an audit.",
+    why: "Major and Critical faults need the FSM or Maintenance Manager's decision, and decisions by phone stay provisional until confirmed in MMS.",
+    refs: [R.t3, R.f1, R.c1, R.c2, R.s82],
+    items: [
+      { match: /^Major \/ Critical faults/i, what: "Major and Critical faults on reports sent in the period.", how: SEL_HOW, refs: [R.t3] },
+      { match: /^Waiting for a decision/i, what: "No decision recorded yet.", how: SEL_HOW, refs: [R.f1] },
+      { match: /^Phone decisions not confirmed/i, what: "Decided by phone and still provisional.", how: SEL_HOW, refs: [R.c1, R.c2] },
+      { match: /^Lowered or rejected/i, what: "Reclassified to a lower severity, or rejected, on review.", how: SEL_HOW, refs: [R.t3] },
+      { match: /^Acknowledgement missing/i, what: "Decisions that need an acknowledgement nobody has given yet.", how: SEL_HOW, refs: [R.c2] },
+      { match: /^Audit trail/i, what: "One row per fault decision, newest report first.", refs: [R.s82] },
+    ],
+  },
+
+  "27": {
+    name: "Faults by Client",
+    what: "Faults found on Post-Job reports, grouped by the client entered on the report.",
+    how: "Compare faults per report between clients. Click a client to list the faults.",
+    why: "A Post-Job report shows the unit's condition at the end of the job, so it shows which jobs are hard on the equipment.",
+    refs: [R.f2, R.s611],
+    items: [
+      { match: /^Clients/i, what: "Clients on Post-Job reports sent in the period.", refs: [R.f2] },
+      { match: /^Post-Job reports/i, what: "Post-Job reports sent in the period.", refs: [R.f2] },
+      { match: /^Faults found after jobs/i, what: "Faults on those reports.", how: SEL_HOW, refs: [R.t3] },
+      { match: /^Reports with no client/i, what: "Post-Job reports with no client, so they aren't counted against anyone.", how: SEL_HOW, refs: [R.s95] },
+      { match: /^By client/i, what: "Reports, faults and faults per report for each client.", how: "Click a client to list its faults.", refs: [R.f2] },
+    ],
+  },
+
+  "28": {
+    name: "Exemption (MOC) Audit",
+    what: "Every MOC exemption in force at some point in the period: limits, controls, dates, and how it ended.",
+    how: "Look for exemptions past their end date that are still marked active.",
+    why: "A Red-tagged unit may only be used under an approved MOC exemption with its limits and controls.",
+    refs: [R.exm, R.s81, R.s82],
+    items: [
+      { match: /^In force/i, what: "Exemptions still running.", how: SEL_HOW, refs: [R.exm] },
+      { match: /^Past its end date/i, what: "Exemptions whose end date has passed but are still marked active.", how: SEL_HOW, refs: [R.exm] },
+      { match: /^Closed/i, what: "Exemptions closed automatically when the unit was tagged Green.", how: SEL_HOW, refs: [R.s81] },
+      { match: /^Revoked/i, what: "Exemptions revoked, with the reason given.", how: SEL_HOW, refs: [R.exm] },
+      { match: /^Exemptions/i, what: "One row per exemption, newest first.", refs: [R.s82] },
     ],
   },
 };
