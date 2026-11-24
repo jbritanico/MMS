@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { roleWithTier } from "../../lib/roles";
 import {
   usePermissions,
   useRolePermissions,
@@ -6,7 +7,7 @@ import {
   ROLES,
 } from "./hooks/useUserAdmin";
 import { getPermissionIcon } from "./permissionIcons";
-import { dashPermRank } from "../dashboard/dashAccess";
+import { dashPermRank, isPausedPerm } from "../dashboard/dashAccess";
 import { IsoKey, IsoTiles, useReportAdminHints, useReportAdminKpis } from "./AdminIsoGuide";
 
 function Roles() {
@@ -23,7 +24,9 @@ function Roles() {
     setTimeout(() => setStatus(null), 3000);
   }
 
+  const isAdminRole = selectedRole === "Administrator";
   async function toggle(code: string, currentlyOn: boolean) {
+    if (isAdminRole) { flash("The Administrator always has every permission.", "err"); return; }
     try {
       await setRolePermission.mutateAsync({ permissionCode: code, granted: !currentlyOn });
     } catch (err) {
@@ -34,12 +37,13 @@ function Roles() {
   const categories = Array.from(new Set(permissions.map((p) => p.category)));
   /** Permissions of one category; Dashboards in catalogue order (area, Overview, History, 1-18). */
   const inCategory = (cat: string) => {
-    const list = permissions.filter((p) => p.category === cat);
+    const list = permissions.filter((p) => p.category === cat && !isPausedPerm(p.code));
     return cat === "Dashboards" ? [...list].sort((a, b) => dashPermRank(a.code) - dashPermRank(b.code)) : list;
   };
   const [bulkBusy, setBulkBusy] = useState(false);
   /** Turn every switch of a category on or off for the selected role. */
   async function setAll(cat: string, on: boolean) {
+    if (isAdminRole) { flash("The Administrator always has every permission.", "err"); return; }
     setBulkBusy(true);
     try {
       for (const p of inCategory(cat)) {
@@ -58,7 +62,7 @@ function Roles() {
   const dashOn = inCategory("Dashboards").filter((p) => rolePerms.includes(p.code)).length;
   const dashAll = inCategory("Dashboards").length;
   useReportAdminKpis("roles", [
-    { label: "role picked", value: selectedRole, tone: "blue" },
+    { label: "role picked", value: roleWithTier(selectedRole), tone: "blue" },
     { label: "switches on", value: `${rolePerms.length} of ${permissions.length}`, tone: "ok" },
     { label: "dashboards it can open", value: `${dashOn} of ${dashAll}`, tone: dashOn ? "ok" : "look" },
   ]);
@@ -69,11 +73,12 @@ function Roles() {
         These are the starting switches for everyone with the role. A person's own Permissions screen can still turn
         single switches on or off for them, and those win over the role.
       </p>
+      {isAdminRole && <div className="toast ok" style={{ maxWidth: 640, margin: "8px 0 12px" }}>The Administrator (Tier 0) has every permission, with no restriction, so these switches can't be turned off. Its deletions and changes are recorded in the MMS logs.</div>}
 
       <div style={{ margin: "16px 0 20px" }}>
         <IsoTiles
           label="Pick a role"
-          items={ROLES.map((role) => ({ id: role, label: role, count: role === selectedRole ? `${rolePerms.length} of ${permissions.length} on` : undefined, tone: role === selectedRole ? "ok" as const : "skip" as const }))}
+          items={ROLES.map((role) => ({ id: role, label: roleWithTier(role), count: role === selectedRole ? `${rolePerms.length} of ${permissions.length} on` : undefined, tone: role === selectedRole ? "ok" as const : "skip" as const }))}
           selected={selectedRole}
           onPick={(role) => setSelectedRole(role)}
         />

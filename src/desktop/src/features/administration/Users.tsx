@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { roleName, roleWithTier } from "../../lib/roles";
+import RoleGuide from "./RoleGuide";
 import { FilterChips, RowTile, useReportAdminKpis } from "./AdminIsoGuide";
 import { useCurrentUser } from "../../lib/currentUser";
 import {
@@ -40,7 +42,7 @@ function Users() {
   const [show, setShow] = useState<"all" | "on" | "off">("all");
   const shownUsers = users.filter((u) =>
     (show === "all" || (show === "on" ? u.active : !u.active)) &&
-    (!q.trim() || `${u.name} ${u.email} ${u.role}`.toLowerCase().includes(q.trim().toLowerCase())));
+    (!q.trim() || `${u.name} ${u.email} ${u.role} ${roleName(u.role)}`.toLowerCase().includes(q.trim().toLowerCase())));
   const offUsers = users.filter((u) => !u.active).length;
   useReportAdminKpis("users", [
     { label: "people", value: users.length, tone: "blue" },
@@ -130,14 +132,15 @@ function Users() {
           <label>Email</label>
           <input type="text" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="e.g. ahmed@sprint-ae.com" />
         </div>
-        <div className="field" style={{ width: 160, marginBottom: 0 }}>
+        <div className="field" style={{ width: 230, marginBottom: 0 }}>
           <label>Role</label>
           <select className="neu-select" value={newRole} onChange={(e) => setNewRole(e.target.value)}>
-            {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+            {ROLES.map((r) => <option key={r} value={r}>{roleWithTier(r)}</option>)}
           </select>
         </div>
         <button className="primary" onClick={handleCreate}>+ Add person</button>
       </div>
+      <RoleGuide onPick={(r) => setNewRole(r)} />
 
       {status && <div className={`toast ${status.kind}`} style={{ maxWidth: 400, marginBottom: 12 }}>{status.msg}</div>}
 
@@ -161,7 +164,7 @@ function Users() {
                   <input type="text" className="trigger-input" value={editUser.name ?? ""} onChange={(e) => setEditUser({ ...editUser, name: e.target.value })} placeholder="Name" />
                   <input type="text" className="trigger-input" value={editUser.email ?? ""} onChange={(e) => setEditUser({ ...editUser, email: e.target.value })} placeholder="Email" />
                   <select className="neu-select" value={editUser.role ?? ""} onChange={(e) => setEditUser({ ...editUser, role: e.target.value })}>
-                    {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                    {ROLES.map((r) => <option key={r} value={r}>{roleWithTier(r)}</option>)}
                   </select>
                 </div>
               ) : (
@@ -170,7 +173,7 @@ function Users() {
                   <div className="desc">{u.email}</div>
                   <div className="meta">
                     <span className={`pill ${u.active ? "active" : "inactive"}`}>{u.active ? "In use" : "Switched off"}</span>
-                    <span className="pill neutral">{u.role}</span>
+                    <span className="pill neutral">{roleWithTier(u.role)}</span>
                     <CountryPill user={u} />
                   </div>
                 </div>

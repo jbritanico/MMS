@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { useMriTemplates } from "../administration/hooks/useMriTemplates";
+import { canChangeContent, templateState } from "../administration/TemplateApproval";
 import {
   useHeaderFieldCatalog,
   useTemplateHeaderFields,
@@ -76,6 +78,10 @@ function TemplateBuilder({ templateId, templateName, onBack }: TemplateBuilderPr
   const [previewOpen, setPreviewOpen] = useState(false);
   const { user: currentUser } = useCurrentUser();
   const hints = useTemplateHints(templateId);
+  // TPL-2: only a draft can be changed; an approved template is changed as a new version.
+  const { data: allTemplates = [] } = useMriTemplates();
+  const tpl = allTemplates.find((x) => x.id === templateId);
+  const locked = !!tpl && !canChangeContent(tpl);
   const currentIndex = STEPS.findIndex((s) => s.id === step);
   const cur = STEPS[currentIndex];
   const next = STEPS[currentIndex + 1];
@@ -98,8 +104,16 @@ function TemplateBuilder({ templateId, templateName, onBack }: TemplateBuilderPr
 
       <div className="header">
         <h1>{templateName}</h1>
-        <span className="sub">template id #{templateId} · draft</span>
+        <span className="sub">template id #{templateId}{tpl && tpl.version > 1 ? ` · version ${tpl.version}` : ""} · {tpl ? (tpl.approval === "Approved" && !tpl.superseded_by ? `Approved · ${templateState(tpl).label}` : tpl.approval === "Submitted" ? "Waiting for the Maintenance Manager / FSM" : tpl.approval === "Endorsed" ? "Waiting for the Regional Maintenance Manager" : templateState(tpl).label) : "Draft"}</span>
       </div>
+
+      {locked && tpl && (
+        <div className="toast" style={{ margin: "8px 0 4px", maxWidth: "none" }} role="status">
+          {tpl.superseded_by ? "This version has been replaced by a newer approved version. You are looking at it read-only."
+            : tpl.approval === "Approved" ? "This template is approved, so you are looking at it read-only. To change it, go back and use “Change this template”: the approved version stays in use until the change is approved."
+            : "This template is under review, so it can't be changed now. If it is sent back, the Maintenance Supervisor can change it again."}
+        </div>
+      )}
 
       <IsoStepBar steps={STEPS} current={step} hints={hints} onPick={(id) => setStep(id as Step)} />
 
@@ -118,12 +132,12 @@ function TemplateBuilder({ templateId, templateName, onBack }: TemplateBuilderPr
           </button>
         </div>
         <StepIntro current={step} explain={cur.explain} todo={cur.todo} hints={hints} stepNames={STEP_NAMES} />
-        <div style={{ marginTop: 18 }}>
+        <fieldset disabled={locked} style={{ marginTop: 18, marginLeft: 0, marginRight: 0, marginBottom: 0, border: 0, padding: 0, minWidth: 0 }}>
           {step === "header" && <HeaderFieldsStep templateId={templateId} />}
           {step === "components" && (
             <TemplateComponentsStep
               templateId={templateId}
-              canEdit
+              canEdit={!locked}
               createdBy={currentUser?.email ?? currentUser?.name ?? "Unknown user"}
             />
           )}
@@ -132,7 +146,7 @@ function TemplateBuilder({ templateId, templateName, onBack }: TemplateBuilderPr
           {step === "mid" && <MidFieldsStep templateId={templateId} />}
           {step === "footer" && <FooterFieldsStep templateId={templateId} />}
           {step === "review" && <ReviewStep hints={hints} onOpen={(id) => setStep(id)} />}
-        </div>
+        </fieldset>
       </div>
 
       <div className="actions" style={{ marginTop: 16 }}>

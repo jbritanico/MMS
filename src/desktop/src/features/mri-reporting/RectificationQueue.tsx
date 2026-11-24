@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { roleName } from "../../lib/roles";
 import { useCurrentUser } from "../../lib/currentUser";
 import { useEffectivePermissions } from "../administration/hooks/useUserAdmin";
 import {
@@ -399,7 +400,7 @@ function RectificationQueue({ onOpenFlow }: RectificationQueueProps) {
                                                     placeholder="Pick a user, or type a name"
                                                 />
                                                 <datalist id="rq-fixers">
-                                                    {fixers.map((u) => <option key={u.id} value={u.name}>{u.role}</option>)}
+                                                    {fixers.map((u) => <option key={u.id} value={u.name}>{roleName(u.role)}</option>)}
                                                 </datalist>
                                             </div>
                                             <div className="field">

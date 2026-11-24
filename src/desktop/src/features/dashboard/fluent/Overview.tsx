@@ -139,7 +139,7 @@ export default function Overview({ onSection, onOpenDash }: { onSection: (s: She
     <>
       <ScopeFilterBar shown={assets.length} total={allActive.length} />
       <div className="fl-ov-mode" style={{ gap: 10, alignItems: "center" }}>
-        {access.dash(25) && <button type="button" className="ghost" onClick={() => setPackOpen(true)} title="One printable page for a month: status, Major / Critical faults, repairs, cost and overdue reviews">Print monthly pack</button>}
+        {access.dash(26) && <button type="button" className="ghost" onClick={() => setPackOpen(true)} title="One printable page for a month: status, Major / Critical faults, repairs and overdue reviews">Print monthly pack</button>}
         <ModeToggle />
       </div>
       {packOpen && <MonthlyPack assets={assets} onClose={() => setPackOpen(false)} />}

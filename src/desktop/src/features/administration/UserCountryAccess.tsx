@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { roleWithTier } from "../../lib/roles";
 import {
   useUserCountryAccess,
   useSetUserCountryAccess,
@@ -56,7 +57,7 @@ function UserCountryAccess({ user, onBack }: UserCountryAccessProps) {
 
       <h2 style={{ marginBottom: 4 }}>Country Access — {user.name}</h2>
       <p style={{ fontSize: 13, color: "var(--text-soft)", marginBottom: 4 }}>
-        Role: <strong>{user.role}</strong>. {single
+        Role: <strong>{roleWithTier(user.role)}</strong>. {single
           ? "This role can be assigned exactly one country at a time."
           : "This role can be assigned any number of countries."}
       </p>

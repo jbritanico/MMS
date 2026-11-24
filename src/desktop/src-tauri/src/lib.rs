@@ -479,6 +479,7 @@ fn open_and_migrate_connection() -> Result<Connection, String> {
     .map_err(|e| e.to_string())?;
 
     seed_permissions(&conn)?;
+    seed_regional_role(&conn)?;
 
     // One-time rename migration: existing installs still have app_users/role_permissions
     // rows keyed to the old tier names. These three are unambiguous 1-to-1 renames and can
@@ -1027,6 +1028,27 @@ fn open_and_migrate_connection() -> Result<Connection, String> {
     let _ = conn.execute("ALTER TABLE mri_fault_rectifications ADD COLUMN action_taken TEXT", []);
     // FB-024: "Other faults" -- checklist items that belong to one report only.
     let _ = conn.execute("ALTER TABLE template_checklist_items ADD COLUMN adhoc_report_id INTEGER", []);
+    // TPL-2 (MR-I template approval, 24 Nov 2026): Draft -> Submitted -> Endorsed -> Approved.
+    // A change to an approved template is made as a new version (revision_of); when that is
+    // approved the old version is set Not in use and points at it (superseded_by).
+    let _ = conn.execute("ALTER TABLE mri_templates ADD COLUMN approval TEXT NOT NULL DEFAULT 'Draft'", []);
+    let _ = conn.execute("ALTER TABLE mri_templates ADD COLUMN version INTEGER NOT NULL DEFAULT 1", []);
+    let _ = conn.execute("ALTER TABLE mri_templates ADD COLUMN revision_of INTEGER", []);
+    let _ = conn.execute("ALTER TABLE mri_templates ADD COLUMN superseded_by INTEGER", []);
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS mri_template_approval_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            template_id INTEGER NOT NULL,
+            action TEXT NOT NULL,
+            by_user_id INTEGER,
+            by_name TEXT,
+            at TEXT NOT NULL,
+            note TEXT
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+    template_approval_upgrade(&conn)?;
     let _ = conn.execute("ALTER TABLE checklist_databank ADD COLUMN adhoc INTEGER NOT NULL DEFAULT 0", []);
     // FB-013: who the reviewer assigned to rectify the fault, and whether they have seen it.
     let _ = conn.execute("ALTER TABLE mri_fault_rectifications ADD COLUMN assigned_technician_user_id INTEGER", []);
@@ -1107,6 +1129,7 @@ fn open_and_migrate_connection() -> Result<Connection, String> {
     ] {
         let _ = conn.execute(stmt, []);
     }
+    grant_administrator_everything(&conn)?;
 
     Ok(conn)
 }
@@ -1173,7 +1196,7 @@ const DASHBOARD_PERMS: [(&str, &str); 22] = [
 // Dashboards 20-28 (MR-I reports list, 23 Nov 2026). Unlike 1-19 they are not given to every
 // role: once, each goes to the roles of the user tier it was planned for, plus Administrator
 // and Data Miner View. The Administrator can change this afterwards in Roles.
-const TIER2_DASH_ROLES: [&str; 5] = ["Job Supervisor", "Maintenance Supervisor", "Maintenance Manager / FSM", "Administrator", "Data Miner View"];
+const TIER2_DASH_ROLES: [&str; 6] = ["Job Supervisor", "Operations Coordinator", "Maintenance Supervisor", "Maintenance Manager / FSM", "Administrator", "Data Miner View"];
 const TIER3_DASH_ROLES: [&str; 3] = ["Maintenance Manager / FSM", "Administrator", "Data Miner View"];
 // (code, label, Tier 3 only)
 const NEW_DASHBOARD_PERMS: [(&str, &str, bool); 9] = [
@@ -1247,6 +1270,29 @@ fn seed_dashboard_permissions(conn: &Connection) -> Result<(), String> {
         conn.execute("INSERT OR IGNORE INTO app_migrations (name) VALUES ('dashboard_permissions_20_28')", [])
             .map_err(|e| e.to_string())?;
     }
+    // CL4-4 (Clarification 4, 24 Nov 2026): the Operations Coordinator is Tier 2, so once give it
+    // the Tier 2 dashboards 20-24 on installs that were set up before it was in TIER2_DASH_ROLES.
+    let done_oc: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM app_migrations WHERE name = 'dashboard_permissions_20_24_ops_coordinator'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if done_oc == 0 {
+        for (code, _, tier3_only) in NEW_DASHBOARD_PERMS.iter() {
+            if *tier3_only {
+                continue;
+            }
+            conn.execute(
+                "INSERT OR IGNORE INTO role_permissions (role, permission_code) VALUES ('Operations Coordinator', ?1)",
+                [code],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        conn.execute("INSERT OR IGNORE INTO app_migrations (name) VALUES ('dashboard_permissions_20_24_ops_coordinator')", [])
+            .map_err(|e| e.to_string())?;
+    }
     let done: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM app_migrations WHERE name = 'dashboard_permissions'",
@@ -1280,8 +1326,38 @@ fn seed_dashboard_permissions(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+// TPL-1 (MR-I template approval, 24 Nov 2026): the Regional Maintenance Manager / Regional
+// Service Delivery Manager is a tier above the FSM. Once, it gets every permission the
+// Maintenance Manager / FSM has (role defaults and dashboards, so fresh and existing installs
+// match) plus "Approve MR-I templates". Afterwards the Administrator manages it in Roles.
+pub const REGIONAL_ROLE: &str = "Regional Maintenance Manager / RSDM";
+fn seed_regional_role(conn: &Connection) -> Result<(), String> {
+    conn.execute("CREATE TABLE IF NOT EXISTS app_migrations (name TEXT PRIMARY KEY)", [])
+        .map_err(|e| e.to_string())?;
+    let done: i64 = conn
+        .query_row("SELECT COUNT(*) FROM app_migrations WHERE name = 'role_regional_manager'", [], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    if done > 0 {
+        return Ok(());
+    }
+    conn.execute(
+        "INSERT OR IGNORE INTO role_permissions (role, permission_code)
+         SELECT ?1, permission_code FROM role_permissions WHERE role = 'Maintenance Manager / FSM'",
+        [REGIONAL_ROLE],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT OR IGNORE INTO role_permissions (role, permission_code) VALUES (?1, 'mri_templates.approve')",
+        [REGIONAL_ROLE],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute("INSERT OR IGNORE INTO app_migrations (name) VALUES ('role_regional_manager')", [])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 fn seed_permissions(conn: &Connection) -> Result<(), String> {
-    let perms: [(&str, &str, &str); 25] = [
+    let perms: [(&str, &str, &str); 27] = [
         ("assets.view", "View assets", "Asset Registry"),
         ("assets.create", "Create assets", "Asset Registry"),
         ("assets.edit", "Edit assets", "Asset Registry"),
@@ -1342,6 +1418,16 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
         (
             "mri_templates.delete",
             "Delete MR-I templates",
+            "Administration",
+        ),
+        (
+            "mri_templates.endorse",
+            "Endorse or reject MR-I templates (Maintenance Manager / FSM)",
+            "Administration",
+        ),
+        (
+            "mri_templates.approve",
+            "Approve MR-I templates (Regional Maintenance Manager)",
             "Administration",
         ),
         (
@@ -1720,7 +1806,7 @@ fn get_assets(viewer_user_id: Option<i64>) -> Result<Vec<Asset>, String> {
             let role: String = conn
                 .query_row("SELECT role FROM app_users WHERE id = ?1", [id], |row| row.get(0))
                 .map_err(|e| e.to_string())?;
-            if role == "Maintenance Manager / FSM" {
+            if role == "Maintenance Manager / FSM" || role == REGIONAL_ROLE {
                 None
             } else {
                 // Administrator and users without country rows -> None (see user_country_restriction).
@@ -1835,6 +1921,7 @@ fn clean_component_label(label: &str) -> Result<String, String> {
 #[tauri::command]
 fn create_template_component(template_id: i64, label: String, created_by: String) -> Result<String, String> {
     let conn = get_connection()?;
+    template_edit_guard(&conn, template_id)?;
     let label = clean_component_label(&label)?;
     let duplicate: i64 = conn
         .query_row(
@@ -1864,6 +1951,7 @@ fn create_template_component(template_id: i64, label: String, created_by: String
 #[tauri::command]
 fn rename_template_component(id: i64, label: String) -> Result<String, String> {
     let conn = get_connection()?;
+    template_edit_guard(&conn, template_id_of(&conn, "template_components", id)?)?;
     let label = clean_component_label(&label)?;
     let template_id: i64 = conn
         .query_row("SELECT template_id FROM template_components WHERE id = ?1", [id], |row| row.get(0))
@@ -1886,6 +1974,7 @@ fn rename_template_component(id: i64, label: String) -> Result<String, String> {
 #[tauri::command]
 fn set_template_component_active(id: i64, active: bool) -> Result<String, String> {
     let conn = get_connection()?;
+    template_edit_guard(&conn, template_id_of(&conn, "template_components", id)?)?;
     conn.execute(
         "UPDATE template_components SET active = ?1 WHERE id = ?2",
         rusqlite::params![active as i32, id],
@@ -1899,6 +1988,7 @@ fn set_template_component_active(id: i64, active: bool) -> Result<String, String
 #[tauri::command]
 fn delete_template_component(id: i64) -> Result<String, String> {
     let conn = get_connection()?;
+    template_edit_guard(&conn, template_id_of(&conn, "template_components", id)?)?;
     let used: i64 = conn
         .query_row("SELECT COUNT(*) FROM mri_reports WHERE component_id = ?1", [id], |row| row.get(0))
         .map_err(|e| e.to_string())?;
@@ -2685,6 +2775,442 @@ fn valid_template_status(status: &str) -> bool {
     matches!(status, "Draft" | "Active" | "Inactive")
 }
 
+// ---------------------------------------------------------------- MR-I template approval (TPL-2)
+// Agreed with Mr. Kamil, 24 Nov 2026: the Maintenance Supervisor creates and changes templates,
+// the Maintenance Manager / FSM endorses or rejects them, and the Regional Maintenance Manager /
+// RSDM approves them. Only an approved template can be put in use.
+
+// Once: templates already in use count as approved (Jess, 24 Nov); the Maintenance Supervisor
+// gets template editing; endorsing goes to the FSM and the Regional role.
+fn template_approval_upgrade(conn: &Connection) -> Result<(), String> {
+    conn.execute("CREATE TABLE IF NOT EXISTS app_migrations (name TEXT PRIMARY KEY)", [])
+        .map_err(|e| e.to_string())?;
+    let done: i64 = conn
+        .query_row("SELECT COUNT(*) FROM app_migrations WHERE name = 'template_approval'", [], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    if done > 0 {
+        return Ok(());
+    }
+    let now = chrono_now();
+    conn.execute(
+        "INSERT INTO mri_template_approval_log (template_id, action, by_user_id, by_name, at, note)
+         SELECT id, 'Approved', NULL, 'MMS', ?1, 'Approved at upgrade (in use before the approval workflow)'
+         FROM mri_templates WHERE status = 'Active'",
+        [&now],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute("UPDATE mri_templates SET approval = 'Approved' WHERE status = 'Active'", [])
+        .map_err(|e| e.to_string())?;
+    for (role, code) in [
+        ("Maintenance Supervisor", "mri_templates.edit"),
+        ("Maintenance Manager / FSM", "mri_templates.endorse"),
+        (REGIONAL_ROLE, "mri_templates.endorse"),
+        (REGIONAL_ROLE, "mri_templates.approve"),
+    ] {
+        conn.execute(
+            "INSERT OR IGNORE INTO role_permissions (role, permission_code) VALUES (?1, ?2)",
+            rusqlite::params![role, code],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    conn.execute("INSERT OR IGNORE INTO app_migrations (name) VALUES ('template_approval')", [])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn template_state(conn: &Connection, template_id: i64) -> Result<(String, String, Option<i64>), String> {
+    conn.query_row(
+        "SELECT status, approval, superseded_by FROM mri_templates WHERE id = ?1",
+        [template_id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+    )
+    .map_err(|_| "Template not found".to_string())
+}
+
+/// Only a draft that is not in use can be changed. Anything else is either waiting for review
+/// or approved; an approved template is changed by starting a new version.
+fn template_edit_guard(conn: &Connection, template_id: i64) -> Result<(), String> {
+    let (status, approval, superseded) = template_state(conn, template_id)?;
+    if superseded.is_some() {
+        return Err("This version of the template has been replaced by a newer approved version and can't be changed.".to_string());
+    }
+    match approval.as_str() {
+        "Submitted" => Err("This template is waiting for the Maintenance Manager / FSM to endorse it, so it can't be changed now.".to_string()),
+        "Endorsed" => Err("This template is waiting for the Regional Maintenance Manager to approve it, so it can't be changed now.".to_string()),
+        "Approved" => Err("This template is approved. To change it, use \"Change this template\" on the MR-I templates screen; the approved version stays in use until the change is approved.".to_string()),
+        _ if status == "Active" => Err("This template is in use. To change it, use \"Change this template\" on the MR-I templates screen.".to_string()),
+        _ => Ok(()),
+    }
+}
+
+fn template_id_of(conn: &Connection, table: &str, id: i64) -> Result<i64, String> {
+    conn.query_row(&format!("SELECT template_id FROM {} WHERE id = ?1", table), [id], |row| row.get(0))
+        .map_err(|_| "Not found".to_string())
+}
+
+fn template_user_name(conn: &Connection, user_id: i64) -> Result<String, String> {
+    conn.query_row("SELECT name FROM app_users WHERE id = ?1", [user_id], |row| row.get(0))
+        .map_err(|_| "Unknown user".to_string())
+}
+
+fn log_template_action(conn: &Connection, template_id: i64, action: &str, user_id: Option<i64>, name: &str, note: Option<&str>) -> Result<(), String> {
+    conn.execute(
+        "INSERT INTO mri_template_approval_log (template_id, action, by_user_id, by_name, at, note) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        rusqlite::params![template_id, action, user_id, name, chrono_now(), note.map(|n| n.trim()).filter(|n| !n.is_empty())],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[derive(Serialize)]
+struct TemplateApprovalEntry {
+    id: i64,
+    template_id: i64,
+    action: String,
+    by_name: Option<String>,
+    at: String,
+    note: Option<String>,
+}
+
+#[tauri::command]
+fn get_mri_template_approval_log(template_id: i64) -> Result<Vec<TemplateApprovalEntry>, String> {
+    let conn = get_connection()?;
+    // A version's history includes the versions before it.
+    let mut ids = vec![template_id];
+    let mut cur = template_id;
+    for _ in 0..50 {
+        let prev: Option<i64> = conn
+            .query_row("SELECT revision_of FROM mri_templates WHERE id = ?1", [cur], |row| row.get(0))
+            .unwrap_or(None);
+        match prev {
+            Some(p) => { ids.push(p); cur = p; }
+            None => break,
+        }
+    }
+    let list = ids.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",");
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT id, template_id, action, by_name, at, note FROM mri_template_approval_log WHERE template_id IN ({}) ORDER BY CAST(at AS INTEGER), id",
+            list
+        ))
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(TemplateApprovalEntry { id: row.get(0)?, template_id: row.get(1)?, action: row.get(2)?, by_name: row.get(3)?, at: row.get(4)?, note: row.get(5)? })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
+}
+
+#[tauri::command]
+fn submit_mri_template(template_id: i64, user_id: i64, note: Option<String>) -> Result<String, String> {
+    let conn = get_connection()?;
+    if !user_has_permission(&conn, user_id, "mri_templates.edit") {
+        return Err("You don't have the right to create or change MR-I templates.".to_string());
+    }
+    template_edit_guard(&conn, template_id)?;
+    let questions: i64 = conn
+        .query_row("SELECT COUNT(*) FROM template_checklist_items WHERE template_id = ?1 AND adhoc_report_id IS NULL", [template_id], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    if questions == 0 {
+        return Err("Add at least one checklist question before sending the template for review.".to_string());
+    }
+    let name = template_user_name(&conn, user_id)?;
+    conn.execute(
+        "UPDATE mri_templates SET approval = 'Submitted', updated_by = ?1, updated_date = ?2 WHERE id = ?3",
+        rusqlite::params![name, chrono_now(), template_id],
+    )
+    .map_err(|e| e.to_string())?;
+    log_template_action(&conn, template_id, "Submitted", Some(user_id), &name, note.as_deref())?;
+    Ok("Sent to the Maintenance Manager / FSM for review".to_string())
+}
+
+#[tauri::command]
+fn endorse_mri_template(template_id: i64, user_id: i64, note: Option<String>) -> Result<String, String> {
+    let conn = get_connection()?;
+    if !user_has_permission(&conn, user_id, "mri_templates.endorse") {
+        return Err("Only the Maintenance Manager / FSM can endorse MR-I templates.".to_string());
+    }
+    let (_, approval, _) = template_state(&conn, template_id)?;
+    if approval != "Submitted" {
+        return Err("Only a template sent for review can be endorsed.".to_string());
+    }
+    let name = template_user_name(&conn, user_id)?;
+    conn.execute("UPDATE mri_templates SET approval = 'Endorsed' WHERE id = ?1", [template_id])
+        .map_err(|e| e.to_string())?;
+    log_template_action(&conn, template_id, "Endorsed", Some(user_id), &name, note.as_deref())?;
+    Ok("Endorsed and sent to the Regional Maintenance Manager for approval".to_string())
+}
+
+#[tauri::command]
+fn reject_mri_template(template_id: i64, user_id: i64, note: String) -> Result<String, String> {
+    let conn = get_connection()?;
+    if note.trim().is_empty() {
+        return Err("Say why the template is sent back.".to_string());
+    }
+    let (_, approval, _) = template_state(&conn, template_id)?;
+    let allowed = match approval.as_str() {
+        "Submitted" => user_has_permission(&conn, user_id, "mri_templates.endorse"),
+        "Endorsed" => user_has_permission(&conn, user_id, "mri_templates.approve"),
+        _ => return Err("Only a template under review can be sent back.".to_string()),
+    };
+    if !allowed {
+        return Err("You can't send this template back at this step.".to_string());
+    }
+    let name = template_user_name(&conn, user_id)?;
+    conn.execute("UPDATE mri_templates SET approval = 'Draft' WHERE id = ?1", [template_id])
+        .map_err(|e| e.to_string())?;
+    log_template_action(&conn, template_id, "Rejected", Some(user_id), &name, Some(note.as_str()))?;
+    Ok("Sent back to the Maintenance Supervisor".to_string())
+}
+
+#[tauri::command]
+fn approve_mri_template(template_id: i64, user_id: i64, note: Option<String>) -> Result<String, String> {
+    let conn = get_connection()?;
+    if !user_has_permission(&conn, user_id, "mri_templates.approve") {
+        return Err("Only the Regional Maintenance Manager / RSDM can approve MR-I templates.".to_string());
+    }
+    let (_, approval, _) = template_state(&conn, template_id)?;
+    if approval != "Endorsed" {
+        return Err("Only a template endorsed by the Maintenance Manager / FSM can be approved.".to_string());
+    }
+    let name = template_user_name(&conn, user_id)?;
+    let revision_of: Option<i64> = conn
+        .query_row("SELECT revision_of FROM mri_templates WHERE id = ?1", [template_id], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    let now = chrono_now();
+    let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+    if let Some(old) = revision_of {
+        // Parts (components) keep their ids across versions, so open reports, carried-forward
+        // faults and the one-open-report rule still match by part. Same label = same part.
+        let new_parts: Vec<(i64, String, i64, i64)> = {
+            let mut st = tx
+                .prepare("SELECT id, label, display_order, active FROM template_components WHERE template_id = ?1")
+                .map_err(|e| e.to_string())?;
+            let v = st
+                .query_map([template_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)))
+                .map_err(|e| e.to_string())?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| e.to_string())?;
+            v
+        };
+        for (nid, label, order, active) in new_parts {
+            let old_part: Option<i64> = tx
+                .query_row("SELECT id FROM template_components WHERE template_id = ?1 AND label = ?2", rusqlite::params![old, label], |row| row.get(0))
+                .ok();
+            if let Some(oid) = old_part {
+                tx.execute("DELETE FROM template_components WHERE id = ?1", [nid]).map_err(|e| e.to_string())?;
+                tx.execute(
+                    "UPDATE template_components SET template_id = ?1, display_order = ?2, active = ?3 WHERE id = ?4",
+                    rusqlite::params![template_id, order, active, oid],
+                )
+                .map_err(|e| e.to_string())?;
+            }
+        }
+        // Parts left out of the new version move with it, switched off, so their history stays.
+        tx.execute("UPDATE template_components SET template_id = ?1, active = 0 WHERE template_id = ?2", rusqlite::params![template_id, old])
+            .map_err(|e| e.to_string())?;
+        tx.execute(
+            "UPDATE mri_templates SET status = 'Inactive', superseded_by = ?1, updated_by = ?2, updated_date = ?3 WHERE id = ?4",
+            rusqlite::params![template_id, name, now, old],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    tx.execute(
+        "UPDATE mri_templates SET approval = 'Approved', status = 'Active', updated_by = ?1, updated_date = ?2 WHERE id = ?3",
+        rusqlite::params![name, now, template_id],
+    )
+    .map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| e.to_string())?;
+    log_template_action(&conn, template_id, "Approved", Some(user_id), &name, note.as_deref())?;
+    if let Some(old) = revision_of {
+        log_template_action(&conn, old, "Replaced", Some(user_id), &name, Some("Replaced by the newly approved version"))?;
+    }
+    Ok("Approved and in use".to_string())
+}
+
+/// Start a change to an approved template: a full copy as the next version, in Draft. The
+/// approved version stays in use until the new one is approved.
+#[tauri::command]
+fn create_mri_template_revision(template_id: i64, user_id: i64) -> Result<i64, String> {
+    let conn = get_connection()?;
+    if !user_has_permission(&conn, user_id, "mri_templates.edit") {
+        return Err("You don't have the right to create or change MR-I templates.".to_string());
+    }
+    let (name, asset_type_id, approval, version, superseded): (String, i64, String, i64, Option<i64>) = conn
+        .query_row(
+            "SELECT template_name, asset_type_id, approval, version, superseded_by FROM mri_templates WHERE id = ?1",
+            [template_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+        )
+        .map_err(|_| "Template not found".to_string())?;
+    if approval != "Approved" || superseded.is_some() {
+        return Err("Only the current approved version of a template can be changed this way.".to_string());
+    }
+    let open: i64 = conn
+        .query_row("SELECT COUNT(*) FROM mri_templates WHERE revision_of = ?1 AND approval != 'Approved'", [template_id], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    if open > 0 {
+        return Err("A new version of this template is already being prepared. Open it from the MR-I templates screen.".to_string());
+    }
+    let who = template_user_name(&conn, user_id)?;
+    let now = chrono_now();
+    let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+    tx.execute(
+        "INSERT INTO mri_templates (template_name, asset_type_id, status, created_by, created_date, updated_by, updated_date, approval, version, revision_of)
+         VALUES (?1, ?2, 'Draft', ?3, ?4, ?3, ?4, 'Draft', ?5, ?6)",
+        rusqlite::params![name, asset_type_id, who, now, version + 1, template_id],
+    )
+    .map_err(|e| e.to_string())?;
+    let new_id = tx.last_insert_rowid();
+    tx.execute(
+        "INSERT INTO template_header_fields (template_id, header_field_id, label_override, data_type, required, display_order, default_value)
+         SELECT ?1, header_field_id, label_override, data_type, required, display_order, default_value FROM template_header_fields WHERE template_id = ?2",
+        rusqlite::params![new_id, template_id],
+    )
+    .map_err(|e| e.to_string())?;
+    tx.execute(
+        "INSERT INTO template_mid_fields (template_id, mid_field_id, display_order) SELECT ?1, mid_field_id, display_order FROM template_mid_fields WHERE template_id = ?2",
+        rusqlite::params![new_id, template_id],
+    )
+    .map_err(|e| e.to_string())?;
+    tx.execute(
+        "INSERT INTO template_footer_fields (template_id, footer_field_id, display_order) SELECT ?1, footer_field_id, display_order FROM template_footer_fields WHERE template_id = ?2",
+        rusqlite::params![new_id, template_id],
+    )
+    .map_err(|e| e.to_string())?;
+    tx.execute(
+        "INSERT INTO template_components (template_id, label, display_order, active, created_by, created_at)
+         SELECT ?1, label, display_order, active, created_by, ?3 FROM template_components WHERE template_id = ?2",
+        rusqlite::params![new_id, template_id, now],
+    )
+    .map_err(|e| e.to_string())?;
+    // Checklist questions (not the one-report "Other faults"), keeping a map for the drawing.
+    let items: Vec<(i64, i64, Option<i64>, Option<String>, i64, i64)> = {
+        let mut st = tx
+            .prepare("SELECT id, checklist_item_id, section_id, severity, display_order, required FROM template_checklist_items WHERE template_id = ?1 AND adhoc_report_id IS NULL")
+            .map_err(|e| e.to_string())?;
+        let v = st
+            .query_map([template_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)))
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        v
+    };
+    let mut item_map = std::collections::HashMap::new();
+    for (old_id, cid, section, severity, order, required) in items {
+        tx.execute(
+            "INSERT INTO template_checklist_items (template_id, checklist_item_id, section_id, severity, display_order, required) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            rusqlite::params![new_id, cid, section, severity, order, required],
+        )
+        .map_err(|e| e.to_string())?;
+        item_map.insert(old_id, tx.last_insert_rowid());
+    }
+    tx.execute(
+        "INSERT INTO template_drawings (template_id, image_data, updated_date) SELECT ?1, image_data, ?3 FROM template_drawings WHERE template_id = ?2",
+        rusqlite::params![new_id, template_id, now],
+    )
+    .map_err(|e| e.to_string())?;
+    let spots: Vec<(i64, f64, f64, Option<String>, i64)> = {
+        let mut st = tx
+            .prepare("SELECT id, x, y, label, display_order FROM template_drawing_hotspots WHERE template_id = ?1")
+            .map_err(|e| e.to_string())?;
+        let v = st
+            .query_map([template_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)))
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        v
+    };
+    for (sid, x, y, label, order) in spots {
+        tx.execute(
+            "INSERT INTO template_drawing_hotspots (template_id, x, y, label, display_order) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![new_id, x, y, label, order],
+        )
+        .map_err(|e| e.to_string())?;
+        let nsid = tx.last_insert_rowid();
+        let linked: Vec<i64> = {
+            let mut st = tx
+                .prepare("SELECT template_checklist_item_id FROM template_drawing_hotspot_items WHERE hotspot_id = ?1")
+                .map_err(|e| e.to_string())?;
+            let v = st
+                .query_map([sid], |row| row.get(0))
+                .map_err(|e| e.to_string())?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| e.to_string())?;
+            v
+        };
+        for old_item in linked {
+            if let Some(new_item) = item_map.get(&old_item) {
+                tx.execute(
+                    "INSERT OR IGNORE INTO template_drawing_hotspot_items (hotspot_id, template_checklist_item_id) VALUES (?1, ?2)",
+                    rusqlite::params![nsid, new_item],
+                )
+                .map_err(|e| e.to_string())?;
+            }
+        }
+    }
+    tx.commit().map_err(|e| e.to_string())?;
+    log_template_action(&conn, new_id, "Version started", Some(user_id), &who, Some(&format!("Version {} started from version {}", version + 1, version)))?;
+    Ok(new_id)
+}
+
+#[derive(Serialize)]
+struct TemplateTask {
+    template_id: i64,
+    template_name: String,
+    version: i64,
+    /// endorse | approve | sent_back
+    kind: String,
+    last_by: Option<String>,
+    last_at: Option<String>,
+    last_note: Option<String>,
+}
+
+/// Templates waiting for the signed-in user: to endorse (FSM), to approve (Regional), or sent
+/// back to the person who submitted them.
+#[tauri::command]
+fn get_my_template_tasks(user_id: i64) -> Result<Vec<TemplateTask>, String> {
+    let conn = get_connection()?;
+    let can_endorse = user_has_permission(&conn, user_id, "mri_templates.endorse");
+    let can_approve = user_has_permission(&conn, user_id, "mri_templates.approve");
+    let mut stmt = conn
+        .prepare(
+            "SELECT t.id, t.template_name, t.version, t.approval,
+                    l.action, l.by_name, l.at, l.note,
+                    (SELECT s.by_user_id FROM mri_template_approval_log s WHERE s.template_id = t.id AND s.action = 'Submitted' ORDER BY s.id DESC LIMIT 1)
+             FROM mri_templates t
+             LEFT JOIN mri_template_approval_log l ON l.id = (SELECT MAX(id) FROM mri_template_approval_log WHERE template_id = t.id)
+             WHERE t.approval IN ('Submitted', 'Endorsed') OR (t.approval = 'Draft' AND l.action = 'Rejected')
+             ORDER BY t.template_name",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, i64>(0)?, row.get::<_, String>(1)?, row.get::<_, i64>(2)?, row.get::<_, String>(3)?,
+                row.get::<_, Option<String>>(4)?, row.get::<_, Option<String>>(5)?, row.get::<_, Option<String>>(6)?, row.get::<_, Option<String>>(7)?,
+                row.get::<_, Option<i64>>(8)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for (id, name, version, approval, _action, by, at, note, submitter) in rows {
+        let kind = match approval.as_str() {
+            "Submitted" if can_endorse => "endorse",
+            "Endorsed" if can_approve => "approve",
+            "Draft" if submitter == Some(user_id) => "sent_back",
+            _ => continue,
+        };
+        out.push(TemplateTask { template_id: id, template_name: name, version, kind: kind.to_string(), last_by: by, last_at: at, last_note: note });
+    }
+    Ok(out)
+}
+
 #[derive(Serialize, Deserialize)]
 struct MriTemplate {
     id: i64,
@@ -2695,14 +3221,18 @@ struct MriTemplate {
     created_date: String,
     updated_by: String,
     updated_date: String,
+    approval: String,
+    version: i64,
+    revision_of: Option<i64>,
+    superseded_by: Option<i64>,
 }
 
 #[tauri::command]
 fn get_mri_templates() -> Result<Vec<MriTemplate>, String> {
     let conn = get_connection()?;
     let mut stmt = conn.prepare(
-        "SELECT id, template_name, asset_type_id, status, created_by, created_date, updated_by, updated_date
-         FROM mri_templates ORDER BY template_name"
+        "SELECT id, template_name, asset_type_id, status, created_by, created_date, updated_by, updated_date, approval, version, revision_of, superseded_by
+         FROM mri_templates ORDER BY template_name, version"
     ).map_err(|e| e.to_string())?;
     let templates = stmt
         .query_map([], |row| {
@@ -2715,6 +3245,10 @@ fn get_mri_templates() -> Result<Vec<MriTemplate>, String> {
                 created_date: row.get(5)?,
                 updated_by: row.get(6)?,
                 updated_date: row.get(7)?,
+                approval: row.get(8)?,
+                version: row.get(9)?,
+                revision_of: row.get(10)?,
+                superseded_by: row.get(11)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -2755,6 +3289,15 @@ fn update_mri_template_status(id: i64, status: String) -> Result<String, String>
             status
         ));
     }
+    if status == "Active" {
+        let (_, approval, superseded) = template_state(&conn, id)?;
+        if superseded.is_some() {
+            return Err("This version has been replaced by a newer approved version and can't be put back in use.".to_string());
+        }
+        if approval != "Approved" {
+            return Err("Only an approved template can be put in use. Send it for review: Maintenance Manager / FSM endorses, Regional Maintenance Manager approves.".to_string());
+        }
+    }
     let now = chrono_now();
     conn.execute(
         "UPDATE mri_templates SET status = ?1, updated_by = 'local user', updated_date = ?2 WHERE id = ?3",
@@ -2766,6 +3309,7 @@ fn update_mri_template_status(id: i64, status: String) -> Result<String, String>
 #[tauri::command]
 fn rename_mri_template(id: i64, template_name: String) -> Result<String, String> {
     let conn = get_connection()?;
+    template_edit_guard(&conn, id)?;
     let name = template_name.trim();
     if name.is_empty() {
         return Err("Template name cannot be empty".to_string());
@@ -2782,9 +3326,20 @@ fn rename_mri_template(id: i64, template_name: String) -> Result<String, String>
 fn delete_mri_template(id: i64) -> Result<String, String> {
     let conn = get_connection()?;
 
-    if let Some(reason) = delete_block_reason(&conn, "mri_templates", id)? {
-        return Err(reason);
+    let (_, approval, _) = template_state(&conn, id)?;
+    if approval == "Submitted" || approval == "Endorsed" {
+        return Err("This template is under review and can't be deleted now.".to_string());
     }
+    let is_new_version_draft: bool = conn
+        .query_row("SELECT revision_of IS NOT NULL AND approval = 'Draft' FROM mri_templates WHERE id = ?1", [id], |row| row.get(0))
+        .unwrap_or(false);
+    if !is_new_version_draft {
+        if let Some(reason) = delete_block_reason(&conn, "mri_templates", id)? {
+            return Err(reason);
+        }
+    }
+    conn.execute("DELETE FROM mri_template_approval_log WHERE template_id = ?1", [id])
+        .map_err(|e| e.to_string())?;
 
     conn.execute(
         "DELETE FROM template_header_fields WHERE template_id = ?1",
@@ -2906,6 +3461,7 @@ fn add_template_header_field(
     display_order: i64,
 ) -> Result<String, String> {
     let conn = get_connection()?;
+    template_edit_guard(&conn, template_id)?;
     conn.execute(
         "INSERT OR IGNORE INTO template_header_fields (template_id, header_field_id, data_type, required, display_order)
          VALUES (?1, ?2, 'text', 0, ?3)",
@@ -2917,6 +3473,7 @@ fn add_template_header_field(
 #[tauri::command]
 fn remove_template_header_field(id: i64) -> Result<String, String> {
     let conn = get_connection()?;
+    template_edit_guard(&conn, template_id_of(&conn, "template_header_fields", id)?)?;
     conn.execute("DELETE FROM template_header_fields WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
     Ok("Header field removed from template".to_string())
@@ -2925,6 +3482,7 @@ fn remove_template_header_field(id: i64) -> Result<String, String> {
 #[tauri::command]
 fn update_template_header_field(field: TemplateHeaderField) -> Result<String, String> {
     let conn = get_connection()?;
+    template_edit_guard(&conn, template_id_of(&conn, "template_header_fields", field.id)?)?;
     conn.execute(
         "UPDATE template_header_fields SET label_override = ?1, data_type = ?2, required = ?3, display_order = ?4, default_value = ?5 WHERE id = ?6",
         rusqlite::params![field.label_override, field.data_type, field.required as i32, field.display_order, field.default_value, field.id],
@@ -3092,6 +3650,7 @@ fn add_template_checklist_item(
     display_order: i64,
 ) -> Result<String, String> {
     let conn = get_connection()?;
+    template_edit_guard(&conn, template_id)?;
     conn.execute(
         "INSERT OR IGNORE INTO template_checklist_items (template_id, checklist_item_id, required, display_order)
          VALUES (?1, ?2, 0, ?3)",
@@ -3103,6 +3662,7 @@ fn add_template_checklist_item(
 #[tauri::command]
 fn remove_template_checklist_item(id: i64) -> Result<String, String> {
     let conn = get_connection()?;
+    template_edit_guard(&conn, template_id_of(&conn, "template_checklist_items", id)?)?;
     // A hotspot can point at this checklist item — drop those links first so no
     // hotspot is left referencing a checklist item that no longer exists.
     conn.execute(
@@ -3118,6 +3678,7 @@ fn remove_template_checklist_item(id: i64) -> Result<String, String> {
 #[tauri::command]
 fn update_template_checklist_item(item: TemplateChecklistItem) -> Result<String, String> {
     let conn = get_connection()?;
+    template_edit_guard(&conn, template_id_of(&conn, "template_checklist_items", item.id)?)?;
     if let Some(sev) = &item.severity {
         if !sev.is_empty() && !valid_severity(sev) {
             return Err(format!(
@@ -3165,6 +3726,7 @@ fn get_template_drawing(template_id: i64) -> Result<Option<TemplateDrawing>, Str
 #[tauri::command]
 fn set_template_drawing(template_id: i64, image_data: String) -> Result<String, String> {
     let conn = get_connection()?;
+    template_edit_guard(&conn, template_id)?;
     if image_data.trim().is_empty() {
         return Err("Image data cannot be empty".to_string());
     }
@@ -3181,6 +3743,7 @@ fn set_template_drawing(template_id: i64, image_data: String) -> Result<String, 
 #[tauri::command]
 fn delete_template_drawing(template_id: i64) -> Result<String, String> {
     let conn = get_connection()?;
+    template_edit_guard(&conn, template_id)?;
     let mut stmt = conn
         .prepare("SELECT id FROM template_drawing_hotspots WHERE template_id = ?1")
         .map_err(|e| e.to_string())?;
@@ -3271,6 +3834,7 @@ struct NewHotspot {
 #[tauri::command]
 fn create_hotspot(hotspot: NewHotspot) -> Result<i64, String> {
     let conn = get_connection()?;
+    template_edit_guard(&conn, hotspot.template_id)?;
     conn.execute(
         "INSERT INTO template_drawing_hotspots (template_id, x, y, label, display_order) VALUES (?1, ?2, ?3, ?4, ?5)",
         rusqlite::params![hotspot.template_id, hotspot.x, hotspot.y, hotspot.label, hotspot.display_order],
@@ -3282,6 +3846,7 @@ fn create_hotspot(hotspot: NewHotspot) -> Result<i64, String> {
 #[tauri::command]
 fn update_hotspot(id: i64, x: f64, y: f64, label: Option<String>) -> Result<String, String> {
     let conn = get_connection()?;
+    template_edit_guard(&conn, template_id_of(&conn, "template_drawing_hotspots", id)?)?;
     conn.execute(
         "UPDATE template_drawing_hotspots SET x = ?1, y = ?2, label = ?3 WHERE id = ?4",
         rusqlite::params![x, y, label, id],
@@ -3293,6 +3858,7 @@ fn update_hotspot(id: i64, x: f64, y: f64, label: Option<String>) -> Result<Stri
 #[tauri::command]
 fn delete_hotspot(id: i64) -> Result<String, String> {
     let conn = get_connection()?;
+    template_edit_guard(&conn, template_id_of(&conn, "template_drawing_hotspots", id)?)?;
     conn.execute(
         "DELETE FROM template_drawing_hotspot_items WHERE hotspot_id = ?1",
         [id],
@@ -3309,6 +3875,7 @@ fn set_hotspot_checklist_items(
     checklist_item_ids: Vec<i64>,
 ) -> Result<String, String> {
     let conn = get_connection()?;
+    template_edit_guard(&conn, template_id_of(&conn, "template_drawing_hotspots", hotspot_id)?)?;
     conn.execute(
         "DELETE FROM template_drawing_hotspot_items WHERE hotspot_id = ?1",
         [hotspot_id],
@@ -3360,6 +3927,7 @@ fn add_template_mid_field(
     display_order: i64,
 ) -> Result<String, String> {
     let conn = get_connection()?;
+    template_edit_guard(&conn, template_id)?;
     conn.execute(
         "INSERT OR IGNORE INTO template_mid_fields (template_id, mid_field_id, display_order) VALUES (?1, ?2, ?3)",
         rusqlite::params![template_id, mid_field_id, display_order],
@@ -3370,6 +3938,7 @@ fn add_template_mid_field(
 #[tauri::command]
 fn remove_template_mid_field(id: i64) -> Result<String, String> {
     let conn = get_connection()?;
+    template_edit_guard(&conn, template_id_of(&conn, "template_mid_fields", id)?)?;
     conn.execute("DELETE FROM template_mid_fields WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
     Ok("Mid field removed from template".to_string())
@@ -3411,6 +3980,7 @@ fn add_template_footer_field(
     display_order: i64,
 ) -> Result<String, String> {
     let conn = get_connection()?;
+    template_edit_guard(&conn, template_id)?;
     conn.execute(
         "INSERT OR IGNORE INTO template_footer_fields (template_id, footer_field_id, display_order) VALUES (?1, ?2, ?3)",
         rusqlite::params![template_id, footer_field_id, display_order],
@@ -3421,6 +3991,7 @@ fn add_template_footer_field(
 #[tauri::command]
 fn remove_template_footer_field(id: i64) -> Result<String, String> {
     let conn = get_connection()?;
+    template_edit_guard(&conn, template_id_of(&conn, "template_footer_fields", id)?)?;
     conn.execute("DELETE FROM template_footer_fields WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
     Ok("Footer field removed from template".to_string())
@@ -6318,11 +6889,39 @@ struct PendingFaultApprovalRow {
 }
 
 // Role permissions plus per-user overrides, for use where a connection is already held.
+/// The Administrator (Tier 0) has every permission, with no restriction (Jess, 24 Nov 2026).
+/// It is still not offered as a named reviewer or assignee (get_assignable_mri_reviewers).
+/// Its deletions and changes are kept in the existing logs; LOG-1 adds a full activity log.
+const ADMIN_ROLE: &str = "Administrator";
+fn is_administrator(conn: &rusqlite::Connection, user_id: i64) -> bool {
+    conn.query_row("SELECT role FROM app_users WHERE id = ?1", [user_id], |r| r.get::<_, String>(0))
+        .map(|r| r == ADMIN_ROLE)
+        .unwrap_or(false)
+}
+/// Gives the Administrator role every permission in the catalogue and drops any "deny" switch
+/// set on an Administrator user. Runs at every start, so new permissions are included too.
+fn grant_administrator_everything(conn: &Connection) -> Result<(), String> {
+    conn.execute(
+        "INSERT OR IGNORE INTO role_permissions (role, permission_code) SELECT 'Administrator', code FROM permissions",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM user_permission_overrides WHERE granted = 0 AND user_id IN (SELECT id FROM app_users WHERE role = 'Administrator')",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 fn user_has_permission(conn: &rusqlite::Connection, user_id: i64, code: &str) -> bool {
     let role: Option<String> = conn
         .query_row("SELECT role FROM app_users WHERE id = ?1", [user_id], |row| row.get(0))
         .ok();
     let Some(role) = role else { return false };
+    if role == ADMIN_ROLE {
+        return true;
+    }
     let override_granted: Option<bool> = conn
         .query_row(
             "SELECT granted FROM user_permission_overrides WHERE user_id = ?1 AND permission_code = ?2",
@@ -6386,6 +6985,7 @@ fn get_pending_mri_fault_approvals(viewer_user_id: i64) -> Result<Vec<PendingFau
     let restriction = user_country_restriction(&conn, viewer_user_id)?;
     let has_approve = user_has_permission(&conn, viewer_user_id, "mri.approve");
     let has_provisional = user_has_permission(&conn, viewer_user_id, "mri.record_provisional");
+    let is_admin = is_administrator(&conn, viewer_user_id);
     let mut stmt = conn.prepare(
         "SELECT fa.id, fa.report_id, fa.template_checklist_item_id, fa.original_severity, fa.created_date,
                 a.asset_code, cd.description, r.issue_details, r.action_taken, a.country,
@@ -6446,7 +7046,7 @@ fn get_pending_mri_fault_approvals(viewer_user_id: i64) -> Result<Vec<PendingFau
         if !(has_approve || has_provisional || unassigned || mine) {
             continue;
         }
-        row.can_act = unassigned || mine || (has_provisional && !has_approve);
+        row.can_act = is_admin || unassigned || mine || (has_provisional && !has_approve);
         out.push(row);
     }
     Ok(out)
@@ -6739,6 +7339,7 @@ fn get_assignable_mri_reviewers(
 #[tauri::command]
 fn get_mri_fault_decisions_pending_acknowledgment(viewer_user_id: i64) -> Result<Vec<PendingFaultAcknowledgmentRow>, String> {
     let conn = get_connection()?;
+    let is_admin = is_administrator(&conn, viewer_user_id) as i64;
     let restriction = user_country_restriction(&conn, viewer_user_id)?;
     let mut stmt = conn.prepare(
         "SELECT fa.id, fa.report_id, fa.template_checklist_item_id, fa.original_severity, fa.decision, fa.new_severity,
@@ -6752,11 +7353,11 @@ fn get_mri_fault_decisions_pending_acknowledgment(viewer_user_id: i64) -> Result
          WHERE fa.original_severity = 'Moderate'
            AND fa.decision IN ('Approved', 'Reclassified', 'Rejected')
            AND fa.acknowledged_by IS NULL
-           AND (fa.acknowledgment_assigned_to_user_id IS NULL OR fa.acknowledgment_assigned_to_user_id = ?1)
+           AND (fa.acknowledgment_assigned_to_user_id IS NULL OR fa.acknowledgment_assigned_to_user_id = ?1 OR ?2 = 1)
          ORDER BY fa.updated_date DESC"
     ).map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map([viewer_user_id], |row| {
+        .query_map(rusqlite::params![viewer_user_id, is_admin], |row| {
             let country: Option<String> = row.get(12)?;
             Ok((
                 PendingFaultAcknowledgmentRow {
@@ -8597,6 +9198,9 @@ fn import_mri_templates_backup(backup_json: String) -> Result<String, String> {
         added += 1;
     }
 
+    // Templates restored as in use count as approved (same rule as at upgrade).
+    conn.execute("UPDATE mri_templates SET approval = 'Approved' WHERE status = 'Active' AND approval = 'Draft'", [])
+        .map_err(|e| e.to_string())?;
     let mut result = format!("{} templates restored, {} skipped", added, skipped);
     if !warnings.is_empty() {
         result.push_str(&format!(" ({} warnings)", warnings.len()));
@@ -9406,7 +10010,7 @@ fn mri_dashboard_restriction(conn: &Connection, viewer_user_id: Option<i64>) -> 
                 .query_row("SELECT role FROM app_users WHERE id = ?1", [id], |row| row.get(0))
                 .map_err(|e| e.to_string())?;
             // Administrator and FSM: no restriction on any MR-I dashboard.
-            if role == "Administrator" || role == "Maintenance Manager / FSM" {
+            if role == "Administrator" || role == "Maintenance Manager / FSM" || role == REGIONAL_ROLE {
                 Ok(None)
             } else {
                 user_country_restriction(conn, id)
@@ -10807,6 +11411,9 @@ fn get_permissions() -> Result<Vec<Permission>, String> {
 #[tauri::command]
 fn get_role_permissions(role: String) -> Result<Vec<String>, String> {
     let conn = get_connection()?;
+    if role == ADMIN_ROLE {
+        grant_administrator_everything(&conn)?;
+    }
     let mut stmt = conn
         .prepare("SELECT permission_code FROM role_permissions WHERE role = ?1")
         .map_err(|e| e.to_string())?;
@@ -10825,6 +11432,9 @@ fn set_role_permission(
     granted: bool,
 ) -> Result<String, String> {
     let conn = get_connection()?;
+    if role == ADMIN_ROLE {
+        return Err("The Administrator always has every permission, so its switches can't be changed.".to_string());
+    }
     if granted {
         conn.execute(
             "INSERT OR IGNORE INTO role_permissions (role, permission_code) VALUES (?1, ?2)",
@@ -10875,6 +11485,9 @@ fn set_user_override(
     granted: Option<bool>,
 ) -> Result<String, String> {
     let conn = get_connection()?;
+    if is_administrator(&conn, user_id) {
+        return Err("The Administrator always has every permission, so single switches can't be changed for this user.".to_string());
+    }
     match granted {
         Some(g) => {
             conn.execute(
@@ -10952,6 +11565,15 @@ fn get_effective_permissions(user_id: i64) -> Result<Vec<String>, String> {
             |row| row.get(0),
         )
         .map_err(|e| e.to_string())?;
+    if role == ADMIN_ROLE {
+        let mut all = conn.prepare("SELECT code FROM permissions").map_err(|e| e.to_string())?;
+        let codes = all
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        return Ok(codes);
+    }
 
     let mut stmt = conn
         .prepare("SELECT permission_code FROM role_permissions WHERE role = ?1")
@@ -11240,6 +11862,13 @@ pub fn run() {
             get_mri_dashboard_details,
             get_mri_report_edit_log,
             get_mri_report_tag,
+            get_mri_template_approval_log,
+            submit_mri_template,
+            endorse_mri_template,
+            reject_mri_template,
+            approve_mri_template,
+            create_mri_template_revision,
+            get_my_template_tasks,
             get_my_report_change_notices,
             mark_report_changes_seen,
             get_mri_report_deletion_log,

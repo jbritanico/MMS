@@ -3,7 +3,7 @@ import React from "react";
 // The dashboard catalogue: numbers, titles, groups and icons. Shared by the MR-I dashboards screen
 // and the Fluent dashboard shell (sidebar search, overview quick actions).
 
-export const DASHBOARDS: { no: number; title: string; desc: string }[] = [
+const ALL_DASHBOARDS: { no: number; title: string; desc: string }[] = [
   { no: 1, title: "Fleet Status by Tag Colour", desc: "How many units are Green, Yellow or Red." },
   { no: 2, title: "Open Defects by Severity", desc: "Faults not yet fixed, Minor / Moderate / Critical, and the trend." },
   { no: 3, title: "Defect Aging", desc: "How long open faults have waited; overdue ones flagged." },
@@ -34,6 +34,11 @@ export const DASHBOARDS: { no: number; title: string; desc: string }[] = [
   { no: 28, title: "Exemption (MOC) Audit", desc: "Every MOC exemption: limits, controls, dates and how it ended." },
 ];
 
+// Paused 24 Nov 2026 (FB-007): costing dashboards are removed for now and wait for further
+// instruction from Mr. Kamil. Their code stays; take a number out of this set to bring one back.
+export const PAUSED_DASHBOARDS = new Set<number>([25]);
+export const DASHBOARDS = ALL_DASHBOARDS.filter((d) => !PAUSED_DASHBOARDS.has(d.no));
+
 // Dashboards defined in the "MMS Dashboard Visualization" design (deck 08.10.2026), with the slides
 // they come from. They are marked with the design colour so users can tell them apart from the
 // dashboards added for the MR-I follow-up.
@@ -54,7 +59,6 @@ export const GROUPS: { title: string; nos: number[] }[] = [
   { title: "Reviews and Decisions", nos: [5, 6, 10, 26] },
   { title: "Fleet Condition and Repairs", nos: [1, 8, 7, 12, 28, 21] },
   { title: "Inspections and Maintenance Due", nos: [11, 13, 20, 24, 23] },
-  { title: "Budget and Cost", nos: [25] },
 ];
 
 // One line icon per dashboard type (24x24, stroke = currentColor), same style as the hub tiles.

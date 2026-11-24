@@ -1,5 +1,5 @@
 import { useCurrentUserPermissionCodes } from "../../lib/useCurrentUserPermissions";
-import { DASHBOARDS, GROUPS, USER_GROUPS } from "./dashCatalog";
+import { DASHBOARDS, GROUPS, PAUSED_DASHBOARDS, USER_GROUPS } from "./dashCatalog";
 
 // Which dashboard items the signed-in user may open. Set per role in Administration > Roles and
 // per person in Users > Permissions (category "Dashboards"). While permissions are still loading,
@@ -25,11 +25,17 @@ export interface DashAccess {
 export function useDashAccess(): DashAccess {
   const codes = useCurrentUserPermissionCodes();
   const can = (code: string) => codes === null || codes.has(code);
-  const dash = (no: number) => can(dashCode(no));
+  const dash = (no: number) => !PAUSED_DASHBOARDS.has(no) && can(dashCode(no));
   const allowed = DASHBOARDS.map((d) => d.no).filter(dash);
   const firstMri = GROUPS.flatMap((g) => g.nos).find(dash) ?? null;
   const firstUser = USER_GROUPS.flatMap((g) => g.nos).find(dash) ?? null;
   return { area: can(DASH_AREA), overview: can(DASH_OVERVIEW), history: can(DASH_HISTORY), dash, allowed, firstMri, firstUser };
+}
+
+/** True for the switch of a paused dashboard (FB-007): hidden in Roles and User permissions. */
+export function isPausedPerm(code: string): boolean {
+  const m = /^dash\.(\d+)$/.exec(code);
+  return !!m && PAUSED_DASHBOARDS.has(Number(m[1]));
 }
 
 /** Order for the "Dashboards" switches in Roles / User permissions: area, Overview, History, then 1-19. */

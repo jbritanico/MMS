@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { roleName } from "../../lib/roles";
 import ReportChangeLog from "./ReportChangeLog";
 import { useReportTag } from "./hooks/useReportEdits";
 import OtherFaults from "./OtherFaults";
@@ -487,7 +488,7 @@ function ReportWizard({
                 <option value="">Select who this is for…</option>
                 {assignableReviewers.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.name} ({u.role})
+                    {u.name} ({roleName(u.role)})
                   </option>
                 ))}
               </select>

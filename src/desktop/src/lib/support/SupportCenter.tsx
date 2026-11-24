@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { roleName } from "../roles";
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import { useCurrentUser } from "../currentUser";
 import { copyText, diag, fileStamp, flush, installDiag, localStamp, saveFile, timeOnly, type ErrItem, type IpcItem, type SystemInfo, type TrailItem } from "./diag";
@@ -7,7 +8,7 @@ import { buildSupportBundle, fmtBundleSize, type BundleResult } from "./supportB
 import FaqModal from "./FaqModal";
 
 // The support tools, available on every screen:
-//   Help button (bottom right) -> Questions and answers (FAQ, faq.ts), About MMS (#4), Report a problem (#5), Save diagnostics file (#3),
+//   Help button (bottom right) -> Frequently Asked Questions (FAQ, faq.ts), About MMS (#4), Report a problem (#5), Save diagnostics file (#3),
 //   Check my data (#7), Export a report for support (#8), Copy last error (#1), Open log folder (#6),
 //   Support mode (#10, Administrators).
 //   "Something went wrong · Copy details" appears after any error (#1).
@@ -148,7 +149,7 @@ export default function SupportCenter({ screen, context }: { screen: string; con
   const openLogs = () => call("diag_open_log_folder").catch((e) => notify(String(e)));
 
   const items: { key: string; icon: ReactNode; label: string; hint?: string; run: () => void; admin?: boolean }[] = [
-    { key: "faq", icon: ICON.help, label: "Questions and answers", hint: "How MMS works, by topic and screen", run: () => setModal("faq") },
+    { key: "faq", icon: ICON.help, label: "Frequently Asked Questions", hint: "How MMS works, by topic and screen", run: () => setModal("faq") },
     { key: "send", icon: ICON.send, label: "Send to IT", hint: "One file with everything IT needs", run: () => setModal("send") },
     { key: "about", icon: ICON.info, label: "About MMS", hint: "Version, computer and database", run: () => setModal("about") },
     { key: "problem", icon: ICON.flag, label: "Report a problem", hint: "Ctrl + Shift + F", run: () => setModal("problem") },
@@ -235,7 +236,7 @@ function AboutModal({ onClose, onCopy, onLogs, onDiagnostics, onSend, hideOld }:
   const [showTables, setShowTables] = useState(false);
   useEffect(() => { call<SystemInfo>("diag_system_info").then((s) => { setSys(s); diag.setSystem(s); }).catch((e) => setErr(String(e))); }, []);
   const rows = systemRows(sys);
-  const text = () => ["About MMS", ...rows.map(([k, v]) => `${k}: ${v ?? ""}`), `Signed in as: ${diag.state.user ? `${diag.state.user.name} (${diag.state.user.role})` : "—"}`].join("\n");
+  const text = () => ["About MMS", ...rows.map(([k, v]) => `${k}: ${v ?? ""}`), `Signed in as: ${diag.state.user ? `${diag.state.user.name} (${roleName(diag.state.user.role)})` : "—"}`].join("\n");
   const tables = Object.entries((sys?.table_rows ?? {}) as Record<string, number>);
   return (
     <Dialog title="About MMS" icon={ICON.info} onClose={onClose}
@@ -249,7 +250,7 @@ function AboutModal({ onClose, onCopy, onLogs, onDiagnostics, onSend, hideOld }:
       {!sys && !err ? <p className="sup-muted"><span className="sup-spin" /> Reading…</p> : (
         <dl className="sup-kv">
           {rows.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{String(v ?? "—")}</dd></div>)}
-          <div><dt>Signed in as</dt><dd>{diag.state.user ? `${diag.state.user.name} (${diag.state.user.role})` : "—"}</dd></div>
+          <div><dt>Signed in as</dt><dd>{diag.state.user ? `${diag.state.user.name} (${roleName(diag.state.user.role)})` : "—"}</dd></div>
         </dl>
       )}
       {tables.length > 0 && (

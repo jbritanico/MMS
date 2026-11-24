@@ -2535,6 +2535,11 @@ function App() {
                     onNavigate={handleNavigate}
                     currentTheme={theme}
                     onThemeChange={handleThemeChange}
+                    onOpenTemplates={() => {
+                      setAdminActive("mri-template");
+                      setAdminOpenGroup("mr-templates");
+                      setScreen("admin");
+                    }}
                   />
                 )}
                 {screen === "assets" && (

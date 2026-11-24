@@ -12,6 +12,11 @@ export interface MriTemplate {
     created_date: string;
     updated_by: string;
     updated_date: string;
+    /** TPL-2: Draft -> Submitted (FSM) -> Endorsed (Regional) -> Approved. */
+    approval: "Draft" | "Submitted" | "Endorsed" | "Approved";
+    version: number;
+    revision_of: number | null;
+    superseded_by: number | null;
 }
 
 const KEY = ["mri-templates"];
@@ -77,4 +82,67 @@ export function useImportMriTemplatesBackup() {
     mutationFn: (backupJson: string) => invoke<string>("import_mri_templates_backup", { backupJson }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["mri-templates"] }),
   });
+}
+
+// ---------------------------------------------------------------- TPL-2: template approval
+export interface TemplateApprovalEntry {
+    id: number;
+    template_id: number;
+    action: string;
+    by_name: string | null;
+    at: string;
+    note: string | null;
+}
+
+export interface TemplateTask {
+    template_id: number;
+    template_name: string;
+    version: number;
+    kind: "endorse" | "approve" | "sent_back";
+    last_by: string | null;
+    last_at: string | null;
+    last_note: string | null;
+}
+
+export function useTemplateApprovalLog(templateId: number) {
+    return useQuery({
+        queryKey: ["mri-template-approval-log", templateId],
+        queryFn: () => invoke<TemplateApprovalEntry[]>("get_mri_template_approval_log", { templateId }),
+        enabled: templateId > 0,
+    });
+}
+
+export function useMyTemplateTasks(userId: number) {
+    return useQuery({
+        queryKey: ["my-template-tasks", userId],
+        queryFn: () => invoke<TemplateTask[]>("get_my_template_tasks", { userId }),
+        enabled: userId > 0,
+    });
+}
+
+const ACTION_CMD = { submit: "submit_mri_template", endorse: "endorse_mri_template", reject: "reject_mri_template", approve: "approve_mri_template" } as const;
+
+export function useTemplateApprovalAction() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (a: { action: keyof typeof ACTION_CMD; templateId: number; userId: number; note: string }) =>
+            invoke<string>(ACTION_CMD[a.action], { templateId: a.templateId, userId: a.userId, note: a.note }),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: KEY });
+            qc.invalidateQueries({ queryKey: ["my-template-tasks"] });
+            qc.invalidateQueries({ queryKey: ["mri-template-approval-log"] });
+            qc.invalidateQueries({ queryKey: ["template-components"] });
+        },
+    });
+}
+
+export function useStartTemplateRevision() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (a: { templateId: number; userId: number }) => invoke<number>("create_mri_template_revision", a),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: KEY });
+            qc.invalidateQueries({ queryKey: ["mri-template-approval-log"] });
+        },
+    });
 }

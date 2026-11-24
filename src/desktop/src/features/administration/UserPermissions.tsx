@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { roleWithTier } from "../../lib/roles";
 import {
   usePermissions,
   useRolePermissions,
@@ -7,7 +8,7 @@ import {
   type AppUser,
 } from "./hooks/useUserAdmin";
 import { getPermissionIcon } from "./permissionIcons";
-import { dashPermRank } from "../dashboard/dashAccess";
+import { dashPermRank, isPausedPerm } from "../dashboard/dashAccess";
 import { IsoKey } from "./AdminIsoGuide";
 
 interface UserPermissionsProps {
@@ -36,7 +37,9 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
     return rolePerms.includes(code) ? "default-on" : "default-off";
   }
 
+  const isAdminUser = user.role === "Administrator";
   async function toggle(code: string, currentlyOn: boolean) {
+    if (isAdminUser) { flash("The Administrator always has every permission.", "err"); return; }
     try {
       await setOverride.mutateAsync({ permissionCode: code, granted: !currentlyOn });
     } catch (err) {
@@ -45,6 +48,7 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
   }
 
   async function resetToDefault(code: string) {
+    if (isAdminUser) return;
     try {
       await setOverride.mutateAsync({ permissionCode: code, granted: null });
     } catch (err) {
@@ -55,12 +59,13 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
   const categories = Array.from(new Set(permissions.map((p) => p.category)));
   /** Permissions of one category; Dashboards in catalogue order (area, Overview, History, 1-18). */
   const inCategory = (cat: string) => {
-    const list = permissions.filter((p) => p.category === cat);
+    const list = permissions.filter((p) => p.category === cat && !isPausedPerm(p.code));
     return cat === "Dashboards" ? [...list].sort((a, b) => dashPermRank(a.code) - dashPermRank(b.code)) : list;
   };
   const [bulkBusy, setBulkBusy] = useState(false);
   /** All on / all off (as overrides for this user), or back to the role defaults. */
   async function setAll(cat: string, mode: "on" | "off" | "default") {
+    if (isAdminUser) { flash("The Administrator always has every permission.", "err"); return; }
     setBulkBusy(true);
     try {
       for (const p of inCategory(cat)) {
@@ -87,12 +92,13 @@ function UserPermissions({ user, onBack }: UserPermissionsProps) {
 
       <h2 style={{ marginBottom: 4 }}>Permissions — {user.name}</h2>
       <p style={{ fontSize: 13, color: "var(--text-soft)", marginBottom: 4 }}>
-        Role: <strong>{user.role}</strong>. Click any card to cycle: role default → override granted/revoked → back to role default.
+        Role: <strong>{roleWithTier(user.role)}</strong>. Click any card to cycle: role default → override granted/revoked → back to role default.
       </p>
       <p style={{ fontSize: 12, color: "var(--text-soft)", marginBottom: 18 }}>
         Solid = allowed right now for this specific user. Faded = not allowed right now. Overrides are marked distinctly from role defaults.
       </p>
 
+      {isAdminUser && <div className="toast ok" style={{ maxWidth: 640, margin: "8px 0 12px" }}>The Administrator (Tier 0) has every permission, with no restriction, so these switches can't be turned off. Its deletions and changes are recorded in the MMS logs.</div>}
       {status && <div className={`toast ${status.kind}`} style={{ maxWidth: 400, marginBottom: 12 }}>{status.msg}</div>}
 
       {categories.map((cat) => (

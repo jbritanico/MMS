@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { roleName } from "./roles";
 import { useCurrentUser } from "./currentUser";
 import { useCreateAppUser } from "../features/administration/hooks/useUserAdmin";
 import fieldOpsImage from "../assets/FieldMaintenance.png";
@@ -82,13 +83,24 @@ const TIER_REFERENCE: TierReference[] = [
     accent: "#0d9488",
   },
   {
+    name: "Regional Maintenance Manager / RSDM",
+    tier: "Tier 4",
+    description: "Regional Maintenance Manager / Regional Service Delivery Manager: everything the FSM can do, and approves MR-I templates.",
+    responsibilities: [
+      "Approves new and changed MR-I templates endorsed by the Maintenance Manager / FSM",
+      "Has every permission of the Maintenance Manager / FSM",
+      "Sees every country",
+    ],
+    accent: "#b45309",
+  },
+  {
     name: "Administrator",
-    tier: "IT / Admin (no tier)",
-    description: "System administration. Not a review or approval authority.",
+    tier: "Tier 0 (IT / Admin)",
+    description: "System administration with every permission and no restriction.",
     responsibilities: [
       "User and role management",
       "Configures templates, assets, and reference data",
-      "Cannot review, approve or close MR-I faults or reports",
+      "Can act on any report, fault, repair or template; its deletions and changes are logged",
     ],
     accent: "#4b5563",
   },
@@ -97,8 +109,8 @@ const TIER_REFERENCE: TierReference[] = [
 // "Operator (Tier 1)", "Data Miner View (Read Only)", "Administrator" -- used in the window title.
 export function userLevelLabel(role: string): string {
   const match = TIER_REFERENCE.find((t) => t.name === role);
-  if (!match) return role;
-  return /^(Tier \d|Read Only)/.test(match.tier) ? `${role} (${match.tier})` : role;
+  if (!match) return roleName(role);
+  return /^Tier \d/.test(match.tier) ? `${roleName(role)} (${match.tier})` : roleName(role);
 }
 
 // Tier label, description and accent for a role, as shown on the sign-in screen.
@@ -484,7 +496,7 @@ function UserPickerGate({
                   </div>
                   <h3 style={{ margin: "10px 0 6px" }}>{activeUser.name}</h3>
                   <p style={{ margin: 0, fontSize: 13, color: "var(--text-soft)" }}>
-                    {activeUser.role}
+                    {roleName(activeUser.role)}
                   </p>
                 </button>
               )}
@@ -533,7 +545,7 @@ function UserPickerGate({
                 key={roleUser.id}
                 style={{ textAlign: "left", marginBottom: 20, maxWidth: 640 }}
               >
-                <h3 style={{ margin: "0 0 4px" }}>{tier ? tier.name : roleUser.role}</h3>
+                <h3 style={{ margin: "0 0 4px" }}>{roleName(tier ? tier.name : roleUser.role)}</h3>
                 <div style={{ fontSize: 11, fontWeight: 700, color: accent, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                   {tier ? tier.tier : "Role"}
                 </div>

@@ -21,8 +21,10 @@ import TemplateGraphModal from "../mri-template-builder/TemplateGraphModal";
 import { useTemplateHints } from "../mri-template-builder/useTemplateHints";
 import { IsoIconPlatform, TIG_CSS } from "../mri-template-builder/TemplateIsoGuide";
 import { useReportAdminKpis } from "./AdminIsoGuide";
-
-const STATUS_ORDER: TemplateStatus[] = ["Draft", "Active", "Inactive"];
+import { useCurrentUser } from "../../lib/currentUser";
+import { useCurrentUserPermissionCodes } from "../../lib/useCurrentUserPermissions";
+import { useMyTemplateTasks, useStartTemplateRevision, useTemplateApprovalAction } from "./hooks/useMriTemplates";
+import { ApprovalActionModal, ApprovalHistoryModal, TA_CSS, TemplateTasksPanel, canChangeContent, templateState, type ApprovalAction } from "./TemplateApproval";
 
 interface MriTemplatesProps {
   onOpenTemplate: (id: number, name: string) => void;
@@ -35,6 +37,15 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
   const createTemplate = useCreateMriTemplate();
   const updateStatus = useUpdateTemplateStatus();
   const renameTemplate = useRenameMriTemplate();
+  // TPL-2: who may do what with templates, and what is waiting for the signed-in user.
+  const { user: currentUser } = useCurrentUser();
+  const codes = useCurrentUserPermissionCodes();
+  const can = (code: string) => codes === null || codes.has(code);
+  const { data: myTasks = [] } = useMyTemplateTasks(currentUser?.id ?? 0);
+  const approvalAction = useTemplateApprovalAction();
+  const startRevision = useStartTemplateRevision();
+  const [act, setAct] = useState<{ action: ApprovalAction; t: MriTemplate } | null>(null);
+  const [historyFor, setHistoryFor] = useState<MriTemplate | null>(null);
 
 
   const deleteTemplate = useDeleteMriTemplate();
@@ -73,6 +84,7 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
     { label: "MR-I templates", value: templates.length, tone: "blue" },
     { label: "in use", value: tplCount("Active"), tone: "ok" },
     { label: "draft", value: tplCount("Draft"), tone: tplCount("Draft") ? "look" : "skip" },
+    { label: "under review", value: templates.filter((x) => x.approval === "Submitted" || x.approval === "Endorsed").length, tone: "blue" },
     { label: "not in use", value: tplCount("Inactive"), tone: "skip" },
     { label: "kinds of unit without one in use", value: kindsNoTpl, tone: kindsNoTpl ? "look" : "ok" },
   ]);
@@ -102,7 +114,7 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
       await createTemplate.mutateAsync({ template_name: newName.trim(), asset_type_id: Number(newAssetTypeId) });
       setNewName("");
       setNewAssetTypeId("");
-      flash("Template created as Draft", "ok");
+      flash("Template created as Draft. Build it, then send it for review.", "ok");
     } catch (err) {
       flash(String(err), "err");
     }
@@ -125,8 +137,8 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
   }
 
   async function cycleStatus(t: MriTemplate) {
-    const currentIndex = STATUS_ORDER.indexOf(t.status);
-    const next = STATUS_ORDER[(currentIndex + 1) % STATUS_ORDER.length];
+    // TPL-2: only an approved template is switched between In use and Not in use.
+    const next: TemplateStatus = t.status === "Active" ? "Inactive" : "Active";
     try {
       await updateStatus.mutateAsync({ id: t.id, status: next });
       flash(`${t.template_name} is now ${STATUS_WORDS[next]}`, "ok");
@@ -146,6 +158,28 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
     setPendingDelete(null);
   }
 
+  async function runAction(note: string) {
+    if (!act || !currentUser) return;
+    try {
+      const msg = await approvalAction.mutateAsync({ action: act.action, templateId: act.t.id, userId: currentUser.id, note });
+      flash(String(msg), "ok");
+      setAct(null);
+    } catch (err) {
+      flash(String(err), "err");
+    }
+  }
+
+  async function startChange(t: MriTemplate) {
+    if (!currentUser) return;
+    try {
+      const id = await startRevision.mutateAsync({ templateId: t.id, userId: currentUser.id });
+      flash(`Version ${t.version + 1} started. The approved version stays in use until this one is approved.`, "ok");
+      onOpenTemplate(id, t.template_name);
+    } catch (err) {
+      flash(String(err), "err");
+    }
+  }
+
   function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -163,16 +197,11 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
     if (importFileRef.current) importFileRef.current.value = "";
   }
 
-  function statusPillClass(s: TemplateStatus) {
-    if (s === "Active") return "active";
-    if (s === "Inactive") return "inactive";
-    return "neutral";
-  }
-
   return (
     <div className="tig">
-      <style>{TIG_CSS + MT_CSS}</style>
-      <div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginBottom: 18, flexWrap: "wrap" }}>
+      <style>{TIG_CSS + MT_CSS + TA_CSS}</style>
+      <TemplateTasksPanel tasks={myTasks} onOpen={(id) => { const x = templates.find((y) => y.id === id); if (x) onOpenTemplate(x.id, x.template_name); }} />
+      {can("mri_templates.edit") && <div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginBottom: 18, flexWrap: "wrap" }}>
         <div className="field" style={{ flex: 1, minWidth: 200, marginBottom: 0 }}>
           <label>Template name</label>
           <input
@@ -187,7 +216,7 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
           <AssetTypeCombobox assetTypes={assetTypes} value={newAssetTypeId} onChange={setNewAssetTypeId} />
         </div>
         <button className="primary" onClick={handleCreate}>+ Make template</button>
-      </div>
+      </div>}
 
       <div style={{ marginBottom: 18, display: "flex", gap: 8, alignItems: "center" }}>
         <input ref={importFileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
@@ -256,16 +285,16 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
                     />
                   ) : (
                     <div style={{ minWidth: 0 }}>
-                      <div className="review-card-code">{t.template_name}</div>
+                      <div className="review-card-code">{t.template_name}{t.version > 1 && <span className="mt-ver">v{t.version}</span>}</div>
                       <div className="mt-kind">
                         <span>{assetTypeName(t.asset_type_id)}</span>
                         {shape.get(t.id) && <span className="mt-shape">· {shape.get(t.id)!.questions} question{shape.get(t.id)!.questions === 1 ? "" : "s"} · {shape.get(t.id)!.groups} group{shape.get(t.id)!.groups === 1 ? "" : "s"}</span>}
                       </div>
-                      {t.status === "Draft" && <DraftHint templateId={t.id} />}
+                      {canChangeContent(t) && <DraftHint templateId={t.id} />}
                     </div>
                   )}
                 </div>
-                <span className={`pill ${statusPillClass(t.status)}`}>{STATUS_WORDS[t.status]}</span>
+                <span className={`pill ${templateState(t).tone}`}>{templateState(t).label}</span>
               </div>
 
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 10 }}>
@@ -292,22 +321,25 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
                         <path d="M12 7v4M12 11H5v6M12 11h7v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </button>
-                    <button className="icon-btn" aria-label="Cycle status" onClick={(e) => { e.stopPropagation(); cycleStatus(t); }} title="Change status: Draft → In use → Not in use">
+                    {t.approval === "Approved" && !t.superseded_by && can("mri_templates.edit") && <button className="icon-btn" aria-label="Switch in use" onClick={(e) => { e.stopPropagation(); cycleStatus(t); }} title={t.status === "Active" ? "Set Not in use" : "Put back in use"}>
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
                         <path d="M18 4v4h-4M6 20v-4h4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
-                    </button>
-                    <button className="icon-btn" aria-label="Rename" onClick={(e) => { e.stopPropagation(); startEdit(t); }}>
+                    </button>}
+                    {canChangeContent(t) && <button className="icon-btn" aria-label="Rename" onClick={(e) => { e.stopPropagation(); startEdit(t); }}>
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"
                           stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
                       </svg>
-                    </button>
+                    </button>}
                     {(() => {
                       const u = useOf(t);
-                      const locked = !assetsReady || !reportsReady || u.units > 0 || u.reports > 0;
-                      const why = !assetsReady || !reportsReady ? "Checking whether this template is in use…"
+                      // TPL-2: a new version that is still a draft can always be deleted; nothing under review can.
+                      const newDraft = !!t.revision_of && t.approval === "Draft";
+                      const review = t.approval === "Submitted" || t.approval === "Endorsed";
+                      const locked = review || (!newDraft && (!assetsReady || !reportsReady || u.units > 0 || u.reports > 0));
+                      const why = review ? "Under review: it can't be deleted now" : newDraft ? "Delete this draft change" : !assetsReady || !reportsReady ? "Checking whether this template is in use…"
                         : locked ? `In use (${u.units} ${u.units === 1 ? "unit" : "units"} of this kind, ${u.reports} MR-I ${u.reports === 1 ? "report" : "reports"}) — set it to Not in use instead` : "Delete";
                       return (
                     <button className="icon-btn icon-danger" aria-label="Delete" aria-disabled={locked} style={locked ? { opacity: 0.35, cursor: "not-allowed" } : undefined} title={why}
@@ -321,6 +353,26 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
                     })()}
                   </>
                 )}
+              </div>
+              <div className="mt-actions" onClick={(e) => e.stopPropagation()}>
+                {canChangeContent(t) && can("mri_templates.edit") && (
+                  <button className="primary" onClick={() => setAct({ action: "submit", t })} title="Send to the Maintenance Manager / FSM to endorse">Send for review</button>
+                )}
+                {t.approval === "Submitted" && can("mri_templates.endorse") && (<>
+                  <button className="primary" onClick={() => setAct({ action: "endorse", t })}>Endorse</button>
+                  <button className="ghost" onClick={() => setAct({ action: "reject", t })}>Send back</button>
+                </>)}
+                {t.approval === "Endorsed" && can("mri_templates.approve") && (<>
+                  <button className="primary" onClick={() => setAct({ action: "approve", t })}>Approve</button>
+                  <button className="ghost" onClick={() => setAct({ action: "reject", t })}>Send back</button>
+                </>)}
+                {t.approval === "Approved" && !t.superseded_by && can("mri_templates.edit") && (() => {
+                  const open = templates.find((x) => x.revision_of === t.id && x.approval !== "Approved");
+                  return open
+                    ? <button className="ghost" onClick={() => onOpenTemplate(open.id, open.template_name)} title="A new version is being prepared">Change in progress (v{open.version})</button>
+                    : <button className="ghost" onClick={() => startChange(t)} title="Start a new version; this version stays in use until the change is approved">Change this template</button>;
+                })()}
+                <button className="ghost" onClick={() => setHistoryFor(t)}>History</button>
               </div>
             </div>
           ))}
@@ -347,6 +399,11 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
           </div>
         </div>
       )}
+
+      {act && (
+        <ApprovalActionModal action={act.action} template={act.t} busy={approvalAction.isPending} onCancel={() => setAct(null)} onConfirm={runAction} />
+      )}
+      {historyFor && <ApprovalHistoryModal template={historyFor} onClose={() => setHistoryFor(null)} />}
 
       {graphTemplate && (
         <TemplateGraphModal template={graphTemplate} onClose={() => setGraphTemplate(null)} />

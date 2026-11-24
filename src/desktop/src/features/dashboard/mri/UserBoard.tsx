@@ -19,7 +19,7 @@ export interface Person { name: string; values: Record<string, number | null>; s
 export interface UserCol { key: string; label: string; fmt?: (v: number | null) => string; total?: "sum" | "avg" }
 export interface UserTile { label: string; value: ReactNode; sub: ReactNode; color: string; spark?: number[] }
 
-const SEE_ALL = ["Administrator", "Maintenance Manager / FSM"];
+const SEE_ALL = ["Administrator", "Maintenance Manager / FSM", "Regional Maintenance Manager / RSDM"];
 export const sameName = (a: string | null | undefined, b: string | null | undefined) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
 
 /** Who is viewing, and whether they may see other people's figures. */

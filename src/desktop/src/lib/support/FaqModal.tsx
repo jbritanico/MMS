@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FAQ, type FaqItem } from "./faq";
 
-// Help › Questions and answers: the MMS FAQ inside the app (inline documentation).
+// Help › Frequently Asked Questions: the MMS FAQ inside the app (inline documentation).
+// Answers are written with simple line markup (see faq.ts) and shown as paragraphs, bullets and numbered steps.
 // Search, pick a topic, or see the questions for the screen you are on first.
 
 const FAQ_CSS = `
@@ -23,7 +24,12 @@ const FAQ_CSS = `
 .faq-item summary::before { content: "+"; flex: none; width: 14px; color: var(--sup-blue); font-weight: 700; }
 .faq-item[open] summary::before { content: "−"; }
 .faq-a { padding: 0 14px 12px 38px; font-size: 13.5px; line-height: 1.55; }
-.faq-who { display: inline-block; margin-top: 8px; font-size: 11.5px; color: var(--text-soft); }
+.sup-root .faq-a p.faq-p { margin: 0 0 6px !important; }
+.sup-root .faq-a ul.faq-list, .sup-root .faq-a ol.faq-list { margin: 2px 0 8px !important; padding-left: 22px !important; display: block !important; }
+.sup-root .faq-a ul.faq-list { list-style: disc outside !important; }
+.sup-root .faq-a ol.faq-list { list-style: decimal outside !important; }
+.sup-root .faq-a .faq-list li { display: list-item !important; margin: 3px 0 !important; padding-left: 2px !important; }
+.faq-who { display: inline-block; margin-top: 4px; font-size: 11.5px; color: var(--text-soft); }
 .faq-empty { padding: 30px 0; text-align: center; color: var(--text-soft); }
 .faq-count { font-size: 12px; color: var(--text-soft); }
 .faq-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
@@ -37,6 +43,32 @@ function Hl({ text, words }: { text: string; words: string[] }) {
   if (!words.length) return <>{text}</>;
   const re = new RegExp(`(${words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "gi");
   return <>{text.split(re).map((p, i) => (i % 2 ? <mark key={i}>{p}</mark> : p))}</>;
+}
+
+type Block = { t: "p" | "ul" | "ol"; items: string[] };
+/** Turns an answer's line markup into paragraphs, bullet lists and numbered steps. */
+function blocks(text: string): Block[] {
+  const out: Block[] = [];
+  for (const line of text.split("\n")) {
+    const m = /^(- |\d+\. )(.*)$/.exec(line);
+    const t: Block["t"] = !m ? "p" : m[1] === "- " ? "ul" : "ol";
+    const body = (m ? m[2] : line).trim();
+    if (!body) continue;
+    const last = out[out.length - 1];
+    if (t !== "p" && last && last.t === t) last.items.push(body);
+    else out.push({ t, items: [body] });
+  }
+  return out;
+}
+function Answer({ text, words }: { text: string; words: string[] }) {
+  return (
+    <>
+      {blocks(text).map((b, i) =>
+        b.t === "p" ? <p key={i} className="faq-p"><Hl text={b.items[0]} words={words} /></p>
+          : b.t === "ul" ? <ul key={i} className="faq-list">{b.items.map((x, j) => <li key={j}><Hl text={x} words={words} /></li>)}</ul>
+          : <ol key={i} className="faq-list">{b.items.map((x, j) => <li key={j}><Hl text={x} words={words} /></li>)}</ol>)}
+    </>
+  );
 }
 
 export default function FaqModal({ screen, screenName, onClose }: { screen: string; screenName: string; onClose: () => void }) {
@@ -62,10 +94,10 @@ export default function FaqModal({ screen, screenName, onClose }: { screen: stri
   return (
     <div className="sup-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <style>{FAQ_CSS}</style>
-      <div className="sup-dialog faq-dialog" role="dialog" aria-modal="true" aria-label="Questions and answers">
+      <div className="sup-dialog faq-dialog" role="dialog" aria-modal="true" aria-label="Frequently Asked Questions">
         <div className="sup-dialog-head">
           <span className="sup-dialog-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z" /><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5" /><path d="M10 8.2a2 2 0 0 1 3.9.6c0 1.3-1.9 1.7-1.9 2.8M12 14h.01" /></svg></span>
-          <h3>Questions and answers</h3>
+          <h3>Frequently Asked Questions</h3>
           <button type="button" className="sup-x" aria-label="Close" onClick={onClose}>×</button>
         </div>
         <div className="faq-tools">
@@ -90,7 +122,7 @@ export default function FaqModal({ screen, screenName, onClose }: { screen: stri
               {l.map((f) => (
                 <details key={f.id} className="faq-item" open={words.length > 0 && list.length <= 3}>
                   <summary><span><Hl text={f.q} words={words} /></span></summary>
-                  <div className="faq-a"><Hl text={f.a} words={words} /><br /><span className="faq-who">For: {f.who}</span></div>
+                  <div className="faq-a"><Answer text={f.a} words={words} /><span className="faq-who">For: {f.who}</span></div>
                 </details>
               ))}
             </section>

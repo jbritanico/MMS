@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { roleName } from "../../../lib/roles";
 import { useCurrentUser } from "../../../lib/currentUser";
 import { useMriDashboardScope, useMriDashboardWaiting } from "../hooks/useMriDashboards";
 import { DASHBOARDS, DASH_ICONS, GROUPS, USER_GROUPS, isMarked, markTip } from "../dashCatalog";
@@ -303,7 +304,7 @@ export function FluentShell({
           {user && (
             <div className="fl-me">
               <span className="fl-avatar">{initials(user.name)}</span>
-              <span className="fl-nav-label"><b>{user.name}</b><small>{user.role}</small></span>
+              <span className="fl-nav-label"><b>{user.name}</b><small>{roleName(user.role)}</small></span>
             </div>
           )}
         </div>
@@ -329,7 +330,7 @@ export function FluentShell({
             <WaitingBell onOpenDash={onOpenDash} />
             <HintsToggle />
             <SettingsMenu />
-            {user && <span className="fl-avatar sm" title={`${user.name} · ${user.role}`}>{initials(user.name)}</span>}
+            {user && <span className="fl-avatar sm" title={`${user.name} · ${roleName(user.role)}`}>{initials(user.name)}</span>}
           </div>
         </header>
         <div className="fl-page" key={`${section}:${title}`}>{children}</div>

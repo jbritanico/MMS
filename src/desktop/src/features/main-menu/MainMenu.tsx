@@ -1,8 +1,10 @@
 import { useLayoutEffect, useRef, useState, type ReactElement } from "react";
+import { roleName } from "../../lib/roles";
 import { createPortal } from "react-dom";
 import IdleScreensaver from "../idle/IdleScreenSaver";
 import { useMyReportChangeNotices } from "../mri-reporting/hooks/useReportEdits";
 import { useMyRepairAssignments } from "../mri-reporting/hooks/useMriFaultRectifications";
+import { useMyTemplateTasks } from "../administration/hooks/useMriTemplates";
 import { VISIBLE_THEMES, isDarkTheme, type Theme } from "../../lib/theme";
 import fieldOpsImage from "../../assets/FieldMaintenance.png";
 import fieldOpsImageDark from "../../assets/FieldDark.png";
@@ -45,6 +47,8 @@ interface MainMenuProps {
   onNavigate: (screen: Screen, mrLevel?: MrLevel) => void;
   currentTheme: Theme;
   onThemeChange: (theme: Theme) => void;
+  /** TPL-2: open Administration › MR Templates › MR-I. */
+  onOpenTemplates?: () => void;
 }
 
 // "ct-pipe" is a new main module that is not built yet: its card shows "Coming soon" and opens nothing.
@@ -198,7 +202,7 @@ const MR_LEVELS: { id: MrLevel; short: string; desc: string }[] = [
   { id: "MR-III", short: "III", desc: "Major overhaul" },
 ];
 
-function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
+function MainMenu({ onNavigate, currentTheme, onThemeChange, onOpenTemplates }: MainMenuProps) {
   const trial = useTrial();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [faultDrawerOpen, setFaultDrawerOpen] = useState(false);
@@ -258,6 +262,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
   const { data: myChangedReports = [] } = useMyReportChangeNotices(currentUser?.name);
   // FB-013: repairs a reviewer assigned to this user.
   const { data: myRepairs = [] } = useMyRepairAssignments(currentUser?.id ?? 0);
+  const { data: myTemplateTasks = [] } = useMyTemplateTasks(currentUser?.id ?? 0);
   const myRepairsNew = myRepairs.filter((r) => !r.seen).length;
   const canOpenFaultReview =
     myRepairs.length > 0 ||
@@ -476,7 +481,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
             {currentUser?.name ?? "Unknown user"}
           </span>
           <span className="side-drawer-handle-role">
-            {currentUser?.role ?? "No role"}
+            {currentUser?.role ? roleName(currentUser.role) : "No role"}
           </span>
         </div>
       </button>
@@ -512,7 +517,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
                   {currentUser?.name ?? "Unknown user"}
                 </div>
                 <div className="drawer-user-role">
-                  {currentUser?.role ?? "No role"}
+                  {currentUser?.role ? roleName(currentUser.role) : "No role"}
                 </div>
               </div>
 
@@ -643,6 +648,39 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
                     >
                       View
                     </button>
+                  </div>
+                </div>
+              )}
+
+              {myTemplateTasks.length > 0 && (
+                <div
+                  className="drawer-user-card"
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}
+                >
+                  <div>
+                    <div className="drawer-user-name">MR-I templates waiting for you</div>
+                    <div className="drawer-user-role">
+                      {[
+                        ["endorse", "to endorse"],
+                        ["approve", "to approve"],
+                        ["sent_back", "sent back to you"],
+                      ].map(([k, w]) => ({ n: myTemplateTasks.filter((t) => t.kind === k).length, w })).filter((x) => x.n).map((x) => `${x.n} ${x.w}`).join(" · ")}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                    <span style={{ fontSize: 20, fontWeight: 700, color: "var(--text)" }}>{myTemplateTasks.length}</span>
+                    {onOpenTemplates && (
+                      <button
+                        className="primary"
+                        style={{ padding: "5px 10px", fontSize: 12 }}
+                        onClick={() => {
+                          setFaultDrawerOpen(false);
+                          onOpenTemplates();
+                        }}
+                      >
+                        View
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
@@ -806,7 +844,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange }: MainMenuProps) {
                   {currentUser?.name ?? "Unknown user"}
                 </div>
                 <div className="drawer-user-role">
-                  {currentUser?.role ?? "No role"}
+                  {currentUser?.role ? roleName(currentUser.role) : "No role"}
                 </div>
                 <button
                   className="ghost"

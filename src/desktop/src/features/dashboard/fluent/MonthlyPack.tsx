@@ -3,17 +3,16 @@ import { PrintSheet, PrintTable, type PrintRow } from "../../../components/Print
 import { AGING_LIMIT_DAYS, fmtDate, sevKey, sevLabel, useMriDashboardFaults, useMriDashboardWaiting, type MriDashboardAsset, type MriDashTagChange } from "../hooks/useMriDashboards";
 import { DAY, inRange, nowSecs, useMore } from "../mri/kit";
 import { timeFor } from "../mri/TimeRedYellow";
-import { useCost, useExemptionAudit } from "../mri/CostAndAudit";
+import { useExemptionAudit } from "../mri/CostAndAudit";
 import { stageName } from "../mri/MoreReports";
 
 // Monthly management pack (report 22 of the MR-I reports list, Tier 3), opened from the Overview.
 // One printable summary of a chosen month: fleet status and availability, MR-I reports by stage,
-// Major / Critical faults, faults found and closed, repairs, MR cost, exemptions, and reviews
+// Major / Critical faults, faults found and closed, repairs, exemptions, and reviews
 // and faults that are overdue. Uses the same country-scoped data as the dashboards.
 
 const M = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 1000) / 10}%` : "—");
-const money = (n: number) => (Math.round(n * 100) / 100).toLocaleString();
 
 export default function MonthlyPack({ assets, onClose }: { assets: MriDashboardAsset[]; onClose: () => void }) {
   // The last 12 months, this month first (so far).
@@ -30,11 +29,10 @@ export default function MonthlyPack({ assets, onClose }: { assets: MriDashboardA
   const more = useMore(assets);
   const faultsQ = useMriDashboardFaults();
   const waitingQ = useMriDashboardWaiting();
-  const cost = useCost(assets, m.s, m.e);
   const ex = useExemptionAudit(assets, m.s, m.e);
   const ids = useMemo(() => new Set(assets.map((a) => a.id)), [assets]);
   const code = (id: number) => more.unitOf.get(id)?.asset_code ?? String(id);
-  const ready = !more.isLoading && !faultsQ.isLoading && !waitingQ.isLoading && !cost.isLoading;
+  const ready = !more.isLoading && !faultsQ.isLoading && !waitingQ.isLoading;
 
   const active = assets.filter((a) => a.active);
   // Fleet: time in each colour over the month, and the tag of each unit now.
@@ -69,7 +67,6 @@ export default function MonthlyPack({ assets, onClose }: { assets: MriDashboardA
   const late = (waitingQ.data ?? []).filter((w) => ids.has(w.asset_id) && w.waiting_since != null && (nowSecs() - w.waiting_since) / DAY > 7);
   const provisional = more.decisions.filter((d) => d.provisional_status === "Provisional");
 
-  const costTotal = cost.costed.reduce((a, x) => a + (x.r.mr_cost ?? 0), 0);
   const sum: PrintRow[] = [
     { Measure: "Active units", Value: active.length },
     { Measure: "Fleet availability (time Green)", Value: pct(tot("green"), span) },
@@ -80,7 +77,6 @@ export default function MonthlyPack({ assets, onClose }: { assets: MriDashboardA
     { Measure: "Major / Critical faults found", Value: crit.length },
     { Measure: "Faults open at month end (overdue)", Value: `${openAtEnd.length} (${overdue.length})` },
     { Measure: "Repairs verified / open at month end", Value: `${repairsDone.length} / ${repairsOpen.length}` },
-    { Measure: "MR cost entered", Value: `${money(costTotal)} over ${cost.costed.length} report${cost.costed.length === 1 ? "" : "s"}` },
     { Measure: "Exemptions in force during the month", Value: ex.rows.length },
   ];
 
@@ -89,7 +85,7 @@ export default function MonthlyPack({ assets, onClose }: { assets: MriDashboardA
       eyebrow="Monthly management pack · MR-I"
       title={`${m.name}${m.current ? " (so far)" : ""}`}
       sub={`${active.length} active unit${active.length === 1 ? "" : "s"} in view${assets.length ? ` · ${[...new Set(active.map((a) => a.country).filter(Boolean))].join(", ")}` : ""}`}
-      note={`Taken from MMS. Fleet, faults, repairs and cost are for ${m.name}; overdue reviews and phone decisions to confirm are as of today. Figures can change after printing.`}
+      note={`Taken from MMS. Fleet, faults and repairs are for ${m.name}; overdue reviews and phone decisions to confirm are as of today. Figures can change after printing.`}
       onClose={onClose}
       ready={ready}
       tools={(
@@ -126,10 +122,6 @@ export default function MonthlyPack({ assets, onClose }: { assets: MriDashboardA
             ...late.sort((a, b) => (a.waiting_since ?? 0) - (b.waiting_since ?? 0)).map((w) => ({ What: w.kind === "fault" ? `Fault decision: ${w.item ?? "fault"}` : "Report review", Unit: code(w.asset_id), Report: `#${w.report_id}`, "With": w.assigned_to_name ?? w.step, "Days waiting": Math.floor((nowSecs() - (w.waiting_since ?? nowSecs())) / DAY) })),
             ...provisional.map((d) => ({ What: `Phone decision to confirm: ${d.item ?? "fault"}`, Unit: code(d.asset_id), Report: `#${d.report_id}`, "With": d.reviewer, "Days waiting": d.decided_at ? Math.floor((nowSecs() - d.decided_at) / DAY) : null })),
           ]} empty="Nothing overdue." />
-        </section>
-        <section>
-          <h3>MR cost</h3>
-          <PrintTable rows={[{ "Cost entered": money(costTotal), Reports: cost.costed.length, "Average per inspection": cost.costed.length ? money(costTotal / cost.costed.length) : null, "Open reports waiting for the cost": cost.waiting.length }]} />
         </section>
         <section>
           <h3>MOC exemptions in force during the month ({ex.rows.length})</h3>
