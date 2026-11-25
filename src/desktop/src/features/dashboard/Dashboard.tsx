@@ -141,6 +141,8 @@ function reportIconStyle(status: string): { background: string; color: string } 
 interface DashboardAssetCardProps {
   asset: AssetMriHistorySummaryRow;
   onSelect: () => void;
+  /** FB-030: smaller card (counters shown as level chips only), so long unit lists stay easy to browse. */
+  compact?: boolean;
 }
 
 const tagTone = (tag: string | null | undefined): FlTone => (tag === "Red" ? "red" : tag === "Yellow" ? "amber" : tag === "Green" ? "green" : "blue");
@@ -186,7 +188,7 @@ function AssetPic({ assetTypeId, tone, large }: { assetTypeId: number | null | u
   return <span className={`fl-ico${large ? " lg" : ""} tone-${tone}`}>{FL_ICONS.fleet}</span>;
 }
 
-function DashboardAssetCard({ asset, onSelect }: DashboardAssetCardProps) {
+function DashboardAssetCard({ asset, onSelect, compact }: DashboardAssetCardProps) {
   const { data: triggers = [] } = useAssetTriggers(asset.asset_id);
   const activeTriggers = triggers.filter((t) => t.enabled);
   // Tag lamp: the asset's current Red / Yellow / Green tag (shared, cached Asset Registry list).
@@ -194,6 +196,37 @@ function DashboardAssetCard({ asset, onSelect }: DashboardAssetCardProps) {
   const registryAsset = registryAssets.find((x) => x.id === asset.asset_id);
   const tag = registryAsset?.tag_status ?? null;
   const tone = tagTone(tag);
+
+  if (compact) {
+    const groups = groupCounters(activeTriggers);
+    return (
+      <button type="button" className={`fl-asset is-compact tone-${tone}`} onClick={onSelect}
+        aria-label={`${asset.asset_code}: open MR-I history`} title={`${asset.asset_code}${asset.asset_description ? " · " + asset.asset_description : ""}`}>
+        <span className="fl-asset-top">
+          <AssetPic assetTypeId={registryAsset?.asset_type_id} tone={tone} />
+          <span className="fl-asset-name"><b>{asset.asset_code}</b><small>{asset.asset_description || "\u2014"}</small></span>
+          {tag && <TagLamp status={tag} size={12} title={registryAsset?.tag_reason ?? undefined} />}
+        </span>
+        <span className="fl-asset-stats">
+          <span className="fl-asset-count"><b>{asset.report_count}</b> report{asset.report_count === 1 ? "" : "s"}</span>
+          {asset.latest_status && (
+            <span className="fl-pill" style={{ ["--tone" as string]: STATUS_COLOR[asset.latest_status] ?? "var(--st-grey)" }}>{asset.latest_status}</span>
+          )}
+          <span className="fl-asset-date">{asset.latest_date ? fmtDay(asset.latest_date) : "No reports"}</span>
+        </span>
+        {groups.length > 0 && (
+          <span className="fl-cnt-mini">
+            {groups.map((g) => (
+              <span key={g.level} className="fl-cnt-level" style={{ ["--tone" as string]: STATE_INFO[g.state].tone }}
+                title={`${g.level} \u00b7 ${STATE_INFO[g.state].text}: ${g.items.map((t) => `${COUNTER_SHORT[t.trigger_type] ?? t.trigger_type} ${Math.round(usedPct(t))}%`).join(", ")}`}>
+                {g.level}
+              </span>
+            ))}
+          </span>
+        )}
+      </button>
+    );
+  }
 
   return (
     <button type="button" className={`fl-asset tone-${tone}`} onClick={onSelect}>
@@ -238,12 +271,18 @@ function DashboardAssetCard({ asset, onSelect }: DashboardAssetCardProps) {
 }
 
 type HistoryFilter = "all" | "open" | "closed" | "none";
+type CardSize = "compact" | "detailed";
+// FB-030: the card size choice is remembered on this computer; compact is the default.
+const CARD_SIZE_KEY = "mms.dashboards.historyCards";
+const readCardSize = (): CardSize => { try { return localStorage.getItem(CARD_SIZE_KEY) === "detailed" ? "detailed" : "compact"; } catch { return "compact"; } };
 const isOpenStatus = (s: string | null) => !!s && s !== "Approved";
 
 /** Asset MR-I History: every unit, with search and a status filter. */
 function AssetHistoryList({ assets: allAssets, isLoading, onSelect }: { assets: AssetMriHistorySummaryRow[]; isLoading: boolean; onSelect: (a: AssetMriHistorySummaryRow) => void }) {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<HistoryFilter>("all");
+  const [cardSize, setCardSizeState] = useState<CardSize>(readCardSize);
+  const setCardSize = (v: CardSize) => { setCardSizeState(v); try { localStorage.setItem(CARD_SIZE_KEY, v); } catch { /* applies for this session */ } };
   // Country / service line filter shared with the other dashboards (unit details from the dashboard scope).
   const scopeF = useScopeFilter();
   const { data: scopeData } = useMriDashboardScope();
@@ -290,6 +329,12 @@ function AssetHistoryList({ assets: allAssets, isLoading, onSelect }: { assets: 
           onChange={setFilter}
           options={[{ v: "all", label: `All ${assets.length}` }, { v: "open", label: `Last report open ${openN}` }, { v: "closed", label: `Last report closed ${closedN}` }, { v: "none", label: `No reports ${noneN}` }]}
         />
+        <RangeTabs<CardSize>
+          label="Card size"
+          value={cardSize}
+          onChange={setCardSize}
+          options={[{ v: "compact", label: "Compact" }, { v: "detailed", label: "Detailed" }]}
+        />
       </div>
 
       {isLoading ? (
@@ -299,8 +344,8 @@ function AssetHistoryList({ assets: allAssets, isLoading, onSelect }: { assets: 
       ) : shown.length === 0 ? (
         <div className="empty">No unit matches the search and filter.</div>
       ) : (
-        <div className="fl-asset-grid">
-          {shown.map((a) => <DashboardAssetCard key={a.asset_id} asset={a} onSelect={() => onSelect(a)} />)}
+        <div className={`fl-asset-grid${cardSize === "compact" ? " is-compact" : ""}`}>
+          {shown.map((a) => <DashboardAssetCard key={a.asset_id} asset={a} compact={cardSize === "compact"} onSelect={() => onSelect(a)} />)}
         </div>
       )}
     </>
@@ -378,6 +423,12 @@ interface AssetHistoryPanelProps {
   onShowAssetFlow?: (assetId: number) => void;
 }
 
+// FB-023: stage names as people say them, for the stage filter.
+const STAGE_LABEL: Record<string, string> = { PREMOB: "Pre-Mob", PREJOB: "Pre-Job", POSTJOB: "Post-Job", YARDINSPECTION: "Yard inspection", YARD: "Yard inspection" };
+const stageLabel = (s: string) => STAGE_LABEL[s.replace(/[^A-Za-z]/g, "").toUpperCase()] ?? s;
+type ReportPeriod = "all" | "30" | "90" | "365";
+const PERIOD_DAYS: Record<ReportPeriod, number> = { all: 0, "30": 30, "90": 90, "365": 365 };
+
 function AssetHistoryPanel({ assetId, assetCode, assetDescription, onBack, onOpenReport, onShowAssetFlow }: AssetHistoryPanelProps) {
   const { data: rows = [], isLoading } = useAssetMriHistory(assetId);
   const [printing, setPrinting] = useState(false);
@@ -386,6 +437,30 @@ function AssetHistoryPanel({ assetId, assetCode, assetDescription, onBack, onOpe
   const registryAsset = registryAssets.find((x) => x.id === assetId);
   const tag = registryAsset?.tag_status ?? null;
   const counterGroups = useMemo(() => groupCounters(triggers), [triggers]);
+
+  // FB-023: find a report of this unit by number, date, stage, status, people or fault text.
+  const [rq, setRq] = useState("");
+  const [stage, setStage] = useState("all");
+  const [period, setPeriod] = useState<ReportPeriod>("all");
+  const stages = useMemo(() => [...new Set(rows.map((r) => r.compliance_stage).filter((s): s is string => !!s))], [rows]);
+  const shownRows = useMemo(() => {
+    const terms = rq.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const days = PERIOD_DAYS[period];
+    const since = days ? Date.now() - days * 86400000 : 0;
+    return rows.filter((r) => {
+      if (stage !== "all" && r.compliance_stage !== stage) return false;
+      if (since) { const t = new Date(r.created_date).getTime(); if (!(t >= since)) return false; }
+      if (!terms.length) return true;
+      const text = [
+        `#${r.id}`, String(r.id), r.status, r.compliance_stage ?? "", r.compliance_stage ? stageLabel(r.compliance_stage) : "", r.component_label ?? "",
+        r.submitted_by ?? "", r.approved_by ?? "", r.created_date, r.submitted_date ?? "", r.approved_date ?? "",
+        formatDate(r.created_date), r.submitted_date ? formatDate(r.submitted_date) : "", r.approved_date ? formatDate(r.approved_date) : "",
+        ...r.key_issues,
+      ].join(" ").toLowerCase();
+      return terms.every((t) => text.includes(t));
+    });
+  }, [rows, rq, stage, period]);
+  const filtersOn = rq.trim() !== "" || stage !== "all" || period !== "all";
 
   return (
     <div>
@@ -439,13 +514,41 @@ function AssetHistoryPanel({ assetId, assetCode, assetDescription, onBack, onOpe
       ))}
 
       <h2 className="fl-section-title fl-gap">Report timeline</h2>
+      {!isLoading && rows.length > 0 && (
+        <div className="fl-toolbar" style={{ marginTop: 12 }}>
+          <div className="fl-search fl-toolbar-search">
+            <span className="fl-search-icon">{FL_ICONS.search}</span>
+            <input type="search" placeholder="Find a report: number, date, stage, name or fault" aria-label="Find a report of this unit" value={rq} onChange={(e) => setRq(e.target.value)} />
+          </div>
+          {stages.length > 1 && (
+            <select className="neu-select" aria-label="Stage" value={stage} onChange={(e) => setStage(e.target.value)} style={{ width: "auto" }}>
+              <option value="all">All stages</option>
+              {stages.map((s) => <option key={s} value={s}>{stageLabel(s)}</option>)}
+            </select>
+          )}
+          <RangeTabs<ReportPeriod>
+            label="Period"
+            value={period}
+            onChange={setPeriod}
+            options={[{ v: "all", label: "All time" }, { v: "30", label: "30 days" }, { v: "90", label: "90 days" }, { v: "365", label: "12 months" }]}
+          />
+          <span className="fl-chip">{filtersOn ? `${shownRows.length} of ${rows.length} reports` : `${rows.length} report${rows.length === 1 ? "" : "s"}`}</span>
+          {filtersOn && (
+            <button type="button" className="ghost" onClick={() => { setRq(""); setStage("all"); setPeriod("all"); }} style={{ padding: "6px 12px", fontSize: 12 }}>
+              Clear
+            </button>
+          )}
+        </div>
+      )}
       {isLoading ? (
         <div className="empty" style={{ marginTop: 14 }}><span className="fl-spinner" />Loading the reports…</div>
       ) : rows.length === 0 ? (
         <div className="empty" style={{ marginTop: 14 }}>No MR-I reports have been filed for this asset yet.</div>
+      ) : shownRows.length === 0 ? (
+        <div className="empty" style={{ marginTop: 14 }}>No report matches the search and filters.</div>
       ) : (
         <div className="mri-report-timeline">
-          {rows.map((row) => {
+          {shownRows.map((row) => {
             const iconStyle = reportIconStyle(row.status);
             const kmTrigger = triggers.find((t) => t.trigger_type === "KM" && t.enabled);
             const ohTrigger = triggers.find((t) => t.trigger_type === "OH" && t.enabled);
@@ -574,7 +677,7 @@ const VIEW_OF: Record<ShellSection, DashboardView> = { overview: "hub", "mri-his
 const SECTION_OF: Record<DashboardView, ShellSection> = { hub: "overview", "mri-history": "mri-history", "mri-dashboards": "mri-dashboards", "user-analytics": "user-analytics" };
 const HEAD: Record<DashboardView, [string, string]> = {
   hub: ["Dashboard", "MR-I overview for the units you can see"],
-  "mri-dashboards": ["MR-I Dashboards", "Fleet condition, defects, reviews and inspections from MR-I reports"],
+  "mri-dashboards": ["MR-I Dashboards", "Fleet condition, faults, reviews and inspections from MR-I reports"],
   "user-analytics": ["User Analytics", "Workload and response times by person, for each role in the MR-I process"],
   "mri-history": ["Asset MR-I History", "Every unit's MR-I report timeline, trigger status and trend"],
 };

@@ -17,6 +17,8 @@ export interface MriTemplate {
     version: number;
     revision_of: number | null;
     superseded_by: number | null;
+    /** FB-018: an extra template for a kind, used only by the units it is given to. */
+    is_variant: boolean;
 }
 
 const KEY = ["mri-templates"];
@@ -25,6 +27,15 @@ export function useMriTemplates() {
     return useQuery({
         queryKey: KEY,
         queryFn: () => invoke<MriTemplate[]>("get_mri_templates"),
+    });
+}
+
+/** FB-018: start a unit variant as a copy of an approved template (Draft, normal approval). */
+export function useCopyMriTemplate() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (v: { sourceId: number; newName: string; userId: number }) => invoke<number>("copy_mri_template", v),
+        onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
     });
 }
 

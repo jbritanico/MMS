@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useCurrentUser } from "../../lib/currentUser";
 import { useEffectivePermissions } from "./hooks/useUserAdmin";
-import { useExportFullBackup, useImportFullBackup } from "./hooks/useFullBackup";
+import { revealBackupFile, useExportFullBackup, useImportFullBackup } from "./hooks/useFullBackup";
 import { IsoBox, backupHint, fmtDay, readBackups, recordBackup, useReportAdminHints, useReportAdminKpis } from "./AdminIsoGuide";
 
 function DataBackup() {
@@ -14,6 +14,9 @@ function DataBackup() {
   const fullImportRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
   const [saved, setSaved] = useState<number[]>(() => readBackups());
+  // FB-008: where the last backup was saved, shown until the screen is left.
+  const [savedPath, setSavedPath] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const hint = backupHint();
   useReportAdminHints("data-backup", hint ? [hint] : []);
   const savedTimes = readBackups();
@@ -66,22 +69,50 @@ function DataBackup() {
             </div>
           </div>
           {canExportAll ? (
+            <>
             <button
               className="primary"
               style={{ alignSelf: "flex-start" }}
+              disabled={busy}
               onClick={async () => {
+                setBusy(true);
                 try {
-                  await exportFull();
+                  const path = await exportFull();
+                  if (!path) {
+                    flash("Backup not saved: the Save As box was closed.", "err");
+                    return;
+                  }
                   recordBackup();
                   setSaved(readBackups());
+                  setSavedPath(path);
                   flash("Backup file saved.", "ok");
                 } catch (err) {
                   flash(String(err), "err");
+                } finally {
+                  setBusy(false);
                 }
               }}
             >
-              ⤓ Save backup file
+              {busy ? "Saving the backup…" : "⤓ Save backup file"}
             </button>
+            <span style={{ fontSize: 12, color: "var(--text-soft)" }}>A Save As box asks where to save the file.</span>
+            {savedPath && (
+              <div role="status" style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 12px", borderRadius: 10, border: "1px solid var(--success)", background: "color-mix(in srgb, var(--success) 8%, transparent)" }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--success)" }}>Backup saved</div>
+                <div style={{ fontSize: 12.5, overflowWrap: "anywhere", userSelect: "text", fontFamily: "var(--mono, Consolas, monospace)" }}>{savedPath}</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button type="button" className="ghost" style={{ padding: "6px 12px", fontSize: 12 }}
+                    onClick={async () => { try { await revealBackupFile(savedPath); } catch (err) { flash(String(err), "err"); } }}>
+                    Open folder
+                  </button>
+                  <button type="button" className="ghost" style={{ padding: "6px 12px", fontSize: 12 }}
+                    onClick={async () => { try { await navigator.clipboard.writeText(savedPath); flash("Path copied.", "ok"); } catch { flash("Could not copy. Select the path and press Ctrl+C.", "err"); } }}>
+                    Copy path
+                  </button>
+                </div>
+              </div>
+            )}
+            </>
           ) : (
             <span style={{ fontSize: 12.5, color: "var(--text-soft)" }}>Your role can't save backups.</span>
           )}

@@ -4,7 +4,7 @@ import { invoke } from "../../lib/ipc";
 import type { TemplateChecklistItem } from "../mri-template-builder/hooks/useTemplateChecklistItems";
 import {
   useMriTemplates,
-  useCreateMriTemplate,
+  useCreateMriTemplate, useCopyMriTemplate,
   useUpdateTemplateStatus,
   useRenameMriTemplate,
   useDeleteMriTemplate,
@@ -34,7 +34,21 @@ interface MriTemplatesProps {
 function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
   const { data: templates = [], isLoading } = useMriTemplates();
   const { data: assetTypes = [] } = useAssetTypes();
+  // One template per kind of unit: kinds that already have a template are not offered for a new
+  // one (changes go through "Change this template"), and kinds with more than one in use are flagged.
+  const currentTemplates = templates.filter((t) => !t.is_variant && !t.superseded_by && (!t.revision_of || t.approval === "Approved"));
+  const kindsWithTemplate = new Set(currentTemplates.map((t) => t.asset_type_id));
+  const freeAssetTypes = assetTypes.filter((a) => !kindsWithTemplate.has(a.id));
+  const inUseByKind = new Map<number, string[]>();
+  templates.filter((t) => t.status === "Active" && !t.superseded_by && !t.is_variant).forEach((t) => inUseByKind.set(t.asset_type_id, [...(inUseByKind.get(t.asset_type_id) ?? []), t.template_name]));
+  const duplicateKinds = [...inUseByKind.entries()].filter(([, names]) => names.length > 1)
+    .map(([id, names]) => ({ kind: assetTypes.find((a) => a.id === id)?.description ?? `Kind #${id}`, names }));
   const createTemplate = useCreateMriTemplate();
+  // FB-018: "Copy as unit variant".
+  const copyTemplate = useCopyMriTemplate();
+  const [copyFrom, setCopyFrom] = useState<MriTemplate | null>(null);
+  const [copyName, setCopyName] = useState("");
+  const [copyError, setCopyError] = useState<string | null>(null);
   const updateStatus = useUpdateTemplateStatus();
   const renameTemplate = useRenameMriTemplate();
   // TPL-2: who may do what with templates, and what is waiting for the signed-in user.
@@ -54,7 +68,8 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
   const { data: allAssets = [], isSuccess: assetsReady } = useAssets();
   const { data: allReports = [], isSuccess: reportsReady } = useMriReports();
   const useOf = (t: MriTemplate) => ({
-    units: allAssets.filter((a) => a.asset_type_id === t.asset_type_id).length,
+    // FB-018: a unit variant is used by the units given it; a standard by the other units of its kind.
+    units: allAssets.filter((a) => (t.is_variant ? a.mri_template_id === t.id : a.asset_type_id === t.asset_type_id && !a.mri_template_id)).length,
     reports: allReports.filter((r) => r.template_id === t.id).length,
   });
   const exportBackup = useExportMriTemplatesBackup();
@@ -62,7 +77,7 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
   const importFileRef = useRef<HTMLInputElement>(null);
   const tplCount = (st: string) => templates.filter((x) => x.status === st).length;
   // Kinds of unit with no In use template: their units can't get an MR-I report.
-  const kindsNoInUse = assetTypes.filter((k) => k.active && !templates.some((x) => x.asset_type_id === k.id && x.status === "Active"));
+  const kindsNoInUse = assetTypes.filter((k) => k.active && !templates.some((x) => x.asset_type_id === k.id && x.status === "Active" && !x.is_variant));
   const kindsNoTpl = kindsNoInUse.length;
   // Questions and groups on each template (the same queries the Checklist Bank uses).
   const shapeQueries = useQueries({
@@ -96,6 +111,8 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
   const [editName, setEditName] = useState("");
   const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<MriTemplate | null>(null);
+  // FB-015: a refused delete is explained inside the dialog.
+  const [deleteError, setDeleteError] = useState<string | null>(null);
     const [graphTemplate, setGraphTemplate] = useState<MriTemplate | null>(null);
 
   const assetTypeName = (id: number) => assetTypes.find((a) => a.id === id)?.description ?? "—";
@@ -152,10 +169,11 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
     try {
       await deleteTemplate.mutateAsync(pendingDelete.id);
       flash(`"${pendingDelete.template_name}" deleted`, "ok");
+      setPendingDelete(null);
+      setDeleteError(null);
     } catch (err) {
-      flash(String(err), "err");
+      setDeleteError(String(err));
     }
-    setPendingDelete(null);
   }
 
   async function runAction(note: string) {
@@ -213,10 +231,24 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
         </div>
         <div className="field" style={{ width: 260, marginBottom: 0 }}>
           <label>For which kind of unit?</label>
-          <AssetTypeCombobox assetTypes={assetTypes} value={newAssetTypeId} onChange={setNewAssetTypeId} />
+          <AssetTypeCombobox assetTypes={freeAssetTypes} value={newAssetTypeId} onChange={setNewAssetTypeId} />
         </div>
         <button className="primary" onClick={handleCreate}>+ Make template</button>
+        <span style={{ flexBasis: "100%", fontSize: 12, color: "var(--text-soft)" }}>
+          Each kind of unit has one template. Kinds that already have one are not listed: open its template and use Change this template.
+        </span>
       </div>}
+      {duplicateKinds.length > 0 && (
+        <div className="toast err" role="alert" style={{ marginBottom: 18 }}>
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>
+            {duplicateKinds.length === 1 ? "1 kind of unit has" : `${duplicateKinds.length} kinds of unit have`} more than one template in use
+          </div>
+          <ul style={{ margin: 0, paddingLeft: 18 }}>
+            {duplicateKinds.map((d) => <li key={d.kind} style={{ fontSize: 12.5 }}><b>{d.kind}</b>: {d.names.join(", ")}</li>)}
+          </ul>
+          <div style={{ fontSize: 12.5, marginTop: 4 }}>New MR-I reports could use either one. Set all but one of them to Not in use.</div>
+        </div>
+      )}
 
       <div style={{ marginBottom: 18, display: "flex", gap: 8, alignItems: "center" }}>
         <input ref={importFileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
@@ -288,6 +320,7 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
                       <div className="review-card-code">{t.template_name}{t.version > 1 && <span className="mt-ver">v{t.version}</span>}</div>
                       <div className="mt-kind">
                         <span>{assetTypeName(t.asset_type_id)}</span>
+                        {t.is_variant && <span className="mt-shape">· Unit variant</span>}
                         {shape.get(t.id) && <span className="mt-shape">· {shape.get(t.id)!.questions} question{shape.get(t.id)!.questions === 1 ? "" : "s"} · {shape.get(t.id)!.groups} group{shape.get(t.id)!.groups === 1 ? "" : "s"}</span>}
                       </div>
                       {canChangeContent(t) && <DraftHint templateId={t.id} />}
@@ -325,6 +358,12 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
                       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
                         <path d="M18 4v4h-4M6 20v-4h4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>}
+                    {t.approval === "Approved" && !t.superseded_by && can("mri_templates.edit") && <button className="icon-btn" aria-label="Copy as unit variant" title="Copy as unit variant: a different checklist for some units of this kind" onClick={(e) => { e.stopPropagation(); setCopyFrom(t); setCopyName(`${t.template_name} - variant`); setCopyError(null); }}>
+                      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="8" y="8" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.6" />
+                        <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" stroke="currentColor" strokeWidth="1.6" />
                       </svg>
                     </button>}
                     {canChangeContent(t) && <button className="icon-btn" aria-label="Rename" onClick={(e) => { e.stopPropagation(); startEdit(t); }}>
@@ -379,6 +418,39 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
         </div>
       )}
 
+      {copyFrom && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ textAlign: "left" }}>
+            <h3>Copy as unit variant</h3>
+            <p>
+              Makes a draft copy of <strong>"{copyFrom.template_name}"</strong> for {assetTypeName(copyFrom.asset_type_id)} units whose checklist differs
+              (for example extra equipment). Add or remove its questions, send it for review, and once approved give it to those units
+              in the Asset Registry (MR-I checklist). Other units keep the standard template.
+            </p>
+            <div className="field">
+              <label htmlFor="mt-copy-name">Name of the new checklist</label>
+              <input id="mt-copy-name" type="text" value={copyName} onChange={(e) => setCopyName(e.target.value)} autoFocus />
+            </div>
+            {copyError && <p role="alert" style={{ color: "var(--danger)", fontWeight: 600 }}>{copyError}</p>}
+            <div className="modal-actions">
+              <button className="ghost" onClick={() => setCopyFrom(null)}>Cancel</button>
+              <button className="primary" disabled={!copyName.trim() || copyTemplate.isPending || !currentUser} onClick={async () => {
+                if (!currentUser) return;
+                try {
+                  const id = await copyTemplate.mutateAsync({ sourceId: copyFrom.id, newName: copyName.trim(), userId: currentUser.id });
+                  const name = copyName.trim();
+                  setCopyFrom(null);
+                  flash(`"${name}" made as a draft unit variant. Change its questions, then send it for review.`, "ok");
+                  onOpenTemplate(id, name);
+                } catch (err) {
+                  setCopyError(String(err));
+                }
+              }}>Make the copy</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {pendingDelete && (
         <div className="modal-overlay">
           <div className="modal">
@@ -392,9 +464,10 @@ function MriTemplates({ onOpenTemplate }: MriTemplatesProps) {
             <p>
               This will permanently delete <strong>"{pendingDelete.template_name}"</strong> and any header/checklist/mid/footer configuration attached to it.
             </p>
+            {deleteError && <p role="alert" style={{ color: "var(--danger)", fontWeight: 600 }}>{deleteError}</p>}
             <div className="modal-actions">
-              <button className="ghost" onClick={() => setPendingDelete(null)}>Cancel</button>
-              <button className="danger" onClick={confirmDelete}>Delete</button>
+              <button className="ghost" onClick={() => { setPendingDelete(null); setDeleteError(null); }}>{deleteError ? "Close" : "Cancel"}</button>
+              {!deleteError && <button className="danger" onClick={confirmDelete}>Delete</button>}
             </div>
           </div>
         </div>

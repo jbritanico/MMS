@@ -3,7 +3,7 @@ import { Num, motionFactor, useMotion } from "../dashboard/fluent/motion";
 
 // The two KPI cards on the left of the main menu, in the same style as the dashboard
 // percentage cards: Fleet availability with a liquid level that rises to the percentage, and
-// Open defects with a flowing wave. Colours follow the theme the user picked (surface, text,
+// Open faults with a flowing wave. Colours follow the theme the user picked (surface, text,
 // accent). Clicking either opens the dashboards.
 
 const WAVE = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='14' viewBox='0 0 120 14' preserveAspectRatio='none'%3E%3Cpath d='M0 7Q30 0 60 7T120 7V14H0Z'/%3E%3C/svg%3E")`;
@@ -37,13 +37,13 @@ export function MenuKpis({ availability, notReady, openDefects, onOpen }: {
       </div>
 
       <div className={`mk-card mk-defects${openDefects > 0 ? " has-open" : ""}`} role="button" tabIndex={0} onClick={onOpen} onKeyDown={key}
-        aria-label={`${openDefects} open defects. Open the dashboards.`}>
+        aria-label={`${openDefects} open faults. Open the dashboards.`}>
         <span className="mk-flow" aria-hidden="true" />
         <span className="mk-flow two" aria-hidden="true" />
         <span className="mk-ico" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 2 20h20zM12 10v4M12 17h.01" /></svg>
         </span>
-        <span className="mk-label">Open defects</span>
+        <span className="mk-label">Open faults</span>
         <span className="mk-value"><Num v={openDefects} /></span>
         <span className="mk-sub">{openDefects > 0 ? "Waiting for a decision or repair" : "Nothing waiting"}</span>
       </div>
@@ -86,7 +86,7 @@ const MK_CSS = `
 .mk-bubbles i { position: absolute; bottom: -8px; width: 5px; height: 5px; border-radius: 50%; background: color-mix(in srgb, var(--liq) 55%, #fff); animation: mk-bubble calc(5s / var(--mk-k)) ease-in infinite; }
 .mk-bubbles i:nth-child(1) { left: 18%; } .mk-bubbles i:nth-child(2) { left: 52%; width: 4px; height: 4px; animation-delay: -1.8s; } .mk-bubbles i:nth-child(3) { left: 80%; animation-delay: -3.3s; }
 
-/* open defects: flowing wave along the bottom */
+/* open faults: flowing wave along the bottom */
 .mk-flow { position: absolute; z-index: -1; left: 0; right: 0; bottom: 0; height: 34px; background: color-mix(in srgb, var(--mk-acc) 18%, transparent);
   -webkit-mask: ${WAVE} repeat-x 0 0 / 140px 34px; mask: ${WAVE} repeat-x 0 0 / 140px 34px; animation: mk-flow calc(4s / var(--mk-k)) linear infinite; }
 .mk-flow.two { height: 24px; background: color-mix(in srgb, var(--mk-acc) 12%, transparent); -webkit-mask-size: 200px 24px; mask-size: 200px 24px; animation-duration: calc(6.5s / var(--mk-k)); animation-direction: reverse; }

@@ -23,7 +23,7 @@ import { Num, chartAnim } from "../fluent/motion";
 import { sevLabel } from "../hooks/useMriDashboards";
 import { useAdvanced } from "../dashMode";
 
-// Dashboard 3: Defect aging.
+// Dashboard 3: Fault aging (FB-029: "Fault" on screen; file and component names unchanged).
 // How long each open fault has waited since it was FIRST found (carried-forward faults keep
 // their original date). A fault is overdue when it is older than its severity's limit:
 // Major/Critical more than 7 days, Moderate and Minor more than 30 days.
@@ -242,7 +242,7 @@ export default function DefectAging({ assets, filters }: { assets: MriDashboardA
         <p className="mrid-note">
           Age of each open fault {whenText}, counted from the day it was first found. Overdue: Major / Critical older than {AGING_LIMIT_DAYS.Critical} days; Moderate and Minor older than {AGING_LIMIT_DAYS.Moderate} days.
         </p>
-        <ExportMenu dashboardNo={3} title="Defect Aging" filters={filters} tables={exportTables} />
+        <ExportMenu dashboardNo={3} title="Fault Aging" filters={filters} tables={exportTables} />
       </div>
 
       <StoryStrip lines={story} />

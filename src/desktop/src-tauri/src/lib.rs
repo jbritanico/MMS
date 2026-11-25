@@ -78,6 +78,9 @@ struct Asset {
     // applicable reason shall be documented). Written only by set_asset_tag.
     #[serde(default)]
     tag_reason: Option<String>,
+    // FB-018: this unit's own MR-I template (a unit variant of its kind); None = the kind's standard.
+    #[serde(default)]
+    mri_template_id: Option<i64>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -1028,6 +1031,9 @@ fn open_and_migrate_connection() -> Result<Connection, String> {
     let _ = conn.execute("ALTER TABLE mri_fault_rectifications ADD COLUMN action_taken TEXT", []);
     // FB-024: "Other faults" -- checklist items that belong to one report only.
     let _ = conn.execute("ALTER TABLE template_checklist_items ADD COLUMN adhoc_report_id INTEGER", []);
+    // FB-018: unit variant templates, and the variant a unit uses (NULL = its kind's standard template).
+    let _ = conn.execute("ALTER TABLE mri_templates ADD COLUMN is_variant INTEGER NOT NULL DEFAULT 0", []);
+    let _ = conn.execute("ALTER TABLE assets ADD COLUMN mri_template_id INTEGER", []);
     // TPL-2 (MR-I template approval, 24 Nov 2026): Draft -> Submitted -> Endorsed -> Approved.
     // A change to an approved template is made as a new version (revision_of); when that is
     // approved the old version is set Not in use and points at it (superseded_by).
@@ -1173,8 +1179,8 @@ const DASHBOARD_PERMS: [(&str, &str); 22] = [
     ("dash.overview", "Overview"),
     ("dash.history", "Asset MR-I History"),
     ("dash.1", "1 · Fleet Status by Tag Colour"),
-    ("dash.2", "2 · Open Defects by Severity"),
-    ("dash.3", "3 · Defect Aging"),
+    ("dash.2", "2 · Open Faults by Severity"),
+    ("dash.3", "3 · Fault Aging"),
     ("dash.4", "4 · Fault Closure Rate"),
     ("dash.5", "5 · Decisions Waiting, by Reviewer"),
     ("dash.6", "6 · Review Turnaround"),
@@ -1373,7 +1379,7 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
             "Edit MR-I after submission",
             "MR-I Reporting",
         ),
-        ("mri.close_defect", "Close MR-I defects", "MR-I Reporting"),
+        ("mri.close_defect", "Close MR-I faults", "MR-I Reporting"),
         ("mri.approve", "Approve MR-I reports", "MR-I Reporting"),
         (
             "mri.endorse_report",
@@ -1472,6 +1478,12 @@ fn seed_permissions(conn: &Connection) -> Result<(), String> {
         )
         .map_err(|e| e.to_string())?;
     }
+    // FB-029: "Fault" on screen. INSERT OR IGNORE keeps an existing label, so rename it here once.
+    conn.execute(
+        "UPDATE permissions SET label = 'Close MR-I faults' WHERE code = 'mri.close_defect' AND label = 'Close MR-I defects'",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
 
     // Only seed the baseline role -> permission defaults ONCE, the first time this
     // database is created. get_connection() calls seed_permissions() on every single
@@ -1764,7 +1776,12 @@ fn seed_triggers(conn: &Connection, asset_id: i64) -> Result<(), String> {
 
 #[tauri::command]
 fn create_asset(asset: Asset) -> Result<String, String> {
+    // FB-028: the kind of unit (asset type) is required; it decides which MR-I template applies.
+    if asset.asset_type_id.is_none() {
+        return Err("Choose the kind of unit before saving".to_string());
+    }
     let conn = get_connection()?;
+    check_unit_template(&conn, asset.asset_type_id, asset.mri_template_id)?;
 
     let existing: i64 = conn
         .query_row(
@@ -1779,12 +1796,13 @@ fn create_asset(asset: Asset) -> Result<String, String> {
     }
 
     conn.execute(
-        "INSERT INTO assets (asset_code, asset_description, country, service_line, active, service_asset, vehicle, mr_last_action, last_action_by, last_action_dt, asset_type_id, client)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+        "INSERT INTO assets (asset_code, asset_description, country, service_line, active, service_asset, vehicle, mr_last_action, last_action_by, last_action_dt, asset_type_id, client, mri_template_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
         rusqlite::params![
             asset.asset_code, asset.asset_description, asset.country, asset.service_line,
             asset.active as i32, asset.service_asset as i32, asset.vehicle as i32,
-            asset.mr_last_action, asset.last_action_by, asset.last_action_dt, asset.asset_type_id, asset.client
+            asset.mr_last_action, asset.last_action_by, asset.last_action_dt, asset.asset_type_id, asset.client,
+            asset.mri_template_id
         ],
     ).map_err(|e| e.to_string())?;
 
@@ -1815,7 +1833,7 @@ fn get_assets(viewer_user_id: Option<i64>) -> Result<Vec<Asset>, String> {
         }
         None => None,
     };
-    let mut stmt = conn.prepare("SELECT id, asset_code, asset_description, country, service_line, active, service_asset, vehicle, mr_last_action, last_action_by, last_action_dt, asset_type_id, client, tag_status, tag_reason FROM assets")
+    let mut stmt = conn.prepare("SELECT id, asset_code, asset_description, country, service_line, active, service_asset, vehicle, mr_last_action, last_action_by, last_action_dt, asset_type_id, client, tag_status, tag_reason, mri_template_id FROM assets")
         .map_err(|e| e.to_string())?;
     let assets = stmt
         .query_map([], |row| {
@@ -1835,6 +1853,7 @@ fn get_assets(viewer_user_id: Option<i64>) -> Result<Vec<Asset>, String> {
                 client: row.get(12)?,
                 tag_status: row.get(13)?,
                 tag_reason: row.get(14)?,
+                mri_template_id: row.get(15)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -1849,12 +1868,14 @@ fn get_assets(viewer_user_id: Option<i64>) -> Result<Vec<Asset>, String> {
 #[tauri::command]
 fn update_asset(asset: Asset) -> Result<String, String> {
     let conn = get_connection()?;
+    check_unit_template(&conn, asset.asset_type_id, asset.mri_template_id)?;
     conn.execute(
-        "UPDATE assets SET asset_code=?1, asset_description=?2, country=?3, service_line=?4, active=?5, service_asset=?6, vehicle=?7, mr_last_action=?8, last_action_by=?9, last_action_dt=?10, asset_type_id=?11, client=?12 WHERE id=?13",
+        "UPDATE assets SET asset_code=?1, asset_description=?2, country=?3, service_line=?4, active=?5, service_asset=?6, vehicle=?7, mr_last_action=?8, last_action_by=?9, last_action_dt=?10, asset_type_id=?11, client=?12, mri_template_id=?14 WHERE id=?13",
         rusqlite::params![
             asset.asset_code, asset.asset_description, asset.country, asset.service_line,
             asset.active as i32, asset.service_asset as i32, asset.vehicle as i32,
-            asset.mr_last_action, asset.last_action_by, asset.last_action_dt, asset.asset_type_id, asset.client, asset.id
+            asset.mr_last_action, asset.last_action_by, asset.last_action_dt, asset.asset_type_id, asset.client, asset.id,
+            asset.mri_template_id
         ],
     ).map_err(|e| e.to_string())?;
     Ok("Asset updated".to_string())
@@ -2003,14 +2024,35 @@ fn delete_template_component(id: i64) -> Result<String, String> {
 #[tauri::command]
 fn delete_asset(id: i64) -> Result<String, String> {
     let conn = get_connection()?;
-    conn.execute("DELETE FROM maintenance_triggers WHERE asset_id=?1", [id])
+    // FB-009 / FB-015: a unit with MR-I reports is kept (MR records must be kept, manual §8.2),
+    // and the reason is given in plain words.
+    let reports: i64 = conn
+        .query_row("SELECT COUNT(*) FROM mri_reports WHERE asset_id = ?1", [id], |row| row.get(0))
         .map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM asset_tag_history WHERE asset_id=?1", [id])
+    if reports > 0 {
+        return Err(format!(
+            "This unit has {} MR-I report{}, which MMS must keep, so it can't be deleted. Switch it to inactive instead. For beta test data, the Administrator can first remove the reports in Data tools \u{203a} Data purging (approved MOC needed).",
+            reports,
+            if reports == 1 { "" } else { "s" }
+        ));
+    }
+    // All or nothing: counters, tag history and exemptions go only if the unit itself goes.
+    let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM maintenance_triggers WHERE asset_id=?1", [id])
         .map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM asset_moc_exemptions WHERE asset_id=?1", [id])
+    tx.execute("DELETE FROM asset_tag_history WHERE asset_id=?1", [id])
         .map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM assets WHERE id=?1", [id])
+    tx.execute("DELETE FROM asset_moc_exemptions WHERE asset_id=?1", [id])
         .map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM assets WHERE id=?1", [id]).map_err(|e| {
+        let m = e.to_string();
+        if m.contains("FOREIGN KEY") {
+            "This unit is still linked to other records in MMS, so it can't be deleted. Switch it to inactive instead.".to_string()
+        } else {
+            m
+        }
+    })?;
+    tx.commit().map_err(|e| e.to_string())?;
     Ok("Asset deleted".to_string())
 }
 
@@ -2336,9 +2378,13 @@ fn delete_block_reason(conn: &Connection, table: &str, id: i64) -> Result<Option
         "checklist_databank" => ("question", "checklist_item_id"),
         "checklist_sections" => ("group", "section_id"),
         "mri_templates" => {
+            // FB-018: a unit variant is used by the units given it; a standard by the others of its kind.
             let asset_count: i64 = conn
                 .query_row(
-                    "SELECT COUNT(*) FROM assets WHERE asset_type_id = (SELECT asset_type_id FROM mri_templates WHERE id = ?1)",
+                    "SELECT CASE WHEN t.is_variant = 1
+                        THEN (SELECT COUNT(*) FROM assets WHERE mri_template_id = t.id)
+                        ELSE (SELECT COUNT(*) FROM assets WHERE asset_type_id = t.asset_type_id AND mri_template_id IS NULL) END
+                     FROM mri_templates t WHERE t.id = ?1",
                     [id],
                     |row| row.get(0),
                 )
@@ -2647,20 +2693,49 @@ fn delete_asset_type(id: i64) -> Result<String, String> {
     if asset_count > 0 || template_count > 0 {
         let mut parts = Vec::new();
         if asset_count > 0 {
-            parts.push(format!("{} asset(s)", asset_count));
+            parts.push(format!("{} unit{}", asset_count, if asset_count == 1 { "" } else { "s" }));
         }
         if template_count > 0 {
-            parts.push(format!("{} MR-I template(s)", template_count));
+            parts.push(format!("{} MR-I template{}", template_count, if template_count == 1 { "" } else { "s" }));
         }
+        // FB-009: plain words, and what to do instead.
         return Err(format!(
-            "Cannot delete — still used by {}. Reassign or remove those first.",
-            parts.join(" and ")
+            "This kind of unit can't be deleted because {} still use{} it. Change or remove those first, or switch this kind of unit off instead.",
+            parts.join(" and "),
+            if asset_count + template_count == 1 { "s" } else { "" }
         ));
     }
 
     conn.execute("DELETE FROM asset_types WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
     Ok("Asset type deleted".to_string())
+}
+
+// FB-009: what still uses a kind of unit, checked before the delete is offered.
+#[derive(Serialize)]
+struct AssetTypeUsage {
+    units: i64,
+    unit_codes: Vec<String>,
+    templates: i64,
+    reports: i64,
+}
+
+#[tauri::command]
+fn get_asset_type_usage(id: i64) -> Result<AssetTypeUsage, String> {
+    let conn = get_connection()?;
+    let count = |sql: &str| -> Result<i64, String> { conn.query_row(sql, [id], |row| row.get(0)).map_err(|e| e.to_string()) };
+    let units = count("SELECT COUNT(*) FROM assets WHERE asset_type_id = ?1")?;
+    let templates = count("SELECT COUNT(*) FROM mri_templates WHERE asset_type_id = ?1")?;
+    let reports = count("SELECT COUNT(*) FROM mri_reports r JOIN assets a ON a.id = r.asset_id WHERE a.asset_type_id = ?1")?;
+    let mut stmt = conn
+        .prepare("SELECT asset_code FROM assets WHERE asset_type_id = ?1 ORDER BY asset_code LIMIT 5")
+        .map_err(|e| e.to_string())?;
+    let unit_codes = stmt
+        .query_map([id], |row| row.get::<_, String>(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(AssetTypeUsage { units, unit_codes, templates, reports })
 }
 
 #[derive(Serialize, Deserialize)]
@@ -2980,9 +3055,19 @@ fn approve_mri_template(template_id: i64, user_id: i64, note: Option<String>) ->
     let revision_of: Option<i64> = conn
         .query_row("SELECT revision_of FROM mri_templates WHERE id = ?1", [template_id], |row| row.get(0))
         .map_err(|e| e.to_string())?;
+    // One template in use per kind of unit (the version this one replaces is switched off below).
+    if let Some(other) = other_template_in_use(&conn, template_id, revision_of)? {
+        return Err(format!(
+            "\"{}\" is already in use for this kind of unit. Only one template can be in use per kind of unit: set it to Not in use first.",
+            other
+        ));
+    }
     let now = chrono_now();
     let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
     if let Some(old) = revision_of {
+        // FB-018: units given the old version of a unit variant move to the new version.
+        tx.execute("UPDATE assets SET mri_template_id = ?1 WHERE mri_template_id = ?2", rusqlite::params![template_id, old])
+            .map_err(|e| e.to_string())?;
         // Parts (components) keep their ids across versions, so open reports, carried-forward
         // faults and the one-open-report rule still match by part. Same label = same part.
         let new_parts: Vec<(i64, String, i64, i64)> = {
@@ -3065,6 +3150,147 @@ fn create_mri_template_revision(template_id: i64, user_id: i64) -> Result<i64, S
     )
     .map_err(|e| e.to_string())?;
     let new_id = tx.last_insert_rowid();
+    // FB-018: a new version of a unit variant is a unit variant too.
+    tx.execute("UPDATE mri_templates SET is_variant = (SELECT is_variant FROM mri_templates WHERE id = ?2) WHERE id = ?1", rusqlite::params![new_id, template_id])
+        .map_err(|e| e.to_string())?;
+    copy_template_content(&tx, template_id, new_id, &now)?;
+    tx.commit().map_err(|e| e.to_string())?;
+    log_template_action(&conn, new_id, "Version started", Some(user_id), &who, Some(&format!("Version {} started from version {}", version + 1, version)))?;
+    Ok(new_id)
+}
+
+#[derive(Serialize)]
+struct TemplateTask {
+    template_id: i64,
+    template_name: String,
+    version: i64,
+    /// endorse | approve | sent_back
+    kind: String,
+    last_by: Option<String>,
+    last_at: Option<String>,
+    last_note: Option<String>,
+}
+
+/// Templates waiting for the signed-in user: to endorse (FSM), to approve (Regional), or sent
+/// back to the person who submitted them.
+#[tauri::command]
+fn get_my_template_tasks(user_id: i64) -> Result<Vec<TemplateTask>, String> {
+    let conn = get_connection()?;
+    let can_endorse = user_has_permission(&conn, user_id, "mri_templates.endorse");
+    let can_approve = user_has_permission(&conn, user_id, "mri_templates.approve");
+    let mut stmt = conn
+        .prepare(
+            "SELECT t.id, t.template_name, t.version, t.approval,
+                    l.action, l.by_name, l.at, l.note,
+                    (SELECT s.by_user_id FROM mri_template_approval_log s WHERE s.template_id = t.id AND s.action = 'Submitted' ORDER BY s.id DESC LIMIT 1)
+             FROM mri_templates t
+             LEFT JOIN mri_template_approval_log l ON l.id = (SELECT MAX(id) FROM mri_template_approval_log WHERE template_id = t.id)
+             WHERE t.approval IN ('Submitted', 'Endorsed') OR (t.approval = 'Draft' AND l.action = 'Rejected')
+             ORDER BY t.template_name",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, i64>(0)?, row.get::<_, String>(1)?, row.get::<_, i64>(2)?, row.get::<_, String>(3)?,
+                row.get::<_, Option<String>>(4)?, row.get::<_, Option<String>>(5)?, row.get::<_, Option<String>>(6)?, row.get::<_, Option<String>>(7)?,
+                row.get::<_, Option<i64>>(8)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for (id, name, version, approval, _action, by, at, note, submitter) in rows {
+        let kind = match approval.as_str() {
+            "Submitted" if can_endorse => "endorse",
+            "Endorsed" if can_approve => "approve",
+            "Draft" if submitter == Some(user_id) => "sent_back",
+            _ => continue,
+        };
+        out.push(TemplateTask { template_id: id, template_name: name, version, kind: kind.to_string(), last_by: by, last_at: at, last_note: note });
+    }
+    Ok(out)
+}
+
+#[derive(Serialize, Deserialize)]
+struct MriTemplate {
+    id: i64,
+    template_name: String,
+    asset_type_id: i64,
+    status: String,
+    created_by: String,
+    created_date: String,
+    updated_by: String,
+    updated_date: String,
+    approval: String,
+    version: i64,
+    revision_of: Option<i64>,
+    superseded_by: Option<i64>,
+    // FB-018: an extra template for a kind, used only by the units it is given to.
+    is_variant: bool,
+}
+
+#[tauri::command]
+fn get_mri_templates() -> Result<Vec<MriTemplate>, String> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, template_name, asset_type_id, status, created_by, created_date, updated_by, updated_date, approval, version, revision_of, superseded_by, is_variant
+         FROM mri_templates ORDER BY template_name, version"
+    ).map_err(|e| e.to_string())?;
+    let templates = stmt
+        .query_map([], |row| {
+            Ok(MriTemplate {
+                id: row.get(0)?,
+                template_name: row.get(1)?,
+                asset_type_id: row.get(2)?,
+                status: row.get(3)?,
+                created_by: row.get(4)?,
+                created_date: row.get(5)?,
+                updated_by: row.get(6)?,
+                updated_date: row.get(7)?,
+                approval: row.get(8)?,
+                version: row.get(9)?,
+                revision_of: row.get(10)?,
+                superseded_by: row.get(11)?,
+                is_variant: row.get::<_, i64>(12)? != 0,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(templates)
+}
+
+// FB-018: a unit's own template must be an approved, current unit variant of the unit's kind.
+fn check_unit_template(conn: &Connection, asset_type_id: Option<i64>, template_id: Option<i64>) -> Result<(), String> {
+    let Some(tid) = template_id else { return Ok(()) };
+    let row: Option<(i64, i64, String, Option<i64>)> = conn
+        .query_row(
+            "SELECT asset_type_id, is_variant, approval, superseded_by FROM mri_templates WHERE id = ?1",
+            [tid],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+        )
+        .ok();
+    match row {
+        None => Err("The chosen MR-I checklist no longer exists. Choose another one.".to_string()),
+        Some((kind, variant, approval, superseded)) => {
+            if Some(kind) != asset_type_id {
+                Err("The chosen MR-I checklist belongs to another kind of unit. Choose one for this kind.".to_string())
+            } else if variant == 0 {
+                Err("Leave MR-I checklist on Standard to use this kind's standard template.".to_string())
+            } else if approval != "Approved" || superseded.is_some() {
+                Err("The chosen MR-I checklist is not approved yet, so it can't be given to a unit.".to_string())
+            } else {
+                Ok(())
+            }
+        }
+    }
+}
+
+// Copies everything inside a template (header, mid and footer fields, parts, checklist questions,
+// drawing and its points) from one template to another. Used for new versions and unit variants.
+fn copy_template_content(tx: &rusqlite::Transaction, template_id: i64, new_id: i64, now: &str) -> Result<(), String> {
     tx.execute(
         "INSERT INTO template_header_fields (template_id, header_field_id, label_override, data_type, required, display_order, default_value)
          SELECT ?1, header_field_id, label_override, data_type, required, display_order, default_value FROM template_header_fields WHERE template_id = ?2",
@@ -3152,109 +3378,73 @@ fn create_mri_template_revision(template_id: i64, user_id: i64) -> Result<i64, S
             }
         }
     }
+    Ok(())
+}
+
+/// FB-018: start a unit variant of a kind of unit as a full copy of an approved template, in Draft.
+/// It goes through the normal review and approval, then is assigned to units in the Asset Registry.
+#[tauri::command]
+fn copy_mri_template(source_id: i64, new_name: String, user_id: i64) -> Result<i64, String> {
+    let conn = get_connection()?;
+    if !user_has_permission(&conn, user_id, "mri_templates.edit") {
+        return Err("You don't have the right to create or change MR-I templates.".to_string());
+    }
+    let name = new_name.trim().to_string();
+    if name.is_empty() {
+        return Err("Give the new checklist a name.".to_string());
+    }
+    let (source_name, asset_type_id): (String, i64) = conn
+        .query_row("SELECT template_name, asset_type_id FROM mri_templates WHERE id = ?1", [source_id], |r| Ok((r.get(0)?, r.get(1)?)))
+        .map_err(|_| "Template not found".to_string())?;
+    let taken: i64 = conn
+        .query_row("SELECT COUNT(*) FROM mri_templates WHERE template_name = ?1 AND superseded_by IS NULL", [&name], |r| r.get(0))
+        .map_err(|e| e.to_string())?;
+    if taken > 0 {
+        return Err(format!("A template called \"{}\" already exists. Choose another name.", name));
+    }
+    let who = template_user_name(&conn, user_id)?;
+    let now = chrono_now();
+    let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+    tx.execute(
+        "INSERT INTO mri_templates (template_name, asset_type_id, status, created_by, created_date, updated_by, updated_date, approval, version, is_variant)
+         VALUES (?1, ?2, 'Draft', ?3, ?4, ?3, ?4, 'Draft', 1, 1)",
+        rusqlite::params![name, asset_type_id, who, now],
+    )
+    .map_err(|e| e.to_string())?;
+    let new_id = tx.last_insert_rowid();
+    copy_template_content(&tx, source_id, new_id, &now)?;
     tx.commit().map_err(|e| e.to_string())?;
-    log_template_action(&conn, new_id, "Version started", Some(user_id), &who, Some(&format!("Version {} started from version {}", version + 1, version)))?;
+    log_template_action(&conn, new_id, "Created", Some(user_id), &who, Some(&format!("Unit variant copied from \"{}\"", source_name)))?;
     Ok(new_id)
 }
 
-#[derive(Serialize)]
-struct TemplateTask {
-    template_id: i64,
-    template_name: String,
-    version: i64,
-    /// endorse | approve | sent_back
-    kind: String,
-    last_by: Option<String>,
-    last_at: Option<String>,
-    last_note: Option<String>,
+// One MR-I template per kind of unit. A kind's "current" template is any version that is not
+// replaced (superseded) and is not a pending change of another version (those replace it later).
+fn current_template_for_kind(conn: &Connection, asset_type_id: i64) -> Result<Option<String>, String> {
+    conn.query_row(
+        "SELECT template_name FROM mri_templates
+         WHERE asset_type_id = ?1 AND superseded_by IS NULL AND is_variant = 0
+           AND (revision_of IS NULL OR approval = 'Approved')
+         ORDER BY id LIMIT 1",
+        [asset_type_id],
+        |row| row.get::<_, String>(0),
+    )
+    .map(Some)
+    .or_else(|e| if matches!(e, rusqlite::Error::QueryReturnedNoRows) { Ok(None) } else { Err(e.to_string()) })
 }
 
-/// Templates waiting for the signed-in user: to endorse (FSM), to approve (Regional), or sent
-/// back to the person who submitted them.
-#[tauri::command]
-fn get_my_template_tasks(user_id: i64) -> Result<Vec<TemplateTask>, String> {
-    let conn = get_connection()?;
-    let can_endorse = user_has_permission(&conn, user_id, "mri_templates.endorse");
-    let can_approve = user_has_permission(&conn, user_id, "mri_templates.approve");
-    let mut stmt = conn
-        .prepare(
-            "SELECT t.id, t.template_name, t.version, t.approval,
-                    l.action, l.by_name, l.at, l.note,
-                    (SELECT s.by_user_id FROM mri_template_approval_log s WHERE s.template_id = t.id AND s.action = 'Submitted' ORDER BY s.id DESC LIMIT 1)
-             FROM mri_templates t
-             LEFT JOIN mri_template_approval_log l ON l.id = (SELECT MAX(id) FROM mri_template_approval_log WHERE template_id = t.id)
-             WHERE t.approval IN ('Submitted', 'Endorsed') OR (t.approval = 'Draft' AND l.action = 'Rejected')
-             ORDER BY t.template_name",
-        )
-        .map_err(|e| e.to_string())?;
-    let rows = stmt
-        .query_map([], |row| {
-            Ok((
-                row.get::<_, i64>(0)?, row.get::<_, String>(1)?, row.get::<_, i64>(2)?, row.get::<_, String>(3)?,
-                row.get::<_, Option<String>>(4)?, row.get::<_, Option<String>>(5)?, row.get::<_, Option<String>>(6)?, row.get::<_, Option<String>>(7)?,
-                row.get::<_, Option<i64>>(8)?,
-            ))
-        })
-        .map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
-    let mut out = Vec::new();
-    for (id, name, version, approval, _action, by, at, note, submitter) in rows {
-        let kind = match approval.as_str() {
-            "Submitted" if can_endorse => "endorse",
-            "Endorsed" if can_approve => "approve",
-            "Draft" if submitter == Some(user_id) => "sent_back",
-            _ => continue,
-        };
-        out.push(TemplateTask { template_id: id, template_name: name, version, kind: kind.to_string(), last_by: by, last_at: at, last_note: note });
-    }
-    Ok(out)
-}
-
-#[derive(Serialize, Deserialize)]
-struct MriTemplate {
-    id: i64,
-    template_name: String,
-    asset_type_id: i64,
-    status: String,
-    created_by: String,
-    created_date: String,
-    updated_by: String,
-    updated_date: String,
-    approval: String,
-    version: i64,
-    revision_of: Option<i64>,
-    superseded_by: Option<i64>,
-}
-
-#[tauri::command]
-fn get_mri_templates() -> Result<Vec<MriTemplate>, String> {
-    let conn = get_connection()?;
-    let mut stmt = conn.prepare(
-        "SELECT id, template_name, asset_type_id, status, created_by, created_date, updated_by, updated_date, approval, version, revision_of, superseded_by
-         FROM mri_templates ORDER BY template_name, version"
-    ).map_err(|e| e.to_string())?;
-    let templates = stmt
-        .query_map([], |row| {
-            Ok(MriTemplate {
-                id: row.get(0)?,
-                template_name: row.get(1)?,
-                asset_type_id: row.get(2)?,
-                status: row.get(3)?,
-                created_by: row.get(4)?,
-                created_date: row.get(5)?,
-                updated_by: row.get(6)?,
-                updated_date: row.get(7)?,
-                approval: row.get(8)?,
-                version: row.get(9)?,
-                revision_of: row.get(10)?,
-                superseded_by: row.get(11)?,
-            })
-        })
-        .map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
-    Ok(templates)
+// Another template of the same kind already in use (ignoring `except`, e.g. the version a change replaces).
+fn other_template_in_use(conn: &Connection, template_id: i64, except: Option<i64>) -> Result<Option<String>, String> {
+    conn.query_row(
+        "SELECT o.template_name FROM mri_templates o
+         JOIN mri_templates t ON t.id = ?1 AND o.asset_type_id = t.asset_type_id AND t.is_variant = 0
+         WHERE o.id != ?1 AND o.status = 'Active' AND o.superseded_by IS NULL AND o.is_variant = 0 AND (?2 IS NULL OR o.id != ?2)
+         ORDER BY o.id LIMIT 1",
+        rusqlite::params![template_id, except],
+        |row| row.get::<_, String>(0),
+    )
+    .map(Some)
+    .or_else(|e| if matches!(e, rusqlite::Error::QueryReturnedNoRows) { Ok(None) } else { Err(e.to_string()) })
 }
 
 #[derive(Serialize, Deserialize)]
@@ -3269,6 +3459,13 @@ fn create_mri_template(template: NewMriTemplate) -> Result<i64, String> {
     let name = template.template_name.trim();
     if name.is_empty() {
         return Err("Template name cannot be empty".to_string());
+    }
+    // One template per kind of unit: a change goes through "Change this template".
+    if let Some(existing) = current_template_for_kind(&conn, template.asset_type_id)? {
+        return Err(format!(
+            "This kind of unit already has a template (\"{}\"). Each kind of unit has one template: use Change this template on it instead.",
+            existing
+        ));
     }
     let now = chrono_now();
     conn.execute(
@@ -3296,6 +3493,12 @@ fn update_mri_template_status(id: i64, status: String) -> Result<String, String>
         }
         if approval != "Approved" {
             return Err("Only an approved template can be put in use. Send it for review: Maintenance Manager / FSM endorses, Regional Maintenance Manager approves.".to_string());
+        }
+        if let Some(other) = other_template_in_use(&conn, id, None)? {
+            return Err(format!(
+                "\"{}\" is already in use for this kind of unit. Only one template can be in use per kind of unit: set it to Not in use first.",
+                other
+            ));
         }
     }
     let now = chrono_now();
@@ -3506,6 +3709,9 @@ fn valid_severity(s: &str) -> bool {
 }
 
 // ---- FB-024 (RFSM approved): faults not on the checklist ("Other faults") ----
+// Switched off on 24 Nov 2026 (Jess): MR-I is done strictly by the approved checklist template,
+// so no new Other faults can be added. Faults already recorded stay and keep their workflow.
+const OTHER_FAULTS_ALLOWED: bool = false;
 // Tier 1 may add a fault that isn't on the template's checklist and set its severity. It is
 // stored as a checklist item that belongs to this one report (adhoc_report_id), so it follows
 // the same review, repair, history and dashboard path as any other fault, and never shows on
@@ -3542,6 +3748,9 @@ fn add_mri_other_fault(
     issue_details: Option<String>,
     reported_by: Option<String>,
 ) -> Result<i64, String> {
+    if !OTHER_FAULTS_ALLOWED {
+        return Err("Faults can only be recorded on the approved checklist. MR-I follows the approved template; ask the Maintenance Supervisor to add a missing check to the template.".to_string());
+    }
     let conn = get_connection()?;
     let desc = description.trim();
     if desc.is_empty() {
@@ -4743,6 +4952,18 @@ struct NewMriReport {
 #[tauri::command]
 fn create_mri_report(report: NewMriReport) -> Result<i64, String> {
     let conn = get_connection()?;
+    // FB-018: a unit given a unit variant uses that checklist; other units use their kind's standard.
+    let unit_template: Option<i64> = conn
+        .query_row("SELECT mri_template_id FROM assets WHERE id = ?1", [report.asset_id], |r| r.get(0))
+        .map_err(|e| e.to_string())?;
+    let tpl_is_variant: i64 = conn
+        .query_row("SELECT is_variant FROM mri_templates WHERE id = ?1", [report.template_id], |r| r.get(0))
+        .map_err(|e| e.to_string())?;
+    match unit_template {
+        Some(v) if v != report.template_id => return Err("This unit has its own MR-I checklist. Start the report again so MMS uses it.".to_string()),
+        None if tpl_is_variant == 1 => return Err("This checklist is a unit variant and this unit is not set to use it.".to_string()),
+        _ => {}
+    }
 
     // A template that defines components (e.g. Left / Right pump) needs the report tied to
     // one of them; a template without components takes none. Findings, faults and history
@@ -5140,6 +5361,29 @@ fn submit_mri_report(id: i64, submitted_by: String) -> Result<String, String> {
     // report whose template has that field cannot be submitted with it left empty.
     if template_has_header_field(&conn, id, "Compliance Stage") && stage.is_empty() {
         return Err("Compliance Stage is required (Pre-Mob, Pre-Job, Post Job or Yard Inspection) before a report can be submitted.".to_string());
+    }
+
+    // FB-017: nothing is pre-selected, so every required checklist item must be answered.
+    let unanswered: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM template_checklist_items tci
+             WHERE tci.template_id = (SELECT template_id FROM mri_reports WHERE id = ?1)
+               AND tci.required = 1
+               AND (tci.adhoc_report_id IS NULL OR tci.adhoc_report_id = ?1)
+               AND NOT EXISTS (
+                   SELECT 1 FROM mri_report_checklist_results r
+                   WHERE r.report_id = ?1 AND r.template_checklist_item_id = tci.id
+                     AND r.status IN ('Pass', 'Fail'))",
+            [id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if unanswered > 0 {
+        return Err(format!(
+            "{} required checklist item{} not answered yet. Mark each one Pass or Fail before submitting.",
+            unanswered,
+            if unanswered == 1 { " is" } else { "s are" }
+        ));
     }
 
     // The Footer section (Operator, Operator Date, Supervisor, Supervisor Date) must be filled
@@ -9083,6 +9327,15 @@ fn import_mri_templates_backup(backup_json: String) -> Result<String, String> {
             ));
             continue;
         };
+        // One template per kind of unit.
+        if let Some(existing) = current_template_for_kind(&conn, asset_type_id)? {
+            skipped += 1;
+            warnings.push(format!(
+                "'{}' skipped — '{}' already has a template ('{}')",
+                template_name, asset_type_desc, existing
+            ));
+            continue;
+        }
 
         let status = t["status"].as_str().unwrap_or("Draft");
         let now = chrono_now();
@@ -9266,6 +9519,46 @@ fn backup_local_tables(conn: &Connection) -> Result<Vec<String>, String> {
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
     Ok(names)
+}
+
+// FB-008: write the full backup to the file the user chose in the Save As box, and return the
+// full path so the screen can say where it went. (The Save As box itself asks before replacing
+// an existing file.)
+#[tauri::command]
+fn write_full_backup_file(path: String) -> Result<String, String> {
+    let p = std::path::PathBuf::from(path.trim());
+    let is_json = p.extension().and_then(|e| e.to_str()).map_or(false, |e| e.eq_ignore_ascii_case("json"));
+    if !is_json || p.file_name().is_none() {
+        return Err("Save the backup as a .json file.".to_string());
+    }
+    let json = export_full_backup()?;
+    std::fs::write(&p, json.as_bytes()).map_err(|e| format!("Could not save the backup file: {}", e))?;
+    Ok(p.to_string_lossy().into_owned())
+}
+
+// FB-008: open the folder of a saved backup with the file selected (.json files only).
+#[tauri::command]
+fn reveal_backup_file(path: String) -> Result<(), String> {
+    let p = std::path::PathBuf::from(&path);
+    let is_json = p.extension().and_then(|e| e.to_str()).map_or(false, |e| e.eq_ignore_ascii_case("json"));
+    if !is_json || !p.is_file() {
+        return Err("The backup file was not found. It may have been moved or deleted.".to_string());
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        std::process::Command::new("explorer")
+            .raw_arg(format!("/select,\"{}\"", p.display()))
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let dir = p.parent().ok_or_else(|| "The backup folder was not found.".to_string())?;
+        let opener = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
+        std::process::Command::new(opener).arg(dir).spawn().map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -11741,6 +12034,8 @@ fn delete_table_row(table_name: String, id: i64) -> Result<String, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // FB-008: the Windows Save As box for the full backup.
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             create_asset,
             get_assets,
@@ -11839,6 +12134,10 @@ pub fn run() {
             delete_last_mri_report,
             export_assets_backup,
             export_full_backup,
+            get_asset_type_usage,
+            copy_mri_template,
+            write_full_backup_file,
+            reveal_backup_file,
             import_full_backup,
             import_assets_backup,
             export_mri_templates_backup,

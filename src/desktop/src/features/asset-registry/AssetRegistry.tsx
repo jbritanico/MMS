@@ -411,6 +411,8 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
   const [view, setViewState] = useState<RegistryView>(readView);
   const setView = (v: RegistryView) => { setViewState(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* not remembered */ } };
   const [typeFilter, setTypeFilter] = useState("");
+  // FB-028: shows the kind-of-unit box as missing after a save attempt without it.
+  const [typeMissing, setTypeMissing] = useState(false);
   const [countryFilter, setCountryFilter] = useState("");
   const [serviceFilter, setServiceFilter] = useState("");
   const [tagFilter, setTagFilter] = useState<"all" | "Green" | "Yellow" | "Red" | "none" | "limits">("all");
@@ -426,6 +428,9 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
   // an empty list means no restriction, the same rule the backend uses for the asset list.
   const { data: myCountries = [] } = useUserCountryAccess(currentUser?.id ?? 0);
   const [pendingDelete, setPendingDelete] = useState<Asset | null>(null);
+  // FB-015: a failed delete is explained inside the dialog.
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const closeDelete = () => { setPendingDelete(null); setDeleteError(null); };
 
   useEffect(() => {
     if (!status) return;
@@ -440,11 +445,18 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
   function resetForm() {
     setForm({ ...emptyAsset, last_action_by: currentUserLabel });
     setMode("create");
+    setTypeMissing(false);
   }
 
   async function handleSave() {
     if (!form.asset_code.trim()) {
       setStatus({ msg: "Asset code is required", kind: "err" });
+      return;
+    }
+    // FB-028: every unit needs its kind of unit (asset type); it decides which MR-I template is used.
+    if (!form.asset_type_id) {
+      setTypeMissing(true);
+      setStatus({ msg: "Choose the kind of unit before saving", kind: "err" });
       return;
     }
     if (mode === "create" && !canCreate) {
@@ -472,6 +484,7 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
 
   function handleRowClick(asset: Asset) {
     setForm(asset);
+    setTypeMissing(false);
     setMode("view");
   }
 
@@ -514,14 +527,18 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
   async function confirmDelete() {
     if (!pendingDelete || pendingDelete.id === null) return;
     if (!canDelete) {
-      setStatus({ msg: "You don't have permission to delete assets", kind: "err" });
-      setPendingDelete(null);
+      setDeleteError("You don't have permission to delete units.");
       return;
     }
-    await deleteAsset.mutateAsync(pendingDelete.id);
+    try {
+      await deleteAsset.mutateAsync(pendingDelete.id);
+    } catch (err) {
+      setDeleteError(String(err));
+      return;
+    }
     setStatus({ msg: `${pendingDelete.asset_code} deleted`, kind: "ok" });
-    setPendingDelete(null);
     if (form.id === pendingDelete.id) resetForm();
+    closeDelete();
   }
 
   const countryFilterOptions = (myCountries.length > 0
@@ -627,7 +644,7 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
             />
           )}
           <div className="field">
-            <label>Kind of unit</label>
+            <label>Kind of unit <span style={{ color: "var(--danger)" }} aria-hidden="true">*</span></label>
             {isView ? (
               <input
                 type="text"
@@ -635,13 +652,45 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
                 disabled
               />
             ) : (
-              <AssetTypeCombobox
-                assetTypes={eligibleAssetTypes}
-                value={form.asset_type_id ? String(form.asset_type_id) : ""}
-                onChange={(id) => updateField("asset_type_id", id ? Number(id) : null)}
-              />
+              <>
+                <AssetTypeCombobox
+                  assetTypes={eligibleAssetTypes}
+                  value={form.asset_type_id ? String(form.asset_type_id) : ""}
+                  onChange={(id) => { setForm({ ...form, asset_type_id: id ? Number(id) : null, mri_template_id: null }); if (id) setTypeMissing(false); }}
+                  required
+                  invalid={typeMissing && !form.asset_type_id}
+                />
+                <span style={{ fontSize: 11, color: typeMissing && !form.asset_type_id ? "var(--danger)" : "var(--text-soft)" }}>
+                  {typeMissing && !form.asset_type_id ? "Required. " : ""}Only kinds of unit with an approved MR-I template are listed. If yours is missing, ask the template owner to add it.
+                </span>
+              </>
             )}
           </div>
+          {(() => {
+            // FB-018: units of the same kind can use a different checklist (a unit variant).
+            const kind = form.asset_type_id;
+            const standard = templates.find((t) => t.asset_type_id === kind && t.status === "Active" && !t.is_variant && !t.superseded_by);
+            const variants = templates.filter((t) => t.asset_type_id === kind && t.is_variant && t.approval === "Approved" && !t.superseded_by);
+            const own = templates.find((t) => t.id === form.mri_template_id);
+            if (!kind || (variants.length === 0 && !form.mri_template_id)) return null;
+            return (
+              <div className="field">
+                <label>MR-I checklist</label>
+                {isView ? (
+                  <input type="text" disabled value={own ? `${own.template_name} (unit variant)` : `Standard${standard ? ` (${standard.template_name})` : ""}`} />
+                ) : (
+                  <select className="neu-select" value={form.mri_template_id ? String(form.mri_template_id) : ""}
+                    onChange={(e) => updateField("mri_template_id", e.target.value ? Number(e.target.value) : null)}>
+                    <option value="">Standard for this kind{standard ? ` (${standard.template_name})` : " (none in use yet)"}</option>
+                    {variants.map((v) => <option key={v.id} value={String(v.id)}>{v.template_name} (unit variant{v.status !== "Active" ? ", not in use" : ""})</option>)}
+                  </select>
+                )}
+                <span style={{ fontSize: 11, color: "var(--text-soft)" }}>
+                  Choose a unit variant only when this unit's checklist differs from others of its kind (for example extra equipment).
+                </span>
+              </div>
+            );
+          })()}
           <div className="field">
             <label>Country</label>
             <select className="neu-select" value={form.country} onChange={(e) => updateField("country", e.target.value)} disabled={isView}>
@@ -790,6 +839,16 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
               { id: "limits", label: "Running with limits", count: String(assets.filter((a) => limitsByAsset.has(a.id ?? -1)).length), tone: "look" },
             ]}
           />
+          {(() => {
+            // FB-028: units saved before the kind of unit was required.
+            const noType = assets.filter((a) => !a.asset_type_id).length;
+            return noType > 0 && typeFilter !== "none" ? (
+              <div className="empty" role="status" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, justifyContent: "flex-start", padding: "10px 14px", textAlign: "left" }}>
+                <span><b>{noType}</b> unit{noType === 1 ? " has" : "s have"} no kind of unit set. Open each one, choose its kind of unit and save it.</span>
+                <button type="button" className="ghost" onClick={() => setTypeFilter("none")}>Show {noType === 1 ? "it" : "them"}</button>
+              </div>
+            ) : null;
+          })()}
           <div className="asset-filters">
             <label>Asset type
               <select className="neu-select" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
@@ -879,15 +938,16 @@ function AssetRegistry({ onViewTriggers, onShowAssetFlow }: AssetRegistryProps) 
                   stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            <h3>Delete asset?</h3>
+            <h3>{deleteError ? "This unit can't be deleted" : "Delete asset?"}</h3>
             <p>
               This will permanently delete <strong>{pendingDelete.asset_code}</strong>
               {pendingDelete.asset_description ? ` — ${pendingDelete.asset_description}` : ""}.
               This can't be undone.
             </p>
+            {deleteError && <p role="alert" style={{ color: "var(--danger)", fontWeight: 600 }}>{deleteError}</p>}
             <div className="modal-actions">
-              <button className="ghost" onClick={() => setPendingDelete(null)}>Cancel</button>
-              <button className="danger" onClick={confirmDelete}>Delete</button>
+              <button className="ghost" onClick={closeDelete}>{deleteError ? "Close" : "Cancel"}</button>
+              {!deleteError && <button className="danger" onClick={confirmDelete} disabled={deleteAsset.isPending}>Delete</button>}
             </div>
           </div>
         </div>

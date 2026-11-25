@@ -22,7 +22,7 @@ import { Num, chartAnim } from "../fluent/motion";
 import { sevLabel } from "../hooks/useMriDashboards";
 import { useAdvanced } from "../dashMode";
 
-// Dashboard 2: Open defects by severity.
+// Dashboard 2: Open faults by severity (FB-029: "Fault" on screen; file and component names unchanged).
 // A fault is "open" from the moment its report is submitted until it is closed (repair verified,
 // rejected, closed on the report, passed on the next inspection...). A fault carried forward to a
 // later report is counted once: on the latest report that holds it.
@@ -210,7 +210,7 @@ export default function OpenDefects({ assets, filters }: { assets: MriDashboardA
         <p className="mrid-note">
           Faults not yet fixed {isCurrent ? <b>now</b> : <>at the <b>end of {range.label}</b></>}, by severity. A fault carried forward to a later report is counted once.
         </p>
-        <ExportMenu dashboardNo={2} title="Open Defects by Severity" filters={filters} tables={exportTables} />
+        <ExportMenu dashboardNo={2} title="Open Faults by Severity" filters={filters} tables={exportTables} />
       </div>
 
       <StoryStrip lines={story} />

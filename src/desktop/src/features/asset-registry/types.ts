@@ -17,6 +17,8 @@ export interface Asset {
   tag_status: "Red" | "Yellow" | "Green" | null;
   // Why the unit carries its current tag (Manual 8.1). Read-only, set by the workflow.
   tag_reason: string | null;
+  /** FB-018: this unit's own MR-I template (a unit variant); null = its kind's standard template. */
+  mri_template_id?: number | null;
 }
 
 // Approved Red-tag exemption granted through MOC (Manual 6.1.5).

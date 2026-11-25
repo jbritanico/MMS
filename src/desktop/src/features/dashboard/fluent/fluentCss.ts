@@ -283,7 +283,7 @@ ${FL_TOKENS}
 .fl-shell[data-motion="3"] .fl-hero-art { animation-duration: 9s; }
 
 /* ---------- animated pieces ---------- */
-/* Overdue marker: a pulsing dot before overdue text (Defect aging, MR-II forecast, ...) */
+/* Overdue marker: a pulsing dot before overdue text (Fault aging, MR-II forecast, ...) */
 .fl-shell .mrid-over::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; vertical-align: 1px; border-radius: 50%; background: currentColor; animation: fl-beat calc(1.8s / max(var(--fl-k), 0.6)) ease-out infinite; }
 .fl-shell .mrid-dot.is-pulse { color: var(--fl-red); animation: fl-beat 1.6s ease-out infinite; }
 /* Ring (closure rate, exemption countdown) */
@@ -460,6 +460,21 @@ ${FL_TOKENS}
 .fl-asset-tval { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
 .fl-asset-go { display: inline-flex; align-items: center; gap: 2px; align-self: flex-end; margin-top: auto; font-size: 12.5px; font-weight: 600; color: var(--fl-blue); transition: gap 0.2s var(--fl-ease); }
 .fl-asset-go svg { width: 15px; height: 15px; }
+/* FB-030: compact cards in Asset MR-I History */
+.fl-asset-grid.is-compact { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: var(--fl-s3); }
+.fl-shell .fl-asset.is-compact { gap: 8px; padding: 12px 12px 10px !important; border-radius: var(--fl-r-md) !important; animation: none; }
+.fl-shell .fl-asset.is-compact::before { height: 3px; }
+.fl-shell .fl-asset.is-compact:hover { transform: translateY(-2px); }
+.fl-asset.is-compact .fl-asset-top { gap: 9px; }
+.fl-asset.is-compact .fl-asset-pic { width: 38px; height: 38px; padding: 3px; border-radius: 10px; }
+.fl-asset.is-compact .fl-ico { width: 34px; height: 34px; } .fl-asset.is-compact .fl-ico svg { width: 18px; height: 18px; }
+.fl-asset.is-compact .fl-asset-name b { font-size: 14px; }
+.fl-asset.is-compact .fl-asset-name small { font-size: 11.5px; }
+.fl-asset.is-compact .fl-asset-stats { gap: 6px 8px; font-size: 11.5px; }
+.fl-asset.is-compact .fl-asset-count b { font-size: 13px; }
+.fl-asset.is-compact .fl-pill { font-size: 11px; padding-block: 1px; }
+.fl-cnt-mini { display: flex; flex-wrap: wrap; gap: 4px; }
+.fl-cnt-mini .fl-cnt-level { height: 18px; padding: 0 7px; font-size: 10.5px; }
 .fl-shell .fl-asset:hover .fl-asset-go { gap: 6px; }
 .fl-asset-head { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 18px; padding: 20px 22px; border-radius: var(--fl-r-lg); background: var(--fl-card); border: 1px solid var(--fl-line); box-shadow: var(--fl-shadow-1); }
 .fl-asset-head .fl-ico.lg { border-radius: 50%; }

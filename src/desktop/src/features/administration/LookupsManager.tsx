@@ -34,6 +34,8 @@ function LookupsManager() {
   const [editValue, setEditValue] = useState("");
   const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<LookupValue | null>(null);
+  // FB-015: a refused delete is explained inside the dialog (one dialog is open at a time).
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [renamingCriteria, setRenamingCriteria] = useState(false);
   const [criteriaRenameValue, setCriteriaRenameValue] = useState("");
@@ -95,10 +97,10 @@ function LookupsManager() {
       const result = await deleteCriteriaMut.mutateAsync(pendingDeleteCriteria);
       flash(result, "ok");
       setActiveCriteria("");
-    } catch (err) {
-      flash(String(err), "err");
-    } finally {
       setPendingDeleteCriteria(null);
+      setDeleteError(null);
+    } catch (err) {
+      setDeleteError(String(err));
     }
   }
 
@@ -135,9 +137,15 @@ function LookupsManager() {
 
   async function confirmDelete() {
     if (!pendingDelete) return;
-    await deleteLookup.mutateAsync(pendingDelete.id);
+    try {
+      await deleteLookup.mutateAsync(pendingDelete.id);
+    } catch (err) {
+      setDeleteError(String(err));
+      return;
+    }
     flash(`"${pendingDelete.name}" deleted`, "ok");
     setPendingDelete(null);
+    setDeleteError(null);
   }
 
   function normalizeRows(rows: any[]): string[] {
@@ -507,9 +515,10 @@ function LookupsManager() {
             </div>
             <h3>Delete value?</h3>
             <p>This will permanently delete <strong>"{pendingDelete.name}"</strong> from {pendingDelete.criteria}.</p>
+            {deleteError && <p role="alert" style={{ color: "var(--danger)", fontWeight: 600 }}>{deleteError}</p>}
             <div className="modal-actions">
-              <button className="ghost" onClick={() => setPendingDelete(null)}>Cancel</button>
-              <button className="danger" onClick={confirmDelete}>Delete</button>
+              <button className="ghost" onClick={() => { setPendingDelete(null); setDeleteError(null); }}>{deleteError ? "Close" : "Cancel"}</button>
+              {!deleteError && <button className="danger" onClick={confirmDelete}>Delete</button>}
             </div>
           </div>
         </div>
@@ -528,9 +537,10 @@ function LookupsManager() {
             <p>
               This will permanently delete <strong>{pendingDeleteCriteria}</strong> and every value under it. This cannot be undone.
             </p>
+            {deleteError && <p role="alert" style={{ color: "var(--danger)", fontWeight: 600 }}>{deleteError}</p>}
             <div className="modal-actions">
-              <button className="ghost" onClick={() => setPendingDeleteCriteria(null)}>Cancel</button>
-              <button className="danger" onClick={confirmDeleteCriteria}>Delete</button>
+              <button className="ghost" onClick={() => { setPendingDeleteCriteria(null); setDeleteError(null); }}>{deleteError ? "Close" : "Cancel"}</button>
+              {!deleteError && <button className="danger" onClick={confirmDeleteCriteria}>Delete</button>}
             </div>
           </div>
         </div>

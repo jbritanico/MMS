@@ -38,6 +38,23 @@ export function useUpdateAssetType() {
   });
 }
 
+// FB-009: what still uses a kind of unit (checked when Delete is pressed).
+export interface AssetTypeUsage {
+  units: number;
+  unit_codes: string[];
+  templates: number;
+  reports: number;
+}
+
+export function useAssetTypeUsage(id: number | null) {
+  return useQuery({
+    queryKey: ["asset-type-usage", id],
+    queryFn: () => invoke<AssetTypeUsage>("get_asset_type_usage", { id }),
+    enabled: id !== null,
+    staleTime: 0,
+  });
+}
+
 export function useDeleteAssetType() {
   const qc = useQueryClient();
   return useMutation({

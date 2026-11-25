@@ -71,7 +71,7 @@ export const DASH_INFO: Record<string, DashInfo> = {
     items: [
       { match: /^Fleet availability/i, what: "The share of active units that are ready for service (Green tag) right now. The coloured liquid behind the card fills to the same percentage, and the tiles on the right count units by tag colour.", how: "The arrow compares with 30 days ago, worked out from the tag history. The liquid is green at 85% and above, amber from 70% to 84% and red below 70%; these bands are for display only, as the manual sets no availability target. Click a tile to open Fleet status by tag colour.", refs: [R.s81, R.s43, R.s42] },
       { match: /^Units by tag/i, what: "How many units are Green (ready), Yellow (under repair) and Red (not ready for service).", how: "Click to open Fleet status by tag colour.", refs: [R.s81] },
-      { match: /^Open faults/i, what: "Faults found during MR-I that are not fixed and closed yet, compared with 30 days ago.", how: "Click to open Open defects by severity.", refs: [R.s9644, R.s615] },
+      { match: /^Open faults/i, what: "Faults found during MR-I that are not fixed and closed yet, compared with 30 days ago.", how: "Click to open Open faults by severity.", refs: [R.s9644, R.s615] },
       { match: /^Waiting for review/i, what: "MR-I reports and fault decisions waiting for a Supervisor or a reviewer to act, oldest first.", how: "Click a line or \"View all\" to open Decisions waiting.", refs: [R.f1, R.t3] },
       { match: /^Repairs in progress/i, what: "Confirmed faults that are in the repair queue and not yet repaired and checked.", how: "Click to open Repair queue and repair time.", refs: [R.s617, R.s7] },
       { match: /^Faults found and closed/i, what: "Each month: bars for faults found and faults closed, and a line for faults still open at the end of the month.", how: "If the line keeps rising, faults are being found faster than they are fixed. Use the 3M / 6M / 12M buttons to change the range.", refs: [R.s615, R.s43] },
@@ -112,7 +112,7 @@ export const DASH_INFO: Record<string, DashInfo> = {
   },
 
   "2": {
-    name: "Open Defects by Severity",
+    name: "Open Faults by Severity",
     what: "Faults found during MR-I that are not fixed and closed yet, split into Minor, Moderate and Major / Critical, and how the number changes month by month.",
     how: "Click a severity tile to narrow everything below. Click a month on the chart to see the faults that were open at that time.",
     why: "This is the Pending Fault Analysis the manual asks for: it shows the repair backlog and where it sits.",
@@ -130,7 +130,7 @@ export const DASH_INFO: Record<string, DashInfo> = {
   },
 
   "3": {
-    name: "Defect Aging",
+    name: "Fault Aging",
     what: "How long open faults have been waiting to be fixed. A fault is overdue when it is older than its limit: Major / Critical 7 days, Moderate and Minor 30 days.",
     how: "Click an \"overdue\" tile to list those faults, oldest first.",
     why: "The manual asks for faults to be fixed within defined timeframes and for aging trends to be watched. The 7- and 30-day limits are set in MMS; the manual does not give the number of days.",
@@ -150,7 +150,7 @@ export const DASH_INFO: Record<string, DashInfo> = {
     name: "Fault Closure Rate",
     what: "Of all the faults there were to fix in the period (those already open at the start plus the new ones), the share that was closed. Higher is better.",
     how: "Compare the severities: Major / Critical should have the highest rate.",
-    why: "The manual asks for faults to be fixed within defined timeframes and for the defect backlog to be monitored.",
+    why: "The manual asks for faults to be fixed within defined timeframes and for the fault backlog to be monitored.",
     refs: [R.s615, R.s43, R.deck],
     items: [
       { match: /Critical/i, what: "Closure rate for Major / Critical faults: closed ÷ (open at start + new).", how: SEL_HOW, refs: [R.t3, R.s615] },
@@ -345,7 +345,7 @@ export const DASH_INFO: Record<string, DashInfo> = {
     name: "Inspectors",
     what: "The work of the people who carry out MR-I inspections: reports submitted, faults found, and how many of their faults were rejected or downgraded at review.",
     how: "Use it to spot where training on the severity table may help, not to rank people.",
-    why: "The manual makes Job Supervisors and maintenance staff responsible for MR-I and for reporting defects accurately in MMS.",
+    why: "The manual makes Job Supervisors and maintenance staff responsible for MR-I and for reporting faults accurately in MMS.",
     refs: [R.s45, R.s44, R.s92, R.s95],
     items: [
       { match: /^Reports submitted:/i, what: "The reports this person submitted in the period.", refs: [R.s9645] },

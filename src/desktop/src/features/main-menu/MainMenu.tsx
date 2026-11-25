@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState, type ReactElement } from "react";
 import { roleName } from "../../lib/roles";
 import { createPortal } from "react-dom";
 import IdleScreensaver from "../idle/IdleScreenSaver";
+import TurntablePopup from "../turntable/TurntablePopup";
 import { useMyReportChangeNotices } from "../mri-reporting/hooks/useReportEdits";
 import { useMyRepairAssignments } from "../mri-reporting/hooks/useMriFaultRectifications";
 import { useMyTemplateTasks } from "../administration/hooks/useMriTemplates";
@@ -19,6 +20,7 @@ import {
 } from "../../lib/mapFeatureFlag";
 import { useEffectivePermissions } from "../administration/hooks/useUserAdmin";
 import {
+  usePendingMriFaultAcknowledgments,
   usePendingMriFaultApprovals,
   useProvisionalMriFaultApprovals,
 } from "../mri-reporting/hooks/useMriFaultApprovals";
@@ -207,6 +209,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange, onOpenTemplates }: 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [faultDrawerOpen, setFaultDrawerOpen] = useState(false);
   const [idleOpen, setIdleOpen] = useState(false);
+  const [turntableOpen, setTurntableOpen] = useState(false);
 
   const [reportsExpanded, setReportsExpanded] = useState(false);
   const [mapFeatureOn, setMapFeatureOn] = useState(() => isMapFeatureEnabled());
@@ -232,6 +235,12 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange, onOpenTemplates }: 
   // Only faults this user can actually act on count toward the badge; read-only ones
   // (waiting on someone else) are visible on the screen but not "on my plate".
   const pendingApprovalsCount = pendingApprovals.filter((r) => r.can_act).length;
+  // FB-019: reviewed Moderate decisions waiting for this Maintenance Manager / FSM to
+  // acknowledge are on the same Pending Approvals screen, so they count here too.
+  const canAcknowledge = effectivePermissions.includes("mri.acknowledge_critical");
+  const { data: pendingAcknowledgments = [] } = usePendingMriFaultAcknowledgments(currentUser?.id ?? 0);
+  const acknowledgmentsCount = canAcknowledge ? pendingAcknowledgments.length : 0;
+  const pendingApprovalsCardCount = (canReviewApprovals ? pendingApprovalsCount : 0) + acknowledgmentsCount;
   const canRectify = effectivePermissions.includes("mri.rectify");
   const { data: pendingRectifications = [] } = usePendingMriFaultRectifications(
     currentUser?.id ?? 0,
@@ -267,13 +276,14 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange, onOpenTemplates }: 
   const canOpenFaultReview =
     myRepairs.length > 0 ||
     canReviewApprovals ||
+    canAcknowledge ||
     canRectify ||
     canConfirmProvisional ||
     canReviewReports ||
     myOpenReportsCount > 0;
   const isAdministrator = currentUser?.role === "Administrator";
   const faultReviewTotal =
-    (!isAdministrator && canReviewApprovals ? pendingApprovalsCount : 0) +
+    (!isAdministrator ? pendingApprovalsCardCount : 0) +
     (!isAdministrator && canConfirmProvisional ? provisionalCount : 0) +
     (!isAdministrator && canRectify ? pendingRectificationsCount : 0) +
     (!isAdministrator && canReviewReports ? reportsNeedingActionCount : 0) +
@@ -523,7 +533,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange, onOpenTemplates }: 
 
               <div className="drawer-section-label">Fault Review</div>
 
-              {canReviewApprovals && (
+              {(canReviewApprovals || canAcknowledge) && (
                 <div
                   className="drawer-user-card"
                   style={{
@@ -536,7 +546,9 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange, onOpenTemplates }: 
                   <div>
                     <div className="drawer-user-name">Pending Approvals</div>
                     <div className="drawer-user-role">
-                      Moderate/Critical faults awaiting review
+                      {acknowledgmentsCount > 0
+                        ? `${canReviewApprovals ? `${pendingApprovalsCount} to review · ` : ""}${acknowledgmentsCount} to acknowledge`
+                        : "Moderate/Critical faults awaiting review"}
                     </div>
                   </div>
                   <div
@@ -554,7 +566,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange, onOpenTemplates }: 
                         color: "var(--text)",
                       }}
                     >
-                      {pendingApprovalsCount}
+                      {pendingApprovalsCardCount}
                     </span>
                     <button
                       className="primary"
@@ -962,6 +974,24 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange, onOpenTemplates }: 
                   </svg>
                   Idle
                 </button>
+                <button
+                  className="drawer-nav-btn"
+                  onClick={() => {
+                    setDrawerOpen(false);
+                    setTurntableOpen(true);
+                  }}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <ellipse cx="12" cy="15" rx="8.5" ry="3.5" stroke="currentColor" strokeWidth="1.6" />
+                    <path d="M3.5 15v2c0 1.9 3.8 3.5 8.5 3.5s8.5-1.6 8.5-3.5v-2" stroke="currentColor" strokeWidth="1.6" />
+                    <rect x="8.5" y="4" width="7" height="8" rx="1.2" stroke="currentColor" strokeWidth="1.6" />
+                  </svg>
+                  Turntable
+                </button>
 
                 <div
                   style={{
@@ -991,6 +1021,7 @@ function MainMenu({ onNavigate, currentTheme, onThemeChange, onOpenTemplates }: 
         )}
 
       {idleOpen && <IdleScreensaver onClose={() => setIdleOpen(false)} />}
+      {turntableOpen && <TurntablePopup onClose={() => setTurntableOpen(false)} />}
     </>
   );
 }

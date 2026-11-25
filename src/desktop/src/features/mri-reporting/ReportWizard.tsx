@@ -2155,9 +2155,11 @@ function ChecklistEntryStep({
     return databank.find((d) => d.id === checklistItemId);
   }
 
-  function defaultStatusFor(ti: (typeof templateItems)[number]) {
+  // FB-017: nothing is pre-selected, so every item is read and answered. Only a fault
+  // carried forward (still open from an earlier report) starts as Fail.
+  function defaultStatusFor(ti: (typeof templateItems)[number]): "Fail" | null {
     const checklistItemId = ti.checklist_item_id;
-    return pendingItemIds.includes(checklistItemId) ? "Fail" : "Pass";
+    return pendingItemIds.includes(checklistItemId) ? "Fail" : null;
   }
 
   function getResult(
@@ -2308,7 +2310,9 @@ function ChecklistEntryStep({
         return;
       }
       autoDefaulted.add(ti.id);
-      autoSave(ti, { status: defaultStatusFor(ti) });
+      // FB-017: only carried-forward faults are saved up front (as Fail); others stay blank.
+      const initial = defaultStatusFor(ti);
+      if (initial) autoSave(ti, { status: initial });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [

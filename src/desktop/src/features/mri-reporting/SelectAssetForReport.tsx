@@ -270,9 +270,12 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
     setTimeout(() => setStatus(null), 4000);
   }
 
-  function findActiveTemplate(assetTypeId: number | null) {
+  // FB-018: a unit given a unit variant uses it; other units use their kind's standard template.
+  function findActiveTemplate(assetTypeId: number | null, assetId?: number | null) {
     if (!assetTypeId) return null;
-    return templates.find((t) => t.asset_type_id === assetTypeId && t.status === "Active") ?? null;
+    const own = assetId != null ? assets.find((a) => a.id === assetId)?.mri_template_id ?? null : null;
+    if (own) return templates.find((t) => t.id === own && t.status === "Active") ?? null;
+    return templates.find((t) => t.asset_type_id === assetTypeId && t.status === "Active" && !t.is_variant) ?? null;
   }
 
   function assetTypeName(id: number | null) {
@@ -334,9 +337,9 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
   }
 
   async function handleSelect(assetId: number, assetTypeId: number | null, componentId: number | null = null) {
-    const template = findActiveTemplate(assetTypeId);
+    const template = findActiveTemplate(assetTypeId, assetId);
     if (!template) {
-      flash("No active MR-I template exists for this asset's type yet", "err");
+      flash("No MR-I checklist is in use for this unit yet (its kind's standard template, or the unit variant it was given)", "err");
       return;
     }
 
@@ -401,7 +404,7 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
     }
   }
 
-  const noTemplateCount = allowed.filter((a) => !findActiveTemplate(a.asset_type_id)).length;
+  const noTemplateCount = allowed.filter((a) => !findActiveTemplate(a.asset_type_id, a.id)).length;
   const pendingCount = filtered.filter((a) => a.id !== null && pendingIssueAssetIds.includes(a.id)).length;
   const redCount = filtered.filter((a) => a.tag_status === "Red").length;
 
@@ -533,7 +536,7 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
         </div>
       )}
       {componentChoice && (() => {
-        const template = findActiveTemplate(componentChoice.assetTypeId);
+        const template = findActiveTemplate(componentChoice.assetTypeId, componentChoice.assetId);
         const asset = assets.find((a) => a.id === componentChoice.assetId);
         return (
           <div className="modal-overlay" onClick={() => setComponentChoice(null)}>
@@ -592,7 +595,7 @@ function SelectAssetForReport({ onReportCreated }: SelectAssetForReportProps) {
       ) : (
         (() => {
           const items = filtered.map((a) => {
-            const template = findActiveTemplate(a.asset_type_id);
+            const template = findActiveTemplate(a.asset_type_id, a.id);
             const comps = componentsFor(template?.id);
             const hasComponents = comps.length > 0;
             const hasDraftForTemplate =

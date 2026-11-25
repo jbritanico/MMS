@@ -6,6 +6,7 @@ import {
     useCreateAssetType,
     useUpdateAssetType,
     useDeleteAssetType,
+    useAssetTypeUsage,
     useBulkCreateAssetTypes,
     type AssetType,
 } from "./hooks/useAssetTypes";
@@ -45,6 +46,10 @@ function AssetTypes() {
     const [editDescription, setEditDescription] = useState("");
     const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
     const [pendingDelete, setPendingDelete] = useState<AssetType | null>(null);
+    // FB-009: what uses the kind of unit, and any delete error, shown inside the dialog.
+    const usage = useAssetTypeUsage(pendingDelete ? pendingDelete.id : null);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
+    const closeDelete = () => { setPendingDelete(null); setDeleteError(null); };
 
     const [previewRows, setPreviewRows] = useState<string[] | null>(null);
     const [importing, setImporting] = useState(false);
@@ -114,9 +119,9 @@ function AssetTypes() {
         try {
             await deleteType.mutateAsync(pendingDelete.id);
             flash(`"${pendingDelete.description}" deleted`, "ok");
-            setPendingDelete(null);
+            closeDelete();
         } catch (err) {
-            flash(String(err), "err");
+            setDeleteError(String(err));
         }
     }
 
@@ -344,15 +349,57 @@ function AssetTypes() {
                                     stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
                         </div>
-                        <h3>Delete asset type?</h3>
-                        <p>
-                            This will permanently delete <strong>"{pendingDelete.description}"</strong>.
-                            Templates already using it will keep their reference, but it can no longer be selected for new templates.
-                        </p>
-                        <div className="modal-actions">
-                            <button className="ghost" onClick={() => setPendingDelete(null)}>Cancel</button>
-                            <button className="danger" onClick={confirmDelete}>Delete</button>
-                        </div>
+                        {(() => {
+                            const u = usage.data;
+                            const inUse = !!u && (u.units > 0 || u.templates > 0);
+                            const what: string[] = [];
+                            if (u && u.units > 0) what.push(`${u.units} unit${u.units === 1 ? "" : "s"}${u.unit_codes.length ? ` (${u.unit_codes.join(", ")}${u.units > u.unit_codes.length ? ", …" : ""})` : ""}`);
+                            if (u && u.templates > 0) what.push(`${u.templates} MR-I template${u.templates === 1 ? "" : "s"}`);
+                            return (
+                                <>
+                                    <h3>{inUse ? "This kind of unit can't be deleted" : "Delete this kind of unit?"}</h3>
+                                    {usage.isLoading ? (
+                                        <p>Checking whether <strong>"{pendingDelete.description}"</strong> is in use…</p>
+                                    ) : usage.isError ? (
+                                        <p>MMS could not check whether <strong>"{pendingDelete.description}"</strong> is in use. You can still try to delete it; MMS will stop the delete if something uses it.</p>
+                                    ) : inUse ? (
+                                        <>
+                                            <p><strong>"{pendingDelete.description}"</strong> is still used by {what.join(" and ")}.
+                                                {u!.reports > 0 && <> Those units have {u!.reports} MR-I report{u!.reports === 1 ? "" : "s"}, which MMS must keep.</>}</p>
+                                            <p style={{ fontSize: 13, color: "var(--text-soft)" }}>
+                                                {pendingDelete.active ? "If you only want to stop people choosing it, switch it off instead." : "It is already switched off, so nobody can choose it for new units or templates."}
+                                            </p>
+                                            <div style={{ fontSize: 13, color: "var(--text-soft)" }}>
+                                                <b>To remove it completely (for example beta test data), in this order:</b>
+                                                <ol style={{ margin: "4px 0 0", paddingLeft: 20 }}>
+                                                    {u!.reports > 0 && <li>Data tools › Data purging: remove the MR-I reports for this kind of unit (Administrator, approved MOC).</li>}
+                                                    {u!.units > 0 && <li>Asset Registry: delete its units.</li>}
+                                                    {u!.templates > 0 && <li>MR-I templates: delete its template.</li>}
+                                                    <li>Come back here and delete the kind of unit.</li>
+                                                </ol>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <p>This permanently deletes <strong>"{pendingDelete.description}"</strong>. Nothing in MMS uses it.</p>
+                                    )}
+                                    {deleteError && (
+                                        <p role="alert" style={{ color: "var(--danger)", fontWeight: 600 }}>{deleteError}</p>
+                                    )}
+                                    <div className="modal-actions">
+                                        <button className="ghost" onClick={closeDelete}>{inUse ? "Close" : "Cancel"}</button>
+                                        {inUse ? (
+                                            pendingDelete.active && (
+                                                <button className="primary" onClick={async () => { const t = pendingDelete; closeDelete(); await toggleActive(t); }}>
+                                                    Switch off instead
+                                                </button>
+                                            )
+                                        ) : (
+                                            <button className="danger" onClick={confirmDelete} disabled={usage.isLoading || deleteType.isPending}>Delete</button>
+                                        )}
+                                    </div>
+                                </>
+                            );
+                        })()}
                     </div>
                 </div>
             )}

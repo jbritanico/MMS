@@ -7,6 +7,9 @@ import { useMriReportChecklistResults, useSetMriReportChecklistResult, type MriR
 // FB-024 (RFSM approved): "Other faults". Tier 1 may add a fault that is not on the template's
 // checklist and assign its severity. Each one is kept as a fault on this report only, so it
 // goes through the same review, repair, history and dashboards as the checklist faults.
+// 24 Nov 2026 (Jess): switched off. MR-I is done strictly by the approved checklist template, so
+// new Other faults can't be added; faults already recorded on a report are still shown and handled.
+const ADDING_ALLOWED = false;
 
 interface OtherFault { template_checklist_item_id: number; description: string }
 const SEVERITIES = [
@@ -45,7 +48,7 @@ export default function OtherFaults({ reportId, locked, canRemove }: { reportId:
   const [msg, setMsg] = useState<string | null>(null);
   const [local, setLocal] = useState<Record<number, Partial<MriReportChecklistResult>>>({});
 
-  if (locked && faults.length === 0) return null;
+  if (faults.length === 0 && (locked || !ADDING_ALLOWED)) return null;
 
   const resultOf = (id: number) => ({ ...(results.find((r) => r.template_checklist_item_id === id) ?? null), ...(local[id] ?? {}) }) as MriReportChecklistResult;
   const edit = (id: number, patch: Partial<MriReportChecklistResult>) => setLocal((p) => ({ ...p, [id]: { ...(p[id] ?? {}), ...patch } }));
@@ -73,7 +76,7 @@ export default function OtherFaults({ reportId, locked, canRemove }: { reportId:
   return (
     <div className="ofl" style={{ marginTop: 24 }}>
       <style>{OFL_CSS}</style>
-      <h3 className="rk-group-h">Other faults ({faults.length})<small>Faults you found that are not on the checklist. Pick how serious each one is; it follows the same review as the checklist faults.</small></h3>
+      <h3 className="rk-group-h">Other faults ({faults.length})<small>{ADDING_ALLOWED ? "Faults you found that are not on the checklist. Pick how serious each one is; it follows the same review as the checklist faults." : "Recorded on this report before MR-I was limited to the approved checklist. New faults can't be added here."}</small></h3>
       {faults.length > 0 && (
         <div style={{ overflowX: "auto" }}>
           <table className="ofl-table">
@@ -104,7 +107,7 @@ export default function OtherFaults({ reportId, locked, canRemove }: { reportId:
           </table>
         </div>
       )}
-      {!locked && (
+      {ADDING_ALLOWED && !locked && (
         <div className="ofl-add">
           <input type="text" className="trigger-input" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Fault not on the checklist, e.g. Cracked step on the access ladder" aria-label="Fault not on the checklist" />
           <select className="neu-select" value={sev} onChange={(e) => setSev(e.target.value)} aria-label="How serious">

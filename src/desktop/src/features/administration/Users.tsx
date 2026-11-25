@@ -36,6 +36,8 @@ function Users() {
   const [editUser, setEditUser] = useState<Partial<AppUser>>({});
   const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<AppUser | null>(null);
+  // FB-015: a refused delete is explained inside the dialog.
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [managingPermsFor, setManagingPermsFor] = useState<AppUser | null>(null);
   const [managingCountriesFor, setManagingCountriesFor] = useState<AppUser | null>(null);
   const [q, setQ] = useState("");
@@ -107,8 +109,9 @@ function Users() {
       await deleteUser.mutateAsync(pendingDelete.id);
       flash(`"${pendingDelete.name}" deleted`, "ok");
       setPendingDelete(null);
+      setDeleteError(null);
     } catch (err) {
-      flash(String(err), "err");
+      setDeleteError(String(err));
     }
   }
 
@@ -290,9 +293,10 @@ function Users() {
             </div>
             <h3>Delete this person?</h3>
             <p>This will permanently delete <strong>"{pendingDelete.name}"</strong> and any personal permission overrides.</p>
+            {deleteError && <p role="alert" style={{ color: "var(--danger)", fontWeight: 600 }}>{deleteError}</p>}
             <div className="modal-actions">
-              <button className="ghost" onClick={() => setPendingDelete(null)}>Cancel</button>
-              <button className="danger" onClick={confirmDelete}>Delete</button>
+              <button className="ghost" onClick={() => { setPendingDelete(null); setDeleteError(null); }}>{deleteError ? "Close" : "Cancel"}</button>
+              {!deleteError && <button className="danger" onClick={confirmDelete}>Delete</button>}
             </div>
           </div>
         </div>

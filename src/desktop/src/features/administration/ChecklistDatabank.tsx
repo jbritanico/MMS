@@ -46,6 +46,8 @@ function ChecklistDatabank() {
 
     const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
     const [pendingDelete, setPendingDelete] = useState<ChecklistItem | null>(null);
+    // FB-015: a refused delete is explained inside the dialog.
+    const [deleteError, setDeleteError] = useState<string | null>(null);
 
     const [previewRows, setPreviewRows] = useState<ParsedRow[] | null>(null);
     const [importing, setImporting] = useState(false);
@@ -156,10 +158,11 @@ function ChecklistDatabank() {
         try {
             await deleteItem.mutateAsync(pendingDelete.id);
             flash(`"${pendingDelete.code}" deleted`, "ok");
+            setPendingDelete(null);
+            setDeleteError(null);
         } catch (err) {
-            flash(String(err), "err");
+            setDeleteError(String(err));
         }
-        setPendingDelete(null);
     }
 
     function normalizeLevel(raw: string): MrLevel {
@@ -470,9 +473,10 @@ function ChecklistDatabank() {
                             This will permanently delete <strong>"{pendingDelete.code}"</strong> from the databank.
                             It isn't used on any template.
                         </p>
+                        {deleteError && <p role="alert" style={{ color: "var(--danger)", fontWeight: 600 }}>{deleteError}</p>}
                         <div className="modal-actions">
-                            <button className="ghost" onClick={() => setPendingDelete(null)}>Cancel</button>
-                            <button className="danger" onClick={confirmDelete}>Delete</button>
+                            <button className="ghost" onClick={() => { setPendingDelete(null); setDeleteError(null); }}>{deleteError ? "Close" : "Cancel"}</button>
+                            {!deleteError && <button className="danger" onClick={confirmDelete}>Delete</button>}
                         </div>
                     </div>
                 </div>

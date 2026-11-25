@@ -45,6 +45,8 @@ function ChecklistSections() {
   const [editName, setEditName] = useState("");
   const [status, setStatus] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<ChecklistSection | null>(null);
+  // FB-015: a refused delete is explained inside the dialog.
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [previewRows, setPreviewRows] = useState<string[] | null>(null);
   const [importing, setImporting] = useState(false);
@@ -87,10 +89,11 @@ function ChecklistSections() {
     try {
       await deleteSection.mutateAsync(pendingDelete.id);
       flash(`"${pendingDelete.name}" deleted`, "ok");
+      setPendingDelete(null);
+      setDeleteError(null);
     } catch (err) {
-      flash(String(err), "err");
+      setDeleteError(String(err));
     }
-    setPendingDelete(null);
   }
 
   function normalizeRows(rows: any[]): string[] {
@@ -291,9 +294,10 @@ function ChecklistSections() {
               This will permanently delete <strong>"{pendingDelete.name}"</strong>.
               It isn't used on any template.
             </p>
+            {deleteError && <p role="alert" style={{ color: "var(--danger)", fontWeight: 600 }}>{deleteError}</p>}
             <div className="modal-actions">
-              <button className="ghost" onClick={() => setPendingDelete(null)}>Cancel</button>
-              <button className="danger" onClick={confirmDelete}>Delete</button>
+              <button className="ghost" onClick={() => { setPendingDelete(null); setDeleteError(null); }}>{deleteError ? "Close" : "Cancel"}</button>
+              {!deleteError && <button className="danger" onClick={confirmDelete}>Delete</button>}
             </div>
           </div>
         </div>

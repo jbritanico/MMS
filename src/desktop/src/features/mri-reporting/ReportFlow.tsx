@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useReportFlow, type FlowFault } from "./hooks/useReportFlow";
+import { useReportTag } from "./hooks/useReportEdits";
 import { useCurrentUser } from "../../lib/currentUser";
 import { useEffectivePermissions } from "../administration/hooks/useUserAdmin";
 import {
@@ -52,6 +53,8 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
   const [selected, setSelected] = useState<string | null>("report");
   const [isoOn, setIsoOn] = useIsoMap();
   const [tab, setTab] = useState<"flow" | "compare">("flow");
+  // FB-032 (Manual 8.1 / 8.2): a closed report shows the tag the unit had when it was closed.
+  const { data: reportTag } = useReportTag(reportId);
 
   if (isLoading) return <div className="empty">Loading...</div>;
   if (error || !flow) {
@@ -218,7 +221,16 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
   const repairLines: IsoLine[] = repairLanes.map((l) => ({ text: `${l.repair.chip ?? l.repair.title}: ${l.fault.title}`, tone: l.repair.tone, id: l.repair.id }));
   const firstPending = lanes.find((l) => l.livePending) ?? lanes[0];
   const firstRepair = repairLanes.find((l) => l.liveRepair) ?? repairLanes[0];
-  const lastTag = flow.tag_changes.length ? flow.tag_changes[flow.tag_changes.length - 1].tag_status : flow.asset_tag_status;
+  // FB-032: the tag at closure (closed report) and the unit's tag today, each labelled.
+  const atClose = closed && !!reportTag?.closed && !!reportTag.as_of;
+  const closeTag = atClose ? reportTag!.tag_status ?? null : null;
+  const nowTag = flow.asset_tag_status ?? null;
+  const reportTagPill = atClose
+    ? { text: `${closeTag ?? "Not tagged"} at closure`, tone: tagInfo(closeTag).tone }
+    : { text: nowTag ? `${nowTag} tag now` : "Not tagged", tone: tag.tone };
+  const closedTagLines: IsoLine[] = atClose
+    ? [{ text: `Tag at closure: ${closeTag ?? "Not tagged"}`, tone: tagInfo(closeTag).tone }, ...(closeTag !== nowTag ? [{ text: `Tag now: ${nowTag ?? "Not tagged"}`, tone: tagInfo(nowTag).tone }] : [])]
+    : [{ text: `Tag now: ${nowTag ?? "Not tagged"}`, tone: tagInfo(nowTag).tone }];
   const isoSteps: IsoStep[] = [
     { label: "Submitted", sub: stepsShown[0].sub ?? "", state: stepsShown[0].state, icon: "report", cardTitle: `Report #${flow.report_id}`, selectId: "report",
       lines: [{ text: flow.template_name ?? "MR-I checklist", tone: "info" }, { text: flow.submitted_by ? `By ${flow.submitted_by}` : "Not submitted yet", tone: submitted ? "success" : "neutral" }, { text: `${flow.faults.length} fault${flow.faults.length === 1 ? "" : "s"} for decision`, tone: flow.faults.length ? "warn" : "success" }] },
@@ -229,7 +241,7 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
     { label: "Repairs", sub: stepsShown[3].sub ?? "", state: stepsShown[3].state, icon: "repair", cardTitle: `Repairs (${repairLanes.length})`, selectId: firstRepair ? firstRepair.repair.id : null,
       lines: repairLines.length ? repairLines.slice(0, MAXL) : [{ text: "No repairs needed", tone: "success" }], more: Math.max(0, repairLines.length - MAXL) },
     { label: "Report closed", sub: stepsShown[4].sub ?? "", state: stepsShown[4].state, icon: "archive", cardTitle: closed ? "Closed" : "Not closed yet", selectId: tagItem ? tagItem.id : "report",
-      lines: [{ text: closed ? `Closed ${day(flow.approved_date)}` : "Still open", tone: closed ? "success" : "warn" }, { text: `Tag now: ${lastTag ?? "Not tagged"}`, tone: tagInfo(lastTag).tone }, ...(more.length ? [{ text: `${more.length} more linked item${more.length === 1 ? "" : "s"}`, tone: "neutral" as const }] : [])] },
+      lines: [{ text: closed ? `Closed ${day(flow.approved_date)}` : "Still open", tone: closed ? "success" : "warn" }, ...closedTagLines, ...(more.length ? [{ text: `${more.length} more linked item${more.length === 1 ? "" : "s"}`, tone: "neutral" as const }] : [])] },
   ];
 
   const sel = selected ? items.get(selected) ?? null : null;
@@ -295,8 +307,8 @@ function ReportFlow({ reportId, onBack, onOpenReport, onNavigate, onShowAssetFlo
         <div className="fx-main">
           {isoOn && (
             <IsoFlowMap steps={isoSteps} selected={selected} onSelect={pick}
-              hub={{ title: `MR-I report #${flow.report_id}`, sub: `${unit} · ${closed ? "Closed" : flow.status}`, icon: "report", selectId: "report", tag: { text: flow.asset_tag_status ? `${flow.asset_tag_status} tag` : "Not tagged", tone: tag.tone } }}
-              aside={{ title: unit, sub: flow.asset_description ?? "No description", tag: { text: flow.asset_tag_status ?? "Not tagged", tone: tag.tone },
+              hub={{ title: `MR-I report #${flow.report_id}`, sub: `${unit} · ${closed ? "Closed" : flow.status}`, icon: "report", selectId: "report", tag: reportTagPill }}
+              aside={{ title: unit, sub: flow.asset_description ?? "No description", tag: { text: nowTag ? `${nowTag} now` : "Not tagged", tone: tag.tone },
                 rows: [["Report", `#${flow.report_id}`], ["Checklist", flow.template_name ?? "—"], ["Country", flow.country ?? "—"]] }} />
           )}
           <Section title="The unit and the report" hint="Where this inspection started.">

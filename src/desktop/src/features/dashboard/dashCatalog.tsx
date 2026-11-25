@@ -5,8 +5,8 @@ import React from "react";
 
 const ALL_DASHBOARDS: { no: number; title: string; desc: string }[] = [
   { no: 1, title: "Fleet Status by Tag Colour", desc: "How many units are Green, Yellow or Red." },
-  { no: 2, title: "Open Defects by Severity", desc: "Faults not yet fixed, Minor / Moderate / Critical, and the trend." },
-  { no: 3, title: "Defect Aging", desc: "How long open faults have waited; overdue ones flagged." },
+  { no: 2, title: "Open Faults by Severity", desc: "Faults not yet fixed, Minor / Moderate / Critical, and the trend." },
+  { no: 3, title: "Fault Aging", desc: "How long open faults have waited; overdue ones flagged." },
   { no: 4, title: "Fault Closure Rate", desc: "Faults closed in the period, against the backlog plus new faults." },
   { no: 19, title: "Fault Trends by Equipment", desc: "Faults by equipment type, drill down to each unit and checklist item; year on year." },
   { no: 5, title: "Decisions Waiting, by Reviewer", desc: "Fault decisions and report reviews waiting now, and with whom." },
@@ -55,7 +55,7 @@ export const markBadge = (no: number, large: boolean) => (DECK_SLIDES[no] ? `Das
 
 // The dashboard list, grouped by topic.
 export const GROUPS: { title: string; nos: number[] }[] = [
-  { title: "Faults and Defects", nos: [2, 3, 4, 19, 9, 27] },
+  { title: "Faults", nos: [2, 3, 4, 19, 9, 27] },
   { title: "Reviews and Decisions", nos: [5, 6, 10, 26] },
   { title: "Fleet Condition and Repairs", nos: [1, 8, 7, 12, 28, 21] },
   { title: "Inspections and Maintenance Due", nos: [11, 13, 20, 24, 23] },
@@ -68,9 +68,9 @@ export const svg = (d: React.ReactNode) => (
 export const DASH_ICONS: Record<number, React.ReactElement> = {
   // 1 fleet status: tag lamps (Red / Yellow / Green)
   1: svg(<><rect x="7.5" y="2.5" width="9" height="19" rx="3" /><circle cx="12" cy="7" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="12" cy="17" r="1.8" /></>),
-  // 2 open defects: warning triangle
+  // 2 open faults: warning triangle
   2: svg(<><path d="M12 3.5 2.5 20h19z" /><path d="M12 10v4.5M12 17.2v.1" /></>),
-  // 3 defect aging: hourglass
+  // 3 fault aging: hourglass
   3: svg(<><path d="M5.5 3h13M5.5 21h13M7 3v2.5c0 3 5 4.5 5 6.5s-5 3.5-5 6.5V21M17 3v2.5c0 3-5 4.5-5 6.5s5 3.5 5 6.5V21" /><path d="M9.5 18.5h5" /></>),
   // 4 closure rate: ring with tick
   4: svg(<><path d="M20 12a8 8 0 1 1-3-6.2" /><path d="m9 12 2.5 2.5L20 6" /></>),
