@@ -31,3 +31,7 @@ e2e/screenshots/
 Claude outputs/_fe_src.tgz
 Claude outputs/_cd_data.json
 .codegraphy/*
+
+# Local tool history and temp patch files
+.aura/
+_tmp_*
