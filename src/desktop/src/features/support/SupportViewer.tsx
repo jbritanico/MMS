@@ -16,6 +16,7 @@ import {
   type Finding, type Level, type Prognosis, type PrognosisInput, type Trend,
 } from "./prognosis";
 import { developerBrief, FIX_ORDER, FIX_TEXT, needsBrief, type FixType } from "./fixplan";
+import { reviewPackMarkdown } from "./reviewPack";
 
 // Support viewer (Administration › Diagnostics), Administrator tier only.
 //  Item 19  open a .mmsbundle (read into memory on the Rust side, never imported)
@@ -233,6 +234,21 @@ export default function SupportViewer() {
     diag.step(`Saved prognosis report ${name}`);
     setSaved(name);
   }
+  // Review pack: one Markdown file for reviewing the issue with Claude, Claude Code or a developer.
+  const [reviewSaved, setReviewSaved] = useState<string | null>(null);
+  function exportReview() {
+    if (!overview || !prognosis || !pInput) return;
+    const who = (overview.manifest.user?.name ?? "user").replace(/[^A-Za-z0-9]+/g, "-");
+    const name = `MMS-Review-${who}-${fileStamp()}.md`;
+    saveFile(name, reviewPackMarkdown(pInput, prognosis, {
+      fileName: overview.file_name, bytes: overview.bytes, missing: overview.missing, names: overview.names,
+      exportedBy: user ? `${user.name} (${user.role})` : "IT", exportedAt: new Date().toLocaleString(),
+      system: loaded?.system,
+    }), "text/markdown");
+    diag.step(`Exported review pack ${name}`);
+    setReviewSaved(name);
+  }
+  useEffect(() => { setReviewSaved(null); }, [overview]);
   const errorCount = loaded?.logs ? inboxGroups(loaded.logs).length : 0;
   const bugCount = loaded?.logs ? rejections(loaded.logs).filter((r) => r.kind === "bug").length : 0;
   const tabs: { id: Tab; label: string; badge?: number; tone?: "warn" | "bad" }[] = [
@@ -259,6 +275,10 @@ export default function SupportViewer() {
         </div>
         {overview && (
           <div className="sv-top-actions">
+            <button className="ghost" onClick={exportReview} disabled={busy || !prognosis}
+              title="Save one Markdown file with the errors, the steps before them, the prognosis and the environment, to review the issue with Claude or a developer">
+              Export for review
+            </button>
             <button className="ghost" onClick={close} disabled={busy}>Close</button>
             <button className="primary" onClick={pick} disabled={busy || !user}>{busy ? "Opening…" : "Open another"}</button>
           </div>
@@ -266,6 +286,9 @@ export default function SupportViewer() {
       </div>
 
       {err && <div className="toast err sv-toast">{err}</div>}
+      {reviewSaved && overview && (
+        <div className="toast ok sv-toast">Saved {reviewSaved} in your Downloads folder. Attach it to a chat with Claude, or give it to the developer, to review the issue. It has no report contents or data copy.</div>
+      )}
 
       {!overview || !m || !loaded ? (
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 16 }}>
